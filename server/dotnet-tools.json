@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "isRoot": true,
+  "tools": {
+    "fantomas": {
+      "version": "7.0.5",
+      "commands": [
+        "fantomas"
+      ],
+      "rollForward": false
+    },
+    "dotnet-fsharplint": {
+      "version": "0.27.0",
+      "commands": [
+        "dotnet-fsharplint"
+      ],
+      "rollForward": false
+    },
+    "fsautocomplete": {
+      "version": "0.83.0",
+      "commands": [
+        "fsautocomplete"
+      ],
+      "rollForward": false
+    },
+    "sqlhydra.cli": {
+      "version": "4.0.1",
+      "commands": [
+        "sqlhydra"
+      ],
+      "rollForward": false
+    }
+  }
+}

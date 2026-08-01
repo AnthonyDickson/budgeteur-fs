@@ -1,0 +1,10 @@
+{
+  "$schema": "https://charm.land/crush.json",
+  "lsp": {
+    "gleam": {
+      "command": "sh",
+      "args": ["-c", "cd client && gleam lsp"],
+      "root_markers": ["client/gleam.toml"]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+[[language]]
+name = "fsharp"
+language-servers = ["fsharp-ls"]
+
+[language-server.fsharp-ls]
+command = "sh"
+# Assumes you are launching helix from the repo root
+args = ["-c", "cd server && exec dotnet fsautocomplete --adaptive-lsp-server-enabled"]
+
+[language-server.fsharp-ls.config]
+AutomaticWorkspaceInit = true

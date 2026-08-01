@@ -1,0 +1,65 @@
+services:
+  authelia:
+    image: authelia/authelia:4.39.20
+    container_name: lustre-todos-authelia
+    restart: unless-stopped
+    ports:
+      - '9091:9091'
+    volumes:
+      - ./authelia:/config
+    environment:
+      - TZ=UTC
+    healthcheck:
+      test: ["CMD", "wget", "--no-check-certificate", "--quiet", "-O", "/dev/null", "https://localhost:9091/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  server:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    container_name: lustre-todos-server
+    network_mode: "host"
+    working_dir: /src/server/src/LustreTodos.Server
+    stdin_open: true
+    tty: true
+    command: >
+      dotnet watch run --no-hot-reload
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ./.git:/src/.git:ro
+      - ./server:/src/server
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/5000"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client-dev
+    container_name: lustre-todos-client
+    network_mode: "host"
+    working_dir: /src/client
+    stdin_open: true
+    tty: true
+    command: >
+      sh -c "npm install && npx vite --host"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./client:/src/client
+      - client-node-modules:/src/client/node_modules
+      - gleam-packages:/src/client/build
+    depends_on:
+      server:
+        condition: service_healthy
+      authelia:
+        condition: service_healthy
+
+volumes:
+  gleam-packages:
+  client-node-modules:

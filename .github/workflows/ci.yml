@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  server-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: server/global.json
+          cache: true
+          cache-dependency-path: server/tests/LustreTodos.Server.Tests/packages.lock.json
+
+      - run: dotnet restore server/tests/LustreTodos.Server.Tests --force-evaluate
+      - run: dotnet test server/tests/LustreTodos.Server.Tests --no-restore
+
+      - if: failure()
+        run: |
+          echo "Server tests failed. Run 'just server-test' locally to reproduce and fix the failures."
+
+  client-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: false
+          gleam-version: '1.18.x'
+
+      - uses: actions/cache@v6
+        with:
+          path: client/build
+          key: gleam-${{ runner.os }}-${{ hashFiles('client/manifest.toml') }}
+          restore-keys: gleam-${{ runner.os }}-
+
+      - run: gleam test
+        working-directory: client
+
+      - if: failure()
+        run: |
+          echo "Client tests failed. Run 'just client-test' locally to reproduce and fix the failures."
+
+  format-gleam:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: false
+          gleam-version: '1.18.x'
+
+      - run: gleam format --check
+        working-directory: client
+
+      - if: failure()
+        run: |
+          echo "Gleam formatting check failed. Run 'just format' to fix."
+
+  format-fsharp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: server/global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-tools-${{ runner.os }}-${{ hashFiles('server/dotnet-tools.json') }}
+          restore-keys: dotnet-tools-${{ runner.os }}-
+
+      - run: dotnet tool restore
+        working-directory: server
+
+      - run: dotnet fantomas --check .
+        working-directory: server
+
+      - if: failure()
+        run: |
+          echo "F# formatting check failed. Run 'just format' to fix."
+
+  format-markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dprint/check@v2.3
+
+      - if: failure()
+        run: |
+          echo "Markdown formatting check failed. Run 'just format' to fix."
+
+  check-db-generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: server/global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-tools-${{ runner.os }}-${{ hashFiles('server/dotnet-tools.json') }}
+          restore-keys: dotnet-tools-${{ runner.os }}-
+
+      - run: dotnet tool restore
+        working-directory: server
+
+      - run: dotnet fsi scripts/migrate.fsx
+        working-directory: server
+
+      - run: dotnet sqlhydra sqlite --project src/LustreTodos.Server/LustreTodos.Server.fsproj
+        working-directory: server
+
+      - run: git diff --exit-code
+
+      - if: failure()
+        run: |
+          echo "Generated DB code is out of date. Run 'just db-update' locally and commit the updated Db.fs."
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: server/global.json
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: dotnet-tools-${{ runner.os }}-${{ hashFiles('server/dotnet-tools.json') }}
+          restore-keys: dotnet-tools-${{ runner.os }}-
+
+      - run: dotnet tool restore
+        working-directory: server
+
+      - run: dotnet fsharplint lint LustreTodos.slnx
+        working-directory: server
+
+      - if: failure()
+        run: |
+          echo "F# linting failed. Run 'just lint' locally to see the issues and fix them."

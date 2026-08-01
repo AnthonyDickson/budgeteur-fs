@@ -1,0 +1,4 @@
+services:
+  server:
+    volumes:
+      - ${HOME}/.nuget/packages:/root/.nuget/packages

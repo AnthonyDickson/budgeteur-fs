@@ -1,0 +1,5 @@
+users:
+  dev:
+    displayname: 'Developer'
+    password: '$argon2id$v=19$m=65536,t=3,p=4$RtgDEFWTg25BQiB3kdfD4w$E96d8/QEOtJ+V2wJRG7JBb8pEuEsqw86X49ja+zCI6M'
+    email: 'dev@example.com'

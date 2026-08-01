@@ -1,0 +1,13 @@
+[general]
+connection = "Data Source=src/LustreTodos.Server/todos.db"
+output = "Db.fs"
+namespace = "LustreTodos.Server.Db"
+cli_mutable = true
+
+[sqlhydra_query_integration]
+provider_db_type_attributes = true
+table_declarations = true
+
+[filters]
+include = []
+exclude = []

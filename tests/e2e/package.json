@@ -1,0 +1,12 @@
+{
+  "name": "lustre-todos-e2e",
+  "private": true,
+  "scripts": {
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "codegen": "npx playwright codegen"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0"
+  }
+}

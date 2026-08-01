@@ -1,0 +1,55 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: server/global.json
+          cache: true
+          cache-dependency-path: server/src/LustreTodos.Server/packages.lock.json
+
+      - name: Restore NuGet packages
+        run: dotnet restore server/src/LustreTodos.Server/LustreTodos.Server.fsproj
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build client-dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.client-dev
+          tags: e2e-client:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run E2E tests
+        run: |
+          docker compose \
+            -f docker-compose.e2e.yml \
+            -f docker-compose.e2e.ci.yml \
+            up \
+            --abort-on-container-exit \
+            --exit-code-from e2e \
+            --remove-orphans
+        env:
+          COMPOSE_PROJECT_NAME: e2e
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            tests/e2e/test-results/
+            tests/e2e/auth.json
+          retention-days: 7

@@ -1,0 +1,4 @@
+# Files generated for and by SQLite
+*.db*
+
+wwwroot/

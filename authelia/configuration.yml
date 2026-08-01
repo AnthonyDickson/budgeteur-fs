@@ -1,0 +1,152 @@
+server:
+  address: 'tcp://0.0.0.0:9091/'
+  tls:
+    certificate: '/config/certs/cert.pem'
+    key: '/config/certs/key.pem'
+
+theme: 'light'
+
+session:
+  secret: 'c614e09a29673997fc1f19534bed599c09057639246fcebb0e8e0842266b525c'
+  name: 'authelia_session'
+  same_site: 'lax'
+  inactivity: '5m'
+  expiration: '1h'
+  remember_me: '1M'
+  cookies:
+    # Dev: host networking — browser on host resolves 127.0.0.1
+    - domain: '127.0.0.1'
+      authelia_url: 'https://127.0.0.1:9091'
+      name: 'authelia_session'
+      same_site: 'lax'
+      inactivity: '5m'
+      expiration: '1h'
+      remember_me: '1d'
+
+authentication_backend:
+  file:
+    path: '/config/users.yml'
+    watch: true
+    password:
+      algorithm: 'argon2'
+      argon2:
+        variant: 'argon2id'
+        iterations: 3
+        memory: 65536
+        parallelism: 4
+        key_length: 32
+        salt_length: 16
+
+storage:
+  encryption_key: '7854feff759cfb775cd12c5d25f89e7a83a037559bbbab6183d3c4726ac44043'
+  local:
+    path: '/config/db.sqlite3'
+
+notifier:
+  filesystem:
+    filename: '/config/notifications'
+
+access_control:
+  default_policy: 'one_factor'
+
+identity_validation:
+  reset_password:
+    jwt_secret: 'df3cef4d54a04367ad98610c0c6573ef42f0830896010f1ceaef4c1b03772954'
+
+identity_providers:
+  oidc:
+    hmac_secret: '901b9b97796b47e6ab47feac03262144f312d5770cb417c7533f7a3a6263a34d'
+    jwks:
+      - algorithm: 'RS256'
+        use: 'sig'
+        key: |
+          -----BEGIN PRIVATE KEY-----
+          MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDFXXojrzlugvKy
+          V/RC0s6r2AOEgTr78U7HfBiDcam1DIZjzsW06eb6Ofk8Bu4O5sQeL5F/jEukDhX5
+          yz9fZ3LW11ocJbzZaJ7gUk1A/WmVEv3RNtdgbb9dGkXmSkBtVEButdBIPTqRJL7y
+          uoIn8mNWv+Ln6JW0//Zl6rVwmX7nB11Ojx7AxT/DbuOaDUpHNnV4N9c2cT5IF1Cm
+          sSIYsxSCvMLNB7JDuunHWNS70kSawUX0RvveAl25P4WNuBMFnnKCDIY+IYx9TeXY
+          3ghVZlIeJhJDEwVSdJVVOUo7pDEtxX5jFFE7lQvK1I/l09Yio1u3KhtRlHAIopa/
+          uTsEzlLnAgMBAAECggEAVrs9cXEPTAE/piAAt1zsdZf388LWqODiPcfK/fh1G5rl
+          c/bp6xbe6heP71EcTHAcvycoSWTd2LpX7e3ja4mKbd81OilbVC8lom6IhIbYXyp5
+          X/c5rqaL8d4Z2ZnHtkPQDNbZMOW3VxFO2Fwd1nAuN3Ebxc3v/Bp/rUn3cgQCQIO2
+          TcI+tPknDCNKbjeAWGp1mME3MS6lBS/TVXodA+tNq0Ts73BOKHjr6P7HLwz4QxpM
+          SQfABSQCwIzqofBxEUBOJ8qrLDSbQzi7waInSC7Ikiijg4mFIJiGyK7D68aMJs8x
+          sxMv4nd6DPuhP7wAFi2lVffOpaJazce34iJuh610AQKBgQDo9kEGxRnJy1NT/BE5
+          Ip6VPG5k0bh17at2h7QjVC3G+S1IW13zrEvUIBJTw18N9sDf5JNOYkRj8Dg2R821
+          dMKSsVitSSqGFagIvPG3igzr2VwzwKVbliTqcsI9NPG5NP2slPo9/OZt+vsRGpVQ
+          4ejjjbKqHSvS6MG9jtD4FIEVBQKBgQDY4granwNjt7s32kUKLL8BM1XSFnKcqCx8
+          xrDiVzhYtugCgwnoeBUE2qozMbqLQyAeot2x634wpHr6qTr6kGuGJK1rz7RmDQRO
+          79pQ/KV7Tyj3Jd452+fHmk8d215YR5zvXfzAR283X00jPnf62ewAqcbC3O7eHm8F
+          MT4D/JGL+wKBgQCQJhAGiF90pgNhrE9b8zf9T+9fIwXosq+uIDouwh+xRu3mH+L6
+          rFofX9j3S6S9lzmxUFZ14gg/bpzZuYRoC196NZKRZvyRC0V2YrOOxjVImq6at1Ga
+          YkVlbK0UAnawC0IMUAKn6J0M4IgKBVDvQ1o/s6Yh7Pr4/l0jVgOn/cgBoQKBgQDY
+          c+h/PloEqHb6DCYBPJ04VoKdVPf370PPGAGrM38x0wIEl8FIuKfJm25n/4Z8vHaO
+          /N6jVjMv2sg96K3LKl2VmH9X7QjPHMii+3B4iV2ijmOFHc8HEbjmFdRGKQyksHwo
+          zTWWtPSDX+K9fPgDbIDEPKz5B8SB+/+zP+zzz5t3BwKBgBoAFE5H49zzTOMLhd9e
+          2A7S6wQxR71JFbXhBXgpcjMicNKSvra4uq5g9rsbmGBQ9vxvducL7YSluK2JOYSi
+          a2miq8jtjx65VhiI953KjFZrqRmVt9f+GFACaHIMGT4HntE2Ht95Zhh4CdFuPxnh
+          pXDaYIEkJ9/Roc5l1zqf55Fw
+          -----END PRIVATE KEY-----
+    cors:
+      endpoints:
+        - 'authorization'
+        - 'token'
+        - 'revocation'
+        - 'introspection'
+        - 'userinfo'
+      allowed_origins:
+        - '*'
+    lifespans:
+      access_token: '1h'
+      authorize_code: '1m'
+      id_token: '1h'
+      refresh_token: '90m'
+    clients:
+      - client_id: 'lustre-todos'
+        client_name: 'LustreTodos'
+        client_secret: '$pbkdf2-sha512$310000$bmyKd6d6FP9t/IbgDDyH2g$cjQoII37ystknXMpyKTRBy5rIaZLWiR1icGS7b/Vue3WJMyjrXLRLdekAIh7H2ZwzYTYCm09yc1uIsDZt.8eTQ'
+        public: false
+        redirect_uris:
+          # Dev (host networking): browser on host
+          - 'http://localhost:5000/signin-oidc'
+          - 'http://localhost:5173/signin-oidc'
+          - 'https://127.0.0.1:9091/signin-oidc'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'offline_access'
+        grant_types:
+          - 'authorization_code'
+          - 'refresh_token'
+        response_types:
+          - 'code'
+        response_modes:
+          - 'query'
+          - 'form_post'
+        authorization_policy: 'one_factor'
+        consent_mode: 'implicit'
+        token_endpoint_auth_method: 'client_secret_post'
+      - client_id: 'scalar-docs'
+        client_name: 'Scalar API Docs'
+        public: true
+        redirect_uris:
+          - 'http://localhost:5000/scalar/v1'
+          - 'http://localhost:5000/scalar/'
+          - 'http://127.0.0.1:5000/scalar/v1'
+          - 'http://127.0.0.1:5000/scalar/'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+        grant_types:
+          - 'authorization_code'
+        response_types:
+          - 'code'
+        response_modes:
+          - 'query'
+        authorization_policy: 'one_factor'
+        consent_mode: 'implicit'
+        token_endpoint_auth_method: 'none'
+        access_token_signed_response_alg: 'RS256'

@@ -1,0 +1,13 @@
+[*.fs]
+fsharp_space_before_parameter = true
+fsharp_space_before_lowercase_invocation = true
+fsharp_space_before_uppercase_invocation = true
+fsharp_space_before_class_constructor = true
+fsharp_space_before_member = true
+fsharp_space_before_colon = true
+fsharp_space_after_comma = true
+fsharp_space_before_semicolon = false
+fsharp_space_after_semicolon = true
+fsharp_space_around_delimiter = true
+
+fsharp_multiline_bracket_style = stroustrup
