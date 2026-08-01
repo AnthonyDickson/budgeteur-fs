@@ -1,7 +1,7 @@
 services:
   authelia:
     image: authelia/authelia:4.39.20
-    container_name: authelia-e2e
+    container_name: budegeteur-fs-authelia-e2e
     network_mode: "host"
     restart: unless-stopped
     volumes:

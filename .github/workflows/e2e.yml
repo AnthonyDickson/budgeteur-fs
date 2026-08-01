@@ -15,7 +15,7 @@ jobs:
         with:
           global-json-file: server/global.json
           cache: true
-          cache-dependency-path: server/src/Budgeteur.Server/packages.lock.json
+          cache-dependency-path: server/Directory.Packages.props
 
       - name: Restore NuGet packages
         run: dotnet restore server/src/Budgeteur.Server/Budgeteur.Server.fsproj
