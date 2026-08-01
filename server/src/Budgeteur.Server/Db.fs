@@ -12,12 +12,55 @@ module Version =
 module main =
 
     [<CLIMutable>]
+    type Accounts =
+        { Id: System.Guid
+          UserId: string
+          Number: string
+          Name: string
+          Balance: decimal
+          UpdatedAt: int64 }
+
+    let Accounts = table<Accounts>
+
+    [<CLIMutable>]
+    type Categories =
+        { Id: System.Guid
+          UserId: string
+          Name: string }
+
+    let Categories = table<Categories>
+
+    [<CLIMutable>]
+    type HiddenCategories =
+        { CategoryId: System.Guid
+          UserId: string }
+
+    let HiddenCategories = table<HiddenCategories>
+
+    [<CLIMutable>]
+    type Rules =
+        { Id: System.Guid
+          UserId: string
+          Pattern: string
+          CategoryId: System.Guid }
+
+    let Rules = table<Rules>
+
+    [<CLIMutable>]
     type SchemaVersions =
         { SchemaVersionID: int64
           ScriptName: string
           Applied: System.DateTime }
 
     let SchemaVersions = table<SchemaVersions>
+
+    [<CLIMutable>]
+    type TaggingQueue =
+        { TransactionId: System.Guid
+          UserId: string
+          CreatedAt: int64 }
+
+    let TaggingQueue = table<TaggingQueue>
 
     [<CLIMutable>]
     type Todos =
@@ -28,6 +71,19 @@ module main =
           CreatedAt: int64 }
 
     let Todos = table<Todos>
+
+    [<CLIMutable>]
+    type Transactions =
+        { Id: System.Guid
+          UserId: string
+          Amount: decimal
+          Description: string
+          CreatedAt: int64
+          AccountId: Option<System.Guid>
+          ImportHash: Option<string>
+          CategoryId: Option<System.Guid> }
+
+    let Transactions = table<Transactions>
 
 
 type QueryContextFactory =
