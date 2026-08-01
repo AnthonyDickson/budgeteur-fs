@@ -1,12 +1,12 @@
-namespace LustreTodos.Server.Endpoint
+namespace Budgeteur.Server.Endpoint
 
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 
-open LustreTodos.Server.ApiError
-open LustreTodos.Server.DomainError
-open LustreTodos.Server.RequestLogging
-open LustreTodos.Server.Json
+open Budgeteur.Server.ApiError
+open Budgeteur.Server.DomainError
+open Budgeteur.Server.RequestLogging
+open Budgeteur.Server.Json
 
 /// <summary>Maps <c>Task&lt;Result&lt;unit, DomainError&gt;&gt;</c> results into HTTP responses
 /// suitable for Oxpecker endpoint handlers.</summary>

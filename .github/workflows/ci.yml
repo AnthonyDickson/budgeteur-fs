@@ -16,10 +16,10 @@ jobs:
         with:
           global-json-file: server/global.json
           cache: true
-          cache-dependency-path: server/tests/LustreTodos.Server.Tests/packages.lock.json
+          cache-dependency-path: server/tests/Budgeteur.Server.Tests/packages.lock.json
 
-      - run: dotnet restore server/tests/LustreTodos.Server.Tests --force-evaluate
-      - run: dotnet test server/tests/LustreTodos.Server.Tests --no-restore
+      - run: dotnet restore server/tests/Budgeteur.Server.Tests --force-evaluate
+      - run: dotnet test server/tests/Budgeteur.Server.Tests --no-restore
 
       - if: failure()
         run: |
@@ -122,7 +122,7 @@ jobs:
       - run: dotnet fsi scripts/migrate.fsx
         working-directory: server
 
-      - run: dotnet sqlhydra sqlite --project src/LustreTodos.Server/LustreTodos.Server.fsproj
+      - run: dotnet sqlhydra sqlite --project src/Budgeteur.Server/Budgeteur.Server.fsproj
         working-directory: server
 
       - run: git diff --exit-code
@@ -149,7 +149,7 @@ jobs:
       - run: dotnet tool restore
         working-directory: server
 
-      - run: dotnet fsharplint lint LustreTodos.slnx
+      - run: dotnet fsharplint lint Budgeteur.slnx
         working-directory: server
 
       - if: failure()

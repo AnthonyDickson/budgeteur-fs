@@ -17,9 +17,9 @@ services:
 
   server:
     image: mcr.microsoft.com/dotnet/sdk:10.0
-    container_name: lustre-todos-server-e2e
+    container_name: budgeteur-fs-server-e2e
     network_mode: "host"
-    working_dir: /src/server/src/LustreTodos.Server
+    working_dir: /src/server/src/Budgeteur.Server
     stdin_open: true
     tty: true
     command: >
@@ -42,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.client-dev
-    container_name: lustre-todos-client-e2e
+    container_name: budgeteur-fs-client-e2e
     network_mode: "host"
     working_dir: /src/client
     stdin_open: true
@@ -65,7 +65,7 @@ services:
 
   e2e:
     image: mcr.microsoft.com/playwright:v1.61.1-resolute
-    container_name: lustre-todos-playwright-e2e
+    container_name: budgeteur-fs-playwright-e2e
     network_mode: "host"
     working_dir: /tests
     command: sh -c "npm install && npx playwright test --reporter=line"

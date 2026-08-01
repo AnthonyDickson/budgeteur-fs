@@ -15,10 +15,10 @@ jobs:
         with:
           global-json-file: server/global.json
           cache: true
-          cache-dependency-path: server/src/LustreTodos.Server/packages.lock.json
+          cache-dependency-path: server/src/Budgeteur.Server/packages.lock.json
 
       - name: Restore NuGet packages
-        run: dotnet restore server/src/LustreTodos.Server/LustreTodos.Server.fsproj
+        run: dotnet restore server/src/Budgeteur.Server/Budgeteur.Server.fsproj
 
       - uses: docker/setup-buildx-action@v3
 

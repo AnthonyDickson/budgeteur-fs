@@ -1,4 +1,4 @@
-name = "lustre_todos_client"
+name = "budgeteur_fs_client"
 version = "1.0.0"
 target = "javascript"
 

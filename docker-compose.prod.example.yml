@@ -6,15 +6,15 @@
 # ═══════════════════════════════════════════════════════════════════════
 
 services:
-  lustre-todos:
-    image: ghcr.io/anthonydickson/lustre-todos:latest
+  budgeteur-fs:
+    image: ghcr.io/anthonydickson/budgeteur-fs:latest
     restart: unless-stopped
     ports:
       - "5000:5000"
     environment:
       Login__ReturnUrl: "http://localhost:5173/"
       Oidc__Authority: "https://127.0.0.1:9091"
-      Oidc__ClientId: "lustre-todos"
+      Oidc__ClientId: "budgeteur-fs"
       Oidc__ClientSecret: "elmish-todos-dev-secret"
       Oidc__CallbackPath: "/signin-oidc"
       ConnectionStrings__Default: "Data Source=/data/todos.db"

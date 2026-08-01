@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.Auth
+namespace Budgeteur.Server.Auth
 
 open System
 
@@ -11,10 +11,10 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.OpenApi
 open Oxpecker
 
-open LustreTodos.Server.Config
-open LustreTodos.Server.ApiError
-open LustreTodos.Server.Coders
-open LustreTodos.Server.DomainError
+open Budgeteur.Server.Config
+open Budgeteur.Server.ApiError
+open Budgeteur.Server.Coders
+open Budgeteur.Server.DomainError
 
 [<RequireQualifiedAccess>]
 module Auth =

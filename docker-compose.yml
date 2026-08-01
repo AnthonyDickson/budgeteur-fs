@@ -1,7 +1,7 @@
 services:
   authelia:
     image: authelia/authelia:4.39.20
-    container_name: lustre-todos-authelia
+    container_name: budgeteur-fs-authelia
     restart: unless-stopped
     ports:
       - '9091:9091'
@@ -18,9 +18,9 @@ services:
 
   server:
     image: mcr.microsoft.com/dotnet/sdk:10.0
-    container_name: lustre-todos-server
+    container_name: budgeteur-fs-server
     network_mode: "host"
-    working_dir: /src/server/src/LustreTodos.Server
+    working_dir: /src/server/src/Budgeteur.Server
     stdin_open: true
     tty: true
     command: >
@@ -41,7 +41,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.client-dev
-    container_name: lustre-todos-client
+    container_name: budgeteur-fs-client
     network_mode: "host"
     working_dir: /src/client
     stdin_open: true

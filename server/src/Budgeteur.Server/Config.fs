@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.Config
+namespace Budgeteur.Server.Config
 
 open System.ComponentModel.DataAnnotations
 

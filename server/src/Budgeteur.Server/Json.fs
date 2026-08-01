@@ -1,10 +1,10 @@
-namespace LustreTodos.Server.Json
+namespace Budgeteur.Server.Json
 
 open System.IO
 open System.Text
 open Microsoft.AspNetCore.Http
-open LustreTodos.Server.DomainError
-open LustreTodos.Server.Coders
+open Budgeteur.Server.DomainError
+open Budgeteur.Server.Coders
 
 /// <summary>HTTP helpers for reading and writing JSON payloads.</summary>
 module Json =

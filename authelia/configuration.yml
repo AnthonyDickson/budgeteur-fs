@@ -103,8 +103,8 @@ identity_providers:
       id_token: '1h'
       refresh_token: '90m'
     clients:
-      - client_id: 'lustre-todos'
-        client_name: 'LustreTodos'
+      - client_id: 'budgeteur-fs'
+        client_name: 'Budgeteur'
         client_secret: '$pbkdf2-sha512$310000$bmyKd6d6FP9t/IbgDDyH2g$cjQoII37ystknXMpyKTRBy5rIaZLWiR1icGS7b/Vue3WJMyjrXLRLdekAIh7H2ZwzYTYCm09yc1uIsDZt.8eTQ'
         public: false
         redirect_uris:

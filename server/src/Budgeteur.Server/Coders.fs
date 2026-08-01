@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.Coders
+namespace Budgeteur.Server.Coders
 
 open System
 open Thoth.Json.Net

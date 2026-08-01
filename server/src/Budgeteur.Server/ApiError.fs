@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.ApiError
+namespace Budgeteur.Server.ApiError
 
 type ApiError = {
     Error : string

@@ -73,7 +73,7 @@ The SPA redirect URI must match `Oidc__CallbackPath`.
 
 ```bash
 export Oidc__Authority=https://auth.example.com
-export Oidc__ClientId=__PROJECT_KEBAB__
+export Oidc__ClientId=budgeteur-fs
 export Oidc__ClientSecret=<your-production-secret>
 export Oidc__CallbackPath=/signin-oidc
 export Login__ReturnUrl=https://app.example.com/
@@ -84,7 +84,7 @@ export OAuth2__TokenUrl=https://auth.example.com/api/oidc/token
 Then start:
 
 ```bash
-dotnet run --project server/src/__PROJECT_NAME__.Server
+dotnet run --project server/src/Budgeteur.Server
 ```
 
 ## Cookie Security (Non-Development)

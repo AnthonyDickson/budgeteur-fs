@@ -1,7 +1,7 @@
 [general]
-connection = "Data Source=src/LustreTodos.Server/todos.db"
+connection = "Data Source=src/Budgeteur.Server/todos.db"
 output = "Db.fs"
-namespace = "LustreTodos.Server.Db"
+namespace = "Budgeteur.Server.Db"
 cli_mutable = true
 
 [sqlhydra_query_integration]

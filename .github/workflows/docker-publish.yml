@@ -34,8 +34,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/anthonydickson/lustre-todos:${{ inputs.tag }}
-            ghcr.io/anthonydickson/lustre-todos:latest
+            ghcr.io/anthonydickson/budgeteur-fs:${{ inputs.tag }}
+            ghcr.io/anthonydickson/budgeteur-fs:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

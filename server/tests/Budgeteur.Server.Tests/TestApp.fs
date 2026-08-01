@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.Tests
+namespace Budgeteur.Server.Tests
 
 open System
 open System.IO
@@ -12,9 +12,9 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.AspNetCore.Http
 open Oxpecker
-open LustreTodos.Server.RequestLogging
-open LustreTodos.Server.Todos
-open LustreTodos.Server.Todos.Store
+open Budgeteur.Server.RequestLogging
+open Budgeteur.Server.Todos
+open Budgeteur.Server.Todos.Store
 
 module private TestClaims =
     let userId = "test-user"

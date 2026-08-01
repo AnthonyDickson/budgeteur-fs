@@ -1,17 +1,17 @@
 RUNTIME := env_var_or_default("RUNTIME", "linux-x64")
-PUBLISH_DIR := env_var_or_default("PUBLISH_DIR", "server/src/LustreTodos.Server/bin/Release/publish")
+PUBLISH_DIR := env_var_or_default("PUBLISH_DIR", "server/src/Budgeteur.Server/bin/Release/publish")
 
 # Build the server
 server-build:
-	dotnet build server/src/LustreTodos.Server/LustreTodos.Server.fsproj
+	dotnet build server/src/Budgeteur.Server/Budgeteur.Server.fsproj
 
 # Run the server (auto-applies DB migrations)
 server-watch:
-	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/LustreTodos.Server --no-hot-reload
+	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/Budgeteur.Server --no-hot-reload
 
 # xUnit tests
 server-test:
-	dotnet test server/tests/LustreTodos.Server.Tests
+	dotnet test server/tests/Budgeteur.Server.Tests
 
 # npm install
 client-install-deps:
@@ -31,12 +31,12 @@ client-build:
 
 # Copy client dist into server wwwroot/
 copy-client-dist: client-build
-	mkdir -p server/src/LustreTodos.Server/wwwroot
-	cp -r client/dist/* server/src/LustreTodos.Server/wwwroot/
+	mkdir -p server/src/Budgeteur.Server/wwwroot
+	cp -r client/dist/* server/src/Budgeteur.Server/wwwroot/
 
 # Single-file publish (builds client, copies assets, publishes server)
 publish: copy-client-dist
-	dotnet publish server/src/LustreTodos.Server/LustreTodos.Server.fsproj \
+	dotnet publish server/src/Budgeteur.Server/Budgeteur.Server.fsproj \
 		-c Release -r {{RUNTIME}} -o {{PUBLISH_DIR}} \
 		-p:PublishTrimmed=true -p:TrimMode=partial
 
@@ -52,7 +52,7 @@ format:
 
 # Lint with fsharplint
 lint:
-	cd server && dotnet fsharplint lint LustreTodos.slnx
+	cd server && dotnet fsharplint lint Budgeteur.slnx
 
 audit:
 	cd client && npm audit
@@ -69,7 +69,7 @@ outdated:
 db-migration name:
 	#!/usr/bin/env bash
 	set -euo pipefail
-	dir="server/src/LustreTodos.Server/migrations"
+	dir="server/src/Budgeteur.Server/migrations"
 	count=$(ls "$dir"/*.sql 2>/dev/null | wc -l)
 	num=$(printf "%03d" $((count + 1)))
 	file="$dir/${num}_{{name}}.sql"
@@ -82,12 +82,12 @@ db-migrate:
 
 # Regenerate Db.fs types from live DB (SqlHydra)
 db-generate:
-	cd server && dotnet sqlhydra sqlite --project src/LustreTodos.Server/LustreTodos.Server.fsproj
+	cd server && dotnet sqlhydra sqlite --project src/Budgeteur.Server/Budgeteur.Server.fsproj
 
 # db-migrate + db-generate (full schema update)
 db-update: db-migrate db-generate
 
 # Delete DB, re-apply all migrations, regenerate
 db-reset:
-	rm -f server/src/LustreTodos.Server/todos.db
+	rm -f server/src/Budgeteur.Server/todos.db
 	just db-update

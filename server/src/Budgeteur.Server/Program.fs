@@ -1,4 +1,4 @@
-module LustreTodos.Server.Program
+module Budgeteur.Server.Program
 
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
@@ -22,12 +22,12 @@ open Scalar.AspNetCore
 open Serilog
 open Serilog.Formatting.Compact
 
-open LustreTodos.Server.ApiError
-open LustreTodos.Server.Auth
-open LustreTodos.Server.Config
-open LustreTodos.Server.Json
-open LustreTodos.Server.OpenApi
-open LustreTodos.Server.Todos
+open Budgeteur.Server.ApiError
+open Budgeteur.Server.Auth
+open Budgeteur.Server.Config
+open Budgeteur.Server.Json
+open Budgeteur.Server.OpenApi
+open Budgeteur.Server.Todos
 
 
 let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Options) =
@@ -82,7 +82,7 @@ let private addOpenApiToApp (app : WebApplication) (clientId : string) =
 
     app.MapScalarApiReference (fun opts ->
         opts
-            .WithTitle("LustreTodos API")
+            .WithTitle("Budgeteur API")
             .WithTheme(ScalarTheme.DeepSpace)
             .WithDefaultHttpClient (ScalarTarget.Http, ScalarClient.Curl)
         |> ignore
@@ -123,7 +123,7 @@ let private applyMigrations (connectionString : string) =
     fkCmd.ExecuteNonQuery () |> ignore
 
 let private handleException (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
-    let logger = loggerFactory.CreateLogger "LustreTodos.Server.Program"
+    let logger = loggerFactory.CreateLogger "Budgeteur.Server.Program"
 
     RequestDelegate (fun (ctx : HttpContext) ->
         task {
@@ -273,7 +273,7 @@ let main (args : string array) : int =
     app.Use (
         RequestLogging.Middleware.requestLogging (
             (app.Services.GetRequiredService<Serilog.ILogger> ())
-                .ForContext ("SourceContext", "LustreTodos.Server.Request")
+                .ForContext ("SourceContext", "Budgeteur.Server.Request")
         )
     )
     |> ignore

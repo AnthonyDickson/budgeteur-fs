@@ -1,6 +1,6 @@
 # Server Tests
 
-xUnit tests in `server/tests/__PROJECT_NAME__.Server.Tests/`. Also see
+xUnit tests in `server/tests/Budgeteur.Server.Tests/`. Also see
 [E2E Tests](e2e-tests.md) for end-to-end Playwright tests.
 
 ## Architecture

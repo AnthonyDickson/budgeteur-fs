@@ -1,5 +1,5 @@
-[![CI](https://github.com/AnthonyDickson/__PROJECT_KEBAB__/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyDickson/__PROJECT_KEBAB__/actions/workflows/ci.yml)
-[![E2E Tests](https://github.com/AnthonyDickson/__PROJECT_KEBAB__/actions/workflows/e2e.yml/badge.svg)](https://github.com/AnthonyDickson/__PROJECT_KEBAB__/actions/workflows/e2e.yml)
+[![CI](https://github.com/AnthonyDickson/budgeteur-fs/actions/workflows/ci.yml/badge.svg)](https://github.com/AnthonyDickson/budgeteur-fs/actions/workflows/ci.yml)
+[![E2E Tests](https://github.com/AnthonyDickson/budgeteur-fs/actions/workflows/e2e.yml/badge.svg)](https://github.com/AnthonyDickson/budgeteur-fs/actions/workflows/e2e.yml)
 
 # **PROJECT_NAME**
 

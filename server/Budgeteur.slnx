@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Budgeteur.Server/Budgeteur.Server.fsproj" />
+  <Project Path="tests/Budgeteur.Server.Tests/Budgeteur.Server.Tests.fsproj" />
+</Solution>

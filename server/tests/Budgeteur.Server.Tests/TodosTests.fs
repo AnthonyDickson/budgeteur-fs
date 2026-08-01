@@ -1,4 +1,4 @@
-namespace LustreTodos.Server.Tests
+namespace Budgeteur.Server.Tests
 
 open System
 open System.Net
@@ -6,8 +6,8 @@ open System.Net.Http
 open System.Text
 open System.Threading.Tasks
 open Xunit
-open LustreTodos.Server.Coders
-open LustreTodos.Server.Todos
+open Budgeteur.Server.Coders
+open Budgeteur.Server.Todos
 
 type TodosTests (fixture : TestApp) =
     let client = fixture.Client

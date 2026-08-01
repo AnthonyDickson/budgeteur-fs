@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <RootNamespace>LustreTodos.Server</RootNamespace>
+    <RootNamespace>Budgeteur.Server</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <StaticWebAssetsEnabled>true</StaticWebAssetsEnabled>
     <PublishSingleFile>true</PublishSingleFile>

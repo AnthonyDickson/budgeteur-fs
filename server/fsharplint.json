@@ -1,6 +1,6 @@
 {
   "ignoreFiles": [
-    "src/LustreTodos.Server/Db.fs",
+    "src/Budgeteur.Server/Db.fs",
     "src/*/obj/*/*/*/*",
     "tests/*/obj/*/*/*"
   ],
