@@ -28,6 +28,7 @@ open Budgeteur.Server.Config
 open Budgeteur.Server.Json
 open Budgeteur.Server.OpenApi
 open Budgeteur.Server.Todos
+open Budgeteur.Server.Transactions
 
 
 let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Options) =
@@ -260,7 +261,9 @@ let main (args : string array) : int =
     let authEndpoints = Auth.endpoints loginReturnUrl
     let todoStore = Todos.Store.create connectionString
     let todoEndpoints = Todos.endpoints todoStore
-    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints ]
+    let transactionStore = Transactions.Store.create connectionString
+    let transactionEndpoints = Transactions.endpoints transactionStore
+    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints; transactionEndpoints ]
 
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore

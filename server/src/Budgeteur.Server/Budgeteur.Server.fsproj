@@ -22,6 +22,7 @@
     <Compile Include="Db.fs" />
     <Compile Include="Endpoint.fs" />
     <Compile Include="Todos.fs" />
+    <Compile Include="Transactions.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
