@@ -1,11 +1,11 @@
 # Server Tests
 
-xUnit tests in `server/tests/Budgeteur.Server.Tests/`. Also see
+Expecto tests in `server/tests/Budgeteur.Server.Tests/`. Also see
 [E2E Tests](e2e-tests.md) for end-to-end Playwright tests.
 
 ## Architecture
 
-Uses a custom `TestApp` fixture with `HostBuilder` + `TestServer` — the .NET 10
+Uses a `TestApp` module with `HostBuilder` + `TestServer` — the .NET 10
 replacement for the deprecated `WebHostBuilder`.
 
 The host contains only what endpoints need:
@@ -22,9 +22,18 @@ auth entirely. Production calls the domain module's `endpoints` and gets the aut
 
 ### Fixture lifecycle
 
-`TestApp` implements `IDisposable` — creates a temp SQLite file, applies
-migrations once, deletes on dispose. `IClassFixture<TestApp>` shares one
-instance across all tests in a class. Each test calls `fixture.CleanDatabase()`.
+`TestApp.create()` produces a record (`{ Client, CleanDatabase, Dispose }`) that
+creates a temp SQLite file, applies migrations once, and cleans up on
+`Dispose`. A `Lazy<TestApp>` at the module level shares one instance across
+all tests. Each test calls `app.CleanDatabase()` before acting.
+
+## Running Tests
+
+```bash
+just server-test
+# or
+dotnet run --project server/tests/Budgeteur.Server.Tests
+```
 
 ## Test Cases
 

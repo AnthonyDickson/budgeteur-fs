@@ -1,5 +1,7 @@
 # TODO
 
+- Tests for Transactions.fs
+
 ## CSV Parsing
 
 We can use representative example CSVs for each format (schema) to generate type providers for type safe access and parsing:

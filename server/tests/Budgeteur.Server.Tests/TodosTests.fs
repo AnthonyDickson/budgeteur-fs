@@ -4,196 +4,190 @@ open System
 open System.Net
 open System.Net.Http
 open System.Text
-open System.Threading.Tasks
-open Xunit
+open Expecto
 open Budgeteur.Server.Coders
 open Budgeteur.Server.Todos
 
-type TodosTests (fixture : TestApp) =
-    let client = fixture.Client
-
-    let todo (id : Guid) (title : string) (completed : bool) = {
+module TodosTests =
+    let private todo (id : Guid) (title : string) (completed : bool) = {
         Id = id
         Title = title
         Completed = completed
         CreatedAt = DateTime.UtcNow
     }
 
-    let postJson (url : string) (value : 'T) =
+    let private postJson (client : HttpClient) (url : string) (value : 'T) =
         let json = Encode.toString value
         let content = new StringContent (json, Encoding.UTF8, "application/json")
         client.PostAsync (url, content)
 
-    let patchJson (url : string) (value : 'T) =
+    let private patchJson (client : HttpClient) (url : string) (value : 'T) =
         let json = Encode.toString value
         let content = new StringContent (json, Encoding.UTF8, "application/json")
         client.PatchAsync (url, content)
 
-    do fixture.CleanDatabase ()
+    [<Tests>]
+    let tests =
+        let app : Lazy<TestApp> =
+            lazy (TestApp.create (TestAppConfig.empty |> TestAppConfig.withTodos))
 
-    interface IClassFixture<TestApp>
+        testSequenced
+        <| testList "Todos" [
+            testCaseAsync "GET /api/todos returns empty list when no todos exist"
+            <| async {
+                let app = app.Value
+                app.CleanDatabase ()
 
-    [<Fact>]
-    member _.``GET /api/todos returns empty list when no todos exist`` () =
-        task {
-            // Given an empty database
-            fixture.CleanDatabase ()
+                let! response = app.Client.GetAsync "/api/todos" |> Async.AwaitTask
 
-            // When getting all todos
-            let! response = client.GetAsync "/api/todos"
+                Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
 
-            // Then the response is 200 OK with an empty list
-            Assert.Equal (HttpStatusCode.OK, response.StatusCode)
-            let! body = response.Content.ReadAsStringAsync ()
-            let result = Decode.fromString<Todo list> body
-            Assert.Equal (Ok [], result)
-        }
+                let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
+                let result = Decode.fromString<Todo list> body
 
-    [<Fact>]
-    member _.``GET /api/todos returns seeded todos`` () =
-        task {
-            // Given a todo exists in the database
-            fixture.CleanDatabase ()
-            let expected = todo (Guid.NewGuid ()) "Buy milk" false
-            let! _ = postJson "/api/todos" expected
-
-            // When getting all todos
-            let! response = client.GetAsync "/api/todos"
-
-            // Then the response is 200 OK with the matching todo
-            Assert.Equal (HttpStatusCode.OK, response.StatusCode)
-            let! body = response.Content.ReadAsStringAsync ()
-
-            match Decode.fromString<Todo list> body with
-            | Ok [ item ] ->
-                Assert.Equal (expected.Id, item.Id)
-                Assert.Equal (expected.Title, item.Title)
-                Assert.Equal (expected.Completed, item.Completed)
-            | _ -> Assert.True (false, "Expected one todo")
-        }
-
-    [<Fact>]
-    member _.``GET /api/todos/{id} returns the todo`` () =
-        task {
-            // Given a todo exists in the database
-            fixture.CleanDatabase ()
-            let expected = todo (Guid.NewGuid ()) "Walk dog" true
-            let! _ = postJson "/api/todos" expected
-
-            // When getting the todo by its ID
-            let! response = client.GetAsync $"/api/todos/{expected.Id}"
-
-            // Then the response is 200 OK with the matching todo
-            Assert.Equal (HttpStatusCode.OK, response.StatusCode)
-            let! body = response.Content.ReadAsStringAsync ()
-
-            match Decode.fromString<Todo> body with
-            | Ok item ->
-                Assert.Equal (expected.Id, item.Id)
-                Assert.Equal (expected.Title, item.Title)
-                Assert.Equal (expected.Completed, item.Completed)
-            | Error err -> Assert.True (false, err)
-        }
-
-    [<Fact>]
-    member _.``GET /api/todos/{id} returns 404 for missing todo`` () =
-        task {
-            // Given an empty database
-            fixture.CleanDatabase ()
-
-            // When getting a todo by a non-existent ID
-            let! response = client.GetAsync $"/api/todos/{Guid.NewGuid ()}"
-
-            // Then the response is 404 Not Found
-            Assert.Equal (HttpStatusCode.NotFound, response.StatusCode)
-        }
-
-    [<Fact>]
-    member _.``POST /api/todos creates a todo`` () =
-        task {
-            // Given an empty database and a new todo
-            fixture.CleanDatabase ()
-            let input = todo (Guid.NewGuid ()) "Learn F#" false
-            // When creating the todo via POST
-            let! response = postJson "/api/todos" input
-            // Then the response is 201 Created with the matching todo
-            Assert.Equal (HttpStatusCode.Created, response.StatusCode)
-            let! body = response.Content.ReadAsStringAsync ()
-
-            match Decode.fromString<Todo> body with
-            | Ok created ->
-                Assert.Equal (input.Id, created.Id)
-                Assert.Equal (input.Title, created.Title)
-                Assert.Equal (input.Completed, created.Completed)
-            | Error err -> Assert.True (false, err)
-        }
-
-    [<Fact>]
-    member _.``PATCH /api/todos/{id} updates a todo`` () =
-        task {
-            // Given an existing todo in the database
-            fixture.CleanDatabase ()
-            let original = todo (Guid.NewGuid ()) "Old title" false
-            let! _ = postJson "/api/todos" original
-
-            let update : UpdateTodoRequest = {
-                Title = "New title"
-                Completed = true
+                Expect.equal result (Ok []) "body should be empty list"
             }
 
-            // When patching the todo with updated fields
-            let! response = patchJson $"/api/todos/{original.Id}" update
+            testCaseAsync "GET /api/todos returns seeded todos"
+            <| async {
+                let app = app.Value
+                app.CleanDatabase ()
 
-            // Then the response is 200 OK with the updated todo
-            Assert.Equal (HttpStatusCode.OK, response.StatusCode)
-            let! body = response.Content.ReadAsStringAsync ()
+                let expected = todo (Guid.NewGuid ()) "Buy milk" false
+                let! _ = postJson app.Client "/api/todos" expected |> Async.AwaitTask
 
-            match Decode.fromString<Todo> body with
-            | Ok updated ->
-                Assert.Equal (original.Id, updated.Id)
-                Assert.Equal (update.Title, updated.Title)
-                Assert.Equal (update.Completed, updated.Completed)
-            | Error err -> Assert.True (false, err)
-        }
+                let! response = app.Client.GetAsync "/api/todos" |> Async.AwaitTask
 
-    [<Fact>]
-    member _.``DELETE /api/todos/{id} removes the todo`` () =
-        task {
-            // Given a todo exists in the database
-            fixture.CleanDatabase ()
-            let item = todo (Guid.NewGuid ()) "To delete" false
-            let! _ = postJson "/api/todos" item
+                Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
 
-            // When deleting the todo by its ID
-            let! deleteResponse = client.DeleteAsync $"/api/todos/{item.Id}"
+                let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
 
-            // Then the delete returns 204 No Content and the todo is gone
-            Assert.Equal (HttpStatusCode.NoContent, deleteResponse.StatusCode)
-            let! getResponse = client.GetAsync $"/api/todos/{item.Id}"
-            Assert.Equal (HttpStatusCode.NotFound, getResponse.StatusCode)
-        }
+                match Decode.fromString<Todo list> body with
+                | Ok [ item ] ->
+                    Expect.equal expected.Id item.Id "id should match"
+                    Expect.equal expected.Title item.Title "title should match"
+                    Expect.equal expected.Completed item.Completed "completed should match"
+                | _ -> failtest "Expected one todo"
+            }
 
-    [<Fact>]
-    member _.``DELETE /api/todos/completed removes only completed todos`` () =
-        task {
-            // Given one completed todo and one active todo
-            fixture.CleanDatabase ()
-            let completed = todo (Guid.NewGuid ()) "Done task" true
-            let active = todo (Guid.NewGuid ()) "Active task" false
-            let! _ = postJson "/api/todos" completed
-            let! _ = postJson "/api/todos" active
+            testCaseAsync "GET /api/todos/{id} returns the todo"
+            <| async {
+                let app = app.Value
+                app.CleanDatabase ()
 
-            // When deleting all completed todos
-            let! deleteResponse = client.DeleteAsync "/api/todos/completed"
+                let expected = todo (Guid.NewGuid ()) "Walk dog" true
+                let! _ = postJson app.Client "/api/todos" expected |> Async.AwaitTask
 
-            // Then only the completed todo is removed and the active one remains
-            Assert.Equal (HttpStatusCode.NoContent, deleteResponse.StatusCode)
-            let! response = client.GetAsync "/api/todos"
-            let! body = response.Content.ReadAsStringAsync ()
+                let! response = app.Client.GetAsync $"/api/todos/{expected.Id}" |> Async.AwaitTask
 
-            match Decode.fromString<Todo list> body with
-            | Ok items ->
-                Assert.Equal (1, List.length items)
-                Assert.Equal (active.Id, items[0].Id)
-            | Error err -> Assert.True (false, err)
-        }
+                Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
+
+                let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+                match Decode.fromString<Todo> body with
+                | Ok item ->
+                    Expect.equal expected.Id item.Id "id should match"
+                    Expect.equal expected.Title item.Title "title should match"
+                    Expect.equal expected.Completed item.Completed "completed should match"
+                | Error err -> failtest err
+            }
+
+            testCaseAsync "GET /api/todos/{id} returns 404 for missing todo"
+            <| async {
+                let app = app.Value
+                app.CleanDatabase ()
+
+                let! response = app.Client.GetAsync $"/api/todos/{Guid.NewGuid ()}" |> Async.AwaitTask
+
+                Expect.equal response.StatusCode HttpStatusCode.NotFound "status code should be 404"
+            }
+
+            testCaseAsync "POST /api/todos creates a todo"
+            <| async {
+                let app = app.Value
+                app.CleanDatabase ()
+
+                let input = todo (Guid.NewGuid ()) "Learn F#" false
+
+                let! response = postJson app.Client "/api/todos" input |> Async.AwaitTask
+
+                Expect.equal response.StatusCode HttpStatusCode.Created "status code should be 201"
+
+                let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+                match Decode.fromString<Todo> body with
+                | Ok created ->
+                    Expect.equal input.Id created.Id "id should match"
+                    Expect.equal input.Title created.Title "title should match"
+                    Expect.equal input.Completed created.Completed "completed should match"
+                | Error err -> failtest err
+            }
+
+            testCaseAsync "PATCH /api/todos/{id} updates a todo"
+            <| async {
+                let app = app.Value
+                app.CleanDatabase ()
+
+                let original = todo (Guid.NewGuid ()) "Old title" false
+                let! _ = postJson app.Client "/api/todos" original |> Async.AwaitTask
+
+                let update : UpdateTodoRequest = {
+                    Title = "New title"
+                    Completed = true
+                }
+
+                let! response = patchJson app.Client $"/api/todos/{original.Id}" update |> Async.AwaitTask
+
+                Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
+
+                let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+                match Decode.fromString<Todo> body with
+                | Ok updated ->
+                    Expect.equal original.Id updated.Id "id should match"
+                    Expect.equal update.Title updated.Title "title should match"
+                    Expect.equal update.Completed updated.Completed "completed should match"
+                | Error err -> failtest err
+            }
+
+            testCaseAsync "DELETE /api/todos/{id} removes the todo"
+            <| async {
+                let app = app.Value
+                app.CleanDatabase ()
+
+                let item = todo (Guid.NewGuid ()) "To delete" false
+                let! _ = postJson app.Client "/api/todos" item |> Async.AwaitTask
+
+                let! deleteResponse = app.Client.DeleteAsync $"/api/todos/{item.Id}" |> Async.AwaitTask
+
+                Expect.equal deleteResponse.StatusCode HttpStatusCode.NoContent "delete status should be 204"
+
+                let! getResponse = app.Client.GetAsync $"/api/todos/{item.Id}" |> Async.AwaitTask
+
+                Expect.equal getResponse.StatusCode HttpStatusCode.NotFound "get after delete should be 404"
+            }
+
+            testCaseAsync "DELETE /api/todos/completed removes only completed todos"
+            <| async {
+                let app = app.Value
+                app.CleanDatabase ()
+
+                let completed = todo (Guid.NewGuid ()) "Done task" true
+                let active = todo (Guid.NewGuid ()) "Active task" false
+                let! _ = postJson app.Client "/api/todos" completed |> Async.AwaitTask
+                let! _ = postJson app.Client "/api/todos" active |> Async.AwaitTask
+
+                let! deleteResponse = app.Client.DeleteAsync "/api/todos/completed" |> Async.AwaitTask
+
+                Expect.equal deleteResponse.StatusCode HttpStatusCode.NoContent "delete status should be 204"
+
+                let! response = app.Client.GetAsync "/api/todos" |> Async.AwaitTask
+                let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+                match Decode.fromString<Todo list> body with
+                | Ok items ->
+                    Expect.equal (List.length items) 1 "should have 1 remaining todo"
+                    Expect.equal active.Id items[0].Id "remaining todo id should match"
+                | Error err -> failtest err
+            }
+        ]
