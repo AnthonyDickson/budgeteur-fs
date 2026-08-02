@@ -1,5 +1,5 @@
 [general]
-connection = "Data Source=src/Budgeteur.Server/todos.db"
+connection = "Data Source=src/Budgeteur.Server/app.sqlite3"
 output = "Db.fs"
 namespace = "Budgeteur.Server.Db"
 cli_mutable = true

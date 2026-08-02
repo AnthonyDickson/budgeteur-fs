@@ -17,7 +17,7 @@ services:
       Oidc__ClientId: "budgeteur-fs"
       Oidc__ClientSecret: "elmish-todos-dev-secret"
       Oidc__CallbackPath: "/signin-oidc"
-      ConnectionStrings__Default: "Data Source=/data/todos.db"
+      ConnectionStrings__Default: "Data Source=/data/app.sqlite3"
       Logging__FilePath: "/logs/app.log"
     volumes:
       - todos-data:/data

@@ -1,9 +1,9 @@
 # Database
 
 SQLite with DbUp migrations and SqlHydra type-safe queries.
-The connection string is `Data Source=todos.db` (relative, resolves to project
+The connection string is `Data Source=app.sqlite3` (relative, resolves to project
 root). Override with `ConnectionStrings__Default` in production — use an
-absolute path like `/data/todos.db`.
+absolute path like `/data/app.sqlite3`.
 
 ## Commands
 
@@ -23,7 +23,7 @@ No code-gen needed — `Db.fs` is committed. Just build and run:
 
 ```bash
 just server-build    # Db.fs compiles immediately
-just server-watch   # DbUp creates todos.db + applies migrations at startup
+just server-watch   # DbUp creates app.sqlite3 + applies migrations at startup
 ```
 
 ### Changing the schema
@@ -44,7 +44,7 @@ just server-build
 just db-reset
 ```
 
-Deletes `todos.db`, re-applies all migrations in order, regenerates `Db.fs`.
+Deletes `app.sqlite3`, re-applies all migrations in order, regenerates `Db.fs`.
 
 ## Key Constraints
 

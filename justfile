@@ -89,5 +89,5 @@ db-update: db-migrate db-generate
 
 # Delete DB, re-apply all migrations, regenerate
 db-reset:
-	rm -f server/src/Budgeteur.Server/todos.db
+	rm -f server/src/Budgeteur.Server/app.sqlite3
 	just db-update

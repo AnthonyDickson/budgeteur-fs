@@ -10,7 +10,7 @@ open DbUp
 open DbUp.Engine
 open Microsoft.Data.Sqlite
 
-let connectionString = "Data Source=src/Budgeteur.Server/todos.db"
+let connectionString = "Data Source=src/Budgeteur.Server/app.sqlite3"
 let migrationsPath = "src/Budgeteur.Server/migrations"
 let scriptPrefix = "Budgeteur.Server.migrations."
 
