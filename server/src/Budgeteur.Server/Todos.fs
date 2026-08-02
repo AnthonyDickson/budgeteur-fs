@@ -417,7 +417,7 @@ module Todos =
 
     open Budgeteur.Server.Auth
 
-    type Store = Store.Store
-
-    let endpoints (store : Store) =
-        Api.endpoints store |> Seq.map (addFilter Auth.requireAuth)
+    let endpoints (connectionString : string) =
+        Store.create connectionString
+        |> Api.endpoints
+        |> Seq.map (addFilter Auth.requireAuth)
