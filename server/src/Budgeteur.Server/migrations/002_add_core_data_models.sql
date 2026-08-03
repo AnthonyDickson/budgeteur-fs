@@ -15,8 +15,8 @@ CREATE TABLE Accounts (
     Name      TEXT     NOT NULL,
     -- The amount of money held in the account. Positive values indicate credit whereas negative values indicate debit.
     Balance   CURRENCY NOT NULL,
-    -- When the balance was last updated as a Unix timestamp in seconds
-    UpdatedAt INTEGER  NOT NULL
+    -- When the balance snapshot was taken (the date the balance is accurate as of) as a Unix timestamp in seconds
+    CurrentAsOf INTEGER  NOT NULL
 );
 
 CREATE INDEX IX_Accounts_UserId on Accounts(UserId);
@@ -45,7 +45,7 @@ CREATE TABLE Transactions (
     -- A text description of the transaction either manually entered by the user or derived from a CSV row.
     Description TEXT     NOT NULL,
     -- When the transaction occurred as a Unix timestamp in seconds
-    CreatedAt   INTEGER  NOT NULL,
+    Date        INTEGER  NOT NULL,
     -- The account associated with the transaction.
     -- NULL indicates the account info is not available or not applicable (e.g., cash).
     AccountId   GUID,

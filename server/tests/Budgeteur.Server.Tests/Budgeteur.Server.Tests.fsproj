@@ -11,7 +11,10 @@
 
   <ItemGroup>
     <Compile Include="TestApp.fs" />
+    <Compile Include="TestHttp.fs" />
     <Compile Include="TodosTests.fs" />
+    <Compile Include="Transactions/EndpointTests.fs" />
+    <Compile Include="Transactions/ValidationPropertyTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -21,6 +24,7 @@
 
   <ItemGroup>
     <PackageReference Include="Expecto" />
+    <PackageReference Include="Expecto.FsCheck" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
   </ItemGroup>
 

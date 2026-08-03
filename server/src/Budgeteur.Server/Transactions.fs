@@ -12,12 +12,19 @@ type Transaction = {
     /// <summary>The title or description of the transaction.</summary>
     Description : string
 
-    /// <summary>UTC timestamp when the transaction was created.</summary>
-    CreatedAt : DateTime
+    /// <summary>Date when the transaction occurred (UTC).</summary>
+    Date : DateTime
 
     ImportHash : Option<string>
     AccountId : Option<Guid>
     CategoryId : Option<Guid>
+}
+
+/// <summary>Payload for creating a transaction. The id is generated server-side.</summary>
+type CreateTransactionRequest = {
+    Amount : decimal
+    Description : string
+    Date : DateTime
 }
 
 module Store =
@@ -39,7 +46,7 @@ module Store =
         Id = row.Id
         Amount = row.Amount
         Description = row.Description
-        CreatedAt = DateTimeOffset.FromUnixTimeSeconds(row.CreatedAt).UtcDateTime
+        Date = DateTimeOffset.FromUnixTimeSeconds(row.Date).UtcDateTime
         ImportHash = row.ImportHash
         AccountId = row.AccountId
         CategoryId = row.CategoryId
@@ -50,7 +57,7 @@ module Store =
         UserId = userId
         Amount = transaction.Amount
         Description = transaction.Description
-        CreatedAt = DateTimeOffset(transaction.CreatedAt).ToUnixTimeSeconds ()
+        Date = DateTimeOffset(transaction.Date).ToUnixTimeSeconds ()
         ImportHash = transaction.ImportHash
         AccountId = transaction.AccountId
         CategoryId = transaction.CategoryId
@@ -180,13 +187,6 @@ module Validation =
     let validateAndTrimDescription (description : string) =
         description.Trim () |> nonEmpty |> Result.bind acceptableLength
 
-    let validate (transaction : Transaction) =
-        validateAndTrimDescription transaction.Description
-        |> Result.map (fun trimmedDescription -> {
-            transaction with
-                Description = trimmedDescription
-        })
-
 module Api =
     open System.Collections.Generic
     open System.Threading.Tasks
@@ -283,8 +283,18 @@ module Api =
                 taskResult {
                     let log = RequestLog.fromContext ctx
                     let! userId = Auth.getUserId ctx
-                    let! (transaction : Transaction) = Json.read ctx
-                    let! transaction = Validation.validate transaction
+                    let! (req : CreateTransactionRequest) = Json.read ctx
+                    let! description = Validation.validateAndTrimDescription req.Description
+
+                    let transaction = {
+                        Id = Guid.NewGuid ()
+                        Amount = req.Amount
+                        Description = description
+                        Date = req.Date
+                        ImportHash = None
+                        AccountId = None
+                        CategoryId = None
+                    }
 
                     let! () = Store.insert store transaction userId
 
@@ -301,7 +311,7 @@ module Api =
             route Path (handler store)
             |> addOpenApi (
                 OpenApiConfig (
-                    requestBody = RequestBody typeof<Transaction>,
+                    requestBody = RequestBody typeof<CreateTransactionRequest>,
                     responseBodies = [|
                         ResponseBody (typeof<Transaction>, statusCode = 201)
                         ResponseBody (typeof<ApiError>, statusCode = 400)
@@ -325,10 +335,21 @@ module Api =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
-                    let! (req : Transaction) = Json.read ctx
+                    let! (req : CreateTransactionRequest) = Json.read ctx
                     let! userId = Auth.getUserId ctx
 
-                    let! transaction = Validation.validate req
+                    let! description = Validation.validateAndTrimDescription req.Description
+                    // The URL owns resource identity; the validated body supplies the mutable fields.
+                    let transaction = {
+                        Id = id
+                        Amount = req.Amount
+                        Description = description
+                        Date = req.Date
+                        ImportHash = None
+                        AccountId = None
+                        CategoryId = None
+                    }
+
                     let! updated = Store.update store transaction userId
 
                     match updated with
@@ -344,7 +365,7 @@ module Api =
             routef Path (handler store)
             |> addOpenApi (
                 OpenApiConfig (
-                    requestBody = RequestBody typeof<Transaction>,
+                    requestBody = RequestBody typeof<CreateTransactionRequest>,
                     responseBodies = [|
                         ResponseBody typeof<Transaction>
                         ResponseBody (typeof<ApiError>, statusCode = 400)

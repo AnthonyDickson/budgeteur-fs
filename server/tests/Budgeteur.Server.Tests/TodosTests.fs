@@ -1,30 +1,19 @@
 namespace Budgeteur.Server.Tests
 
-open System
-open System.Net
-open System.Net.Http
-open System.Text
-open Expecto
-open Budgeteur.Server.Coders
-open Budgeteur.Server.Todos
-
 module TodosTests =
+    open System
+    open System.Net
+    open Budgeteur.Server.Coders
+    open Budgeteur.Server.Tests
+    open Budgeteur.Server.Todos
+    open Expecto
+
     let private todo (id : Guid) (title : string) (completed : bool) = {
         Id = id
         Title = title
         Completed = completed
         CreatedAt = DateTime.UtcNow
     }
-
-    let private postJson (client : HttpClient) (url : string) (value : 'T) =
-        let json = Encode.toString value
-        let content = new StringContent (json, Encoding.UTF8, "application/json")
-        client.PostAsync (url, content)
-
-    let private patchJson (client : HttpClient) (url : string) (value : 'T) =
-        let json = Encode.toString value
-        let content = new StringContent (json, Encoding.UTF8, "application/json")
-        client.PatchAsync (url, content)
 
     let newApp () =
         TestApp.create (TestAppConfig.empty |> TestAppConfig.withTodos)
@@ -51,7 +40,7 @@ module TodosTests =
                 use app = newApp ()
 
                 let expected = todo (Guid.NewGuid ()) "Buy milk" false
-                let! _ = postJson app.Client "/api/todos" expected |> Async.AwaitTask
+                let! _ = TestHttp.postJson app.Client "/api/todos" expected |> Async.AwaitTask
 
                 let! response = app.Client.GetAsync "/api/todos" |> Async.AwaitTask
 
@@ -72,7 +61,7 @@ module TodosTests =
                 use app = newApp ()
 
                 let expected = todo (Guid.NewGuid ()) "Walk dog" true
-                let! _ = postJson app.Client "/api/todos" expected |> Async.AwaitTask
+                let! _ = TestHttp.postJson app.Client "/api/todos" expected |> Async.AwaitTask
 
                 let! response = app.Client.GetAsync $"/api/todos/{expected.Id}" |> Async.AwaitTask
 
@@ -103,7 +92,7 @@ module TodosTests =
 
                 let input = todo (Guid.NewGuid ()) "Learn F#" false
 
-                let! response = postJson app.Client "/api/todos" input |> Async.AwaitTask
+                let! response = TestHttp.postJson app.Client "/api/todos" input |> Async.AwaitTask
 
                 Expect.equal response.StatusCode HttpStatusCode.Created "status code should be 201"
 
@@ -122,14 +111,16 @@ module TodosTests =
                 use app = newApp ()
 
                 let original = todo (Guid.NewGuid ()) "Old title" false
-                let! _ = postJson app.Client "/api/todos" original |> Async.AwaitTask
+                let! _ = TestHttp.postJson app.Client "/api/todos" original |> Async.AwaitTask
 
                 let update : UpdateTodoRequest = {
                     Title = "New title"
                     Completed = true
                 }
 
-                let! response = patchJson app.Client $"/api/todos/{original.Id}" update |> Async.AwaitTask
+                let! response =
+                    TestHttp.patchJson app.Client $"/api/todos/{original.Id}" update
+                    |> Async.AwaitTask
 
                 Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
 
@@ -148,7 +139,7 @@ module TodosTests =
                 use app = newApp ()
 
                 let item = todo (Guid.NewGuid ()) "To delete" false
-                let! _ = postJson app.Client "/api/todos" item |> Async.AwaitTask
+                let! _ = TestHttp.postJson app.Client "/api/todos" item |> Async.AwaitTask
 
                 let! deleteResponse = app.Client.DeleteAsync $"/api/todos/{item.Id}" |> Async.AwaitTask
 
@@ -165,8 +156,8 @@ module TodosTests =
 
                 let completed = todo (Guid.NewGuid ()) "Done task" true
                 let active = todo (Guid.NewGuid ()) "Active task" false
-                let! _ = postJson app.Client "/api/todos" completed |> Async.AwaitTask
-                let! _ = postJson app.Client "/api/todos" active |> Async.AwaitTask
+                let! _ = TestHttp.postJson app.Client "/api/todos" completed |> Async.AwaitTask
+                let! _ = TestHttp.postJson app.Client "/api/todos" active |> Async.AwaitTask
 
                 let! deleteResponse = app.Client.DeleteAsync "/api/todos/completed" |> Async.AwaitTask
 
