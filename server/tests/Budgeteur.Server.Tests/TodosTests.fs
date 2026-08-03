@@ -26,17 +26,15 @@ module TodosTests =
         let content = new StringContent (json, Encoding.UTF8, "application/json")
         client.PatchAsync (url, content)
 
+    let newApp () =
+        TestApp.create (TestAppConfig.empty |> TestAppConfig.withTodos)
+
     [<Tests>]
     let tests =
-        let app : Lazy<TestApp> =
-            lazy (TestApp.create (TestAppConfig.empty |> TestAppConfig.withTodos))
-
-        testSequenced
-        <| testList "Todos" [
+        testList "Todos" [
             testCaseAsync "GET /api/todos returns empty list when no todos exist"
             <| async {
-                let app = app.Value
-                app.CleanDatabase ()
+                use app = newApp ()
 
                 let! response = app.Client.GetAsync "/api/todos" |> Async.AwaitTask
 
@@ -50,8 +48,7 @@ module TodosTests =
 
             testCaseAsync "GET /api/todos returns seeded todos"
             <| async {
-                let app = app.Value
-                app.CleanDatabase ()
+                use app = newApp ()
 
                 let expected = todo (Guid.NewGuid ()) "Buy milk" false
                 let! _ = postJson app.Client "/api/todos" expected |> Async.AwaitTask
@@ -72,8 +69,7 @@ module TodosTests =
 
             testCaseAsync "GET /api/todos/{id} returns the todo"
             <| async {
-                let app = app.Value
-                app.CleanDatabase ()
+                use app = newApp ()
 
                 let expected = todo (Guid.NewGuid ()) "Walk dog" true
                 let! _ = postJson app.Client "/api/todos" expected |> Async.AwaitTask
@@ -94,8 +90,7 @@ module TodosTests =
 
             testCaseAsync "GET /api/todos/{id} returns 404 for missing todo"
             <| async {
-                let app = app.Value
-                app.CleanDatabase ()
+                use app = newApp ()
 
                 let! response = app.Client.GetAsync $"/api/todos/{Guid.NewGuid ()}" |> Async.AwaitTask
 
@@ -104,8 +99,7 @@ module TodosTests =
 
             testCaseAsync "POST /api/todos creates a todo"
             <| async {
-                let app = app.Value
-                app.CleanDatabase ()
+                use app = newApp ()
 
                 let input = todo (Guid.NewGuid ()) "Learn F#" false
 
@@ -125,8 +119,7 @@ module TodosTests =
 
             testCaseAsync "PATCH /api/todos/{id} updates a todo"
             <| async {
-                let app = app.Value
-                app.CleanDatabase ()
+                use app = newApp ()
 
                 let original = todo (Guid.NewGuid ()) "Old title" false
                 let! _ = postJson app.Client "/api/todos" original |> Async.AwaitTask
@@ -152,8 +145,7 @@ module TodosTests =
 
             testCaseAsync "DELETE /api/todos/{id} removes the todo"
             <| async {
-                let app = app.Value
-                app.CleanDatabase ()
+                use app = newApp ()
 
                 let item = todo (Guid.NewGuid ()) "To delete" false
                 let! _ = postJson app.Client "/api/todos" item |> Async.AwaitTask
@@ -169,8 +161,7 @@ module TodosTests =
 
             testCaseAsync "DELETE /api/todos/completed removes only completed todos"
             <| async {
-                let app = app.Value
-                app.CleanDatabase ()
+                use app = newApp ()
 
                 let completed = todo (Guid.NewGuid ()) "Done task" true
                 let active = todo (Guid.NewGuid ()) "Active task" false

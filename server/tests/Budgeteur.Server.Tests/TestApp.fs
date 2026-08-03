@@ -1,7 +1,6 @@
 namespace Budgeteur.Server.Tests
 
 open System
-open System.IO
 open System.Net.Http
 open System.Security.Claims
 open System.Threading.Tasks
@@ -62,9 +61,16 @@ type TestApp = {
 module TestApp =
     open Budgeteur.Server.RequestLogging
 
+    /// Create an app server with an in-memory SQLite database
     let create (config : TestAppConfig) =
-        let dbPath = Path.Combine (Path.GetTempPath (), $"test-todos-{Guid.NewGuid ()}.db")
-        let connectionString = $"Data Source={dbPath}"
+        // In-memory database shared by every connection through SQLite's shared cache. The keeper
+        // connection must stay open for the lifetime of the app — the in-memory DB is dropped when
+        // the last connection to it closes. Each query opens its own connection, so disposing a
+        // QueryContext (which closes its connection) doesn't lose the data.
+        let name = $"test-todos-{Guid.NewGuid ()}"
+        let connectionString = $"Data Source=file:{name}?mode=memory&cache=shared"
+        let keeper = new SqliteConnection (connectionString)
+        keeper.Open ()
 
         let endpoints =
             config.EndpointProviders
@@ -116,11 +122,7 @@ module TestApp =
         let dispose () =
             client.Dispose ()
             host.Dispose ()
-
-            try
-                File.Delete dbPath
-            with _ ->
-                ()
+            keeper.Dispose ()
 
         {
             Client = client
