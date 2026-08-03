@@ -5,6 +5,11 @@
       "command": "sh",
       "args": ["-c", "cd client && gleam lsp"],
       "root_markers": ["client/gleam.toml"]
+    },
+    "fsharp": {
+      "command": "sh",
+      "args": ["-c", "cd server && dotnet tool run fsautocomplete"],
+      "root_markers": ["server/Budgeteur.slnx"]
     }
   }
 }
