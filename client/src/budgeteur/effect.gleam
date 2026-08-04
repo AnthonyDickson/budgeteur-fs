@@ -3,7 +3,7 @@ import gleam/http/request
 import gleam/io
 import gleam/javascript/promise
 import gleam/list
-import todos_mvc/http_effect.{
+import budgeteur/http_effect.{
   type HttpError, type HttpMethod, Delete, Get, Patch, Post, Put, send,
 }
 

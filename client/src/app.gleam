@@ -2,8 +2,8 @@ import gleam/uri
 import lustre
 import lustre/effect as lustre_effect
 import lustre/element.{type Element}
-import todos_mvc/effect
-import todos_mvc/todo_page
+import budgeteur/effect
+import budgeteur/todo_page
 
 pub type Model {
   Model(todo_page: todo_page.Model)

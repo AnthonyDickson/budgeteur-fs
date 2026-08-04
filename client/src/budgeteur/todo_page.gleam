@@ -10,11 +10,11 @@ import lustre/attribute
 import lustre/element.{type Element, none, text}
 import lustre/element/html
 import lustre/event
-import todos_mvc/api_error
-import todos_mvc/effect
-import todos_mvc/guard
-import todos_mvc/response
-import todos_mvc/todo_item
+import budgeteur/api_error
+import budgeteur/effect
+import budgeteur/guard
+import budgeteur/response
+import budgeteur/todo_item
 import youid/uuid
 
 // ── Types ────────────────────────────────────────────────────────────────────

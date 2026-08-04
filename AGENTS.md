@@ -81,7 +81,7 @@ client/
     app.gleam                         # Entry point + app shell + routing
     app.css                           # Tailwind CSS v4 entry
     main.js                           # Vite entry point
-    todos_mvc/                        # Example feature module (rename for your domain)
+    budgeteur/                        # Example feature module (rename for your domain)
       todo_page.gleam                 # Full MVC (model, update, view)
       effect.gleam                    # Effect type + interpreter + HTTP constructors
       http_effect.gleam               # HTTP transport: HttpMethod, HttpError, send/send_with
@@ -91,7 +91,7 @@ client/
       api_error.gleam                 # ApiError type + JSON codec
       guard.gleam                     # use-compatible early-return for Option/Result
   test/
-    todos_mvc/
+    budgeteur/
       todo_page_test.gleam            # Pure unit tests for update logic
 tests/
   e2e/
