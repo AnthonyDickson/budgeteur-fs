@@ -1,9 +1,9 @@
+import budgeteur/effect
+import budgeteur/todo_page
 import gleam/uri
 import lustre
 import lustre/effect as lustre_effect
 import lustre/element.{type Element}
-import budgeteur/effect
-import budgeteur/todo_page
 
 pub type Model {
   Model(todo_page: todo_page.Model)
@@ -30,7 +30,7 @@ pub fn init(_flags) -> #(Model, effect.Effect(Msg)) {
   let effects =
     effect.batch([
       effect.map(todo_effect, TodoPageMsg),
-      effect.navigate(UrlChanged),
+      effect.init_routing(UrlChanged),
       effect.set_title("Budgeteur"),
     ])
 

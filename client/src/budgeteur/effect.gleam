@@ -1,11 +1,11 @@
+import budgeteur/http_effect.{
+  type HttpError, type HttpMethod, Delete, Get, Patch, Post, Put, send,
+}
 import gleam/function
 import gleam/http/request
 import gleam/io
 import gleam/javascript/promise
 import gleam/list
-import budgeteur/http_effect.{
-  type HttpError, type HttpMethod, Delete, Get, Patch, Post, Put, send,
-}
 
 /// An inspectable description of a side effect. `update` returns one of these
 /// alongside the new model; the `run` interpreter executes it against the real
@@ -35,7 +35,7 @@ pub type Effect(msg) {
   Redirect(url: String)
   SetTitle(title: String)
   After(delay: Int, message: msg)
-  Navigate(handler: fn(String) -> msg)
+  InitRouting(handler: fn(String) -> msg)
   PushUrl(url: String)
   ReplaceUrl(url: String)
   Batch(effects: List(Effect(msg)))
@@ -129,8 +129,8 @@ pub fn delete(
 /// back/forward navigation, and dispatch the initial URL. The handler receives
 /// the full path (pathname + search + hash).
 ///
-pub fn navigate(handler: fn(String) -> msg) -> Effect(msg) {
-  Navigate(handler:)
+pub fn init_routing(handler: fn(String) -> msg) -> Effect(msg) {
+  InitRouting(handler:)
 }
 
 /// Push a new URL onto the browser's history stack without a full page reload.
@@ -159,8 +159,8 @@ fn raw_load_from_store(key: String) -> String
 @external(javascript, "./effect_ffi.mjs", "saveToStore")
 fn raw_save_to_store(key: String, value: String) -> Nil
 
-@external(javascript, "./effect_ffi.mjs", "initNavigation")
-fn raw_init_navigation(handler: fn(String) -> Nil) -> Nil
+@external(javascript, "./effect_ffi.mjs", "initRouting")
+fn raw_init_routing(handler: fn(String) -> Nil) -> Nil
 
 @external(javascript, "./effect_ffi.mjs", "pushUrl")
 fn raw_push_url(url: String) -> Nil
@@ -197,7 +197,7 @@ pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
     Redirect(url:) -> Redirect(url:)
     SetTitle(title:) -> SetTitle(title:)
     After(delay:, message:) -> After(delay:, message: f(message))
-    Navigate(handler:) -> Navigate(handler: fn(path) { f(handler(path)) })
+    InitRouting(handler:) -> InitRouting(handler: fn(path) { f(handler(path)) })
     PushUrl(url:) -> PushUrl(url:)
     ReplaceUrl(url:) -> ReplaceUrl(url:)
     Batch(effects:) -> Batch(list.map(effects, fn(e) { map(e, f) }))
@@ -260,8 +260,8 @@ pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
       Nil
     }
 
-    Navigate(handler:) -> {
-      raw_init_navigation(fn(path) { dispatch(handler(path)) })
+    InitRouting(handler:) -> {
+      raw_init_routing(fn(path) { dispatch(handler(path)) })
     }
 
     PushUrl(url:) -> raw_push_url(url)

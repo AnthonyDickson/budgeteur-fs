@@ -11,7 +11,7 @@ export function redirect(url) {
   window.location.assign(url);
 }
 
-export function initNavigation(handler) {
+export function initRouting(handler) {
   const notify = () => {
     handler(window.location.pathname + window.location.search + window.location.hash);
   };
