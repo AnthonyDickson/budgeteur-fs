@@ -12,7 +12,6 @@
   <ItemGroup>
     <Compile Include="TestApp.fs" />
     <Compile Include="TestHttp.fs" />
-    <Compile Include="TodosTests.fs" />
     <Compile Include="Transactions/EndpointTests.fs" />
     <Compile Include="Transactions/ValidationPropertyTests.fs" />
     <Compile Include="Program.fs" />

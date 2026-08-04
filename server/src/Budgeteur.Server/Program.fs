@@ -27,7 +27,6 @@ open Budgeteur.Server.Auth
 open Budgeteur.Server.Config
 open Budgeteur.Server.Json
 open Budgeteur.Server.OpenApi
-open Budgeteur.Server.Todos
 open Budgeteur.Server.Transactions
 
 
@@ -259,9 +258,8 @@ let main (args : string array) : int =
         loginOptions.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
 
     let authEndpoints = Auth.endpoints loginReturnUrl
-    let todoEndpoints = Todos.endpoints connectionString
     let transactionEndpoints = Transactions.endpoints connectionString
-    let allEndpoints = Seq.concat [ authEndpoints; todoEndpoints; transactionEndpoints ]
+    let allEndpoints = Seq.concat [ authEndpoints; transactionEndpoints ]
 
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore

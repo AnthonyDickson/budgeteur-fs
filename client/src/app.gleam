@@ -1,35 +1,49 @@
-import budgeteur/effect
-import budgeteur/todo_page
-import gleam/uri
+import budgeteur/effect.{type Effect}
+import budgeteur/route
+import budgeteur/transactions/pages/view_all as transactions_view_all
+import gleam/io
+import gleam/json
+import gleam/string
 import lustre
 import lustre/effect as lustre_effect
 import lustre/element.{type Element}
 
-pub type Model {
-  Model(todo_page: todo_page.Model)
+const local_storage_key = "budgeteur"
+
+pub type Page {
+  TransactionsViewAllPage(transactions_view_all.Model)
 }
 
-pub type Msg {
-  UrlChanged(path: String)
-  TodoPageMsg(todo_page.Msg)
-}
-
-fn path_to_visibility(path: String) -> todo_page.Visibility {
-  case uri.path_segments(path) {
-    [] -> todo_page.All
-    ["active"] -> todo_page.Active
-    ["completed"] -> todo_page.Completed
-    _ -> todo_page.All
+fn page_to_json(page: Page) -> json.Json {
+  case page {
+    TransactionsViewAllPage(inner_model) ->
+      transactions_view_all.model_to_json(inner_model)
   }
 }
 
-pub fn init(_flags) -> #(Model, effect.Effect(Msg)) {
-  let #(todo_model, todo_effect) = todo_page.init()
-  let model = Model(todo_page: todo_model)
+pub type Model {
+  Model(page: Page)
+}
+
+fn model_to_json(model: Model) -> json.Json {
+  let Model(page:) = model
+  json.object([
+    #("page", page_to_json(page)),
+  ])
+}
+
+pub type Msg {
+  UrlChanged(url: String)
+  TransactionsViewAllMsg(transactions_view_all.Msg)
+}
+
+pub fn init(_flags) -> #(Model, Effect(Msg)) {
+  let #(page_model, page_effect) = transactions_view_all.init()
+  let model = Model(page: TransactionsViewAllPage(page_model))
 
   let effects =
     effect.batch([
-      effect.map(todo_effect, TodoPageMsg),
+      effect.map(page_effect, TransactionsViewAllMsg),
       effect.init_routing(UrlChanged),
       effect.set_title("Budgeteur"),
     ])
@@ -37,38 +51,70 @@ pub fn init(_flags) -> #(Model, effect.Effect(Msg)) {
   #(model, effects)
 }
 
-pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
-  case msg {
-    UrlChanged(path) -> {
-      let visibility = path_to_visibility(path)
-      let #(todo_model, todo_effect) =
-        todo_page.update_with_storage(
-          model.todo_page,
-          todo_page.UserChangedVisibility(visibility),
+pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
+  case msg, model {
+    UrlChanged(url), _ -> {
+      case route.from_string(url) {
+        _ -> #(
+          Model(page: TransactionsViewAllPage(transactions_view_all.Model)),
+          effect.none(),
         )
-      #(Model(todo_page: todo_model), effect.map(todo_effect, TodoPageMsg))
+      }
     }
-    TodoPageMsg(inner_msg) -> {
+    TransactionsViewAllMsg(inner_msg),
+      Model(page: TransactionsViewAllPage(inner_model))
+    -> {
       let #(inner_model, inner_effect) =
-        todo_page.update_with_storage(model.todo_page, inner_msg)
-      #(Model(todo_page: inner_model), effect.map(inner_effect, TodoPageMsg))
+        transactions_view_all.update(inner_model, inner_msg)
+      #(
+        Model(page: TransactionsViewAllPage(inner_model)),
+        effect.map(inner_effect, TransactionsViewAllMsg),
+      )
+    }
+    _, _ -> {
+      io.println_error(
+        "Unhandled combination of message and state:\n"
+        <> string.inspect(msg)
+        <> "\n"
+        <> string.inspect(model),
+      )
+      #(model, effect.none())
     }
   }
 }
 
 pub fn view(model: Model) -> Element(Msg) {
-  todo_page.view(model.todo_page)
-  |> element.map(TodoPageMsg)
+  case model.page {
+    TransactionsViewAllPage(inner_model) ->
+      transactions_view_all.view(inner_model)
+      |> element.map(TransactionsViewAllMsg)
+  }
 }
 
 fn update_with_effect(
   model: Model,
   msg: Msg,
 ) -> #(Model, lustre_effect.Effect(Msg)) {
-  let #(new_model, custom_effect) = update(model, msg)
+  let #(new_model, custom_effect) =
+    update(model, msg)
+    |> with_local_storage
+
   #(
     new_model,
     lustre_effect.from(fn(dispatch) { effect.run(custom_effect, dispatch) }),
+  )
+}
+
+fn with_local_storage(result: #(Model, Effect(Msg))) -> #(Model, Effect(Msg)) {
+  let #(model, effect) = result
+  let model_json =
+    model
+    |> model_to_json
+    |> json.to_string
+
+  #(
+    model,
+    effect.batch([effect, effect.SaveToStore(local_storage_key, model_json)]),
   )
 }
 

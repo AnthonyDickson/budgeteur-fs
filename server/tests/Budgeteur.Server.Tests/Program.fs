@@ -11,7 +11,6 @@ open Budgeteur.Server.Tests
 /// </summary>
 let testRoot =
     testList "Budgeteur.Server.Tests" [
-        TodosTests.tests
         Transactions.EndpointTests.tests
         Transactions.ValidationPropertyTests.validationPropertyTests
     ]

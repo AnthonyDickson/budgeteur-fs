@@ -14,7 +14,8 @@ just server-watch    # Run the server (auto-applies DB migrations)
 just server-test     # Server xUnit tests
 just client-install-deps  # npm install
 just client-watch    # Start the client dev server (Vite + Gleam watch)
-just client-build    # Production client bundle
+just client-build    # Build the client
+just client-publish  # Production client bundle
 just client-test     # Client gleeunit tests
 just e2e-test        # Playwright E2E tests in Docker
 just copy-client-dist # Copy client dist into server wwwroot/
@@ -255,5 +256,5 @@ Json-serialized `ApiError` records (`{ Error: string; Details: string; StatusCod
 - **Compilation order**: Insert new `.fs` files at the correct position in `.fsproj`.
 - **SqlHydra query parameters**: Function parameters can't be captured directly in query expressions. Bind them to local `let` values first (e.g. `let idStr = id.ToString()` before using in a `where` clause).
 - **Central Package Management**: Versions in `Directory.Packages.props`; project files use bare `<PackageReference Include="..." />`.
-- **Client needs `npm install`** before first `just client-watch` or `just client-build`.
+- **Client needs `npm install`** before first `just client-watch`, `just client-build` or `just client-publish`.
 - **Tests** — xUnit in `server/tests/`, gleeunit in `client/test/`, Playwright E2E in `tests/e2e/`.

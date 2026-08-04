@@ -33,14 +33,6 @@ module TestAppConfig =
         CleanTables = []
     }
 
-    let withTodos (config : TestAppConfig) = {
-        config with
-            EndpointProviders =
-                (fun connStr -> Todos.Store.create connStr |> Todos.Api.endpoints)
-                :: config.EndpointProviders
-            CleanTables = "Todos" :: config.CleanTables
-    }
-
     let withTransactions (config : TestAppConfig) = {
         config with
             EndpointProviders =
@@ -67,7 +59,7 @@ module TestApp =
         // connection must stay open for the lifetime of the app — the in-memory DB is dropped when
         // the last connection to it closes. Each query opens its own connection, so disposing a
         // QueryContext (which closes its connection) doesn't lose the data.
-        let name = $"test-todos-{Guid.NewGuid ()}"
+        let name = $"test-{Guid.NewGuid ()}"
         let connectionString = $"Data Source=file:{name}?mode=memory&cache=shared"
         let keeper = new SqliteConnection (connectionString)
         keeper.Open ()
@@ -79,7 +71,7 @@ module TestApp =
         let result =
             DbUp.DeployChanges.To
                 .SqliteDatabase(connectionString)
-                .WithScriptsEmbeddedInAssembly(typeof<Budgeteur.Server.Todos.Todo>.Assembly)
+                .WithScriptsEmbeddedInAssembly(typeof<Budgeteur.Server.Transactions.Transaction>.Assembly)
                 .Build()
                 .PerformUpgrade ()
 

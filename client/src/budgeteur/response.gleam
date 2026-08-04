@@ -1,10 +1,10 @@
+import budgeteur/api_error
+import budgeteur/http_effect.{type HttpError, HttpError, NetworkError}
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option
 import gleam/string
-import budgeteur/api_error
-import budgeteur/http_effect.{type HttpError, HttpError, NetworkError}
 
 /// Render a list of field-level decode errors into a human-readable string.
 fn format_decode_errors(errors: List(decode.DecodeError)) -> String {
