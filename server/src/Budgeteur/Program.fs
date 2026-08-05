@@ -157,44 +157,6 @@ let configureSerilog (loggingOptions : LoggingOptions) (ctx : HostBuilderContext
     | Some path -> config.WriteTo.File (RenderedCompactJsonFormatter (), path) |> ignore
     | None -> ()
 
-let private readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
-    (services : IServiceCollection)
-    (config : IConfiguration)
-    (sectionName : string)
-    =
-    let section = config.GetSection sectionName
-    let value = new 'T ()
-    section.Bind value
-
-    let results = ResizeArray<ValidationResult> ()
-
-    if not (Validator.TryValidateObject (value, ValidationContext value, results, validateAllProperties = true)) then
-        let messages =
-            results
-            |> Seq.map (fun r ->
-                let names =
-                    if r.MemberNames |> Seq.isEmpty then
-                        sectionName
-                    else
-                        r.MemberNames |> String.concat ", "
-
-                $"  - {names}: {r.ErrorMessage}")
-            |> String.concat "\n"
-
-        failwith (
-            String.concat "\n" [
-                $"Configuration validation failed for section '{sectionName}':"
-                messages
-                ""
-                "Ensure the required settings are present in appsettings or environment variables."
-            ]
-        )
-
-    services.AddOptions<'T>().Bind(section).ValidateDataAnnotations().ValidateOnStart ()
-    |> ignore
-
-    value
-
 let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit =
     options.ForwardedHeaders <- ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto
     options.KnownIPNetworks.Clear ()
@@ -211,20 +173,20 @@ let main (args : string array) : int =
     let isDevelopment = builder.Environment.IsDevelopment ()
 
     let oidcOptions =
-        readSection<OidcOptions> builder.Services builder.Configuration "Oidc"
+        Config.readSection<OidcOptions> builder.Services builder.Configuration "Oidc"
 
     let oauthOptions =
         if isDevelopment then
-            readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
+            Config.readSection<OAuth2Options> builder.Services builder.Configuration "OAuth2"
             |> Some
         else
             None
 
     let loginOptions =
-        readSection<LoginOptions> builder.Services builder.Configuration "Login"
+        Config.readSection<LoginOptions> builder.Services builder.Configuration "Login"
 
     let loggingOptions =
-        readSection<LoggingOptions> builder.Services builder.Configuration "Logging"
+        Config.readSection<LoggingOptions> builder.Services builder.Configuration "Logging"
 
     Auth.configureServices builder.Services (builder.Environment.IsDevelopment ()) oidcOptions
 
