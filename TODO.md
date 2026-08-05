@@ -1,5 +1,11 @@
 # TODO
 
+- Centralise toasts on app.gleam?
+  - Pros: keeps toasts an app level concern rather than page level.
+  - Cons: wiring between parent and child apps
+- Restore state from local storage on cold load
+- Round currency values from API requests to 2dp
+
 ## CSV Parsing
 
 We can use representative example CSVs for each format (schema) to generate type providers for type safe access and parsing:

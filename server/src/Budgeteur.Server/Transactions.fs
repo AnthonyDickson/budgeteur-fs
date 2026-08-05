@@ -7,6 +7,7 @@ type Transaction = {
     /// <summary>Unique identifier for the transaction item.</summary>
     Id : Guid
 
+    /// <summary>A debit (negative) or credit (positive). Serialised as a string.</summary>
     Amount : decimal
 
     /// <summary>The title or description of the transaction.</summary>

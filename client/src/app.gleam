@@ -43,6 +43,7 @@ pub fn init(_flags) -> #(Model, Effect(Msg)) {
 
   let effects =
     effect.batch([
+      // TODO: Restore state from local storage
       effect.map(page_effect, TransactionsViewAllMsg),
       effect.init_routing(UrlChanged),
       effect.set_title("Budgeteur"),
@@ -56,7 +57,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     UrlChanged(url), _ -> {
       case route.from_string(url) {
         _ -> #(
-          Model(page: TransactionsViewAllPage(transactions_view_all.Model)),
+          Model(page: TransactionsViewAllPage(transactions_view_all.Model([]))),
           effect.none(),
         )
       }
