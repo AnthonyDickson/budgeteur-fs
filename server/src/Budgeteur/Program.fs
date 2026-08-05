@@ -1,4 +1,4 @@
-module Budgeteur.Server.Program
+module Budgeteur.Program
 
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
@@ -22,12 +22,12 @@ open Scalar.AspNetCore
 open Serilog
 open Serilog.Formatting.Compact
 
-open Budgeteur.Server.ApiError
-open Budgeteur.Server.Auth
-open Budgeteur.Server.Config
-open Budgeteur.Server.Json
-open Budgeteur.Server.OpenApi
-open Budgeteur.Server.Transactions
+open Budgeteur.ApiError
+open Budgeteur.Auth
+open Budgeteur.Config
+open Budgeteur.Json
+open Budgeteur.OpenApi
+open Budgeteur.Transactions
 
 
 let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Options) =
@@ -123,7 +123,7 @@ let private applyMigrations (connectionString : string) =
     fkCmd.ExecuteNonQuery () |> ignore
 
 let private handleException (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
-    let logger = loggerFactory.CreateLogger "Budgeteur.Server.Program"
+    let logger = loggerFactory.CreateLogger "Budgeteur.Program"
 
     RequestDelegate (fun (ctx : HttpContext) ->
         task {
@@ -271,8 +271,7 @@ let main (args : string array) : int =
 
     app.Use (
         RequestLogging.Middleware.requestLogging (
-            (app.Services.GetRequiredService<Serilog.ILogger> ())
-                .ForContext ("SourceContext", "Budgeteur.Server.Request")
+            (app.Services.GetRequiredService<Serilog.ILogger> ()).ForContext ("SourceContext", "Budgeteur.Request")
         )
     )
     |> ignore

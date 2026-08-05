@@ -23,10 +23,10 @@ RUN cd server && dotnet tool restore
 
 COPY server/Directory.Build.props server/Directory.Packages.props server/
 COPY server/Budgeteur.slnx server/
-COPY server/src/Budgeteur.Server/Budgeteur.Server.fsproj server/src/Budgeteur.Server/
+COPY server/src/Budgeteur/Budgeteur.fsproj server/src/Budgeteur/
 # The test fsproj file needs to be included due to the solution file referencing
 # it despite it not being needed for the built binary.
-COPY server/tests/Budgeteur.Server.Tests/Budgeteur.Server.Tests.fsproj server/tests/Budgeteur.Server.Tests/
+COPY server/tests/Budgeteur.Tests/Budgeteur.Tests.fsproj server/tests/Budgeteur.Tests/
 RUN cd server && dotnet restore
 
 # Install client dependencies
@@ -49,11 +49,11 @@ RUN adduser --disabled-password --gecos '' appuser
 
 EXPOSE 5000
 
-COPY --from=build /publish/Budgeteur.Server /app/
+COPY --from=build /publish/Budgeteur /app/
 COPY --from=build /publish/wwwroot/ /app/wwwroot/
-COPY --from=build /publish/Budgeteur.Server.staticwebassets.endpoints.json /app/
+COPY --from=build /publish/Budgeteur.staticwebassets.endpoints.json /app/
 
 WORKDIR /app
 USER appuser
 ENV ASPNETCORE_URLS=http://0.0.0.0:5000
-ENTRYPOINT ["./Budgeteur.Server"]
+ENTRYPOINT ["./Budgeteur"]

@@ -1,8 +1,8 @@
-namespace Budgeteur.Server.Tests
+namespace Budgeteur.Tests
 
 open System.Net.Http
 open System.Text
-open Budgeteur.Server.Coders
+open Budgeteur.Coders
 
 /// JSON helpers for driving the test HTTP client. Each builds a UTF-8 JSON body
 /// from the given value and sends it with the corresponding HTTP method.

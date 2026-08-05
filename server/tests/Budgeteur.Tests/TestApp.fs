@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.Tests
+namespace Budgeteur.Tests
 
 open System
 open System.Net.Http
@@ -26,8 +26,8 @@ type TestAppConfig = {
 }
 
 module TestAppConfig =
-    open Budgeteur.Server
-    open Budgeteur.Server.Db
+    open Budgeteur
+    open Budgeteur.Db
 
     let empty = {
         EndpointProviders = []
@@ -52,7 +52,7 @@ type TestApp = {
         member this.Dispose () = this.Dispose ()
 
 module TestApp =
-    open Budgeteur.Server.RequestLogging
+    open Budgeteur.RequestLogging
 
     /// Create an app server with an in-memory SQLite database
     let create (config : TestAppConfig) =
@@ -72,7 +72,7 @@ module TestApp =
         let result =
             DbUp.DeployChanges.To
                 .SqliteDatabase(connectionString)
-                .WithScriptsEmbeddedInAssembly(typeof<Budgeteur.Server.Transactions.Transaction>.Assembly)
+                .WithScriptsEmbeddedInAssembly(typeof<Budgeteur.Transactions.Transaction>.Assembly)
                 .Build()
                 .PerformUpgrade ()
 

@@ -1,10 +1,10 @@
-namespace Budgeteur.Server.Tests.Transactions
+namespace Budgeteur.Tests.Transactions
 
 open System
 open Expecto
 open FsCheck
 
-open Budgeteur.Server.Transactions
+open Budgeteur.Transactions
 
 /// <summary>
 /// Property-based tests for <c>Transactions.Validation</c>. These complement the

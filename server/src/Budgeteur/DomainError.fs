@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.DomainError
+namespace Budgeteur.DomainError
 
 type DomainError =
     | ValidationFailed of string

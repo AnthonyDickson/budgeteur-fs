@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>Budgeteur.Server.Tests</RootNamespace>
+    <RootNamespace>Budgeteur.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Budgeteur.Server/Budgeteur.Server.fsproj" />
+    <ProjectReference Include="../../src/Budgeteur/Budgeteur.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

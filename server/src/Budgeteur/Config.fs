@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.Config
+namespace Budgeteur.Config
 
 open System.ComponentModel.DataAnnotations
 

@@ -1,6 +1,6 @@
 {
   "ignoreFiles": [
-    "src/Budgeteur.Server/Db.fs",
+    "src/Budgeteur/Db.fs",
     "src/*/obj/*/*/*/*",
     "tests/*/obj/*/*/*"
   ],

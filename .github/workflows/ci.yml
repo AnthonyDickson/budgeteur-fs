@@ -18,7 +18,7 @@ jobs:
           cache: true
           cache-dependency-path: server/Directory.Packages.props
 
-      - run: dotnet run --project server/tests/Budgeteur.Server.Tests
+      - run: dotnet run --project server/tests/Budgeteur.Tests
 
       - if: failure()
         run: |
@@ -121,7 +121,7 @@ jobs:
       - run: dotnet fsi scripts/migrate.fsx
         working-directory: server
 
-      - run: dotnet sqlhydra sqlite --project src/Budgeteur.Server/Budgeteur.Server.fsproj
+      - run: dotnet sqlhydra sqlite --project src/Budgeteur/Budgeteur.fsproj
         working-directory: server
 
       - run: git diff --exit-code

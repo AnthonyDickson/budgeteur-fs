@@ -1,7 +1,7 @@
 [general]
-connection = "Data Source=src/Budgeteur.Server/app.sqlite3"
+connection = "Data Source=src/Budgeteur/app.sqlite3"
 output = "Db.fs"
-namespace = "Budgeteur.Server.Db"
+namespace = "Budgeteur.Db"
 cli_mutable = true
 
 [sqlhydra_query_integration]

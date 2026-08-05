@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.Transactions
+namespace Budgeteur.Transactions
 
 open System
 
@@ -23,7 +23,7 @@ type Transaction = {
 
 
 module Transaction =
-    open Budgeteur.Server.Db
+    open Budgeteur.Db
 
     let fromRow (row : main.Transactions) : Transaction = {
         Id = row.Id
@@ -55,7 +55,7 @@ type CreateTransactionRequest = {
 }
 
 module Validation =
-    open Budgeteur.Server.DomainError
+    open Budgeteur.DomainError
 
     [<Literal>]
     let private MaxTransactionDescriptionLength = 256
@@ -91,13 +91,13 @@ module Api =
     open Oxpecker.OpenApi
     open SqlHydra.Query
 
-    open Budgeteur.Server.ApiError
-    open Budgeteur.Server.Auth
-    open Budgeteur.Server.Db
-    open Budgeteur.Server.DomainError
-    open Budgeteur.Server.Endpoint
-    open Budgeteur.Server.Json
-    open Budgeteur.Server.RequestLogging
+    open Budgeteur.ApiError
+    open Budgeteur.Auth
+    open Budgeteur.Db
+    open Budgeteur.DomainError
+    open Budgeteur.Endpoint
+    open Budgeteur.Json
+    open Budgeteur.RequestLogging
 
     module GetAll =
         [<Literal>]
@@ -421,8 +421,8 @@ module Api =
 module Transactions =
     open Oxpecker
 
-    open Budgeteur.Server.Auth
-    open Budgeteur.Server.Db
+    open Budgeteur.Auth
+    open Budgeteur.Db
 
     let endpoints (connectionString : string) =
         QueryContextFactory.Create connectionString

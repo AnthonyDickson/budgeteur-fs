@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.Auth
+namespace Budgeteur.Auth
 
 open System
 
@@ -11,10 +11,10 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.OpenApi
 open Oxpecker
 
-open Budgeteur.Server.Config
-open Budgeteur.Server.ApiError
-open Budgeteur.Server.Coders
-open Budgeteur.Server.DomainError
+open Budgeteur.Config
+open Budgeteur.ApiError
+open Budgeteur.Coders
+open Budgeteur.DomainError
 
 [<RequireQualifiedAccess>]
 module Auth =

@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.OpenApi
+namespace Budgeteur.OpenApi
 
 module OpenApi =
     open Microsoft.AspNetCore.OpenApi

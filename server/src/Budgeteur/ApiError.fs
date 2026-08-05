@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.ApiError
+namespace Budgeteur.ApiError
 
 type ApiError = {
     Error : string

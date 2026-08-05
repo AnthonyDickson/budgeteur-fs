@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.Coders
+namespace Budgeteur.Coders
 
 open System
 open Thoth.Json.Net

@@ -1,17 +1,17 @@
 RUNTIME := env_var_or_default("RUNTIME", "linux-x64")
-PUBLISH_DIR := env_var_or_default("PUBLISH_DIR", "server/src/Budgeteur.Server/bin/Release/publish")
+PUBLISH_DIR := env_var_or_default("PUBLISH_DIR", "server/src/Budgeteur/bin/Release/publish")
 
 # Build the server
 server-build:
-	dotnet build server/src/Budgeteur.Server/Budgeteur.Server.fsproj
+	dotnet build server/src/Budgeteur/Budgeteur.fsproj
 
 # Run the server (auto-applies DB migrations)
 server-watch:
-	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/Budgeteur.Server --no-hot-reload
+	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/Budgeteur --no-hot-reload
 
 # Expecto tests
 server-test:
-	dotnet run --project server/tests/Budgeteur.Server.Tests
+	dotnet run --project server/tests/Budgeteur.Tests
 
 # npm install
 client-install-deps:
@@ -31,12 +31,12 @@ client-build:
 
 # Copy client dist into server wwwroot/
 copy-client-dist: client-build
-	mkdir -p server/src/Budgeteur.Server/wwwroot
-	cp -r client/dist/* server/src/Budgeteur.Server/wwwroot/
+	mkdir -p server/src/Budgeteur/wwwroot
+	cp -r client/dist/* server/src/Budgeteur/wwwroot/
 
 # Single-file publish (builds client, copies assets, publishes server)
 publish: copy-client-dist
-	dotnet publish server/src/Budgeteur.Server/Budgeteur.Server.fsproj \
+	dotnet publish server/src/Budgeteur/Budgeteur.fsproj \
 		-c Release -r {{RUNTIME}} -o {{PUBLISH_DIR}} \
 		-p:PublishTrimmed=true -p:TrimMode=partial
 
@@ -69,7 +69,7 @@ outdated:
 db-migration name:
 	#!/usr/bin/env bash
 	set -euo pipefail
-	dir="server/src/Budgeteur.Server/migrations"
+	dir="server/src/Budgeteur/migrations"
 	count=$(ls "$dir"/*.sql 2>/dev/null | wc -l)
 	num=$(printf "%03d" $((count + 1)))
 	file="$dir/${num}_{{name}}.sql"
@@ -82,12 +82,12 @@ db-migrate:
 
 # Regenerate Db.fs types from live DB (SqlHydra)
 db-generate:
-	cd server && dotnet sqlhydra sqlite --project src/Budgeteur.Server/Budgeteur.Server.fsproj
+	cd server && dotnet sqlhydra sqlite --project src/Budgeteur/Budgeteur.fsproj
 
 # db-migrate + db-generate (full schema update)
 db-update: db-migrate db-generate
 
 # Delete DB, re-apply all migrations, regenerate
 db-reset:
-	rm -f server/src/Budgeteur.Server/app.sqlite3
+	rm -f server/src/Budgeteur/app.sqlite3
 	just db-update

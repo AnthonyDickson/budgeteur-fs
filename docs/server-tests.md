@@ -1,6 +1,6 @@
 # Server Tests
 
-Expecto tests in `server/tests/Budgeteur.Server.Tests/`. Also see
+Expecto tests in `server/tests/Budgeteur.Tests/`. Also see
 [E2E Tests](e2e-tests.md) for end-to-end Playwright tests.
 
 ## Architecture
@@ -32,7 +32,7 @@ all tests. Each test calls `app.CleanDatabase()` before acting.
 ```bash
 just server-test
 # or
-dotnet run --project server/tests/Budgeteur.Server.Tests
+dotnet run --project server/tests/Budgeteur.Tests
 ```
 
 ## Test Cases

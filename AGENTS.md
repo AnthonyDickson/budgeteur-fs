@@ -9,19 +9,19 @@ This repo is a template — the example domain is a todo app, but the architectu
 ## Essential Commands
 
 ```bash
-just server-build    # Build the server
-just server-watch    # Run the server (auto-applies DB migrations)
-just server-test     # Server xUnit tests
+just server-build         # Build the server
+just server-watch         # Run the server (auto-applies DB migrations)
+just server-test          # Server xUnit tests
 just client-install-deps  # npm install
-just client-watch    # Start the client dev server (Vite + Gleam watch)
-just client-build    # Build the client
-just client-publish  # Production client bundle
-just client-test     # Client gleeunit tests
-just e2e-test        # Playwright E2E tests in Docker
-just copy-client-dist # Copy client dist into server wwwroot/
-just publish         # Single-file publish (builds client, copies assets, publishes server)
-just format          # Format F# with fantomas + gleam format
-just lint            # Lint F# with fsharplint
+just client-watch         # Start the client dev server (Vite + Gleam watch)
+just client-build         # Build the client
+just client-publish       # Production client bundle
+just client-test          # Client gleeunit tests
+just e2e-test             # Playwright E2E tests in Docker
+just copy-client-dist     # Copy client dist into server wwwroot/
+just publish              # Single-file publish (builds client, copies assets, publishes server)
+just format               # Format F# with fantomas + gleam format
+just lint                 # Lint F# with fsharplint
 ```
 
 ### Publishing
@@ -31,7 +31,7 @@ just publish                    # linux-x64 (default)
 just publish RUNTIME=osx-arm64  # macOS Apple Silicon
 ```
 
-This builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. The output is at `server/src/Budgeteur.Server/bin/Release/publish/`.
+This builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. The output is at `server/src/Budgeteur/bin/Release/publish/`.
 
 ### Database Commands
 
@@ -51,7 +51,7 @@ F# compiles server files in the order listed in `.fsproj`. **New files must be i
 
 ```
 server/
-  Budgeteur.slnx                # XML-based solution format
+  Budgeteur.slnx                      # XML-based solution format
   Directory.Build.props               # Enables Central Package Management
   Directory.Packages.props            # All NuGet package versions
   global.json                         # .NET SDK version
@@ -63,8 +63,8 @@ server/
   scripts/
     migrate.fsx                       # Standalone DbUp migration runner
   src/
-    Budgeteur.Server/
-      Budgeteur.Server.fsproj  # Project file
+    Budgeteur/
+      Budgeteur.fsproj                # Project file
       packages.lock.json              # Locked dependency graph
       appsettings.Development.json    # Dev environment config
       ApiError.fs                     # ApiError record type
@@ -229,7 +229,7 @@ Three layers: server xUnit tests (`just server-test`, ephemeral SQLite, no auth)
 
 **Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `client/public/`. Vite serves them at root in dev and copies them into `dist/` on build. They reach the server via `just copy-client-dist`.
 
-**Server-only assets** (e.g. `robots.txt` that should exist regardless of the client bundle) live in `server/src/Budgeteur.Server/wwwroot/`. Note that `wwwroot/` is gitignored and recreated by `copy-client-dist`, so the source of truth for any persisted file must live elsewhere (or use a build step).
+**Server-only assets** (e.g. `robots.txt` that should exist regardless of the client bundle) live in `server/src/Budgeteur/wwwroot/`. Note that `wwwroot/` is gitignored and recreated by `copy-client-dist`, so the source of truth for any persisted file must live elsewhere (or use a build step).
 
 ## Code Style & Conventions
 

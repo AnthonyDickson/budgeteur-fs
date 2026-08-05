@@ -84,7 +84,7 @@ export OAuth2__TokenUrl=https://auth.example.com/api/oidc/token
 Then start:
 
 ```bash
-dotnet run --project server/src/Budgeteur.Server
+dotnet run --project server/src/Budgeteur
 ```
 
 ## Cookie Security (Non-Development)

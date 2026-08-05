@@ -1,4 +1,4 @@
-namespace Budgeteur.Server.RequestLogging
+namespace Budgeteur.RequestLogging
 
 open System
 open Microsoft.AspNetCore.Http

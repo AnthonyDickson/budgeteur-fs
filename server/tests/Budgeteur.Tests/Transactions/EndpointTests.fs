@@ -1,14 +1,14 @@
-namespace Budgeteur.Server.Tests.Transactions
+namespace Budgeteur.Tests.Transactions
 
 open System
 open System.Net
 open Expecto
-open Budgeteur.Server.Coders
-open Budgeteur.Server.Transactions
-open Budgeteur.Server.Tests
+open Budgeteur.Coders
+open Budgeteur.Transactions
+open Budgeteur.Tests
 
 module EndpointTests =
-    open Budgeteur.Server.Transactions.Api
+    open Budgeteur.Transactions.Api
 
     /// Fill the Oxpecker routef `{%O:guid}` placeholder in an item path with a concrete id.
     let private routefPath (path : string) (id : Guid) =

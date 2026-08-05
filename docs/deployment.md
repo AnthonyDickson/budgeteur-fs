@@ -7,9 +7,9 @@ just publish                    # linux-x64 (default)
 RUNTIME=osx-arm64 just publish  # macOS Apple Silicon
 ```
 
-Builds the client Vite bundle, copies it into `server/src/Budgeteur.Server/wwwroot/`,
+Builds the client Vite bundle, copies it into `server/src/Budgeteur/wwwroot/`,
 then publishes the server as a self-contained single-file binary with trimming.
-Output: `server/src/Budgeteur.Server/bin/Release/publish/`
+Output: `server/src/Budgeteur/bin/Release/publish/`
 
 ## Publishing via Docker
 
@@ -93,7 +93,7 @@ which is ephemeral.
 `client/public/`. Vite serves them at root in dev and copies them into `dist/`
 on build. They reach the server via `just copy-client-dist`.
 
-**Server-only assets** (e.g. `robots.txt`) live in `server/src/Budgeteur.Server/wwwroot/`.
+**Server-only assets** (e.g. `robots.txt`) live in `server/src/Budgeteur/wwwroot/`.
 The `wwwroot/` directory is gitignored and populated by `copy-client-dist` during
 publish. Persistent server assets should have their source of truth elsewhere
 (e.g. a build step that copies them in).

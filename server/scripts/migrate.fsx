@@ -10,13 +10,13 @@ open DbUp
 open DbUp.Engine
 open Microsoft.Data.Sqlite
 
-let connectionString = "Data Source=src/Budgeteur.Server/app.sqlite3"
-let migrationsPath = "src/Budgeteur.Server/migrations"
-let scriptPrefix = "Budgeteur.Server.migrations."
+let connectionString = "Data Source=src/Budgeteur/app.sqlite3"
+let migrationsPath = "src/Budgeteur/migrations"
+let scriptPrefix = "Budgeteur.migrations."
 
 // DbUp's WithScriptsFromFileSystem uses bare filenames as ScriptName,
 // but WithScriptsEmbeddedInAssembly uses the full resource path
-// (e.g. Budgeteur.Server.migrations.001_create_todos.sql).
+// (e.g. Budgeteur.migrations.001_create_todos.sql).
 // Manually loading scripts with the namespace prefix ensures the
 // SchemaVersions journal is consistent regardless of how migrations are run.
 let scripts =

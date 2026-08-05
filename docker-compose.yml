@@ -20,7 +20,7 @@ services:
     image: mcr.microsoft.com/dotnet/sdk:10.0
     container_name: budgeteur-fs-server
     network_mode: "host"
-    working_dir: /src/server/src/Budgeteur.Server
+    working_dir: /src/server/src/Budgeteur
     stdin_open: true
     tty: true
     command: >

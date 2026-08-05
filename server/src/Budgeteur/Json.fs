@@ -1,10 +1,10 @@
-namespace Budgeteur.Server.Json
+namespace Budgeteur.Json
 
 open System.IO
 open System.Text
 open Microsoft.AspNetCore.Http
-open Budgeteur.Server.DomainError
-open Budgeteur.Server.Coders
+open Budgeteur.DomainError
+open Budgeteur.Coders
 
 /// <summary>HTTP helpers for reading and writing JSON payloads.</summary>
 module Json =
