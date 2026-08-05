@@ -44,6 +44,15 @@ pub type Effect(msg) {
 
 /// `GET` the given URL.
 ///
+/// ```gleam
+/// effect.get("/api/todos", fn(result) {
+///   case result {
+///     Ok(body) -> ClientFetchedTodos(body)
+///     Error(err) -> ClientRequestFailed(err)
+///   }
+/// })
+/// ```
+///
 pub fn get(
   url: String,
   callback: fn(Result(String, HttpError)) -> msg,
@@ -59,6 +68,15 @@ pub fn get(
 }
 
 /// `POST` a pre-serialised body to the given URL with `application/json`.
+///
+/// ```gleam
+/// effect.post("/api/todos", json.to_string(body), fn(result) {
+///   case result {
+///     Ok(_) -> NoOp
+///     Error(err) -> TodoActionFailed(err)
+///   }
+/// })
+/// ```
 ///
 pub fn post(
   url: String,
@@ -77,6 +95,15 @@ pub fn post(
 
 /// `PUT` a pre-serialised body to the given URL with `application/json`.
 ///
+/// ```gleam
+/// effect.put("/api/todos/" <> id, body, fn(result) {
+///   case result {
+///     Ok(_) -> NoOp
+///     Error(err) -> TodoActionFailed(err)
+///   }
+/// })
+/// ```
+///
 pub fn put(
   url: String,
   body: String,
@@ -94,6 +121,15 @@ pub fn put(
 
 /// `PATCH` a pre-serialised body to the given URL with `application/json`.
 ///
+/// ```gleam
+/// effect.patch("/api/todos/" <> id, body, fn(result) {
+///   case result {
+///     Ok(_) -> NoOp
+///     Error(err) -> TodoActionFailed(err)
+///   }
+/// })
+/// ```
+///
 pub fn patch(
   url: String,
   body: String,
@@ -110,6 +146,15 @@ pub fn patch(
 }
 
 /// `DELETE` the resource at the given URL.
+///
+/// ```gleam
+/// effect.delete("/api/todos/" <> id, fn(result) {
+///   case result {
+///     Ok(_) -> NoOp
+///     Error(err) -> TodoActionFailed(err)
+///   }
+/// })
+/// ```
 ///
 pub fn delete(
   url: String,
@@ -129,25 +174,53 @@ pub fn delete(
 /// back/forward navigation, and dispatch the initial URL. The handler receives
 /// the full path (pathname + search + hash).
 ///
+/// The handler turns each path into a message that your `update` function
+/// receives. Return it from `init` so routing is active for the app's lifetime:
+///
+/// ```gleam
+/// // in update
+/// UrlChanged(path) -> #(model, effect.none()) // dispatch as a message
+///
+/// // in init
+/// #(model, effect.init_routing(fn(path) { UrlChanged(path) }))
+/// ```
+///
+/// Combined with `push_url` / `replace_url`, this drives an SPA without full
+/// page reloads: navigating emits a `UrlChanged` that `update` handles.
+///
 pub fn init_routing(handler: fn(String) -> msg) -> Effect(msg) {
   InitRouting(handler:)
 }
 
 /// Push a new URL onto the browser's history stack without a full page reload.
-/// Dispatches no message.
+/// Dispatches no message — the subsequent popstate/click handling (set up by
+/// `init_routing`) delivers the new path as a message to `update`:
+///
+/// ```gleam
+/// effect.push_url("/active"),
+/// ```
 ///
 pub fn push_url(url: String) -> Effect(msg) {
   PushUrl(url:)
 }
 
 /// Replace the current URL in the browser's history stack without a full page
-/// reload. Dispatches no message.
+/// reload. Dispatches no message — as with `push_url`, `init_routing` delivers
+/// the new path to `update` as a message.
+///
+/// ```gleam
+/// effect.replace_url("/active"),
+/// ```
 ///
 pub fn replace_url(url: String) -> Effect(msg) {
   ReplaceUrl(url:)
 }
 
 /// Set the document title (shown in the browser tab).
+///
+/// ```gleam
+/// effect.set_title("My App")
+/// ```
 ///
 pub fn set_title(title: String) -> Effect(msg) {
   SetTitle(title:)
@@ -206,6 +279,10 @@ pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
 }
 
 /// Combine a list of effects into a single `Batch` effect.
+///
+/// ```gleam
+/// effect.batch([fetch_todos(), load_todos_from_store()])
+/// ```
 ///
 pub fn batch(effects: List(Effect(msg))) -> Effect(msg) {
   Batch(effects)
