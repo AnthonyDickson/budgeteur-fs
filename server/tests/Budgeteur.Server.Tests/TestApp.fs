@@ -27,6 +27,7 @@ type TestAppConfig = {
 
 module TestAppConfig =
     open Budgeteur.Server
+    open Budgeteur.Server.Db
 
     let empty = {
         EndpointProviders = []
@@ -36,7 +37,7 @@ module TestAppConfig =
     let withTransactions (config : TestAppConfig) = {
         config with
             EndpointProviders =
-                (fun connStr -> Transactions.Store.create connStr |> Transactions.Api.endpoints)
+                (fun connStr -> QueryContextFactory.Create connStr |> Transactions.Api.endpoints)
                 :: config.EndpointProviders
             CleanTables = "Transactions" :: config.CleanTables
     }

@@ -21,29 +21,11 @@ type Transaction = {
     CategoryId : Option<Guid>
 }
 
-/// <summary>Payload for creating a transaction. The id is generated server-side.</summary>
-type CreateTransactionRequest = {
-    Amount : decimal
-    Description : string
-    Date : DateTime
-}
 
-module Store =
-    open Budgeteur.Server.DomainError
+module Transaction =
     open Budgeteur.Server.Db
-    open Microsoft.Data.Sqlite
-    open SqlHydra.Query
-    open SqlHydra.Query.SqliteExtensions
 
-    type Store = { Db : QueryContextFactory }
-
-    let create (connectionString : string) = {
-        Db = QueryContextFactory.Create connectionString
-    }
-
-    // ── DB row ↔ API type mapping ──────────────────────────────────────────
-
-    let private toTransaction (row : main.Transactions) : Transaction = {
+    let fromRow (row : main.Transactions) : Transaction = {
         Id = row.Id
         Amount = row.Amount
         Description = row.Description
@@ -53,7 +35,7 @@ module Store =
         CategoryId = row.CategoryId
     }
 
-    let private toRow (transaction : Transaction) (userId : string) : main.Transactions = {
+    let toRow (transaction : Transaction) (userId : string) : main.Transactions = {
         Id = transaction.Id
         UserId = userId
         Amount = transaction.Amount
@@ -64,103 +46,13 @@ module Store =
         CategoryId = transaction.CategoryId
     }
 
-    // ── Queries ────────────────────────────────────────────────────────────
 
-    let getAll (store : Store) (userId : string) =
-        task {
-            try
-                let! rows =
-                    selectTask store.Db {
-                        for t in main.Transactions do
-                            select t
-                            where (t.UserId = userId)
-                    }
-
-                let transactions = rows |> List.ofSeq |> List.map toTransaction
-
-                return Ok transactions
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let get (store : Store) (id : Guid) (userId : string) =
-        task {
-            try
-                let! result =
-                    selectTask store.Db {
-                        for t in main.Transactions do
-                            where (t.Id = id && t.UserId = userId)
-                            tryHead
-                    }
-
-                let transaction = result |> Option.map toTransaction
-
-                return Ok transaction
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let insert (store : Store) (transaction : Transaction) (userId : string) =
-        task {
-            try
-                let! _ =
-                    insertTask store.Db {
-                        for t in main.Transactions do
-                            entity (toRow transaction userId)
-                    }
-
-                return Ok ()
-            with
-            | :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
-                return Error (Conflict $"A transaction with ID %O{transaction.Id} already exists")
-            | ex -> return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let update (store : Store) (transaction : Transaction) (userId : string) =
-        task {
-            try
-                use! shared = store.Db.OpenContextAsync ()
-                shared.BeginTransaction ()
-
-                let! _rowsAffected =
-                    updateTask shared {
-                        for t in main.Transactions do
-                            entity (toRow transaction userId)
-                            excludeColumn t.Id
-                            where (t.Id = transaction.Id && t.UserId = userId)
-                    }
-
-                let! result =
-                    selectTask shared {
-                        for t in main.Transactions do
-                            where (t.Id = transaction.Id && t.UserId = userId)
-                            tryHead
-                    }
-
-                shared.CommitTransaction ()
-
-                let transaction = result |> Option.map toTransaction
-
-                return Ok transaction
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
-
-    let delete (store : Store) (id : Guid) (userId : string) =
-        task {
-            try
-                let! rows =
-                    deleteTask store.Db {
-                        for t in main.Transactions do
-                            where (t.Id = id && t.UserId = userId)
-                    }
-
-                let deleted = rows > 0
-
-                return Ok deleted
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
-        }
+/// <summary>Payload for creating a transaction. The id is generated server-side.</summary>
+type CreateTransactionRequest = {
+    Amount : decimal
+    Description : string
+    Date : DateTime
+}
 
 module Validation =
     open Budgeteur.Server.DomainError
@@ -193,35 +85,54 @@ module Api =
     open System.Threading.Tasks
 
     open FsToolkit.ErrorHandling
+    open Microsoft.Data.Sqlite
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
+    open SqlHydra.Query
 
     open Budgeteur.Server.ApiError
     open Budgeteur.Server.Auth
+    open Budgeteur.Server.Db
     open Budgeteur.Server.DomainError
     open Budgeteur.Server.Endpoint
     open Budgeteur.Server.Json
     open Budgeteur.Server.RequestLogging
-    open Store
 
     module GetAll =
         [<Literal>]
         let Path = "/api/transactions"
 
-        let private handler (store : Store) : EndpointHandler =
+        let private getAll (queryContext : QueryContextFactory) (userId : string) =
+            task {
+                try
+                    let! rows =
+                        selectTask queryContext {
+                            for t in main.Transactions do
+                                select t
+                                where (t.UserId = userId)
+                        }
+
+                    let transactions = rows |> List.ofSeq |> List.map Transaction.fromRow
+
+                    return Ok transactions
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let! userId = Auth.getUserId ctx
-                    let! items = Store.getAll store userId
+                    let! items = getAll queryContext userId
                     let log = RequestLog.fromContext ctx
 
                     log.Info ($"Returned %i{List.length items} transactions", LogProp.prop "count" (List.length items))
                     do! Json.write ctx items
                 })
 
-        let endpoint (store : Store) =
-            route Path (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            route Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -241,11 +152,28 @@ module Api =
         [<Literal>]
         let Path = "/api/transactions/{%O:guid}"
 
-        let private handler (store : Store) (id : Guid) : EndpointHandler =
+        let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+            task {
+                try
+                    let! result =
+                        selectTask queryContext {
+                            for t in main.Transactions do
+                                where (t.Id = id && t.UserId = userId)
+                                tryHead
+                        }
+
+                    let transaction = result |> Option.map Transaction.fromRow
+
+                    return Ok transaction
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let! userId = Auth.getUserId ctx
-                    let! transaction = Store.get store id userId
+                    let! transaction = get queryContext id userId
                     let log = RequestLog.fromContext ctx
 
                     match transaction with
@@ -257,8 +185,8 @@ module Api =
                         return! Error (NotFound $"Transaction %O{id} not found")
                 })
 
-        let endpoint (store : Store) =
-            routef Path (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            routef Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -279,7 +207,23 @@ module Api =
         [<Literal>]
         let Path = "/api/transactions"
 
-        let private handler (store : Store) : EndpointHandler =
+        let private insert (queryContext : QueryContextFactory) (transaction : Transaction) (userId : string) =
+            task {
+                try
+                    let! _ =
+                        insertTask queryContext {
+                            for t in main.Transactions do
+                                entity (Transaction.toRow transaction userId)
+                        }
+
+                    return Ok ()
+                with
+                | :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
+                    return Error (Conflict $"A transaction with ID %O{transaction.Id} already exists")
+                | ex -> return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
@@ -297,7 +241,7 @@ module Api =
                         CategoryId = None
                     }
 
-                    let! () = Store.insert store transaction userId
+                    let! () = insert queryContext transaction userId
 
                     log.Info (
                         $"Created transaction %O{transaction.Id}",
@@ -308,8 +252,8 @@ module Api =
                     do! Json.write ctx transaction
                 })
 
-        let endpoint (store : Store) =
-            route Path (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            route Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     requestBody = RequestBody typeof<CreateTransactionRequest>,
@@ -332,7 +276,37 @@ module Api =
         [<Literal>]
         let Path = "/api/transactions/{%O:guid}"
 
-        let private handler (store : Store) (id : Guid) : EndpointHandler =
+        let private update (queryContext : QueryContextFactory) (transaction : Transaction) (userId : string) =
+            task {
+                try
+                    use! shared = queryContext.OpenContextAsync ()
+                    shared.BeginTransaction ()
+
+                    let! _rowsAffected =
+                        updateTask shared {
+                            for t in main.Transactions do
+                                entity (Transaction.toRow transaction userId)
+                                excludeColumn t.Id
+                                where (t.Id = transaction.Id && t.UserId = userId)
+                        }
+
+                    let! result =
+                        selectTask shared {
+                            for t in main.Transactions do
+                                where (t.Id = transaction.Id && t.UserId = userId)
+                                tryHead
+                        }
+
+                    shared.CommitTransaction ()
+
+                    let transaction = result |> Option.map Transaction.fromRow
+
+                    return Ok transaction
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
@@ -351,7 +325,7 @@ module Api =
                         CategoryId = None
                     }
 
-                    let! updated = Store.update store transaction userId
+                    let! updated = update queryContext transaction userId
 
                     match updated with
                     | Some updated ->
@@ -362,8 +336,8 @@ module Api =
                         return! Error (NotFound $"Transaction %O{id} not found")
                 })
 
-        let endpoint (store : Store) =
-            routef Path (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            routef Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     requestBody = RequestBody typeof<CreateTransactionRequest>,
@@ -386,12 +360,28 @@ module Api =
         [<Literal>]
         let Path = "/api/transactions/{%O:guid}"
 
-        let private handler (store : Store) (id : Guid) : EndpointHandler =
+        let delete (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+            task {
+                try
+                    let! rows =
+                        deleteTask queryContext {
+                            for t in main.Transactions do
+                                where (t.Id = id && t.UserId = userId)
+                        }
+
+                    let deleted = rows > 0
+
+                    return Ok deleted
+                with ex ->
+                    return Error (DatabaseError (ex.Message, Some ex))
+            }
+
+        let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
             Endpoint.handler (fun ctx ->
                 taskResult {
                     let log = RequestLog.fromContext ctx
                     let! userId = Auth.getUserId ctx
-                    let! deleted = Store.delete store id userId
+                    let! deleted = delete queryContext id userId
 
                     if deleted then
                         log.Info ($"Deleted transaction %O{id}", LogProp.prop "transactionId" (id.ToString ()))
@@ -401,8 +391,8 @@ module Api =
                         return! Error (NotFound $"Transaction %O{id} not found")
                 })
 
-        let endpoint (store : Store) =
-            routef Path (handler store)
+        let endpoint (queryContext : QueryContextFactory) =
+            routef Path (handler queryContext)
             |> addOpenApi (
                 OpenApiConfig (
                     responseBodies = [|
@@ -419,11 +409,11 @@ module Api =
                 )
             )
 
-    let endpoints (store : Store) : Oxpecker.RoutingTypes.Endpoint seq = [
-        GET [ GetAll.endpoint store; Get.endpoint store ]
-        POST [ Create.endpoint store ]
-        PUT [ Update.endpoint store ]
-        DELETE [ Delete.endpoint store ]
+    let endpoints (ctx : QueryContextFactory) : Oxpecker.RoutingTypes.Endpoint seq = [
+        GET [ GetAll.endpoint ctx; Get.endpoint ctx ]
+        POST [ Create.endpoint ctx ]
+        PUT [ Update.endpoint ctx ]
+        DELETE [ Delete.endpoint ctx ]
     ]
 
 /// This module defines the public API of the Transactions feature slice
@@ -432,8 +422,9 @@ module Transactions =
     open Oxpecker
 
     open Budgeteur.Server.Auth
+    open Budgeteur.Server.Db
 
     let endpoints (connectionString : string) =
-        Store.create connectionString
+        QueryContextFactory.Create connectionString
         |> Api.endpoints
         |> Seq.map (addFilter Auth.requireAuth)
