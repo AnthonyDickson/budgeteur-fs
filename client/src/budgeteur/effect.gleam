@@ -32,11 +32,14 @@ pub type Effect(msg) {
   LoadFromStore(key: String, callback: fn(Result(String, String)) -> msg)
   SaveToStore(key: String, value: String)
   LogError(String)
+  /// This effect makes an HTTP request and triggers a page load, therefore it cannot be batched with other effects.
   Redirect(url: String)
   SetTitle(title: String)
   After(delay: Int, message: msg)
   InitRouting(handler: fn(String) -> msg)
+  /// This effect does not trigger a page load, therefore it can be batched with other effects.
   PushUrl(url: String)
+  /// This effect does not trigger a page load, therefore it can be batched with other effects.
   ReplaceUrl(url: String)
   Batch(effects: List(Effect(msg)))
   None
