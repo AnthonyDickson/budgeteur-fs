@@ -5,6 +5,7 @@ import budgeteur/effect.{type Effect}
 import budgeteur/money
 import budgeteur/out_msg.{type OutMsg}
 import budgeteur/response
+import budgeteur/toast
 import budgeteur/transactions/transaction.{type Transaction}
 import gleam/dynamic/decode
 import gleam/int
@@ -71,6 +72,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), List(OutMsg)) {
             out_msg.PageRequestedToast(
               title:,
               body:,
+              level: toast.Error,
               dismiss_after_ms: Some(5000),
             ),
           ])

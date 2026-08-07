@@ -7,7 +7,6 @@ import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
 import lustre
-import lustre/attribute
 import lustre/effect as lustre_effect
 import lustre/element.{type Element}
 import lustre/element/html
@@ -73,14 +72,14 @@ fn map_out_msg(
   effect: Effect(Msg),
 ) -> #(Model, Effect(Msg)) {
   case out_msg {
-    out_msg.PageRequestedToast(title:, body:, dismiss_after_ms:) -> {
-      let toast = toast.Toast(id: uuid.v7(), title:, body:)
-      let model = Model(..model, toasts: [toast, ..model.toasts])
+    out_msg.PageRequestedToast(title:, body:, level:, dismiss_after_ms:) -> {
+      let new_toast = toast.Toast(id: uuid.v7(), title:, body:, level:)
+      let model = Model(..model, toasts: [new_toast, ..model.toasts])
       let effect = case dismiss_after_ms {
         Some(delay) ->
           effect.batch([
             effect,
-            effect.After(delay, ToastDismissed(toast.id)),
+            effect.After(delay, ToastDismissed(new_toast.id)),
           ])
         None -> effect
       }
@@ -172,15 +171,7 @@ pub fn view(model: Model) -> Element(Msg) {
       |> element.map(TransactionsViewAllMsg)
   }
 
-  let toasts =
-    html.div(
-      [
-        attribute.class(
-          "fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none",
-        ),
-      ],
-      list.map(model.toasts, toast.view(_, ToastDismissed)),
-    )
+  let toasts = toast.view_with_container(model.toasts, ToastDismissed)
 
   html.div([], [
     page,
