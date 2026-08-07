@@ -1,5 +1,6 @@
 import budgeteur/api_error.{type ApiError}
 import budgeteur/api_route
+import budgeteur/auth_route
 import budgeteur/effect.{type Effect}
 import budgeteur/money
 import budgeteur/response
@@ -59,7 +60,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     )
     ClientFetchedTransactions(Error(error)) ->
       case error.status_code {
-        Some(401) -> #(model, effect.Redirect("/login"))
+        Some(401) -> #(model, effect.Redirect(auth_route.login))
         _ -> {
           // TODO: Centralise toasts on app.gleam? Pros: keeps toasts an app level
           // concern rather than page level. Cons: wiring between parent and child apps
