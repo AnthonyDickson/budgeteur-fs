@@ -1,6 +1,5 @@
 import budgeteur/api_error.{type ApiError}
 import budgeteur/api_route
-import budgeteur/auth_route
 import budgeteur/effect.{type Effect}
 import budgeteur/money
 import budgeteur/out_msg.{type OutMsg}
@@ -61,23 +60,16 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), List(OutMsg)) {
       effect.none(),
       [],
     )
-    ClientFetchedTransactions(Error(error)) ->
-      case error.status_code {
-        Some(401) -> #(model, effect.Redirect(auth_route.login), [])
-        _ -> {
-          let title = "Could not sync transactions"
-          let body = "Falling back to local data"
-
-          #(model, effect.LogError(api_error.describe(error)), [
-            out_msg.PageRequestedToast(
-              title:,
-              body:,
-              level: toast.Error,
-              dismiss_after_ms: Some(5000),
-            ),
-          ])
-        }
-      }
+    ClientFetchedTransactions(Error(error)) -> {
+      #(model, effect.LogError(api_error.describe(error)), [
+        out_msg.PageRequestedToast(
+          title: "Could not sync transactions",
+          body: "Falling back to local data",
+          level: toast.Error,
+          dismiss_after_ms: Some(5000),
+        ),
+      ])
+    }
   }
 }
 

@@ -1,4 +1,6 @@
+import budgeteur/auth_route
 import budgeteur/effect.{type Effect}
+import budgeteur/http_effect
 import budgeteur/out_msg.{type OutMsg}
 import budgeteur/route
 import budgeteur/toast.{type Toast}
@@ -40,9 +42,10 @@ fn model_to_json(model: Model) -> json.Json {
 }
 
 pub type Msg {
-  UrlChanged(url: String)
+  SessionExpired
   TransactionsViewAllMsg(transactions_view_all.Msg)
   ToastDismissed(id: Uuid)
+  UrlChanged(url: String)
 }
 
 // Init
@@ -131,21 +134,30 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
       #(Model(..model, toasts:), effect.none())
     }
+    SessionExpired, _ -> #(model, effect.Redirect(auth_route.login))
   }
 }
 
-fn update_with_effect(
-  model: Model,
-  msg: Msg,
-) -> #(Model, lustre_effect.Effect(Msg)) {
-  let #(new_model, custom_effect) =
-    update(model, msg)
-    |> with_local_storage
+/// Rewrite every `HttpRequest` effect so a 401 response dispatches
+/// `SessionExpired` instead of reaching the page's callback. Recurses through
+/// `Batch` because effects reach this point wrapped by `with_local_storage`.
+pub fn wrap_http_requests(effect: Effect(Msg)) -> Effect(Msg) {
+  case effect {
+    effect.HttpRequest(callback: original_callback, ..) as request ->
+      effect.HttpRequest(..request, callback: fn(result) {
+        case result {
+          Error(http_effect.HttpError(status: 401, ..)) -> SessionExpired
+          _ -> original_callback(result)
+        }
+      })
+    effect.Batch(effects) -> effect.Batch(list.map(effects, wrap_http_requests))
+    _ -> effect
+  }
+}
 
-  #(
-    new_model,
-    lustre_effect.from(fn(dispatch) { effect.run(custom_effect, dispatch) }),
-  )
+fn with_auth_redirect(result: #(Model, Effect(Msg))) -> #(Model, Effect(Msg)) {
+  let #(model, effect) = result
+  #(model, wrap_http_requests(effect))
 }
 
 fn with_local_storage(result: #(Model, Effect(Msg))) -> #(Model, Effect(Msg)) {
@@ -158,6 +170,21 @@ fn with_local_storage(result: #(Model, Effect(Msg))) -> #(Model, Effect(Msg)) {
   #(
     model,
     effect.batch([effect, effect.SaveToStore(local_storage_key, model_json)]),
+  )
+}
+
+fn update_with_effect(
+  model: Model,
+  msg: Msg,
+) -> #(Model, lustre_effect.Effect(Msg)) {
+  let #(new_model, custom_effect) =
+    update(model, msg)
+    |> with_local_storage
+    |> with_auth_redirect
+
+  #(
+    new_model,
+    lustre_effect.from(fn(dispatch) { effect.run(custom_effect, dispatch) }),
   )
 }
 
@@ -183,7 +210,8 @@ pub fn view(model: Model) -> Element(Msg) {
 // ---------
 
 pub fn main() {
-  let #(init_model, init_effect) = init(Nil)
+  let #(init_model, init_effect) =
+    init(Nil) |> with_local_storage |> with_auth_redirect
 
   let app =
     lustre.application(
