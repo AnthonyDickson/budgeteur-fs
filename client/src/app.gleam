@@ -1,12 +1,20 @@
 import budgeteur/effect.{type Effect}
+import budgeteur/out_msg.{type OutMsg}
 import budgeteur/route
+import budgeteur/toast.{type Toast}
 import budgeteur/transactions/pages/view_all as transactions_view_all
-import gleam/io
 import gleam/json
-import gleam/string
+import gleam/list
+import gleam/option.{None, Some}
 import lustre
+import lustre/attribute
 import lustre/effect as lustre_effect
 import lustre/element.{type Element}
+import lustre/element/html
+import youid/uuid.{type Uuid}
+
+// Consts and Types
+// ----------------
 
 const local_storage_key = "budgeteur"
 
@@ -22,11 +30,11 @@ fn page_to_json(page: Page) -> json.Json {
 }
 
 pub type Model {
-  Model(page: Page)
+  Model(page: Page, toasts: List(Toast))
 }
 
 fn model_to_json(model: Model) -> json.Json {
-  let Model(page:) = model
+  let Model(page:, toasts: _) = model
   json.object([
     #("page", page_to_json(page)),
   ])
@@ -35,11 +43,15 @@ fn model_to_json(model: Model) -> json.Json {
 pub type Msg {
   UrlChanged(url: String)
   TransactionsViewAllMsg(transactions_view_all.Msg)
+  ToastDismissed(id: Uuid)
 }
+
+// Init
+// ----
 
 pub fn init(_flags) -> #(Model, Effect(Msg)) {
   let #(page_model, page_effect) = transactions_view_all.init()
-  let model = Model(page: TransactionsViewAllPage(page_model))
+  let model = Model(page: TransactionsViewAllPage(page_model), toasts: [])
 
   let effects =
     effect.batch([
@@ -52,43 +64,74 @@ pub fn init(_flags) -> #(Model, Effect(Msg)) {
   #(model, effects)
 }
 
+// Update
+// ------
+
+fn map_out_msg(
+  out_msg: OutMsg,
+  model: Model,
+  effect: Effect(Msg),
+) -> #(Model, Effect(Msg)) {
+  case out_msg {
+    out_msg.PageRequestedToast(title:, body:, dismiss_after_ms:) -> {
+      let toast = toast.Toast(id: uuid.v7(), title:, body:)
+      let model = Model(..model, toasts: [toast, ..model.toasts])
+      let effect = case dismiss_after_ms {
+        Some(delay) ->
+          effect.batch([
+            effect,
+            effect.After(delay, ToastDismissed(toast.id)),
+          ])
+        None -> effect
+      }
+      #(model, effect)
+    }
+  }
+}
+
+fn with_out_msgs(
+  update_output: #(Model, Effect(Msg)),
+  out_msgs: List(OutMsg),
+) -> #(Model, Effect(Msg)) {
+  case out_msgs {
+    [] -> update_output
+    [msg, ..other_msgs] -> {
+      let #(model, effect) = update_output
+      map_out_msg(msg, model, effect)
+      |> with_out_msgs(other_msgs)
+    }
+  }
+}
+
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg, model {
     UrlChanged(url), _ -> {
       case route.from_string(url) {
         _ -> #(
-          Model(page: TransactionsViewAllPage(transactions_view_all.Model([]))),
+          Model(
+            ..model,
+            page: TransactionsViewAllPage(transactions_view_all.Model([])),
+          ),
           effect.none(),
         )
       }
     }
     TransactionsViewAllMsg(inner_msg),
-      Model(page: TransactionsViewAllPage(inner_model))
+      Model(page: TransactionsViewAllPage(inner_model), ..)
     -> {
-      let #(inner_model, inner_effect) =
+      let #(inner_model, inner_effect, out_msgs) =
         transactions_view_all.update(inner_model, inner_msg)
+
       #(
-        Model(page: TransactionsViewAllPage(inner_model)),
+        Model(..model, page: TransactionsViewAllPage(inner_model)),
         effect.map(inner_effect, TransactionsViewAllMsg),
       )
+      |> with_out_msgs(out_msgs)
     }
-    _, _ -> {
-      io.println_error(
-        "Unhandled combination of message and state:\n"
-        <> string.inspect(msg)
-        <> "\n"
-        <> string.inspect(model),
-      )
-      #(model, effect.none())
+    ToastDismissed(id:), _ -> {
+      let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
+      #(Model(..model, toasts:), effect.none())
     }
-  }
-}
-
-pub fn view(model: Model) -> Element(Msg) {
-  case model.page {
-    TransactionsViewAllPage(inner_model) ->
-      transactions_view_all.view(inner_model)
-      |> element.map(TransactionsViewAllMsg)
   }
 }
 
@@ -118,6 +161,35 @@ fn with_local_storage(result: #(Model, Effect(Msg))) -> #(Model, Effect(Msg)) {
     effect.batch([effect, effect.SaveToStore(local_storage_key, model_json)]),
   )
 }
+
+// View
+// ----
+
+pub fn view(model: Model) -> Element(Msg) {
+  let page = case model.page {
+    TransactionsViewAllPage(inner_model) ->
+      transactions_view_all.view(inner_model)
+      |> element.map(TransactionsViewAllMsg)
+  }
+
+  let toasts =
+    html.div(
+      [
+        attribute.class(
+          "fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none",
+        ),
+      ],
+      list.map(model.toasts, toast.view(_, ToastDismissed)),
+    )
+
+  html.div([], [
+    page,
+    toasts,
+  ])
+}
+
+// Main Loop
+// ---------
 
 pub fn main() {
   let #(init_model, init_effect) = init(Nil)

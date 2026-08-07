@@ -12,7 +12,7 @@ pub fn view_all_accepts_empty_transactions_test() {
   let #(model, _effect) = view_all.init()
 
   // When the client reports an empty fetch result
-  let #(new_model, _effect) =
+  let #(new_model, _effect, _out_msgs) =
     view_all.update(model, view_all.ClientFetchedTransactions(Ok([])))
 
   // Then the model records the empty list

@@ -3,6 +3,7 @@ import budgeteur/api_route
 import budgeteur/auth_route
 import budgeteur/effect.{type Effect}
 import budgeteur/money
+import budgeteur/out_msg.{type OutMsg}
 import budgeteur/response
 import budgeteur/transactions/transaction.{type Transaction}
 import gleam/dynamic/decode
@@ -52,33 +53,27 @@ pub fn init() -> #(Model, Effect(Msg)) {
   #(Model(transactions: []), fetch_transactions())
 }
 
-pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
+pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), List(OutMsg)) {
   case msg {
     ClientFetchedTransactions(Ok(transactions)) -> #(
       Model(transactions:),
       effect.none(),
+      [],
     )
     ClientFetchedTransactions(Error(error)) ->
       case error.status_code {
-        Some(401) -> #(model, effect.Redirect(auth_route.login))
+        Some(401) -> #(model, effect.Redirect(auth_route.login), [])
         _ -> {
-          // TODO: Centralise toasts on app.gleam? Pros: keeps toasts an app level
-          // concern rather than page level. Cons: wiring between parent and child apps
-          //
-          // let toast =
-          //   Toast(
-          //     id: uuid.v7(),
-          //     title: "Could not sync todos",
-          //     body: "Falling back to local data",
-          //   )
-          // #(
-          //   Model(..model, toasts: list.append(model.toasts, [toast])),
-          //   effect.batch([
-          //     effect.LogError(api_error.describe(error)),
-          //     effect.After(5000, ToastDismissed(toast.id)),
-          //   ]),
-          // )
-          #(model, effect.LogError(api_error.describe(error)))
+          let title = "Could not sync transactions"
+          let body = "Falling back to local data"
+
+          #(model, effect.LogError(api_error.describe(error)), [
+            out_msg.PageRequestedToast(
+              title:,
+              body:,
+              dismiss_after_ms: Some(5000),
+            ),
+          ])
         }
       }
   }
