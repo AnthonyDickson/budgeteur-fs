@@ -63,16 +63,6 @@ module main =
     let TaggingQueue = table<TaggingQueue>
 
     [<CLIMutable>]
-    type Todos =
-        { Id: System.Guid
-          UserId: string
-          Title: string
-          Completed: bool
-          CreatedAt: int64 }
-
-    let Todos = table<Todos>
-
-    [<CLIMutable>]
     type Transactions =
         { Id: System.Guid
           UserId: string
