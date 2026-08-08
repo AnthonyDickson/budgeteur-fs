@@ -22,6 +22,14 @@ pub type Model {
   Model(transactions: List(Transaction))
 }
 
+pub fn model_decoder() -> decode.Decoder(Model) {
+  use transactions <- decode.field(
+    "transactions",
+    decode.list(transaction.transaction_decoder()),
+  )
+  decode.success(Model(transactions:))
+}
+
 pub fn model_to_json(model: Model) -> Json {
   let Model(transactions:) = model
   json.object([

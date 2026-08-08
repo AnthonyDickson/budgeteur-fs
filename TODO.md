@@ -1,7 +1,7 @@
 # TODO
 
-- Restore state from local storage on cold load
 - Round currency values from API requests to 2dp
+- Fix E2E tests
 
 ## CSV Parsing
 

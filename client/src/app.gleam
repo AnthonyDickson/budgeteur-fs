@@ -5,6 +5,7 @@ import budgeteur/out_msg.{type OutMsg}
 import budgeteur/route
 import budgeteur/toast.{type Toast}
 import budgeteur/transactions/pages/view_all as transactions_view_all
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option.{None, Some}
@@ -23,15 +24,41 @@ pub type Page {
   TransactionsViewAllPage(transactions_view_all.Model)
 }
 
+fn page_decoder() -> decode.Decoder(Page) {
+  use variant <- decode.field("type", decode.string)
+  case variant {
+    "transactions_view_all_page" -> {
+      use page_model <- decode.field(
+        "data",
+        transactions_view_all.model_decoder(),
+      )
+      decode.success(TransactionsViewAllPage(page_model))
+    }
+    _ ->
+      decode.failure(
+        TransactionsViewAllPage(transactions_view_all.Model([])),
+        "Page",
+      )
+  }
+}
+
 fn page_to_json(page: Page) -> json.Json {
   case page {
     TransactionsViewAllPage(inner_model) ->
-      transactions_view_all.model_to_json(inner_model)
+      json.object([
+        #("type", json.string("transactions_view_all_page")),
+        #("data", transactions_view_all.model_to_json(inner_model)),
+      ])
   }
 }
 
 pub type Model {
   Model(page: Page, toasts: List(Toast))
+}
+
+fn model_decoder() -> decode.Decoder(Model) {
+  use page <- decode.field("page", page_decoder())
+  decode.success(Model(page:, toasts: []))
 }
 
 fn model_to_json(model: Model) -> json.Json {
@@ -42,14 +69,29 @@ fn model_to_json(model: Model) -> json.Json {
 }
 
 pub type Msg {
+  ClientRestoredModel(Model)
   SessionExpired
   TransactionsViewAllMsg(transactions_view_all.Msg)
   ToastDismissed(id: Uuid)
   UrlChanged(url: String)
+  NoOp
 }
 
 // Init
 // ----
+
+fn restore_model_from_store() -> effect.Effect(Msg) {
+  effect.LoadFromStore(key: local_storage_key, callback: fn(store_result) {
+    case store_result {
+      Ok(value) ->
+        case json.parse(value, using: model_decoder()) {
+          Ok(model) -> ClientRestoredModel(model)
+          Error(_) -> NoOp
+        }
+      Error(_) -> NoOp
+    }
+  })
+}
 
 pub fn init(_flags) -> #(Model, Effect(Msg)) {
   let #(page_model, page_effect) = transactions_view_all.init()
@@ -57,7 +99,7 @@ pub fn init(_flags) -> #(Model, Effect(Msg)) {
 
   let effects =
     effect.batch([
-      // TODO: Restore state from local storage
+      restore_model_from_store(),
       effect.map(page_effect, TransactionsViewAllMsg),
       effect.init_routing(UrlChanged),
       effect.set_title("Budgeteur"),
@@ -107,6 +149,7 @@ fn with_out_msgs(
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg, model {
+    ClientRestoredModel(restored_model), _ -> #(restored_model, effect.none())
     UrlChanged(url), _ -> {
       case route.from_string(url) {
         _ -> #(
@@ -135,6 +178,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       #(Model(..model, toasts:), effect.none())
     }
     SessionExpired, _ -> #(model, effect.Redirect(auth_route.login))
+    NoOp, _ -> #(model, effect.none())
   }
 }
 
