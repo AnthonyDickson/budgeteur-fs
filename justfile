@@ -1,5 +1,7 @@
 RUNTIME := env_var_or_default("RUNTIME", "linux-x64")
 PUBLISH_DIR := env_var_or_default("PUBLISH_DIR", "server/src/Budgeteur/bin/Release/publish")
+VERSION := env_var_or_default("VERSION", "0.0.0-local")
+GIT_SHA := env_var_or_default("GIT_SHA", "")
 
 # Build the server
 server-build:
@@ -38,7 +40,8 @@ copy-client-dist: client-build
 publish: copy-client-dist
 	dotnet publish server/src/Budgeteur/Budgeteur.fsproj \
 		-c Release -r {{RUNTIME}} -o {{PUBLISH_DIR}} \
-		-p:PublishTrimmed=true -p:TrimMode=partial
+		-p:PublishTrimmed=true -p:TrimMode=partial \
+		-p:Version={{VERSION}} -p:SourceRevisionId={{GIT_SHA}}
 
 # Playwright E2E tests in Docker
 e2e-test:

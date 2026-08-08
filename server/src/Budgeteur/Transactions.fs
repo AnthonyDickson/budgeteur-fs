@@ -424,7 +424,5 @@ module Transactions =
     open Budgeteur.Auth
     open Budgeteur.Db
 
-    let endpoints (connectionString : string) =
-        QueryContextFactory.Create connectionString
-        |> Api.endpoints
-        |> Seq.map (addFilter Auth.requireAuth)
+    let endpoints (queryContext : QueryContextFactory) =
+        Api.endpoints queryContext |> Seq.map (addFilter Auth.requireAuth)

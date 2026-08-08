@@ -2,6 +2,7 @@ module Budgeteur.Program
 
 open System.Collections.Generic
 open System.ComponentModel.DataAnnotations
+open System.Diagnostics
 open System.Reflection
 open System.Threading.Tasks
 
@@ -20,13 +21,16 @@ open Oxpecker
 open Oxpecker.OpenApi
 open Scalar.AspNetCore
 open Serilog
+open Serilog.Events
 open Serilog.Formatting.Compact
 
 open Budgeteur.ApiError
 open Budgeteur.Auth
 open Budgeteur.Config
+open Budgeteur.Db
 open Budgeteur.Json
 open Budgeteur.OpenApi
+open Budgeteur.Status
 open Budgeteur.Transactions
 
 
@@ -150,8 +154,39 @@ let configureSerilog (loggingOptions : LoggingOptions) (ctx : HostBuilderContext
         |> Option.ofObj
         |> Option.filter (not << System.String.IsNullOrWhiteSpace)
 
-    config.MinimumLevel.Information().WriteTo.Console (RenderedCompactJsonFormatter ())
+    config.MinimumLevel.Information () |> ignore
+
+    // Filter out healthcheck noise for the status endpoint. Framework per-request logs
+    // (Microsoft.AspNetCore.Hosting.Diagnostics) carry no status code, so they are dropped
+    // whenever the path matches. The app's own buffered request-log summary does carry the
+    // status code, so only successful probes are dropped; failures (503) stay visible.
+    config.Filter.ByExcluding (fun (e : LogEvent) ->
+        let prop name =
+            match e.Properties.TryGetValue name with
+            | true, (:? ScalarValue as sv) -> string sv.Value
+            | _ -> ""
+
+        let source = prop "SourceContext"
+        let requestPath = prop "RequestPath"
+
+        let statusCode =
+            match e.Properties.TryGetValue "StatusCode" with
+            | true, (:? ScalarValue as sv) ->
+                match System.Int32.TryParse (string sv.Value) with
+                | true, code -> code
+                | _ -> 0
+            | _ -> 0
+
+        let isStatusProbe = requestPath.StartsWith Status.Api.Path
+
+        let isFrameworkLog =
+            source.StartsWith "Microsoft.AspNetCore"
+            || source.StartsWith "Microsoft.Hosting"
+
+        isStatusProbe && (isFrameworkLog || statusCode < 400))
     |> ignore
+
+    config.WriteTo.Console (RenderedCompactJsonFormatter ()) |> ignore
 
     match filePath with
     | Some path -> config.WriteTo.File (RenderedCompactJsonFormatter (), path) |> ignore
@@ -166,6 +201,19 @@ let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "10.0.0.0/8")
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "172.16.0.0/12")
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "192.168.0.0/16")
+
+let private buildEndpoints (connectionString : string) (loginReturnUrl : string) (app : WebApplication) =
+    let queryContext = QueryContextFactory.Create connectionString
+    let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime ()
+
+    let authEndpoints = Auth.endpoints loginReturnUrl
+    let transactionEndpoints = Transactions.endpoints queryContext
+
+    let statusEndpoints =
+        Status.endpoints connectionString app.Environment.EnvironmentName startedAt
+
+    Seq.concat [ authEndpoints; transactionEndpoints; statusEndpoints ]
+
 
 [<EntryPoint>]
 let main (args : string array) : int =
@@ -219,10 +267,6 @@ let main (args : string array) : int =
     let loginReturnUrl =
         loginOptions.ReturnUrl |> Option.ofObj |> Option.defaultValue "/"
 
-    let authEndpoints = Auth.endpoints loginReturnUrl
-    let transactionEndpoints = Transactions.endpoints connectionString
-    let allEndpoints = Seq.concat [ authEndpoints; transactionEndpoints ]
-
     app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
     |> ignore
 
@@ -239,7 +283,7 @@ let main (args : string array) : int =
     |> ignore
 
     app.UseAuthorization () |> ignore
-    app.UseOxpecker allEndpoints |> ignore
+    app.UseOxpecker (buildEndpoints connectionString loginReturnUrl app) |> ignore
 
     // Run the vite dev server for accessing the SPA bundle in the dev environment.
     if not isDevelopment then

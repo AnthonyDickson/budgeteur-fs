@@ -159,7 +159,7 @@ module Middleware =
 
                     logger.Write (
                         serilogLevel,
-                        "{Method} {Path} {StatusCode} {ElapsedMs} {RequestId} {UserId} {@Log}",
+                        "{Method} {RequestPath} {StatusCode} {ElapsedMs} {RequestId} {UserId} {@Log}",
                         ctx.Request.Method,
                         ctx.Request.Path.Value,
                         ctx.Response.StatusCode,

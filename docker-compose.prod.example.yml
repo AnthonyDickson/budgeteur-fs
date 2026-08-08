@@ -23,7 +23,7 @@ services:
       - todos-data:/data
       - logs-data:/logs
     healthcheck:
-      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/5000"]
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:5000/api/status"]
       interval: 30s
       timeout: 5s
       retries: 3

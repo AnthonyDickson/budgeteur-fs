@@ -1,3 +1,4 @@
+# =====Build===== #
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 
 RUN apt-get update \
@@ -38,7 +39,11 @@ COPY ./justfile ./
 COPY ./server ./server
 COPY ./client ./client
 ARG RUNTIME=linux-x64
-RUN RUNTIME=${RUNTIME} PUBLISH_DIR=/publish just publish
+ARG APP_VERSION=0.0.0-local
+ARG GIT_SHA=""
+RUN RUNTIME=${RUNTIME} PUBLISH_DIR=/publish VERSION=${APP_VERSION} GIT_SHA=${GIT_SHA} just publish
+
+# =====Runtime===== #
 
 FROM debian:stable-slim AS runtime
 

@@ -15,7 +15,10 @@ module Extra =
             | Error _ -> Decode.float path value |> Result.map int64
             |> Result.map (fun s -> DateTimeOffset.FromUnixTimeSeconds(s).UtcDateTime)
 
-        Extra.empty |> Extra.withCustom encoder decoder |> Extra.withDecimal
+        Extra.empty
+        |> Extra.withCustom encoder decoder
+        |> Extra.withDecimal
+        |> Extra.withInt64
 
 module Decode =
     let inline cachedDecoder<'T> : Decoder<'T> =
