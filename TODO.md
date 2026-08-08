@@ -1,5 +1,10 @@
 # TODO
 
+- Kiwibank statements have enough info to auto tag internal transfers without dedicated rule
+    - If the both the source and target account numbers are in the user's accounts, then you can tag as an internal transfer.
+    - This should only apply on import, manual imports must be manually categorised.
+    - May want user setting around which category to use for internal transfer, or hardcode and force user to use it.
+    - Initial imports will be missed if the accounts are not added beforehand
 - Fix E2E tests
 
 ## CSV Parsing

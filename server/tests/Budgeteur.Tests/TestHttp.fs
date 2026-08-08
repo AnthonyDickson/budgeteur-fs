@@ -9,16 +9,16 @@ open Budgeteur.Coders
 module TestHttp =
 
     let postJson (client : HttpClient) (url : string) (value : 'T) =
-        let json = Encode.toString value
+        let json = Encode.toStringAuto value
         let content = new StringContent (json, Encoding.UTF8, "application/json")
         client.PostAsync (url, content)
 
     let putJson (client : HttpClient) (url : string) (value : 'T) =
-        let json = Encode.toString value
+        let json = Encode.toStringAuto value
         let content = new StringContent (json, Encoding.UTF8, "application/json")
         client.PutAsync (url, content)
 
     let patchJson (client : HttpClient) (url : string) (value : 'T) =
-        let json = Encode.toString value
+        let json = Encode.toStringAuto value
         let content = new StringContent (json, Encoding.UTF8, "application/json")
         client.PatchAsync (url, content)

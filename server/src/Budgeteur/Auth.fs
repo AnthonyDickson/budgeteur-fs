@@ -47,7 +47,7 @@ module Auth =
 
                     return!
                         ctx.Response.WriteAsync (
-                            Encode.toString {
+                            Encode.toStringAuto {
                                 Error = "Unauthorized"
                                 Details = "Authentication required"
                                 StatusCode = Some 401

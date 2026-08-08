@@ -3,20 +3,28 @@
 -- https://github.com/JordanMarr/SqlHydra/blob/main/src/SqlHydra.Cli/Sqlite/SqliteDataTypes.fs
 -- for the full list of supported types.
 
+-- # DATETIME Special Handling
+-- 
+-- DATETIME columns are stored without offset info and by default will be loaded
+-- with the `Unspecified` offset. In general, DATETIME values are assumed to be
+-- UTC and any deviation from this should be clearly documented.
+-- When writing to this column ensure the value is in UTC.
+-- When reading this column, set the offset to UTC via DateTime.SpecifyKind.
+
 -- Accounts
 
 CREATE TABLE Accounts (
     -- v7 UUID
-    Id        GUID     NOT NULL PRIMARY KEY,
-    UserId    TEXT     NOT NULL,
+    Id          GUID     NOT NULL PRIMARY KEY,
+    UserId      TEXT     NOT NULL,
     -- The account number from a bank statement
-    Number    TEXT     NOT NULL,
+    Number      TEXT     NOT NULL,
     -- The account name, defaults to the account number. May be set by the user to a custom name.
-    Name      TEXT     NOT NULL,
+    Name        TEXT     NOT NULL,
     -- The amount of money held in the account. Positive values indicate credit whereas negative values indicate debit.
-    Balance   CURRENCY NOT NULL,
-    -- When the balance snapshot was taken (the date the balance is accurate as of) as a Unix timestamp in seconds
-    CurrentAsOf INTEGER  NOT NULL
+    Balance     CURRENCY NOT NULL,
+    -- When the balance snapshot was taken (the date the balance is accurate as of).
+    CurrentAsOf DATETIME NOT NULL
 );
 
 CREATE INDEX IX_Accounts_UserId on Accounts(UserId);
@@ -36,16 +44,16 @@ CREATE INDEX IX_Categories_UserId on Categories(UserId);
 
 CREATE TABLE Transactions (
     -- Expected to be v7 UUIDs for better sorting and performance
-    Id          GUID     NOT NULL PRIMARY KEY,
+    Id          GUID      NOT NULL PRIMARY KEY,
     -- User IDs are likely GUIDs, but we play it safe by not making any assumptions
     -- since the identity provider chooses the format.
-    UserId      TEXT     NOT NULL,
+    UserId      TEXT      NOT NULL,
     -- The currency amount of income or expenses
-    Amount      CURRENCY NOT NULL,
+    Amount      CURRENCY  NOT NULL,
     -- A text description of the transaction either manually entered by the user or derived from a CSV row.
-    Description TEXT     NOT NULL,
-    -- When the transaction occurred as a Unix timestamp in seconds
-    Date        INTEGER  NOT NULL,
+    Description TEXT      NOT NULL,
+    -- When the transaction occurred.
+    Date        DATETIME  NOT NULL,
     -- The account associated with the transaction.
     -- NULL indicates the account info is not available or not applicable (e.g., cash).
     AccountId   GUID,
@@ -79,10 +87,10 @@ CREATE INDEX IX_Rules_UserId ON Rules(UserId);
 -- Tagging Queue
 
 CREATE TABLE TaggingQueue (
-    TransactionId GUID    NOT NULL PRIMARY KEY,
-    UserId        TEXT    NOT NULL,
-    -- When the transaction was added to the queue as Unix timestamp in seconds, used for sorting the queue.
-    CreatedAt     INTEGER NOT NULL,
+    TransactionId GUID     NOT NULL PRIMARY KEY,
+    UserId        TEXT     NOT NULL,
+    -- When the transaction was added to the queue, used for sorting the queue.
+    CreatedAt     DATETIME NOT NULL,
     FOREIGN KEY(TransactionId) REFERENCES Transactions(Id) ON DELETE CASCADE
 );
 

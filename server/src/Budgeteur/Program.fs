@@ -31,7 +31,7 @@ open Budgeteur.Db
 open Budgeteur.Json
 open Budgeteur.OpenApi
 open Budgeteur.Status
-open Budgeteur.Transactions
+open Budgeteur.Transaction
 
 
 let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Options) =
@@ -41,10 +41,6 @@ let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAut
     builder.Services.AddOpenApi (fun options ->
         options.AddSchemaTransformer<FSharpOptionSchemaTransformer> () |> ignore
         options.AddSchemaTransformer<OpenApi.FSharpRecordSchemaTransformer> () |> ignore
-
-        options.AddSchemaTransformer<OpenApi.DateTimeAsUnixTimestampTransformer> ()
-        |> ignore
-
         options.AddSchemaTransformer<OpenApi.XmlDocSchemaTransformer> () |> ignore
 
         options.AddDocumentTransformer (fun doc _ _ ->
@@ -202,18 +198,21 @@ let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "172.16.0.0/12")
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "192.168.0.0/16")
 
+
+let private withAuth endpoints =
+    Seq.map (addFilter Auth.requireAuth) endpoints
+
 let private buildEndpoints (connectionString : string) (loginReturnUrl : string) (app : WebApplication) =
     let queryContext = QueryContextFactory.Create connectionString
     let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime ()
 
     let authEndpoints = Auth.endpoints loginReturnUrl
-    let transactionEndpoints = Transactions.endpoints queryContext
+    let transactionEndpoints = Transaction.Api.endpoints queryContext |> withAuth
 
     let statusEndpoints =
         Status.endpoints connectionString app.Environment.EnvironmentName startedAt
 
     Seq.concat [ authEndpoints; transactionEndpoints; statusEndpoints ]
-
 
 [<EntryPoint>]
 let main (args : string array) : int =

@@ -65,7 +65,6 @@ Management — versions in `Directory.Packages.props`.
 - [Client Architecture](docs/client-architecture.md)
 - [Database](docs/database.md)
 - [Deployment](docs/deployment.md)
-- [JSON Serialization](docs/json-serialization.md)
 - [Production OIDC Setup](docs/prod-oidc-setup.md)
 - [Server Tests](docs/server-tests.md)
 - [E2E Tests](docs/e2e-tests.md)

@@ -18,7 +18,7 @@ module main =
           Number: string
           Name: string
           Balance: decimal
-          CurrentAsOf: int64 }
+          CurrentAsOf: System.DateTime }
 
     let Accounts = table<Accounts>
 
@@ -58,7 +58,7 @@ module main =
     type TaggingQueue =
         { TransactionId: System.Guid
           UserId: string
-          CreatedAt: int64 }
+          CreatedAt: System.DateTime }
 
     let TaggingQueue = table<TaggingQueue>
 
@@ -68,7 +68,7 @@ module main =
           UserId: string
           Amount: decimal
           Description: string
-          Date: int64
+          Date: System.DateTime
           AccountId: Option<System.Guid>
           ImportHash: Option<string>
           CategoryId: Option<System.Guid> }

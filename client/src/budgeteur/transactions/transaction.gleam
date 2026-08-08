@@ -1,4 +1,5 @@
 import budgeteur/money
+import gleam/time/calendar
 
 import gleam/dynamic/decode
 import gleam/json
@@ -26,15 +27,20 @@ fn uuid_decoder() -> decode.Decoder(Uuid) {
   decode.string
   |> decode.then(fn(s) {
     case uuid.from_string(s) {
-      Ok(u) -> decode.success(u)
+      Ok(uuid) -> decode.success(uuid)
       Error(Nil) -> decode.failure(uuid.nil, "Uuid")
     }
   })
 }
 
 fn timestamp_decoder() -> decode.Decoder(Timestamp) {
-  decode.int
-  |> decode.then(fn(s) { decode.success(timestamp.from_unix_seconds(s)) })
+  decode.string
+  |> decode.then(fn(datetime_string) {
+    case timestamp.parse_rfc3339(datetime_string) {
+      Ok(timestamp) -> decode.success(timestamp)
+      Error(Nil) -> decode.failure(timestamp.unix_epoch, "Timestamp")
+    }
+  })
 }
 
 pub fn transaction_decoder() -> decode.Decoder(Transaction) {
@@ -82,7 +88,7 @@ pub fn transaction_to_json(transaction: Transaction) -> json.Json {
     #("id", json.string(uuid.to_string(id))),
     #("amount", money.encode_decimal(amount)),
     #("description", json.string(description)),
-    #("date", json.float(timestamp.to_unix_seconds(date))),
+    #("date", json.string(timestamp.to_rfc3339(date, calendar.utc_offset))),
     #("import_hash", case import_hash {
       None -> json.null()
       option.Some(value) -> json.string(value)

@@ -21,7 +21,16 @@
     <Compile Include="Json.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Endpoint.fs" />
-    <Compile Include="Transactions.fs" />
+    <!-- Transaction Feature Slice -->
+    <Compile Include="Transaction/Transaction.fs" />
+    <Compile Include="Transaction/Validation.fs" />
+    <Compile Include="Transaction/Endpoints/Create.fs" />
+    <Compile Include="Transaction/Endpoints/Read.fs" />
+    <Compile Include="Transaction/Endpoints/ReadAll.fs" />
+    <Compile Include="Transaction/Endpoints/Update.fs" />
+    <Compile Include="Transaction/Endpoints/Delete.fs" />
+    <Compile Include="Transaction/Api.fs" />
+    <!-- END Transaction Feature Slice -->
     <Compile Include="Status.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

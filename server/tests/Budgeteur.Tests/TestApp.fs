@@ -37,7 +37,7 @@ module TestAppConfig =
     let withTransactions (config : TestAppConfig) = {
         config with
             EndpointProviders =
-                (fun connStr -> QueryContextFactory.Create connStr |> Transactions.Api.endpoints)
+                (fun connStr -> QueryContextFactory.Create connStr |> Transaction.Api.endpoints)
                 :: config.EndpointProviders
             CleanTables = "Transactions" :: config.CleanTables
     }
@@ -53,6 +53,7 @@ type TestApp = {
 
 module TestApp =
     open Budgeteur.RequestLogging
+    open Budgeteur.Transaction
 
     /// Create an app server with an in-memory SQLite database
     let create (config : TestAppConfig) =
@@ -72,7 +73,8 @@ module TestApp =
         let result =
             DbUp.DeployChanges.To
                 .SqliteDatabase(connectionString)
-                .WithScriptsEmbeddedInAssembly(typeof<Budgeteur.Transactions.Transaction>.Assembly)
+                // We need to access server assembly for the migration scripts.
+                .WithScriptsEmbeddedInAssembly(typeof<Transaction>.Assembly)
                 .Build()
                 .PerformUpgrade ()
 

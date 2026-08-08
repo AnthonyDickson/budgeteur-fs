@@ -1,22 +1,25 @@
 namespace Budgeteur.Json
 
-open System.IO
-open System.Text
-open Microsoft.AspNetCore.Http
-open Budgeteur.DomainError
-open Budgeteur.Coders
-
 /// <summary>HTTP helpers for reading and writing JSON payloads.</summary>
 module Json =
+    open System.IO
+    open System.Text
+
+    open Microsoft.AspNetCore.Http
+    open Thoth.Json.Net
+
+    open Budgeteur.DomainError
+    open Budgeteur.Coders
+
     let write (ctx : HttpContext) (object : 'T) =
         task {
             ctx.Response.ContentType <- "application/json; charset=utf-8"
-            return! ctx.Response.WriteAsync (Encode.toString object)
+            return! ctx.Response.WriteAsync (Encode.toStringAuto object)
         }
 
     let read (ctx : HttpContext) =
         task {
             use reader = new StreamReader (ctx.Request.Body, Encoding.UTF8)
             let! body = reader.ReadToEndAsync ()
-            return Decode.fromString body |> Result.mapError ValidationFailed
+            return Decode.fromStringAuto body |> Result.mapError ValidationFailed
         }
