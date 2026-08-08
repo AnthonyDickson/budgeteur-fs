@@ -1,6 +1,5 @@
 # TODO
 
-- Round currency values from API requests to 2dp
 - Fix E2E tests
 
 ## CSV Parsing

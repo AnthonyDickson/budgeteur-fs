@@ -99,6 +99,10 @@ module Api =
     open Budgeteur.Json
     open Budgeteur.RequestLogging
 
+    /// Round a monetary value to the nearest 2 dp to account for floating point inaccuracies from API format (float).
+    let private round currency =
+        Decimal.Round (currency, decimals = 2, mode = MidpointRounding.AwayFromZero)
+
     module GetAll =
         [<Literal>]
         let Path = "/api/transactions"
@@ -233,7 +237,7 @@ module Api =
 
                     let transaction = {
                         Id = Guid.NewGuid ()
-                        Amount = req.Amount
+                        Amount = round req.Amount
                         Description = description
                         Date = req.Date
                         ImportHash = None
@@ -317,7 +321,7 @@ module Api =
                     // The URL owns resource identity; the validated body supplies the mutable fields.
                     let transaction = {
                         Id = id
-                        Amount = req.Amount
+                        Amount = round req.Amount
                         Description = description
                         Date = req.Date
                         ImportHash = None
