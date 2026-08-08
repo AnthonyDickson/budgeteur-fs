@@ -18,6 +18,12 @@ open Budgeteur.DomainError
 
 [<RequireQualifiedAccess>]
 module Auth =
+    [<Literal>]
+    let private LoginPath = "/login"
+
+    [<Literal>]
+    let private LogoutPath = "/logout"
+
     let private policyName = "authenticated"
 
     let private polAuthScheme = "polAuth"
@@ -91,7 +97,7 @@ module Auth =
                     options.Cookie.SameSite <- SameSiteMode.Lax
                     options.Cookie.HttpOnly <- true
                     options.Cookie.IsEssential <- true
-                    options.LoginPath <- "/login"
+                    options.LoginPath <- LoginPath
                     options.ExpireTimeSpan <- TimeSpan.FromHours 1
                     options.SlidingExpiration <- true
             )
@@ -174,7 +180,10 @@ module Auth =
             }
 
     let endpoints (loginReturnUrl : string) : Oxpecker.RoutingTypes.Endpoint seq = [
-        GET [ route "/login" (loginHandler loginReturnUrl); route "/logout" logoutHandler ]
+        GET [
+            route LoginPath (loginHandler loginReturnUrl)
+            route LogoutPath logoutHandler
+        ]
     ]
 
     let getUserId (ctx : HttpContext) : Result<string, DomainError> =
