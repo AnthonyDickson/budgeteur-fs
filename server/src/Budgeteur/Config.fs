@@ -3,9 +3,10 @@ namespace Budgeteur.Config
 open System.ComponentModel.DataAnnotations
 open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Options
 
 [<CLIMutable>]
-type OidcOptions = {
+type OidcConfig = {
     [<Required>]
     Authority : string
 
@@ -22,7 +23,7 @@ type OidcOptions = {
 }
 
 [<CLIMutable>]
-type OAuth2Options = {
+type OAuth2Config = {
     [<Required>]
     ClientId : string
 
@@ -34,48 +35,79 @@ type OAuth2Options = {
 }
 
 [<CLIMutable>]
-type LoginOptions = { ReturnUrl : string }
+type LoginConfig = {
+    [<Required>]
+    ReturnUrl : string
+}
 
 [<CLIMutable>]
-type LoggingOptions = { FilePath : string }
+type LoggingConfig = { FilePath : string }
+
+type AppConfig = {
+    ConnectionString : string
+    Oidc : OidcConfig
+    Oauth2 : OAuth2Config option
+    Login : LoginConfig
+    Logging : LoggingConfig
+}
 
 module Config =
-    let readSection<'T when 'T : not struct and 'T : (new : unit -> 'T)>
+    [<Literal>]
+    let private ConnectionName = "Default"
+
+    [<Literal>]
+    let private OidcSectionName = "Oidc"
+
+    [<Literal>]
+    let private Oauth2SectionName = "OAuth2"
+
+    [<Literal>]
+    let private LoginSectionName = "Login"
+
+    [<Literal>]
+    let private LoggingSectionName = "Logging"
+
+    let private register<'T when 'T : not struct and 'T : (new : unit -> 'T)>
         (services : IServiceCollection)
         (config : IConfiguration)
         (sectionName : string)
         =
-        let section = config.GetSection sectionName
-        let value = new 'T ()
-        section.Bind value
-
-        let results = ResizeArray<ValidationResult> ()
-
-        if
-            not (Validator.TryValidateObject (value, ValidationContext value, results, validateAllProperties = true))
-        then
-            let messages =
-                results
-                |> Seq.map (fun r ->
-                    let names =
-                        if r.MemberNames |> Seq.isEmpty then
-                            sectionName
-                        else
-                            r.MemberNames |> String.concat ", "
-
-                    $"  - {names}: {r.ErrorMessage}")
-                |> String.concat "\n"
-
-            failwith (
-                String.concat "\n" [
-                    $"Configuration validation failed for section '{sectionName}':"
-                    messages
-                    ""
-                    "Ensure the required settings are present in appsettings or environment variables."
-                ]
-            )
-
-        services.AddOptions<'T>().Bind(section).ValidateDataAnnotations().ValidateOnStart ()
+        services.AddOptions<'T>().Bind(config.GetSection sectionName).ValidateDataAnnotations().ValidateOnStart ()
         |> ignore
 
-        value
+    /// Raises `OptionsValidationException` for missing or invalid config entries.
+    let private read<'T when 'T : not struct and 'T : (new : unit -> 'T)>
+        (config : IConfiguration)
+        (sectionName : string)
+        : 'T =
+        let value = config.GetSection(sectionName).Get<'T> ()
+        let validator = DataAnnotationValidateOptions<'T> Options.DefaultName
+        let result = validator.Validate (Options.DefaultName, value)
+
+        if result.Succeeded then
+            value
+        else
+            raise (OptionsValidationException (sectionName, typeof<'T>, result.Failures))
+
+    let private sectionExists (config : IConfiguration) (name : string) = (config.GetSection name).Exists ()
+
+    /// Raises `OptionsValidationException` for missing or invalid config entries.
+    let load (services : IServiceCollection) (config : IConfiguration) : AppConfig =
+        register<OidcConfig> services config OidcSectionName
+        register<LoginConfig> services config LoginSectionName
+        register<LoggingConfig> services config LoggingSectionName
+
+        let oauthOptions =
+            if sectionExists config Oauth2SectionName then
+                register<OAuth2Config> services config Oauth2SectionName
+                Some (read config Oauth2SectionName)
+            else
+                None
+
+        {
+            ConnectionString = config.GetConnectionString ConnectionName
+            Oidc = read config OidcSectionName
+            Oauth2 = oauthOptions
+            Login = read config LoginSectionName
+            Logging = read config LoggingSectionName
+        }

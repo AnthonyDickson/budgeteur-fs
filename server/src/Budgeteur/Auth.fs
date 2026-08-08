@@ -64,7 +64,7 @@ module Auth =
 
     let requireAuth : EndpointMiddleware = requirePolicy policyName
 
-    let configureServices (services : IServiceCollection) (isDevelopment : bool) (oidc : OidcOptions) =
+    let configureServices (services : IServiceCollection) (isDevelopment : bool) (oidc : OidcConfig) =
         services
             // ASP.NET Core only authenticates with DefaultScheme per request.
             // Since the SPA uses cookies but Scalar API docs use Bearer tokens,
