@@ -22,7 +22,7 @@ module EndpointTests =
         Amount = amount
         Description = description
         // Aligned to whole seconds, matching the epoch-second precision used for storage.
-        Date = DateTime (2026, 3, 8, 12, 30, 0, DateTimeKind.Utc)
+        Date = DateOnly (2026, 3, 8)
     }
 
     let newApp () =

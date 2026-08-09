@@ -6,7 +6,7 @@ open System
 type CreateTransactionRequest = {
     Amount : decimal
     Description : string
-    Date : DateTime
+    Date : DateOnly
 }
 
 module Create =

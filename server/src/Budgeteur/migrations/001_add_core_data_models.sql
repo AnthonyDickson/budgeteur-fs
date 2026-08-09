@@ -2,7 +2,15 @@
 -- they act as hints to SqlHydra for codegen, see
 -- https://github.com/JordanMarr/SqlHydra/blob/main/src/SqlHydra.Cli/Sqlite/SqliteDataTypes.fs
 -- for the full list of supported types.
-
+--
+-- # Column Type Assumptions
+-- GUIDs are assumed to be v7 UUIDs
+-- DATE columns are assumed to be in local time, although for a budgeting app
+-- the distinction does not matter too much. The discrepancy between local dates
+-- and UTC timestamps does not matter too much either since dates are used
+-- consistently for user-facing data and timestamps are only used internally for
+-- sorting queues.
+--
 -- # DATETIME Special Handling
 -- 
 -- DATETIME columns are stored without offset info and by default will be loaded
@@ -24,7 +32,7 @@ CREATE TABLE Accounts (
     -- The amount of money held in the account. Positive values indicate credit whereas negative values indicate debit.
     Balance     CURRENCY NOT NULL,
     -- When the balance snapshot was taken (the date the balance is accurate as of).
-    CurrentAsOf DATETIME NOT NULL
+    CurrentAsOf DATE     NOT NULL
 );
 
 CREATE INDEX IX_Accounts_UserId on Accounts(UserId);
@@ -44,16 +52,16 @@ CREATE INDEX IX_Categories_UserId on Categories(UserId);
 
 CREATE TABLE Transactions (
     -- Expected to be v7 UUIDs for better sorting and performance
-    Id          GUID      NOT NULL PRIMARY KEY,
+    Id          GUID     NOT NULL PRIMARY KEY,
     -- User IDs are likely GUIDs, but we play it safe by not making any assumptions
     -- since the identity provider chooses the format.
-    UserId      TEXT      NOT NULL,
+    UserId      TEXT     NOT NULL,
     -- The currency amount of income or expenses
-    Amount      CURRENCY  NOT NULL,
+    Amount      CURRENCY NOT NULL,
     -- A text description of the transaction either manually entered by the user or derived from a CSV row.
-    Description TEXT      NOT NULL,
+    Description TEXT     NOT NULL,
     -- When the transaction occurred.
-    Date        DATETIME  NOT NULL,
+    Date        DATE     NOT NULL,
     -- The account associated with the transaction.
     -- NULL indicates the account info is not available or not applicable (e.g., cash).
     AccountId   GUID,

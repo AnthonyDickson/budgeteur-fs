@@ -28,7 +28,7 @@ pub fn decode_decimal() -> decode.Decoder(Float) {
 pub fn encode_decimal(amount: Float) -> json.Json {
   // Encode the amount as a string since the backend expects a decimal value.
   // This avoids having to write custom decoders.
-  json.string(amount |> float.to_precision(2) |> float.to_string)
+  amount |> float.to_precision(2) |> float.to_string |> json.string
 }
 
 /// Format a monetary amount.

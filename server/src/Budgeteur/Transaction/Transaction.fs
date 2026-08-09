@@ -14,7 +14,7 @@ type Transaction = {
     Description : string
 
     /// <summary>Date when the transaction occurred (UTC).</summary>
-    Date : DateTime
+    Date : DateOnly
 
     /// <summary>The bank account associated with this transaction.</summary>
     AccountId : Option<Guid>
@@ -33,7 +33,7 @@ module Transaction =
         UserId = userId
         Amount = transaction.Amount
         Description = transaction.Description
-        Date = transaction.Date.ToUniversalTime ()
+        Date = transaction.Date
         AccountId = transaction.AccountId
         ImportHash = importHash
         CategoryId = transaction.CategoryId
@@ -43,7 +43,7 @@ module Transaction =
         Id = row.Id
         Amount = row.Amount
         Description = row.Description
-        Date = DateTime.SpecifyKind (row.Date, DateTimeKind.Utc)
+        Date = row.Date
         AccountId = row.AccountId
         CategoryId = row.CategoryId
     }

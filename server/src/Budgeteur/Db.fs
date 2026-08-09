@@ -18,7 +18,7 @@ module main =
           Number: string
           Name: string
           Balance: decimal
-          CurrentAsOf: System.DateTime }
+          CurrentAsOf: System.DateOnly }
 
     let Accounts = table<Accounts>
 
@@ -68,7 +68,7 @@ module main =
           UserId: string
           Amount: decimal
           Description: string
-          Date: System.DateTime
+          Date: System.DateOnly
           AccountId: Option<System.Guid>
           ImportHash: Option<string>
           CategoryId: Option<System.Guid> }

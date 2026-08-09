@@ -11,10 +11,8 @@ import gleam/int
 import gleam/json.{type Json}
 import gleam/list
 import gleam/option.{Some}
-import gleam/pair
 import gleam/string
-import gleam/time/calendar
-import gleam/time/timestamp.{type Timestamp}
+import gleam/time/calendar.{type Date}
 import lustre/element.{type Element}
 import lustre/element/html
 
@@ -90,12 +88,7 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn timestamp_to_naive_date_string(timestamp: Timestamp) -> String {
-  let date =
-    timestamp
-    |> timestamp.to_calendar(calendar.local_offset())
-    |> pair.first
-
+fn format_date(date: Date) -> String {
   let year = date.year |> int.to_string
   let month =
     date.month
@@ -129,7 +122,7 @@ fn transactions_table(
           list.map(transactions, fn(transaction) {
             html.tr([], [
               html.td([], [
-                html.text(transaction.date |> timestamp_to_naive_date_string),
+                html.text(transaction.date |> format_date),
               ]),
               html.td([], [
                 html.text(transaction.amount |> money.format),

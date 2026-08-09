@@ -6,7 +6,7 @@ open System
 type UpdateTransactionRequest = {
     Amount : decimal
     Description : string
-    Date : DateTime
+    Date : DateOnly
 }
 
 module Update =
