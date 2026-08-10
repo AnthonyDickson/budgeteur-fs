@@ -4,7 +4,7 @@ import budgeteur/http_effect
 import budgeteur/out_msg.{type OutMsg}
 import budgeteur/route
 import budgeteur/toast.{type Toast}
-import budgeteur/transactions/pages/view_all as transactions_view_all
+import budgeteur/transactions/transactions_page
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
@@ -20,34 +20,29 @@ import youid/uuid.{type Uuid}
 
 const local_storage_key = "budgeteur"
 
+const transactions_page_key = "transactions_page"
+
 pub type Page {
-  TransactionsViewAllPage(transactions_view_all.Model)
+  TransactionsPage(transactions_page.Model)
 }
 
 fn page_decoder() -> decode.Decoder(Page) {
   use variant <- decode.field("type", decode.string)
   case variant {
-    "transactions_view_all_page" -> {
-      use page_model <- decode.field(
-        "data",
-        transactions_view_all.model_decoder(),
-      )
-      decode.success(TransactionsViewAllPage(page_model))
+    _ if variant == transactions_page_key -> {
+      use page_model <- decode.field("data", transactions_page.model_decoder())
+      decode.success(TransactionsPage(page_model))
     }
-    _ ->
-      decode.failure(
-        TransactionsViewAllPage(transactions_view_all.Model([])),
-        "Page",
-      )
+    _ -> decode.failure(TransactionsPage(transactions_page.Model([])), "Page")
   }
 }
 
 fn page_to_json(page: Page) -> json.Json {
   case page {
-    TransactionsViewAllPage(inner_model) ->
+    TransactionsPage(model) ->
       json.object([
-        #("type", json.string("transactions_view_all_page")),
-        #("data", transactions_view_all.model_to_json(inner_model)),
+        #("type", json.string(transactions_page_key)),
+        #("data", transactions_page.model_to_json(model)),
       ])
   }
 }
@@ -71,7 +66,7 @@ fn model_to_json(model: Model) -> json.Json {
 pub type Msg {
   ClientRestoredModel(Model)
   SessionExpired
-  TransactionsViewAllMsg(transactions_view_all.Msg)
+  TransactionsPageMsg(transactions_page.Msg)
   ToastDismissed(id: Uuid)
   UrlChanged(url: String)
   NoOp
@@ -94,13 +89,13 @@ fn restore_model_from_store() -> effect.Effect(Msg) {
 }
 
 pub fn init(_flags) -> #(Model, Effect(Msg)) {
-  let #(page_model, page_effect) = transactions_view_all.init()
-  let model = Model(page: TransactionsViewAllPage(page_model), toasts: [])
+  let #(page_model, page_effect) = transactions_page.init()
+  let model = Model(page: TransactionsPage(page_model), toasts: [])
 
   let effects =
     effect.batch([
       restore_model_from_store(),
-      effect.map(page_effect, TransactionsViewAllMsg),
+      effect.map(page_effect, TransactionsPageMsg),
       effect.init_routing(UrlChanged),
       effect.set_title("Budgeteur"),
     ])
@@ -153,23 +148,20 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     UrlChanged(url), _ -> {
       case route.from_string(url) {
         _ -> #(
-          Model(
-            ..model,
-            page: TransactionsViewAllPage(transactions_view_all.Model([])),
-          ),
+          Model(..model, page: TransactionsPage(transactions_page.Model([]))),
           effect.none(),
         )
       }
     }
-    TransactionsViewAllMsg(inner_msg),
-      Model(page: TransactionsViewAllPage(inner_model), ..)
+    TransactionsPageMsg(inner_msg),
+      Model(page: TransactionsPage(inner_model), ..)
     -> {
       let #(inner_model, inner_effect, out_msgs) =
-        transactions_view_all.update(inner_model, inner_msg)
+        transactions_page.update(inner_model, inner_msg)
 
       #(
-        Model(..model, page: TransactionsViewAllPage(inner_model)),
-        effect.map(inner_effect, TransactionsViewAllMsg),
+        Model(..model, page: TransactionsPage(inner_model)),
+        effect.map(inner_effect, TransactionsPageMsg),
       )
       |> with_out_msgs(out_msgs)
     }
@@ -237,9 +229,9 @@ fn update_with_effect(
 
 pub fn view(model: Model) -> Element(Msg) {
   let page = case model.page {
-    TransactionsViewAllPage(inner_model) ->
-      transactions_view_all.view(inner_model)
-      |> element.map(TransactionsViewAllMsg)
+    TransactionsPage(inner_model) ->
+      transactions_page.view(inner_model)
+      |> element.map(TransactionsPageMsg)
   }
 
   let toasts = toast.view_with_container(model.toasts, ToastDismissed)

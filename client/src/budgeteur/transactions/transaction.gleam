@@ -17,7 +17,6 @@ pub type Transaction {
     description: String,
     // Date when the transaction occurred.
     date: Date,
-    import_hash: Option(String),
     account_id: Option(Uuid),
     category_id: Option(Uuid),
   )
@@ -79,11 +78,6 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
   use amount <- decode.field("amount", money.decode_decimal())
   use description <- decode.field("description", decode.string)
   use date <- decode.field("date", date_decoder())
-  use import_hash <- decode.optional_field(
-    "import_hash",
-    None,
-    decode.optional(decode.string),
-  )
   use account_id <- decode.optional_field(
     "account_id",
     None,
@@ -99,31 +93,19 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
     amount:,
     description:,
     date:,
-    import_hash:,
     account_id:,
     category_id:,
   ))
 }
 
 pub fn transaction_to_json(transaction: Transaction) -> json.Json {
-  let Transaction(
-    id:,
-    amount:,
-    description:,
-    date:,
-    import_hash:,
-    account_id:,
-    category_id:,
-  ) = transaction
+  let Transaction(id:, amount:, description:, date:, account_id:, category_id:) =
+    transaction
   json.object([
     #("id", json.string(uuid.to_string(id))),
     #("amount", money.encode_decimal(amount)),
     #("description", json.string(description)),
     #("date", encode_date(date)),
-    #("import_hash", case import_hash {
-      None -> json.null()
-      option.Some(value) -> json.string(value)
-    }),
     #("account_id", case account_id {
       None -> json.null()
       option.Some(value) -> json.string(uuid.to_string(value))
