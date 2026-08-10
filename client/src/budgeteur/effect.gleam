@@ -6,6 +6,8 @@ import gleam/http/request
 import gleam/io
 import gleam/javascript/promise
 import gleam/list
+import gleam/time/calendar.{type Date}
+import gleam/time/timestamp
 
 /// An inspectable description of a side effect. `update` returns one of these
 /// alongside the new model; the `run` interpreter executes it against the real
@@ -20,7 +22,6 @@ import gleam/list
 /// non-JSON content types), construct an `HttpRequest` directly.
 ///
 pub type Effect(msg) {
-  Message(msg)
   HttpRequest(
     method: HttpMethod,
     url: String,
@@ -41,6 +42,14 @@ pub type Effect(msg) {
   PushUrl(url: String)
   /// This effect does not trigger a page load, therefore it can be batched with other effects.
   ReplaceUrl(url: String)
+  /// Call `.showModal` on the DOM element with the given selector.
+  /// If the selector cannot be found, a warning is printed to the console.
+  ShowDialog(selector: String)
+  /// Call `.close` on the DOM element with the given selector.
+  /// If the selector cannot be found, a warning is printed to the console.
+  CloseDialog(selector: String)
+  GetLocalDate(dispatch: fn(Date) -> msg)
+  Message(msg)
   Batch(effects: List(Effect(msg)))
   None
 }
@@ -250,13 +259,18 @@ fn raw_redirect(url: String) -> Nil
 @external(javascript, "./effect_ffi.mjs", "setTitle")
 fn raw_set_title(title: String) -> Nil
 
+@external(javascript, "./effect_ffi.mjs", "showDialog")
+fn raw_show_dialog(selector: String) -> Nil
+
+@external(javascript, "./effect_ffi.mjs", "closeDialog")
+fn raw_close_dialog(selector: String) -> Nil
+
 /// Transform an `Effect(a)` into an `Effect(b)` by applying a function to
 /// every message the effect produces. This is the analogue of `Cmd.map` in
 /// Elmish — it lets a parent component embed a child's effects.
 ///
 pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
   case effect {
-    Message(message) -> Message(f(message))
     HttpRequest(method:, url:, body:, content_type:, callback:, transform:) ->
       HttpRequest(
         method:,
@@ -276,6 +290,10 @@ pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
     InitRouting(handler:) -> InitRouting(handler: fn(path) { f(handler(path)) })
     PushUrl(url:) -> PushUrl(url:)
     ReplaceUrl(url:) -> ReplaceUrl(url:)
+    ShowDialog(selector:) -> ShowDialog(selector:)
+    CloseDialog(selector:) -> CloseDialog(selector:)
+    GetLocalDate(message) -> GetLocalDate(fn(date) { f(message(date)) })
+    Message(message) -> Message(f(message))
     Batch(effects:) -> Batch(list.map(effects, fn(e) { map(e, f) }))
     None -> None
   }
@@ -307,8 +325,6 @@ pub fn none() -> Effect(msg) {
 ///
 pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
   case effect {
-    Message(message) -> dispatch(message)
-
     HttpRequest(method:, url:, body:, content_type:, callback:, transform:) -> {
       let _ =
         send(method, url, body, content_type, transform)
@@ -347,6 +363,18 @@ pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
     PushUrl(url:) -> raw_push_url(url)
 
     ReplaceUrl(url:) -> raw_replace_url(url)
+
+    ShowDialog(selector:) -> raw_show_dialog(selector)
+
+    CloseDialog(selector:) -> raw_close_dialog(selector)
+
+    GetLocalDate(message) -> {
+      let now = timestamp.system_time()
+      let #(date, _) = timestamp.to_calendar(now, calendar.local_offset())
+      dispatch(message(date))
+    }
+
+    Message(message) -> dispatch(message)
 
     Batch(effects:) -> {
       effects

@@ -1,12 +1,19 @@
 # TODO
 
-- Consider using date only instead of timestamps, time of day is not captured in source bank statements anyway
+- Consider updating the toasts to match page style
+- Consider breaking up client/src/budgeteur/transactions/transactions_page.gleam, keep as one TEA module
+- Consider adding a transaction type (debit, credit and transfer) and keep all amounts positive.
+  - Avoids the need for a tag for internal transfers, makes transfer filtering a first class feature
+  - For Kiwibank statements, transfer type can be derived from corresponding column.
+  - Would require auto-tagging feature to also set transaction type to automate setting transfer type.
+  - Alternative: Add `is_transfer` flag and keep amounts as positive and negative.
 - Kiwibank statements have enough info to auto tag internal transfers without dedicated rule
   - If the both the source and target account numbers are in the user's accounts, then you can tag as an internal transfer.
   - This should only apply on import, manual imports must be manually categorised.
   - May want user setting around which category to use for internal transfer, or hardcode and force user to use it.
   - Initial imports will be missed if the accounts are not added beforehand
 - Fix E2E tests
+- Page transactions in table view
 
 ## CSV Parsing
 

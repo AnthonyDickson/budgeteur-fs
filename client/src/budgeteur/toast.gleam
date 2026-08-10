@@ -6,6 +6,7 @@ import lustre/event
 import youid/uuid.{type Uuid}
 
 pub type ToastLevel {
+  Success
   Info
   Warning
   Error
@@ -17,6 +18,7 @@ pub type Toast {
 
 fn level_to_class(level: ToastLevel) -> String {
   case level {
+    Success -> "border-l-green-400/40"
     Info -> "border-l-blue-400/40"
     Warning -> "border-l-amber-400/40"
     Error -> "border-l-red-400/60"
@@ -25,7 +27,7 @@ fn level_to_class(level: ToastLevel) -> String {
 
 fn level_to_role(level: ToastLevel) -> String {
   case level {
-    Info | Warning -> "status"
+    Success | Info | Warning -> "status"
     Error -> "alert"
   }
 }

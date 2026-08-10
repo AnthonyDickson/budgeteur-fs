@@ -13,9 +13,11 @@
 
 import gleam/dynamic/decode
 import gleam/float
+import gleam/int
 import gleam/json
+import gleam/string
 
-pub fn decode_decimal() -> decode.Decoder(Float) {
+fn float_decoder() -> decode.Decoder(Float) {
   decode.string
   |> decode.then(fn(raw_string) {
     case float.parse(raw_string) {
@@ -25,10 +27,46 @@ pub fn decode_decimal() -> decode.Decoder(Float) {
   })
 }
 
+fn int_to_float_decoder() -> decode.Decoder(Float) {
+  decode.string
+  |> decode.then(fn(raw_string) {
+    case int.parse(raw_string) {
+      Ok(parsed_float) -> decode.success(int.to_float(parsed_float))
+      Error(Nil) -> decode.failure(0.0, "Float")
+    }
+  })
+}
+
+pub fn decode_decimal() -> decode.Decoder(Float) {
+  decode.one_of(float_decoder(), or: [int_to_float_decoder()])
+}
+
 pub fn encode_decimal(amount: Float) -> json.Json {
   // Encode the amount as a string since the backend expects a decimal value.
   // This avoids having to write custom decoders.
-  amount |> float.to_precision(2) |> float.to_string |> json.string
+  amount |> to_string |> json.string
+}
+
+/// Convert an amount to a string with exactly two decimal places, without a
+/// currency symbol.
+///
+/// # Example
+/// ```gleam
+/// assert to_string(3.5) == "3.50"
+/// assert to_string(-3.14159) == "-3.14"
+/// ```
+pub fn to_string(amount: Float) -> String {
+  amount
+  |> float.to_precision(2)
+  |> float.to_string
+  |> fn(string) {
+    case string.split(string, ".") {
+      [whole] -> whole <> ".00"
+      [whole, fraction] ->
+        whole <> "." <> string.pad_end(fraction, to: 2, with: "0")
+      _ -> string
+    }
+  }
 }
 
 /// Format a monetary amount.
@@ -45,9 +83,5 @@ pub fn format(amount: Float) -> String {
     False -> "$"
   }
 
-  amount
-  |> float.absolute_value
-  |> float.to_precision(2)
-  |> float.to_string
-  |> fn(amount) { prefix <> amount }
+  prefix <> to_string(amount |> float.absolute_value)
 }

@@ -1,10 +1,10 @@
+import budgeteur/date
 import budgeteur/money
-
 import gleam/json
-import gleam/time/timestamp.{type Timestamp}
+import gleam/time/calendar.{type Date}
 
 pub type CreateTransactionRequest {
-  CreateTransactionRequest(amount: Float, description: String, date: Timestamp)
+  CreateTransactionRequest(amount: Float, description: String, date: Date)
 }
 
 pub fn create_transaction_request_to_json(
@@ -15,6 +15,6 @@ pub fn create_transaction_request_to_json(
   json.object([
     #("amount", money.encode_decimal(amount)),
     #("description", json.string(description)),
-    #("date", json.float(timestamp.to_unix_seconds(date))),
+    #("date", date.encode(date)),
   ])
 }

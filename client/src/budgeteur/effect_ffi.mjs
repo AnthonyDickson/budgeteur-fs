@@ -65,3 +65,23 @@ export function setTitle(title) {
 export function getOrigin() {
   return globalThis.location.origin;
 }
+
+export function showDialog(selector) {
+  const dialog = document.querySelector(selector);
+
+  if (dialog) {
+    dialog.showModal();
+  } else {
+    console.warn(`showDialog: Could not find element ${selector}`);
+  }
+}
+
+export function closeDialog(selector) {
+  const dialog = document.querySelector(selector);
+
+  if (dialog) {
+    dialog.close();
+  } else {
+    console.warn(`closeDialog: Could not find element ${selector}`);
+  }
+}

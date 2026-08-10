@@ -1,15 +1,19 @@
 import budgeteur/auth_route
 import budgeteur/effect.{type Effect}
+import budgeteur/guard
 import budgeteur/http_effect
 import budgeteur/out_msg.{type OutMsg}
 import budgeteur/route
 import budgeteur/toast.{type Toast}
 import budgeteur/transactions/transactions_page
 import gleam/dynamic/decode
+import gleam/io
 import gleam/json
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{type Option, None, Some}
+import gleam/string
 import lustre
+import lustre/attribute
 import lustre/effect as lustre_effect
 import lustre/element.{type Element}
 import lustre/element/html
@@ -22,8 +26,11 @@ const local_storage_key = "budgeteur"
 
 const transactions_page_key = "transactions_page"
 
+const not_found_page_key = "not_found_page"
+
 pub type Page {
   TransactionsPage(transactions_page.Model)
+  NotFound
 }
 
 fn page_decoder() -> decode.Decoder(Page) {
@@ -33,7 +40,7 @@ fn page_decoder() -> decode.Decoder(Page) {
       use page_model <- decode.field("data", transactions_page.model_decoder())
       decode.success(TransactionsPage(page_model))
     }
-    _ -> decode.failure(TransactionsPage(transactions_page.Model([])), "Page")
+    _ -> decode.success(NotFound)
   }
 }
 
@@ -43,6 +50,11 @@ fn page_to_json(page: Page) -> json.Json {
       json.object([
         #("type", json.string(transactions_page_key)),
         #("data", transactions_page.model_to_json(model)),
+      ])
+    NotFound ->
+      json.object([
+        #("type", json.string(not_found_page_key)),
+        #("data", json.null()),
       ])
   }
 }
@@ -106,11 +118,14 @@ pub fn init(_flags) -> #(Model, Effect(Msg)) {
 // Update
 // ------
 
-fn map_out_msg(
-  out_msg: OutMsg,
-  model: Model,
-  effect: Effect(Msg),
+fn with_out_msg(
+  update_output: #(Model, Effect(Msg)),
+  out_msg: Option(OutMsg),
 ) -> #(Model, Effect(Msg)) {
+  use out_msg <- guard.some(out_msg, else_return: update_output)
+
+  let #(model, effect) = update_output
+
   case out_msg {
     out_msg.PageRequestedToast(title:, body:, level:, dismiss_after_ms:) -> {
       let new_toast = toast.Toast(id: uuid.v7(), title:, body:, level:)
@@ -128,42 +143,33 @@ fn map_out_msg(
   }
 }
 
-fn with_out_msgs(
-  update_output: #(Model, Effect(Msg)),
-  out_msgs: List(OutMsg),
-) -> #(Model, Effect(Msg)) {
-  case out_msgs {
-    [] -> update_output
-    [msg, ..other_msgs] -> {
-      let #(model, effect) = update_output
-      map_out_msg(msg, model, effect)
-      |> with_out_msgs(other_msgs)
-    }
-  }
-}
-
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg, model {
     ClientRestoredModel(restored_model), _ -> #(restored_model, effect.none())
     UrlChanged(url), _ -> {
       case route.from_string(url) {
-        _ -> #(
-          Model(..model, page: TransactionsPage(transactions_page.Model([]))),
-          effect.none(),
-        )
+        route.Transactions -> {
+          let #(inner_model, inner_effect) = transactions_page.init()
+
+          let model = Model(..model, page: TransactionsPage(inner_model))
+          let effect = effect.map(inner_effect, TransactionsPageMsg)
+
+          #(model, effect)
+        }
+        route.NotFound -> #(Model(..model, page: NotFound), effect.none())
       }
     }
     TransactionsPageMsg(inner_msg),
       Model(page: TransactionsPage(inner_model), ..)
     -> {
-      let #(inner_model, inner_effect, out_msgs) =
+      let #(inner_model, inner_effect, out_msg) =
         transactions_page.update(inner_model, inner_msg)
 
       #(
         Model(..model, page: TransactionsPage(inner_model)),
         effect.map(inner_effect, TransactionsPageMsg),
       )
-      |> with_out_msgs(out_msgs)
+      |> with_out_msg(out_msg)
     }
     ToastDismissed(id:), _ -> {
       let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
@@ -171,6 +177,15 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     }
     SessionExpired, _ -> #(model, effect.Redirect(auth_route.login))
     NoOp, _ -> #(model, effect.none())
+    _, _ -> {
+      io.println_error(
+        "Unhandled combination of message and state:\n"
+        <> string.inspect(msg)
+        <> "\n"
+        <> string.inspect(model),
+      )
+      #(model, effect.none())
+    }
   }
 }
 
@@ -232,6 +247,8 @@ pub fn view(model: Model) -> Element(Msg) {
     TransactionsPage(inner_model) ->
       transactions_page.view(inner_model)
       |> element.map(TransactionsPageMsg)
+
+    NotFound -> view_not_found()
   }
 
   let toasts = toast.view_with_container(model.toasts, ToastDismissed)
@@ -239,6 +256,18 @@ pub fn view(model: Model) -> Element(Msg) {
   html.div([], [
     page,
     toasts,
+  ])
+}
+
+fn view_not_found() -> Element(Msg) {
+  html.div([], [
+    html.h1([], [html.text("404 Page Not Found")]),
+    html.p([], [html.text("This is not the page you're looking for.")]),
+    html.p([], [
+      html.a([attribute.href(route.Transactions |> route.to_string)], [
+        html.text("Take me home!"),
+      ]),
+    ]),
   ])
 }
 
