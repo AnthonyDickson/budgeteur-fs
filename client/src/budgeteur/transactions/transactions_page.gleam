@@ -10,6 +10,9 @@ import budgeteur/transactions/create_transaction_request.{
   type CreateTransactionRequest,
 }
 import budgeteur/transactions/transaction.{type Transaction}
+import budgeteur/transactions/transaction_delete_modal.{
+  type DeleteModalState, Confirming, Deleting,
+}
 import budgeteur/transactions/transaction_form.{
   type ModalState, type TransactionType, Create, Edit, ModalState,
 }
@@ -27,7 +30,11 @@ import lustre/event
 import youid/uuid.{type Uuid}
 
 pub type Model {
-  Model(transactions: List(Transaction), modal: ModalState)
+  Model(
+    transactions: List(Transaction),
+    modal: ModalState,
+    delete_modal: DeleteModalState,
+  )
 }
 
 pub fn model_decoder() -> decode.Decoder(Model) {
@@ -35,7 +42,11 @@ pub fn model_decoder() -> decode.Decoder(Model) {
     "transactions",
     decode.list(transaction.transaction_decoder()),
   )
-  decode.success(Model(transactions:, modal: transaction_form.empty_modal()))
+  decode.success(Model(
+    transactions:,
+    modal: transaction_form.empty_modal(),
+    delete_modal: transaction_delete_modal.empty(),
+  ))
 }
 
 pub fn model_to_json(model: Model) -> Json {
@@ -58,6 +69,11 @@ pub type Msg {
   ServerCreatedTransaction(Result(Transaction, ApiError))
   ServerUpdatedTransaction(Result(Transaction, ApiError))
   UserCancelledFormModal
+  // Delete modal messages
+  UserRequestedDeleteForm(Transaction)
+  UserConfirmedDelete
+  ServerDeletedTransaction(Transaction, Result(Nil, ApiError))
+  UserCancelledDeleteModal
 }
 
 // TODO: Page results
@@ -118,6 +134,24 @@ fn put_update_transaction(
   )
 }
 
+fn delete_transaction(transaction: Transaction) -> Effect(Msg) {
+  effect.delete(
+    api_route.DeleteTransaction(transaction.id) |> api_route.to_string,
+    fn(result) {
+      case result {
+        // A successful delete returns 204 with no body, so there is nothing
+        // to decode.
+        Ok(_) -> ServerDeletedTransaction(transaction, Ok(Nil))
+        Error(http_error) ->
+          ServerDeletedTransaction(
+            transaction,
+            Error(response.http_error_to_api_error(http_error)),
+          )
+      }
+    },
+  )
+}
+
 fn sort_transactions(transactions: List(Transaction)) -> List(Transaction) {
   list.sort(transactions, by: fn(a, b) {
     calendar.naive_date_compare(a.date, b.date)
@@ -130,7 +164,11 @@ fn sort_transactions(transactions: List(Transaction)) -> List(Transaction) {
 
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
-    Model(transactions: [], modal: transaction_form.empty_modal()),
+    Model(
+      transactions: [],
+      modal: transaction_form.empty_modal(),
+      delete_modal: transaction_delete_modal.empty(),
+    ),
     fetch_transactions(),
   )
 }
@@ -221,6 +259,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         Model(
           transactions: [transaction, ..model.transactions] |> sort_transactions,
           modal: ModalState(..model.modal, mode: Create, submitting: False),
+          delete_modal: model.delete_modal,
         ),
         effect.CloseDialog(selector: transaction_form.dom_id_selector),
         Some(out_msg.PageRequestedToast(
@@ -255,6 +294,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
             })
             |> sort_transactions,
           modal: ModalState(..model.modal, mode: Create, submitting: False),
+          delete_modal: model.delete_modal,
         ),
         effect.CloseDialog(selector: transaction_form.dom_id_selector),
         Some(out_msg.PageRequestedToast(
@@ -280,6 +320,71 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     UserCancelledFormModal -> #(
       model,
       effect.CloseDialog(selector: transaction_form.dom_id_selector),
+      None,
+    )
+
+    UserRequestedDeleteForm(transaction) -> #(
+      Model(..model, delete_modal: transaction_delete_modal.open(transaction)),
+      effect.ShowDialog(selector: transaction_delete_modal.dom_id_selector),
+      None,
+    )
+
+    UserConfirmedDelete -> {
+      case model.delete_modal {
+        Confirming(transaction) -> #(
+          Model(..model, delete_modal: Deleting(transaction)),
+          delete_transaction(transaction),
+          None,
+        )
+        _ -> #(model, effect.none(), None)
+      }
+    }
+
+    // The message carries the full transaction so the list is updated
+    // regardless of the modal state (keeping the view consistent with the
+    // server even if the dialog was closed while the request was in flight)
+    // and the toast can name the deleted transaction.
+    ServerDeletedTransaction(transaction, Ok(_)) -> #(
+      Model(
+        ..model,
+        transactions: list.filter(model.transactions, fn(t) {
+          t.id != transaction.id
+        }),
+        delete_modal: transaction_delete_modal.empty(),
+      ),
+      effect.CloseDialog(selector: transaction_delete_modal.dom_id_selector),
+      Some(out_msg.PageRequestedToast(
+        title: "Success",
+        body: "Deleted transaction " <> transaction.description,
+        level: toast.Success,
+        dismiss_after_ms: Some(5000),
+      )),
+    )
+
+    // Revert to Confirming so the user can retry in place when the dialog is
+    // still open (the common failure case). When the dialog was dismissed
+    // (Escape/outside-click) while the request was in flight, the state here
+    // goes stale but that is harmless: the dialog stays hidden and the next
+    // Delete click resets it via `open`. See the `DeleteModalState` docs for
+    // the full tradeoff.
+    ServerDeletedTransaction(transaction, Error(error)) -> #(
+      Model(..model, delete_modal: case model.delete_modal {
+        Deleting(transaction) ->
+          transaction_delete_modal.Confirming(transaction)
+        other -> other
+      }),
+      effect.LogError(api_error.describe(error)),
+      Some(out_msg.PageRequestedToast(
+        title: "Error",
+        body: "Could not delete " <> transaction.description,
+        level: toast.Error,
+        dismiss_after_ms: Some(5000),
+      )),
+    )
+
+    UserCancelledDeleteModal -> #(
+      Model(..model, delete_modal: transaction_delete_modal.empty()),
+      effect.CloseDialog(selector: transaction_delete_modal.dom_id_selector),
       None,
     )
   }
@@ -312,6 +417,11 @@ pub fn view(model: Model) -> Element(Msg) {
       on_date_input: UserUpdatedFormDate,
       on_submit: UserSubmittedForm,
       on_cancel: UserCancelledFormModal,
+    ),
+    transaction_delete_modal.view(
+      model.delete_modal,
+      on_cancel: UserCancelledDeleteModal,
+      on_confirm: UserConfirmedDelete,
     ),
   ])
 }
@@ -384,22 +494,50 @@ fn transactions_table(transactions: List(Transaction)) -> Element(Msg) {
                   html.td(
                     [attribute.class("whitespace-nowrap px-4 py-3 text-right")],
                     [
-                      html.button(
+                      html.div(
                         [
-                          attribute.class(
-                            "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
-                            <> "hover:bg-indigo-50 hover:text-indigo-700 "
-                            <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-                            <> "focus:ring-offset-2",
-                          ),
-                          attribute.attribute(
-                            "data-testid",
-                            "edit-transaction-"
-                              <> uuid.to_string(transaction.id),
-                          ),
-                          event.on_click(UserRequestedEditForm(transaction.id)),
+                          attribute.class("flex items-center justify-end gap-2"),
                         ],
-                        [html.text("Edit")],
+                        [
+                          html.button(
+                            [
+                              attribute.class(
+                                "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
+                                <> "hover:bg-indigo-50 hover:text-indigo-700 "
+                                <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+                                <> "focus:ring-offset-2",
+                              ),
+                              attribute.attribute(
+                                "data-testid",
+                                "edit-transaction-"
+                                  <> uuid.to_string(transaction.id),
+                              ),
+                              event.on_click(UserRequestedEditForm(
+                                transaction.id,
+                              )),
+                            ],
+                            [html.text("Edit")],
+                          ),
+                          html.button(
+                            [
+                              attribute.class(
+                                "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
+                                <> "hover:bg-red-50 hover:text-red-700 "
+                                <> "focus:outline-none focus:ring-2 focus:ring-red-500 "
+                                <> "focus:ring-offset-2",
+                              ),
+                              attribute.attribute(
+                                "data-testid",
+                                "delete-transaction-"
+                                  <> uuid.to_string(transaction.id),
+                              ),
+                              event.on_click(UserRequestedDeleteForm(
+                                transaction,
+                              )),
+                            ],
+                            [html.text("Delete")],
+                          ),
+                        ],
                       ),
                     ],
                   ),

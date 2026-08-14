@@ -1,6 +1,5 @@
 # TODO
 
-- Add action and dialog for deleting a transaction
 - Consider adding a transaction type (debit, credit and transfer) and keep all amounts positive.
   - Avoids the need for a tag for internal transfers, makes transfer filtering a first class feature
   - For Kiwibank statements, transfer type can be derived from corresponding column.
@@ -18,6 +17,9 @@
   - Response could include path with query params to get next page or none if at last page.
   - Paging is expected to used infrequently
 - Consider how to manage styling across pages/source code files for consistent styling.
+- Reconsider toasts for error handling in modal forms, the toasts are behind the backdrop layer so they are dimmed and
+  not clickable.
+- Fix double fetch of transactions on cold load of transactions page
 
 ## CSV Parsing
 
