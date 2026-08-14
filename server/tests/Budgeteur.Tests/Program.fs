@@ -13,6 +13,7 @@ let testRoot =
     testList "Budgeteur.Tests" [
         Transactions.EndpointTests.tests
         Transactions.ValidationPropertyTests.validationPropertyTests
+        MoneyTests.moneyTests
     ]
 
 [<EntryPoint>]

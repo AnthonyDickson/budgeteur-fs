@@ -26,6 +26,7 @@ module Update =
     open Budgeteur.DomainError
     open Budgeteur.Endpoint
     open Budgeteur.Json
+    open Budgeteur.Money
     open Budgeteur.RequestLogging
     open Budgeteur.Transaction
 
@@ -75,7 +76,7 @@ module Update =
                 // The URL owns resource identity; the validated body supplies the mutable fields.
                 let transaction = {
                     Id = id
-                    Amount = round req.Amount
+                    Amount = Money.roundToCents req.Amount
                     Description = description
                     Date = req.Date
                     AccountId = None

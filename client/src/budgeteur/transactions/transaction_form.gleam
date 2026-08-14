@@ -1,7 +1,9 @@
 import budgeteur/date
+import budgeteur/money
 import budgeteur/transactions/create_transaction_request.{
   type CreateTransactionRequest,
 }
+import budgeteur/transactions/transaction.{type Transaction, Transaction}
 import gleam/float
 import gleam/int
 import gleam/option.{type Option, None, Some}
@@ -11,10 +13,16 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
+import youid/uuid.{type Uuid}
 
 pub const max_description_length = 256
 
-pub const dom_id = "transaction_modal"
+const dom_id = "transaction_modal"
+
+/// The CSS selector for the modal dialog element. The `#` hash prefix is
+/// composed here so callers (e.g. the show/close dialog effects) never have to
+/// remember it.
+pub const dom_id_selector = "#" <> dom_id
 
 const error_border_style = "border-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
 
@@ -60,6 +68,21 @@ pub type Form {
   )
 }
 
+/// The mode the transaction form modal is in.
+pub type FormMode {
+  /// Open an empty form
+  Create
+  /// Pre-fill the form with an existing transaction
+  Edit(id: Uuid)
+}
+
+/// State of the transaction form modal: the form fields, the mode, and whether
+/// a create/update request is in flight (the submit button is disabled while
+/// submitting).
+pub type ModalState {
+  ModalState(form: Form, mode: FormMode, submitting: Bool)
+}
+
 pub fn empty() -> Form {
   Form(
     amount: "",
@@ -67,6 +90,20 @@ pub fn empty() -> Form {
     description: "",
     date: "",
     error: empty_error(),
+  )
+}
+
+pub fn empty_modal() -> ModalState {
+  ModalState(form: empty(), mode: Create, submitting: False)
+}
+
+/// A modal pre-filled with an existing transaction, ready for editing.
+pub fn edit_modal(transaction: Transaction) -> ModalState {
+  let Transaction(id:, ..) = transaction
+  ModalState(
+    form: from_transaction(transaction),
+    mode: Edit(id),
+    submitting: False,
   )
 }
 
@@ -79,6 +116,32 @@ pub fn from(
   date: String,
 ) -> Form {
   Form(amount:, type_:, description:, date:, error: empty_error())
+}
+
+/// Build a form pre-filled with an existing transaction's values. The stored
+/// amount is signed (debit = negative); the form expresses the sign via the
+/// type toggle, so the amount is converted to its absolute value.
+pub fn from_transaction(transaction: Transaction) -> Form {
+  let Transaction(
+    id: _,
+    amount:,
+    description:,
+    date:,
+    account_id: _,
+    category_id: _,
+  ) = transaction
+
+  let type_ = case amount <. 0.0 {
+    True -> Debit
+    False -> Credit
+  }
+
+  from(
+    amount |> float.absolute_value |> money.to_string,
+    type_,
+    description,
+    date.format(date),
+  )
 }
 
 pub fn clip_amount_to_two_dp(amount: String) -> String {
@@ -148,18 +211,29 @@ fn error_from(result: Result(_, a)) -> Option(a) {
   }
 }
 
-pub fn set_amount(form: Form, amount: String) -> Form {
+pub fn set_amount(state: ModalState, amount: String) -> ModalState {
+  let ModalState(form:, ..) = state
+  ModalState(..state, form: set_form_amount(form, amount))
+}
+
+fn set_form_amount(form: Form, amount: String) -> Form {
   let amount = clip_amount_to_two_dp(amount)
   let error =
     FormError(..form.error, amount: error_from(validate_amount(amount)))
   Form(..form, amount:, error:)
 }
 
-pub fn set_type_(form: Form, type_: TransactionType) -> Form {
-  Form(..form, type_:)
+pub fn set_type_(state: ModalState, type_: TransactionType) -> ModalState {
+  let ModalState(form:, ..) = state
+  ModalState(..state, form: Form(..form, type_:))
 }
 
-pub fn set_description(form: Form, description: String) -> Form {
+pub fn set_description(state: ModalState, description: String) -> ModalState {
+  let ModalState(form:, ..) = state
+  ModalState(..state, form: set_form_description(form, description))
+}
+
+fn set_form_description(form: Form, description: String) -> Form {
   let error =
     FormError(
       ..form.error,
@@ -168,17 +242,25 @@ pub fn set_description(form: Form, description: String) -> Form {
   Form(..form, description:, error:)
 }
 
-pub fn set_date(form: Form, date: String) -> Form {
+pub fn set_date(state: ModalState, date: String) -> ModalState {
+  let ModalState(form:, ..) = state
+  ModalState(..state, form: set_form_date(form, date))
+}
+
+fn set_form_date(form: Form, date: String) -> Form {
   let error = FormError(..form.error, date: error_from(validate_date(date)))
   Form(..form, date:, error:)
 }
 
-pub fn with_error(form: Form, error: FormError) -> Form {
-  Form(..form, error:)
+pub fn with_error(state: ModalState, error: FormError) -> ModalState {
+  let ModalState(form:, ..) = state
+  ModalState(..state, form: Form(..form, error:))
 }
 
-/// Pure validation — returns a request on success, the full error map otherwise.
-pub fn validate(form: Form) -> Result(CreateTransactionRequest, FormError) {
+pub fn validate(
+  state: ModalState,
+) -> Result(CreateTransactionRequest, FormError) {
+  let ModalState(form:, ..) = state
   let Form(amount:, type_:, description:, date:, error: _) = form
 
   let amount = validate_amount(amount)
@@ -211,9 +293,7 @@ pub fn validate(form: Form) -> Result(CreateTransactionRequest, FormError) {
 }
 
 pub fn view(
-  form: Form,
-  title title: String,
-  submit_label submit_label: String,
+  state: ModalState,
   on_amount_input on_amount_input: fn(String) -> msg,
   on_type_click on_type_click: fn(TransactionType) -> msg,
   on_description_input on_description_input: fn(String) -> msg,
@@ -221,6 +301,13 @@ pub fn view(
   on_submit on_submit: msg,
   on_cancel on_cancel: msg,
 ) -> Element(msg) {
+  let ModalState(form:, mode:, submitting:) = state
+
+  let #(title, submit_label) = case mode {
+    Create -> #("Create Transaction", "Save Transaction")
+    Edit(_) -> #("Edit Transaction", "Update Transaction")
+  }
+
   let Form(amount:, type_:, description:, date:, error:) = form
 
   let FormError(
@@ -267,7 +354,8 @@ pub fn view(
               attribute.min("0"),
               attribute.value(amount),
               attribute.class(
-                "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
+                "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
+                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
               ),
               attribute.classes([
                 #(error_border_style, option.is_some(amount_error)),
@@ -289,7 +377,9 @@ pub fn view(
               html.label(
                 [
                   attribute.class(
-                    "flex cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 has-checked:border-indigo-600 has-checked:bg-indigo-50 has-checked:text-indigo-700",
+                    "flex cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white "
+                    <> "px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 "
+                    <> "has-checked:border-indigo-600 has-checked:bg-indigo-50 has-checked:text-indigo-700",
                   ),
                 ],
                 [
@@ -308,7 +398,9 @@ pub fn view(
               html.label(
                 [
                   attribute.class(
-                    "flex cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 has-checked:border-indigo-600 has-checked:bg-indigo-50 has-checked:text-indigo-700",
+                    "flex cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white "
+                    <> "px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 "
+                    <> "has-checked:border-indigo-600 has-checked:bg-indigo-50 has-checked:text-indigo-700",
                   ),
                 ],
                 [
@@ -335,7 +427,8 @@ pub fn view(
               attribute.type_("text"),
               attribute.placeholder("What was this for?"),
               attribute.class(
-                "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
+                "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
+                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
               ),
               attribute.classes([
                 #(error_border_style, option.is_some(description_error)),
@@ -364,7 +457,8 @@ pub fn view(
             html.input([
               attribute.type_("date"),
               attribute.class(
-                "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
+                "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
+                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
               ),
               attribute.classes([
                 #(error_border_style, option.is_some(date_error)),
@@ -383,7 +477,8 @@ pub fn view(
               [
                 attribute.type_("button"),
                 attribute.class(
-                  "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2",
+                  "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
+                  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2",
                 ),
                 event.on_click(on_cancel),
               ],
@@ -393,11 +488,27 @@ pub fn view(
               [
                 attribute.type_("submit"),
                 attribute.class(
-                  "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400",
+                  "inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium "
+                  <> "text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+                  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400",
                 ),
-                attribute.disabled(has_error),
+                attribute.disabled(has_error || submitting),
               ],
-              [html.text(submit_label)],
+              case submitting {
+                True -> [
+                  html.span(
+                    [
+                      attribute.attribute("aria-hidden", "true"),
+                      attribute.class(
+                        "h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white",
+                      ),
+                    ],
+                    [],
+                  ),
+                  html.text(submit_label),
+                ]
+                False -> [html.text(submit_label)]
+              },
             ),
           ]),
         ],

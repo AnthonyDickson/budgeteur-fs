@@ -21,6 +21,7 @@
     <Compile Include="Json.fs" />
     <Compile Include="Db.fs" />
     <Compile Include="Endpoint.fs" />
+    <Compile Include="Money.fs" />
     <!-- Transaction Feature Slice -->
     <Compile Include="Transaction/Transaction.fs" />
     <Compile Include="Transaction/Validation.fs" />

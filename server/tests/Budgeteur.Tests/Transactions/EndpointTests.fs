@@ -149,7 +149,7 @@ module EndpointTests =
                 use app = newApp ()
 
                 // Given: an existing transaction.
-                let original = request "Old description" 20.00m
+                let original = request "Old description" 12.50m
                 let! _ = TestHttp.postJson app.Client Create.Path original |> Async.AwaitTask
 
                 // Given: its id, recovered from the store.
@@ -161,7 +161,7 @@ module EndpointTests =
                     | _ -> failtest "Expected one transaction"
 
                 // When: the transaction is updated with new fields.
-                let update = request "New description" 30.00m
+                let update = request "New description" 13.37m
 
                 let! response =
                     TestHttp.putJson app.Client (routefPath Update.Path id) update

@@ -10,7 +10,9 @@ import budgeteur/transactions/create_transaction_request.{
   type CreateTransactionRequest,
 }
 import budgeteur/transactions/transaction.{type Transaction}
-import budgeteur/transactions/transaction_form.{type Form, type TransactionType}
+import budgeteur/transactions/transaction_form.{
+  type ModalState, type TransactionType, Create, Edit, ModalState,
+}
 import gleam/dynamic/decode
 import gleam/json.{type Json}
 import gleam/list
@@ -22,9 +24,10 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
+import youid/uuid.{type Uuid}
 
 pub type Model {
-  Model(transactions: List(Transaction), form: Form)
+  Model(transactions: List(Transaction), modal: ModalState)
 }
 
 pub fn model_decoder() -> decode.Decoder(Model) {
@@ -32,7 +35,7 @@ pub fn model_decoder() -> decode.Decoder(Model) {
     "transactions",
     decode.list(transaction.transaction_decoder()),
   )
-  decode.success(Model(transactions:, form: transaction_form.empty()))
+  decode.success(Model(transactions:, modal: transaction_form.empty_modal()))
 }
 
 pub fn model_to_json(model: Model) -> Json {
@@ -46,12 +49,14 @@ pub type Msg {
   ClientFetchedTransactions(Result(List(Transaction), ApiError))
   // Modal messages
   UserRequestedCreationForm
+  UserRequestedEditForm(Uuid)
   UserUpdatedFormAmount(String)
   UserUpdatedFormType(TransactionType)
   UserUpdatedFormDescription(String)
   UserUpdatedFormDate(String)
-  UserSubmittedCreationForm
+  UserSubmittedForm
   ServerCreatedTransaction(Result(Transaction, ApiError))
+  ServerUpdatedTransaction(Result(Transaction, ApiError))
   UserCancelledFormModal
 }
 
@@ -91,6 +96,28 @@ fn post_create_transaction(request: CreateTransactionRequest) -> Effect(Msg) {
   )
 }
 
+fn put_update_transaction(
+  id: Uuid,
+  request: CreateTransactionRequest,
+) -> Effect(Msg) {
+  effect.put(
+    api_route.UpdateTransaction(id) |> api_route.to_string,
+    create_transaction_request.create_transaction_request_to_json(request)
+      |> json.to_string,
+    fn(result) {
+      case result {
+        Ok(body) ->
+          response.decode_success(body, transaction.transaction_decoder())
+          |> ServerUpdatedTransaction
+        Error(http_error) ->
+          ServerUpdatedTransaction(
+            Error(response.http_error_to_api_error(http_error)),
+          )
+      }
+    },
+  )
+}
+
 fn sort_transactions(transactions: List(Transaction)) -> List(Transaction) {
   list.sort(transactions, by: fn(a, b) {
     calendar.naive_date_compare(a.date, b.date)
@@ -103,7 +130,7 @@ fn sort_transactions(transactions: List(Transaction)) -> List(Transaction) {
 
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
-    Model(transactions: [], form: transaction_form.empty()),
+    Model(transactions: [], modal: transaction_form.empty_modal()),
     fetch_transactions(),
   )
 }
@@ -131,37 +158,58 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
     UserRequestedCreationForm -> {
       #(
-        Model(..model, form: transaction_form.empty()),
-        effect.ShowDialog(selector: "#" <> transaction_form.dom_id),
+        Model(..model, modal: transaction_form.empty_modal()),
+        effect.ShowDialog(selector: transaction_form.dom_id_selector),
         None,
       )
     }
 
+    UserRequestedEditForm(id) -> {
+      case list.find(model.transactions, fn(t) { t.id == id }) {
+        Ok(transaction) -> #(
+          Model(..model, modal: transaction_form.edit_modal(transaction)),
+          effect.ShowDialog(selector: transaction_form.dom_id_selector),
+          None,
+        )
+        Error(Nil) -> #(model, effect.none(), None)
+      }
+    }
+
     UserUpdatedFormAmount(amount) -> {
-      let form = transaction_form.set_amount(model.form, amount)
-      #(Model(..model, form:), effect.none(), None)
+      let modal = transaction_form.set_amount(model.modal, amount)
+      #(Model(..model, modal:), effect.none(), None)
     }
 
     UserUpdatedFormType(type_) -> {
-      let form = transaction_form.set_type_(model.form, type_)
-      #(Model(..model, form:), effect.none(), None)
+      let modal = transaction_form.set_type_(model.modal, type_)
+      #(Model(..model, modal:), effect.none(), None)
     }
 
     UserUpdatedFormDescription(description) -> {
-      let form = transaction_form.set_description(model.form, description)
-      #(Model(..model, form:), effect.none(), None)
+      let modal = transaction_form.set_description(model.modal, description)
+      #(Model(..model, modal:), effect.none(), None)
     }
 
     UserUpdatedFormDate(date) -> {
-      let form = transaction_form.set_date(model.form, date)
-      #(Model(..model, form:), effect.none(), None)
+      let modal = transaction_form.set_date(model.modal, date)
+      #(Model(..model, modal:), effect.none(), None)
     }
 
-    UserSubmittedCreationForm -> {
-      case transaction_form.validate(model.form) {
-        Ok(request) -> #(model, post_create_transaction(request), None)
+    UserSubmittedForm -> {
+      case transaction_form.validate(model.modal) {
+        Ok(request) -> {
+          let effect = case model.modal.mode {
+            Edit(id) -> put_update_transaction(id, request)
+            Create -> post_create_transaction(request)
+          }
+          #(
+            Model(..model, modal: ModalState(..model.modal, submitting: True)),
+            effect,
+            None,
+          )
+        }
         Error(error) -> #(
-          Model(..model, form: transaction_form.with_error(model.form, error)),
+          Model(..model, modal: transaction_form.with_error(model.modal, error)),
           effect.none(),
           None,
         )
@@ -171,10 +219,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     ServerCreatedTransaction(Ok(transaction)) -> {
       #(
         Model(
-          ..model,
           transactions: [transaction, ..model.transactions] |> sort_transactions,
+          modal: ModalState(..model.modal, mode: Create, submitting: False),
         ),
-        effect.CloseDialog("#" <> transaction_form.dom_id),
+        effect.CloseDialog(selector: transaction_form.dom_id_selector),
         Some(out_msg.PageRequestedToast(
           title: "Success",
           body: "Transaction created",
@@ -185,7 +233,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     }
 
     ServerCreatedTransaction(Error(error)) -> #(
-      model,
+      Model(..model, modal: ModalState(..model.modal, submitting: False)),
       effect.LogError(api_error.describe(error)),
       Some(out_msg.PageRequestedToast(
         title: "Error",
@@ -195,9 +243,43 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       )),
     )
 
+    ServerUpdatedTransaction(Ok(updated)) -> {
+      #(
+        Model(
+          transactions: model.transactions
+            |> list.map(fn(t) {
+              case t.id == updated.id {
+                True -> updated
+                False -> t
+              }
+            })
+            |> sort_transactions,
+          modal: ModalState(..model.modal, mode: Create, submitting: False),
+        ),
+        effect.CloseDialog(selector: transaction_form.dom_id_selector),
+        Some(out_msg.PageRequestedToast(
+          title: "Success",
+          body: "Transaction updated",
+          level: toast.Success,
+          dismiss_after_ms: Some(5000),
+        )),
+      )
+    }
+
+    ServerUpdatedTransaction(Error(error)) -> #(
+      Model(..model, modal: ModalState(..model.modal, submitting: False)),
+      effect.LogError(api_error.describe(error)),
+      Some(out_msg.PageRequestedToast(
+        title: "Error",
+        body: "Could not update transaction",
+        level: toast.Error,
+        dismiss_after_ms: Some(5000),
+      )),
+    )
+
     UserCancelledFormModal -> #(
       model,
-      effect.CloseDialog("#" <> transaction_form.dom_id),
+      effect.CloseDialog(selector: transaction_form.dom_id_selector),
       None,
     )
   }
@@ -223,14 +305,12 @@ pub fn view(model: Model) -> Element(Msg) {
     ]),
     transactions_table(model.transactions),
     transaction_form.view(
-      model.form,
-      title: "Create Transaction",
-      submit_label: "Save Transaction",
+      model.modal,
       on_amount_input: UserUpdatedFormAmount,
       on_type_click: UserUpdatedFormType,
       on_description_input: UserUpdatedFormDescription,
       on_date_input: UserUpdatedFormDate,
-      on_submit: UserSubmittedCreationForm,
+      on_submit: UserSubmittedForm,
       on_cancel: UserCancelledFormModal,
     ),
   ])
@@ -271,6 +351,10 @@ fn transactions_table(transactions: List(Transaction)) -> Element(Msg) {
                   html.th([attribute.class("px-4 py-3 font-medium")], [
                     html.text("Description"),
                   ]),
+                  html.th(
+                    [attribute.class("px-4 py-3 font-medium text-right")],
+                    [html.text("Actions")],
+                  ),
                 ]),
               ],
             ),
@@ -297,6 +381,28 @@ fn transactions_table(transactions: List(Transaction)) -> Element(Msg) {
                   html.td([attribute.class("px-4 py-3 text-sm text-gray-700")], [
                     html.text(transaction.description),
                   ]),
+                  html.td(
+                    [attribute.class("whitespace-nowrap px-4 py-3 text-right")],
+                    [
+                      html.button(
+                        [
+                          attribute.class(
+                            "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
+                            <> "hover:bg-indigo-50 hover:text-indigo-700 "
+                            <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+                            <> "focus:ring-offset-2",
+                          ),
+                          attribute.attribute(
+                            "data-testid",
+                            "edit-transaction-"
+                              <> uuid.to_string(transaction.id),
+                          ),
+                          event.on_click(UserRequestedEditForm(transaction.id)),
+                        ],
+                        [html.text("Edit")],
+                      ),
+                    ],
+                  ),
                 ])
               }),
             ),

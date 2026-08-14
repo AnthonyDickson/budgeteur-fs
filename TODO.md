@@ -1,5 +1,6 @@
 # TODO
 
+- Add action and dialog for deleting a transaction
 - Consider adding a transaction type (debit, credit and transfer) and keep all amounts positive.
   - Avoids the need for a tag for internal transfers, makes transfer filtering a first class feature
   - For Kiwibank statements, transfer type can be derived from corresponding column.
@@ -10,8 +11,12 @@
   - This should only apply on import, manual imports must be manually categorised.
   - May want user setting around which category to use for internal transfer, or hardcode and force user to use it.
   - Initial imports will be missed if the accounts are not added beforehand
+- Cull unnecessary tests
 - Fix E2E tests
 - Page transactions in table view
+  - Next page should append to list, search should replace paging many times.
+  - Response could include path with query params to get next page or none if at last page.
+  - Paging is expected to used infrequently
 - Consider how to manage styling across pages/source code files for consistent styling.
 
 ## CSV Parsing

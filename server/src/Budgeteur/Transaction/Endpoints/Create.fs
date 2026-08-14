@@ -27,15 +27,12 @@ module Create =
     open Budgeteur.DomainError
     open Budgeteur.Endpoint
     open Budgeteur.Json
+    open Budgeteur.Money
     open Budgeteur.RequestLogging
     open Budgeteur.Transaction
 
     [<Literal>]
     let Path = "/api/transactions"
-
-    /// Round a monetary value to the nearest 2 dp to account for floating point inaccuracies from API format (float).
-    let private round currency =
-        System.Decimal.Round (currency, decimals = 2, mode = System.MidpointRounding.AwayFromZero)
 
     let private insert (queryContext : QueryContextFactory) (transaction : Transaction) (userId : string) =
         task {
@@ -65,7 +62,7 @@ module Create =
 
                 let transaction = {
                     Id = Guid.CreateVersion7 ()
-                    Amount = round req.Amount
+                    Amount = Money.roundToCents req.Amount
                     Description = description
                     Date = req.Date
                     AccountId = None

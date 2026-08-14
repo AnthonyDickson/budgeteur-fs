@@ -15,7 +15,7 @@ module Extra =
                 try
                     DateOnly.Parse dateString |> Decode.succeed
                 with
-                | :? System.ArgumentNullException as ex -> Decode.fail $"Got a null date string"
+                | :? System.ArgumentNullException as ex -> Decode.fail "Got a null date string"
                 | :? System.FormatException as ex ->
                     Decode.fail $"Expected a date in the ISO-8601 format, got {dateString}")
 
