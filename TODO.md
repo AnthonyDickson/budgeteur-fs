@@ -1,7 +1,6 @@
 # TODO
 
 - Consider updating the toasts to match page style
-- Consider breaking up client/src/budgeteur/transactions/transactions_page.gleam, keep as one TEA module
 - Consider adding a transaction type (debit, credit and transfer) and keep all amounts positive.
   - Avoids the need for a tag for internal transfers, makes transfer filtering a first class feature
   - For Kiwibank statements, transfer type can be derived from corresponding column.
@@ -14,6 +13,7 @@
   - Initial imports will be missed if the accounts are not added beforehand
 - Fix E2E tests
 - Page transactions in table view
+- Consider how to manage styling across pages/source code files for consistent styling.
 
 ## CSV Parsing
 
