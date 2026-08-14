@@ -1,6 +1,5 @@
 # TODO
 
-- Consider updating the toasts to match page style
 - Consider adding a transaction type (debit, credit and transfer) and keep all amounts positive.
   - Avoids the need for a tag for internal transfers, makes transfer filtering a first class feature
   - For Kiwibank statements, transfer type can be derived from corresponding column.
