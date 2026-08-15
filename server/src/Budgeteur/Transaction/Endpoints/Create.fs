@@ -11,7 +11,6 @@ type CreateTransactionRequest = {
 }
 
 module Create =
-    open System
     open System.Collections.Generic
     open System.Threading.Tasks
 

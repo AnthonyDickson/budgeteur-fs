@@ -56,7 +56,7 @@ module LogEntry =
 type RequestLog () =
     let entries = ResizeArray<LogEntry> ()
 
-    member _.Info (msg : string, [<ParamArray>] props : LogProperty[]) =
+    member _.Info (msg : string, [<ParamArray>] props : LogProperty array) =
         entries.Add {
             Level = LogLevel.Info
             Message = msg
@@ -66,7 +66,7 @@ type RequestLog () =
 
     member this.Info (msg : string) = this.Info (msg, [||])
 
-    member _.Warn (msg : string, [<ParamArray>] props : LogProperty[]) =
+    member _.Warn (msg : string, [<ParamArray>] props : LogProperty array) =
         entries.Add {
             Level = LogLevel.Warning
             Message = msg
@@ -76,7 +76,7 @@ type RequestLog () =
 
     member this.Warn (msg : string) = this.Warn (msg, [||])
 
-    member _.Error (msg : string, [<ParamArray>] props : LogProperty[]) =
+    member _.Error (msg : string, [<ParamArray>] props : LogProperty array) =
         entries.Add {
             Level = LogLevel.Error
             Message = msg
@@ -97,7 +97,7 @@ module RequestLog =
     let fromContext (ctx : HttpContext) =
         match ctx.Items.TryGetValue Key with
         | true, (:? RequestLog as log) -> log
-        | _ -> failwith "RequestLog not found in HttpContext.Items — is the RequestLogging middleware wired?"
+        | _ -> invalidOp "RequestLog not found in HttpContext.Items — is the RequestLogging middleware wired?"
 
 module Middleware =
     open System.Collections.Generic

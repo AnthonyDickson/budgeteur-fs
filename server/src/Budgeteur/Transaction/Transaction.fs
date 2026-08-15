@@ -20,10 +20,10 @@ type Transaction = {
     IsTransfer : bool
 
     /// <summary>The bank account associated with this transaction.</summary>
-    AccountId : Option<Guid>
+    AccountId : Guid option
 
     /// <summary>The type of transaction.</summary>
-    CategoryId : Option<Guid>
+    CategoryId : Guid option
 }
 
 module Transaction =
@@ -31,7 +31,7 @@ module Transaction =
 
     open Budgeteur.Db
 
-    let toRow (transaction : Transaction) (userId : string) (importHash : Option<string>) : main.Transactions = {
+    let toRow (transaction : Transaction) (userId : string) (importHash : string option) : main.Transactions = {
         Id = transaction.Id
         UserId = userId
         Amount = transaction.Amount

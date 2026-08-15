@@ -35,9 +35,9 @@ open Budgeteur.Status
 open Budgeteur.Transaction
 
 
-let private addOpenApiToBuilder (builder : WebApplicationBuilder) (ouath2 : OAuth2Config) =
-    let oauth2AuthUrl = ouath2.AuthorizationUrl
-    let oauth2TokenUrl = ouath2.TokenUrl
+let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAuth2Config) =
+    let oauth2AuthUrl = oauth2.AuthorizationUrl
+    let oauth2TokenUrl = oauth2.TokenUrl
 
     builder.Services.AddOpenApi (fun options ->
         options.AddSchemaTransformer<FSharpOptionSchemaTransformer> () |> ignore
