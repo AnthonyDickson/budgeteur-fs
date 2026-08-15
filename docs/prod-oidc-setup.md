@@ -8,10 +8,10 @@
 
 The server uses two OIDC schemes:
 
-| Scheme     | Auth flow                    | Used by         |
-| ---------- | ---------------------------- | --------------- |
-| Cookie     | Authorization code → session | SPA (browser)   |
-| JWT Bearer | Authorization code + PKCE    | Scalar API docs |
+| Scheme     | Auth flow                    | Used by                    |
+| ---------- | ---------------------------- | -------------------------- |
+| Cookie     | Authorization code → session | SPA (browser)              |
+| JWT Bearer | Authorization code + PKCE    | Scalar API docs (dev only) |
 
 Either scheme satisfies the `authenticated` policy on protected endpoints.
 
@@ -22,13 +22,17 @@ Oidc__Authority              # Required. OIDC discovery URL
 Oidc__ClientId               # Required. SPA client ID (confidential)
 Oidc__ClientSecret           # Required. SPA client secret
 Oidc__CallbackPath           # Required. Redirect URI path (e.g. /signin-oidc)
+Oidc__ValidAudiences         # Optional. Accepted JWT audiences; if unset, audience validation is disabled
 Login__ReturnUrl             # Required. Post-login redirect (e.g. https://app.example.com/)
-OAuth2__AuthorizationUrl     # Optional. For Scalar OAuth2 flow
-OAuth2__TokenUrl             # Optional. For Scalar OAuth2 flow
+OAuth2__AuthorizationUrl     # Optional. Scalar OAuth2 flow (dev only)
+OAuth2__TokenUrl             # Optional. Scalar OAuth2 flow (dev only)
 ```
 
-`OAuth2__AuthorizationUrl` and `OAuth2__TokenUrl` are only needed if you expose
-the Scalar API docs in production.
+The `OAuth2__*` settings configure the OAuth2 flow in the Scalar API docs, which
+are only served in development. They are not needed in production. Likewise,
+audience validation for the JWT bearer scheme is off by default because Authelia
+access tokens carry no `aud` claim — set `Oidc__ValidAudiences` if your provider
+emits one.
 
 ## 1. Deploy an OIDC Provider
 
@@ -77,8 +81,7 @@ export Oidc__ClientId=budgeteur-fs
 export Oidc__ClientSecret=<your-production-secret>
 export Oidc__CallbackPath=/signin-oidc
 export Login__ReturnUrl=https://app.example.com/
-export OAuth2__AuthorizationUrl=https://auth.example.com/api/oidc/authorization
-export OAuth2__TokenUrl=https://auth.example.com/api/oidc/token
+# OAuth2__* is dev-only (Scalar docs) — omit in production
 ```
 
 Then start:
@@ -87,6 +90,10 @@ Then start:
 dotnet run --project server/src/Budgeteur
 ```
 
+The server validates its configuration at startup and refuses to boot if any
+setting is missing or malformed, printing every failed setting — if it won't
+start, read the error output rather than guessing at env vars.
+
 ## Cookie Security (Non-Development)
 
 When `ASPNETCORE_ENVIRONMENT` is not `Development`:
@@ -94,15 +101,22 @@ When `ASPNETCORE_ENVIRONMENT` is not `Development`:
 - `Cookie.SecurePolicy = Always`
 - `Cookie.SameSite = Lax`
 - `Cookie.HttpOnly = true`
-- `RequireHttpsMetadata = true` for JWT bearer (only when `IsProduction()`)
+- `RequireHttpsMetadata = true` for JWT bearer
 - Self-signed cert validation is **not** bypassed
+
+Other non-obvious auth behaviours:
+
+- Claims are taken from the ID token — the userinfo endpoint is not called by
+  default. Enable `GetClaimsFromUserInfoEndpoint` to get `name`/`email` claims.
+- `/logout` only clears the local session cookie; Authelia does not yet support
+  RP-initiated logout, so the provider session persists.
 
 ## Verify
 
 1. `https://<domain>/login` → redirected to OIDC login
 2. Authenticate → redirected back to SPA
 3. `GET /api/<resource>` → returns data, not `401`
-4. `https://<domain>/scalar/v1` → OAuth2 flow works
+4. In development only: `https://<domain>/scalar/v1` → OAuth2 flow works
 
 ## Troubleshooting
 

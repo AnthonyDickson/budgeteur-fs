@@ -4,146 +4,66 @@
 
 A full-stack web app with an Oxpecker F# .NET 10 backend (SQLite + OIDC auth + OpenAPI) and a Gleam/Lustre SPA frontend styled with Tailwind CSS v4 and bundled with Vite.
 
-This repo is a template — the example domain is a todo app, but the architecture patterns are domain-agnostic. Run `scripts/rename.sh` to adopt it for your own project.
+The domain is a personal finance tracker: accounts, categories, and transactions, with auto-tagging rules on the roadmap. The `Transaction` slice is the reference implementation of the architecture patterns below.
 
 ## Essential Commands
 
 ```bash
+just db-migration name=add_foo  # Scaffold a new migration file
+just db-update                  # db-migrate + db-generate (full schema update)
+just db-reset                   # Delete DB, re-apply all migrations, regenerate
 just server-build         # Build the server
 just server-watch         # Run the server (auto-applies DB migrations)
-just server-test          # Server xUnit tests
+just server-test          # Server Expecto tests
 just client-install-deps  # npm install
 just client-watch         # Start the client dev server (Vite + Gleam watch)
-just client-build         # Build the client
-just client-publish       # Production client bundle
 just client-test          # Client gleeunit tests
 just e2e-test             # Playwright E2E tests in Docker
-just copy-client-dist     # Copy client dist into server wwwroot/
-just publish              # Single-file publish (builds client, copies assets, publishes server)
-just format               # Format F# with fantomas + gleam format
+just format               # Format markdown (dprint) + Gleam + F#
 just lint                 # Lint F# with fsharplint
 ```
 
-### Publishing
-
-```bash
-just publish                    # linux-x64 (default)
-just publish RUNTIME=osx-arm64  # macOS Apple Silicon
-```
-
-This builds the client, copies it into the server's `wwwroot/`, then publishes the server as a self-contained single-file binary with trimming. The output is at `server/src/Budgeteur/bin/Release/publish/`.
-
-### Database Commands
-
-```bash
-just db-migration name=add_foo  # Scaffold a new migration file
-just db-migrate                 # Apply pending migrations (standalone script)
-just db-generate                # Regenerate Db.fs types from live DB (SqlHydra)
-just db-update                  # db-migrate + db-generate (full schema update)
-just db-reset                   # Delete DB, re-apply all migrations, regenerate
-```
+The justfile is the source of truth for the full target list (`audit`, `outdated`, and the `db-*` family).
 
 Dev environment via Nix: `nix develop` (or `direnv allow`). Before client commands, run `just client-install-deps` to install npm packages.
-
-## File Structure & Compilation Order
-
-F# compiles server files in the order listed in `.fsproj`. **New files must be inserted before files that depend on them.** The Gleam client has no ordering constraints.
-
-```
-server/
-  Budgeteur.slnx                      # XML-based solution format
-  Directory.Build.props               # Enables Central Package Management
-  Directory.Packages.props            # All NuGet package versions
-  global.json                         # .NET SDK version
-  dotnet-tools.json                   # Local tool manifest
-  fsharplint.json                     # FSharpLint configuration
-  sqlhydra-sqlite.toml                # SqlHydra CLI configuration
-  .editorconfig                       # Code style (fantomas)
-  .fantomasignore                     # Files excluded from formatting
-  scripts/
-    migrate.fsx                       # Standalone DbUp migration runner
-  src/
-    Budgeteur/
-      Budgeteur.fsproj                # Project file
-      packages.lock.json              # Locked dependency graph
-      appsettings.Development.json    # Dev environment config
-      ApiError.fs                     # ApiError record type
-      Coders.fs                       # Generic JSON encode/decode
-      Config.fs                       # OIDC/OAuth2 configuration
-      Auth.fs                         # OIDC auth setup (cookie + JWT bearer)
-      OpenApi.fs                      # FSharpRecordSchemaTransformer
-      Json.fs                         # JSON read/write helpers
-      Db.fs                           # SqlHydra-generated types + QueryContextFactory
-      Todos.fs                        # Store, handlers, routes (vertical slice — example domain)
-      Program.fs                      # Entry point, DbUp, OpenAPI/Scalar config
-      migrations/                     # Numbered .sql files applied by DbUp at startup
-client/
-  src/
-    app.gleam                         # Entry point + app shell + routing
-    app.css                           # Tailwind CSS v4 entry
-    main.js                           # Vite entry point
-    budgeteur/                        # Example feature module (rename for your domain)
-      todo_page.gleam                 # Full MVC (model, update, view)
-      effect.gleam                    # Effect type + interpreter + HTTP constructors
-      http_effect.gleam               # HTTP transport: HttpMethod, HttpError, send/send_with
-      effect_ffi.mjs                  # Browser FFI (localStorage, redirect, navigation)
-      response.gleam                  # Decode helpers + JSON error formatting
-      todo_item.gleam                 # Domain types + JSON codecs
-      api_error.gleam                 # ApiError type + JSON codec
-      guard.gleam                     # use-compatible early-return for Option/Result
-  test/
-    budgeteur/
-      todo_page_test.gleam            # Pure unit tests for update logic
-tests/
-  e2e/
-    global-setup.ts                   # OIDC login before test suite
-    todos.spec.ts                     # Playwright test specs
-    playwright.config.ts              # Playwright configuration
-```
 
 ## Architecture
 
 ### Auth (`Auth.fs`)
 
-Uses `Microsoft.AspNetCore.Authentication.OpenIdConnect` with two parallel schemes:
+Uses `Microsoft.AspNetCore.Authentication.OpenIdConnect` with two schemes behind a policy scheme:
 
-- **Cookie** (`CookieAuthenticationDefaults`) — SPA session, authorization code flow.
-- **JWT Bearer** (`"bearer"`) — for Scalar API docs, PKCE flow.
+- **Cookie** — SPA session, authorization code flow.
+- **JWT Bearer** (`"bearer"`) — for the Scalar API docs, PKCE flow.
 
-Both satisfy the `"authenticated"` authorization policy. The `requireAuth` middleware gates protected endpoints.
+Either satisfies the `"authenticated"` authorization policy that `requireAuth` enforces on protected endpoints. Auth routes: `/login` (challenge, then redirect to the configured return URL) and `/logout`.
 
-Cookie defaults in production: `SecurePolicy=Always`, `SameSite=Lax`, `HttpOnly=true`. In dev, `RequireHttpsMetadata=false` and self-signed certs are accepted.
+Cookie defaults outside development: `SecurePolicy=Always`, `SameSite=Lax`, `HttpOnly=true`, 1-hour sliding expiry. In dev, `RequireHttpsMetadata=false` and self-signed certs are accepted.
 
-Environment config via `Oidc:Authority`, `Oidc:ClientId`, `Oidc:ClientSecret`, `Oidc:CallbackPath`. The `Login:ReturnUrl` and `OAuth2:*` settings are read in `Program.fs`.
+Config via `Oidc:Authority`, `Oidc:ClientId`, `Oidc:ClientSecret`, `Oidc:CallbackPath`, optional `Oidc:ValidAudiences`, and `Login:ReturnUrl`. The `OAuth2:*` settings only drive the Scalar docs' OAuth2 flow, which is served **in development only** (see `Program.fs`).
 
-### Vertical Slice Architecture (example: `Todos.fs`)
+Known limits: claims come from the ID token (the userinfo endpoint is not called by default), and `/logout` only clears the local cookie — the provider session persists (Authelia lacks RP-initiated logout).
 
-The domain logic lives in a single-file vertical slice with nested modules. The template uses a todo domain as an example — replace it with your own domain module:
+### Vertical Slice Architecture (reference: `Transaction/`)
 
-- **`Store`** — Database query functions using SqlHydra.Query (creating a `QueryContextFactory` and exposing query operations)
-- **`Api`** — Endpoint handler sub-modules (e.g. `GetAll`, `Get`, `Create`, `Update`, `Delete`), each exposing a `handler` and an `endpoint` function
-- **Top-level module** (`[<RequireQualifiedAccess>]`) — public API: `Store` and `endpoints`
+Each domain is a folder with:
 
-The `Store` holds a `QueryContextFactory` (from `Db.fs`) wired at startup in `Program.fs`. All queries use SqlHydra computation expressions (`selectTask`, `insertTask`, `updateTask`, `deleteTask`). A thin mapping layer copies between DB rows and API types — the types are structurally identical thanks to SqlHydra-compatible type hints in migration SQL.
+- **`Api.fs`** — the slice's public surface: `endpoints (queryContext)` returning the route list.
+- **`Transaction.fs`** — the domain type plus `toRow` / `fromRow` DB mapping.
+- **`Validation.fs`** — domain validation rules.
+- **`Endpoints/`** — one file per HTTP operation (`Create`, `Read`, `ReadAll`, `Update`, `Delete`, `Import`), each exposing a `Path` literal and an `endpoint` function.
 
-Handler pattern:
+Handlers run through `Endpoint.handler`, which executes a `Task<Result<unit, DomainError>>` body and maps `DomainError` values to HTTP responses (see `Endpoint.fs`). Routes use `/api/<resource>` for collections and `/api/<resource>/{id}` for items; each endpoint is decorated with OpenAPI metadata via `addOpenApi`. IDs are v7 UUIDs generated server-side — create requests carry no id.
 
-```fsharp
-// No route param: store → EndpointHandler
-let handler (store : Store) : EndpointHandler = ...
-
-// With route param: store → param → EndpointHandler
-let handler (store : Store) (id : Guid) : EndpointHandler = ...
-```
-
-Each `endpoint` function wraps the handler with OpenAPI metadata via `addOpenApi`. Routes use `/api/<resource>` prefix for collection endpoints and `/api/<resource>/{id}` for item endpoints.
+The `QueryContextFactory` (from `Db.fs`) is created once in `Program.fs` and threaded into each slice's `endpoints` function. In `Program.fs`, feature endpoints are wrapped with `Auth.requireAuth`.
 
 ### Database (`Db.fs` + `migrations/`)
 
 - **`Db.fs`** — Auto-generated by `dotnet sqlhydra sqlite`. Contains record types, table declarations, and `QueryContextFactory`. Committed to source control — compiles immediately after clone, no code-gen needed. Do not modify directly, use the just targets.
-- **`migrations/`** — Numbered `.sql` files embedded as resources. DbUp runs them in order at startup, tracking applied scripts in a `SchemaVersions` table. Use SqlHydra-compatible type hints (`GUID`, `BOOLEAN`, `DATETIME`) in column definitions — these aren't real SQLite types but influence codegen. See [SqlHydra's SqliteDataTypes.fs](https://github.com/JordanMarr/SqlHydra/blob/main/src/SqlHydra.Cli/Sqlite/SqliteDataTypes.fs) for the full list.
+- **`migrations/`** — Numbered `.sql` files embedded as resources. DbUp runs them in order at startup, tracking applied scripts in a `SchemaVersions` table. Use SqlHydra-compatible type hints (`GUID`, `BOOLEAN`, `DATETIME`, `CURRENCY`, …) in column definitions — these aren't real SQLite types but influence codegen. See [SqlHydra's SqliteDataTypes.fs](https://github.com/JordanMarr/SqlHydra/blob/main/src/SqlHydra.Cli/Sqlite/SqliteDataTypes.fs). The first migration's header comment documents the column type conventions (UUID v7, UTC timestamps, etc.).
 - **`scripts/migrate.fsx`** — Standalone DbUp migration runner that reads SQL files directly from disk. Used by `just db-migrate` to apply migrations without building the server — avoids the chicken-and-egg problem where a schema change breaks the build before `Db.fs` is regenerated.
-- **Error handling**: SqlHydra throws on infrastructure failures (dead connection, disk full). A global middleware in `Program.fs` catches all unhandled exceptions and returns `500`. Handlers focus on domain logic (`Option` → `404`, validation → `400`).
+- **PRAGMAs** — `Program.fs` enables WAL journal mode and foreign-key enforcement after migrations run; SQLite silently ignores foreign keys otherwise.
+- **Error handling** — SqlHydra throws on infrastructure failures (dead connection, disk full); handlers map `DomainError` to HTTP responses via `Endpoint.handler`, and a global middleware in `Program.fs` catches any unhandled exception as a last resort.
 
 #### Schema Workflows
 
@@ -174,8 +94,8 @@ just db-reset                         # delete DB, re-apply all migrations, rege
 **Key constraints:**
 
 - Migration files are applied once, in order — never modify an already-run migration. Add a new file for changes.
-- `Db.fs` is auto-generated — do not hand-edit. The mapping layer in the domain module is the control point for DB ↔ API type conversions.
-- Connection string is `Data Source=<name>.db` (relative, resolves to project root). Override with an absolute path (e.g. `/data/app.db`) in production via `ConnectionStrings__Default` env var.
+- `Db.fs` is auto-generated — do not hand-edit. The mapping layer in the domain module (`toRow` / `fromRow`) is the control point for DB ↔ API type conversions.
+- Connection string is `Data Source=app.sqlite3` (relative, resolves to the server project). Override with an absolute path (e.g. `/data/app.sqlite3`) in production via `ConnectionStrings__Default` env var.
 
 ### Logging Architecture
 
@@ -186,50 +106,41 @@ The server uses a dual-layer logging system:
 
 ### Client (Gleam/Lustre SPA)
 
-Two-layer MVU:
+Two-layer MVU: `app.gleam` is the shell (routing, toasts, model persistence, session expiry) and each feature page (e.g. `transactions/transactions_page.gleam`) owns its model, update, and view. The shell delegates to the active page and maps its effects up with `effect.map`.
 
-- `app.gleam` — Entry point + thin shell: routing via custom navigation effects + delegate to feature pages. Effect interpreter wiring.
-- `<feature>_page.gleam` — Full MVC per feature: model, update (pure, returns `Effect` values), view.
-- `effect.gleam` — Custom `Effect` type with 9 variants (`HttpRequest`, `LoadFromStore`, `SaveToStore`, `Redirect`, `After`, `Navigate`, `PushUrl`, `ReplaceUrl`, `Batch`, `None`) + interpreter (`run`) + `map`/`batch`/`none` helpers + thin per-method HTTP constructors (`get`, `post`, `put`, `patch`, `delete`) + navigation constructors. Feature modules only need to import `effect` for everyday effects.
-- `http_effect.gleam` — HTTP transport layer. Defines `HttpMethod` and `HttpError` types, exposes `send` / `send_with` (configurable request building). Depends only on stdlib — the extension point for auth headers, retry logic, or custom HTTP methods.
-- `effect_ffi.mjs` — Thin JS wrappers for `window.localStorage`, `window.location.assign`, and client-side navigation (click interception on internal links, popstate listener, `history.pushState`/`replaceState`).
-- `response.gleam` — `decode_success` (2xx body → typed `Result`) and `http_error_to_api_error` (`HttpError` → `ApiError`) helpers.
-- `guard.gleam` — `use`-compatible helpers (`guard.some`, `guard.ok`) for early return from `Option`/`Result`.
+- `effect.gleam` — Custom `Effect` type (pure data) + interpreter (`run`) + `map`/`batch`/`none` helpers + thin per-method HTTP constructors (`get`, `post`, `put`, `patch`, `delete`). Feature modules only need to import `effect` for everyday effects.
+- `http_effect.gleam` — HTTP transport: `HttpMethod`, `HttpError` (transport vs. status-code errors), and `send` with a `transform` hook for per-request customisation (auth headers).
+- `effect_ffi.mjs` — Thin JS wrappers for `window.localStorage`, redirects, dialog controls, and client-side navigation.
+- `guard.gleam` — `use`-compatible early-return helpers for `Option`/`Result`.
+- `response.gleam` — 2xx body → typed `Result` and `HttpError` → `ApiError` helpers.
+- `out_msg.gleam` — child → parent channel; pages return an `OutMsg` alongside model and effect to request shell-level behaviours (currently toasts).
+
+See [docs/architecture.md](docs/architecture.md) for the full design.
 
 ### Effect System Design
 
-The `Effect` type is the cornerstone of the client architecture. Every `update` function returns `#(Model, Effect(Msg))` — pure data describing what side effects to perform. A single `effect.run` interpreter executes them, keeping `update` functions testable without mocking.
+`update` returns pure data — a description of side effects — and a single `effect.run` interpreter executes them against the real browser, keeping `update` functions testable without mocking. The `Effect` type in `effect.gleam` is the source of truth for the variants; broadly they cover HTTP, localStorage, navigation/history, browser chrome (title, dialogs), timers, message dispatch, batching, and no-ops. The shell adds two cross-cutting behaviours on top of every page's effects: serialising the whole model to localStorage after each update, and rewriting HTTP effects so a `401` response redirects to the login route.
 
-| Effect               | Side effect                             |
-| -------------------- | --------------------------------------- |
-| `HttpRequest`        | `gleam_fetch` → typed callback          |
-| `LoadFromStore`      | `window.localStorage.getItem`           |
-| `SaveToStore`        | `window.localStorage.setItem`           |
-| `Redirect`           | `window.location.assign`                |
-| `After(delay, msg)`  | Dispatch `msg` after `delay` ms         |
-| `Navigate`           | Click/popstate interception + pushState |
-| `PushUrl/ReplaceUrl` | `history.pushState` / `replaceState`    |
-| `Batch([...])`       | Run multiple effects                    |
-| `None`               | No-op                                   |
-
-Bridging into Lustre:
-
-```gleam
-fn update_with_effect(model, msg) -> #(Model, lustre_effect.Effect(Msg)) {
-  let #(new_model, effect) = update(model, msg)
-  #(new_model, lustre_effect.from(fn(dispatch) { effect.run(effect, dispatch) }))
-}
-```
+Bridging into Lustre: the shell wraps the custom `Effect` in Lustre's opaque `lustre_effect.Effect` via `lustre_effect.from(fn(dispatch) { effect.run(effect, dispatch) })`.
 
 ### Tests
 
-Three layers: server xUnit tests (`just server-test`, ephemeral SQLite, no auth), client gleeunit tests (`just client-test`, pure `update` unit tests, no browser), and E2E Playwright tests (`just e2e-test`, full stack in Docker Compose with Authelia). E2E tests use `data-testid` attributes for selectors — add them to feature page views when new interactive elements are introduced.
+Three layers — see the linked docs for details:
+
+- Server: Expecto (`just server-test`). An in-memory SQLite `TestApp` wires each feature's `Api.endpoints` directly, bypassing auth — see [docs/server-tests.md](docs/server-tests.md).
+- Client: gleeunit (`just client-test`), pure `update` unit tests, no browser — see [docs/architecture.md](docs/architecture.md).
+- E2E: Playwright (`just e2e-test`), full stack in Docker Compose with Authelia — see [docs/e2e-tests.md](docs/e2e-tests.md). E2E tests use `data-testid` attributes for selectors — add them to feature page views when new interactive elements are introduced.
 
 ### Static Assets
 
 **Client assets** (images, fonts, favicons, PDFs — anything the SPA references) live in `client/public/`. Vite serves them at root in dev and copies them into `dist/` on build. They reach the server via `just copy-client-dist`.
 
 **Server-only assets** (e.g. `robots.txt` that should exist regardless of the client bundle) live in `server/src/Budgeteur/wwwroot/`. Note that `wwwroot/` is gitignored and recreated by `copy-client-dist`, so the source of truth for any persisted file must live elsewhere (or use a build step).
+
+## Conventions
+
+- **User scoping** — every query filters by `UserId`, resolved from the `sub` claim. New slices must follow this or they will leak data across users.
+- **Money** — amounts are `decimal`, rounded to cents with `Money.roundToCents` (`MidpointRounding.AwayFromZero`), and serialised as JSON strings, not numbers.
 
 ## Code Style & Conventions
 
@@ -243,18 +154,18 @@ Three layers: server xUnit tests (`just server-test`, ephemeral SQLite, no auth)
 - Modules: PascalCase, matching filename
 - Functions: camelCase
 - Types (records, DUs): PascalCase
-- `[<RequireQualifiedAccess>]` on modules that expose a type alias (e.g. `Store`)
+- `[<RequireQualifiedAccess>]` on modules that expose a type alias
 - `[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]` when module and type share a name
 
 ### Error Handling
 
-Json-serialized `ApiError` records (`{ Error: string; Details: string; StatusCode: int option }`) with appropriate HTTP status codes. No exceptions.
+Handlers return `Result<unit, DomainError>` and `Endpoint.handler` maps each case to a JSON `ApiError` record (`{ Error; Details; StatusCode; RequestId }`) with the appropriate HTTP status code. No exceptions escape handlers.
 
 ## Gotchas
 
 - **Lockfile enforced**: After adding/updating NuGet packages, run `dotnet restore --force-evaluate <project>`.
-- **Compilation order**: Insert new `.fs` files at the correct position in `.fsproj`.
+- **Compilation order**: F# compiles server files in the order listed in `.fsproj` — insert new `.fs` files before files that depend on them.
 - **SqlHydra query parameters**: Function parameters can't be captured directly in query expressions. Bind them to local `let` values first (e.g. `let idStr = id.ToString()` before using in a `where` clause).
 - **Central Package Management**: Versions in `Directory.Packages.props`; project files use bare `<PackageReference Include="..." />`.
-- **Client needs `npm install`** before first `just client-watch`, `just client-build` or `just client-publish`.
-- **Tests** — xUnit in `server/tests/`, gleeunit in `client/test/`, Playwright E2E in `tests/e2e/`.
+- **Client needs `npm install`** before first `just client-watch` or `just client-build`.
+- **Request body limit** — Kestrel caps request bodies at 64 KB (`Program.fs`); relevant when wiring the CSV import.

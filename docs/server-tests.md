@@ -8,24 +8,31 @@ Expecto tests in `server/tests/Budgeteur.Tests/`. Also see
 Uses a `TestApp` module with `HostBuilder` + `TestServer` — the .NET 10
 replacement for the deprecated `WebHostBuilder`.
 
-The host contains only what endpoints need:
+The host contains only what the feature under test needs, declared per-test via
+a `TestAppConfig`:
 
-- SQLite (temp file, auto-cleaned)
-- Routing + Oxpecker middleware
-- `Api.endpoints` directly — **not** the full domain module endpoints
+- **In-memory SQLite** (shared-cache mode). A "keeper" connection holds the
+  database open for the app's lifetime — each query opens its own connection,
+  and the DB would be dropped when the last one closes.
+- Routing + Oxpecker middleware.
+- **The feature's `Api.endpoints` directly** — e.g. `Transaction.Api.endpoints`,
+  not the full `Program.fs` endpoint list. See below.
+- A fake `ClaimsPrincipal` with a `sub` claim, so handlers that read the user id
+  work without an OIDC round-trip.
 
-### Why `Api.endpoints` not the domain module endpoints
+### Why feature `Api.endpoints` and not the production wiring
 
-The domain module's top-level `endpoints` wraps every endpoint with `requireAuth`,
-which needs the full OIDC/JWT setup. Tests call `Api.endpoints` directly, bypassing
-auth entirely. Production calls the domain module's `endpoints` and gets the auth filter.
+`Program.fs` wraps every feature endpoint with `Auth.requireAuth`, which needs
+the full OIDC/JWT setup. Tests call the feature's `Api.endpoints` directly,
+bypassing auth entirely. Production adds the auth filter on top of the same
+endpoints.
 
 ### Fixture lifecycle
 
-`TestApp.create()` produces a record (`{ Client, CleanDatabase, Dispose }`) that
-creates a temp SQLite file, applies migrations once, and cleans up on
-`Dispose`. A `Lazy<TestApp>` at the module level shares one instance across
-all tests. Each test calls `app.CleanDatabase()` before acting.
+`TestApp.create(config)` applies migrations once, then returns a record
+(`{ Client, CleanDatabase, Dispose }`). Tests create a fresh app per test
+(`use app = newApp ()`), so each test starts from an empty database —
+`CleanDatabase` is there for tests that reuse one instance.
 
 ## Running Tests
 
@@ -34,18 +41,3 @@ just server-test
 # or
 dotnet run --project server/tests/Budgeteur.Tests
 ```
-
-## Test Cases
-
-The example domain (todos) covers the following CRUD test patterns:
-
-| Method | Endpoint               | Asserts                     |
-| ------ | ---------------------- | --------------------------- |
-| GET    | `/api/todos`           | 200, `[]`                   |
-| GET    | `/api/todos` (seeded)  | 200, seeded item present    |
-| GET    | `/api/todos/{id}`      | 200, matches seeded item    |
-| GET    | `/api/todos/{id}`      | 404                         |
-| POST   | `/api/todos`           | 201, matches input          |
-| PATCH  | `/api/todos/{id}`      | 200, reflects changes       |
-| DELETE | `/api/todos/{id}`      | 204, 404 on re-GET          |
-| DELETE | `/api/todos/completed` | 204, incomplete-only remain |

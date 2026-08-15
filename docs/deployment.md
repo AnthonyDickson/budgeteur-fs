@@ -25,8 +25,9 @@ docker push ghcr.io/your-org/budgeteur-fs:latest
 ```
 
 The multi-stage `Dockerfile` installs Node.js and Gleam, builds the client, then
-publishes the server into a `debian:stable-slim` runtime image with only `ca-certificates`,
-`curl`, and `libicu` installed.
+publishes the server into a minimal `debian:stable-slim` runtime image — only
+the packages needed for TLS, health checks, and the ICU globalization
+assemblies. It runs as a non-root `appuser`.
 
 > [!NOTE]
 > When publishing from the CLI, you will need to manually set the "package" (image) to publish and then assign the
@@ -86,6 +87,12 @@ which is ephemeral.
 > ```
 >
 > Failure to do this results in `SQLite Error 14: 'unable to open database file'`.
+
+### Health checks
+
+Container healthchecks probe `GET /api/status`, which reports the build version,
+uptime, and a database connectivity probe — returning `503` when the database is
+unreachable.
 
 ## Static Assets
 
