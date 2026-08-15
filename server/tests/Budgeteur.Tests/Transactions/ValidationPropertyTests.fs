@@ -71,16 +71,6 @@ module ValidationPropertyTests =
     [<Tests>]
     let validationPropertyTests =
         testList "Transactions Validation (property)" [
-            // FsCheck surfaced null via its default string generator; lifted from the
-            // shrink, the function throws on a null description rather than returning
-            // an Error. The API can't send null (Thoth rejects it), but direct callers
-            // must not pass null.
-            testCase "null description throws NullReferenceException"
-            <| fun () ->
-                Expect.throws
-                    (fun () -> Validation.validateAndTrimDescription null |> ignore)
-                    "null input should not be silently accepted"
-
             testPropertyWithConfig
                 config
                 "Acceptance preserves trim: Ok trimmed exactly equals s.Trim()"

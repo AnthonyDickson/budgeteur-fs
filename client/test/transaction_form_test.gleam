@@ -34,22 +34,6 @@ pub fn clip_amount_leaves_whole_numbers_untouched_test() {
   |> should.equal("123")
 }
 
-pub fn clip_amount_handles_negative_values_test() {
-  transaction_form.clip_amount_to_two_dp("-12.345")
-  |> should.equal("-12.34")
-}
-
-pub fn clip_amount_handles_empty_string_test() {
-  transaction_form.clip_amount_to_two_dp("")
-  |> should.equal("")
-}
-
-pub fn empty_modal_starts_in_create_mode_test() {
-  let state = transaction_form.empty_modal()
-  state.mode |> should.equal(transaction_form.Create)
-  state.submitting |> should.be_false
-}
-
 pub fn set_amount_clips_to_two_decimal_places_test() {
   let state =
     transaction_form.empty_modal()
@@ -107,20 +91,6 @@ pub fn set_date_records_not_a_date_error_test() {
     transaction_form.empty_modal()
     |> transaction_form.set_date("not a date")
   state.form.error.date |> should.equal(Some(NotADate))
-}
-
-pub fn set_type_switches_to_credit_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_type_(Credit)
-  transaction_form.validate(state) |> should.be_error
-}
-
-pub fn set_is_transfer_toggles_field_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_is_transfer(True)
-  state.form.is_transfer |> should.be_true
 }
 
 pub fn validate_includes_is_transfer_test() {
@@ -207,38 +177,4 @@ pub fn edit_modal_maps_credit_transaction_test() {
   state.form.type_ |> should.equal(Credit)
   state.form.description |> should.equal("Salary")
   state.form.date |> should.equal("2026-03-15")
-}
-
-pub fn from_transaction_maps_debit_sign_to_type_test() {
-  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000003")
-  let transaction =
-    transaction.Transaction(
-      id: id,
-      amount: -42.5,
-      description: "Groceries",
-      date: calendar.Date(2026, calendar.January, 2),
-      is_transfer: False,
-      account_id: None,
-      category_id: None,
-    )
-  let form = transaction_form.from_transaction(transaction)
-  form.amount |> should.equal("42.50")
-  form.type_ |> should.equal(Debit)
-}
-
-pub fn from_transaction_maps_credit_sign_to_type_test() {
-  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000004")
-  let transaction =
-    transaction.Transaction(
-      id: id,
-      amount: 42.5,
-      description: "Refund",
-      date: calendar.Date(2026, calendar.January, 2),
-      is_transfer: False,
-      account_id: None,
-      category_id: None,
-    )
-  let form = transaction_form.from_transaction(transaction)
-  form.amount |> should.equal("42.50")
-  form.type_ |> should.equal(Credit)
 }

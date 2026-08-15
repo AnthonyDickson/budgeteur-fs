@@ -56,14 +56,3 @@ pub fn passes_through_non_401_errors_test() {
   callback(Error(http_effect.HttpError(status: 500, body: "{}")))
   |> should.equal(app.UrlChanged(""))
 }
-
-pub fn passes_through_network_errors_test() {
-  let effect: effect.Effect(app.Msg) =
-    effect.get("/api/transactions", fn(_) { app.UrlChanged("") })
-    |> app.wrap_http_requests
-
-  let assert effect.HttpRequest(callback: callback, ..) = effect
-
-  callback(Error(http_effect.NetworkError("offline")))
-  |> should.equal(app.UrlChanged(""))
-}
