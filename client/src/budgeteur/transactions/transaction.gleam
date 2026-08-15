@@ -39,12 +39,12 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
   use date <- decode.field("date", date.decoder())
   use is_transfer <- decode.field("isTransfer", decode.bool)
   use account_id <- decode.optional_field(
-    "account_id",
+    "accountId",
     None,
     decode.optional(uuid_decoder()),
   )
   use category_id <- decode.optional_field(
-    "category_id",
+    "categoryId",
     None,
     decode.optional(uuid_decoder()),
   )
@@ -74,12 +74,12 @@ pub fn transaction_to_json(transaction: Transaction) -> json.Json {
     #("amount", money.encode_decimal(amount)),
     #("description", json.string(description)),
     #("date", date.encode(date)),
-    #("account_id", case account_id {
     #("isTransfer", json.bool(is_transfer)),
+    #("accountId", case account_id {
       None -> json.null()
       option.Some(value) -> json.string(uuid.to_string(value))
     }),
-    #("category_id", case category_id {
+    #("categoryId", case category_id {
       None -> json.null()
       option.Some(value) -> json.string(uuid.to_string(value))
     }),
