@@ -63,6 +63,7 @@ pub type Msg {
   UserRequestedEditForm(Uuid)
   UserUpdatedFormAmount(String)
   UserUpdatedFormType(TransactionType)
+  UserUpdatedFormIsTransfer(Bool)
   UserUpdatedFormDescription(String)
   UserUpdatedFormDate(String)
   UserSubmittedForm
@@ -220,6 +221,11 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
     UserUpdatedFormType(type_) -> {
       let modal = transaction_form.set_type_(model.modal, type_)
+      #(Model(..model, modal:), effect.none(), None)
+    }
+
+    UserUpdatedFormIsTransfer(is_transfer) -> {
+      let modal = transaction_form.set_is_transfer(model.modal, is_transfer)
       #(Model(..model, modal:), effect.none(), None)
     }
 
@@ -413,6 +419,7 @@ pub fn view(model: Model) -> Element(Msg) {
       model.modal,
       on_amount_input: UserUpdatedFormAmount,
       on_type_click: UserUpdatedFormType,
+      on_is_transfer_input: UserUpdatedFormIsTransfer,
       on_description_input: UserUpdatedFormDescription,
       on_date_input: UserUpdatedFormDate,
       on_submit: UserSubmittedForm,

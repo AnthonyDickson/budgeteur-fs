@@ -62,6 +62,7 @@ pub type Form {
   Form(
     amount: String,
     type_: TransactionType,
+    is_transfer: Bool,
     description: String,
     date: String,
     error: FormError,
@@ -87,6 +88,7 @@ pub fn empty() -> Form {
   Form(
     amount: "",
     type_: Debit,
+    is_transfer: False,
     description: "",
     date: "",
     error: empty_error(),
@@ -107,17 +109,6 @@ pub fn edit_modal(transaction: Transaction) -> ModalState {
   )
 }
 
-/// Build a form from known-good values without running validation. Used when
-/// pre-filling the form for an existing transaction (e.g. the edit modal).
-pub fn from(
-  amount: String,
-  type_: TransactionType,
-  description: String,
-  date: String,
-) -> Form {
-  Form(amount:, type_:, description:, date:, error: empty_error())
-}
-
 /// Build a form pre-filled with an existing transaction's values. The stored
 /// amount is signed (debit = negative); the form expresses the sign via the
 /// type toggle, so the amount is converted to its absolute value.
@@ -127,6 +118,7 @@ pub fn from_transaction(transaction: Transaction) -> Form {
     amount:,
     description:,
     date:,
+    is_transfer:,
     account_id: _,
     category_id: _,
   ) = transaction
@@ -136,11 +128,13 @@ pub fn from_transaction(transaction: Transaction) -> Form {
     False -> Credit
   }
 
-  from(
-    amount |> float.absolute_value |> money.to_string,
-    type_,
-    description,
-    date.format(date),
+  Form(
+    amount: amount |> float.absolute_value |> money.to_string,
+    type_:,
+    is_transfer:,
+    description:,
+    date: date.format(date),
+    error: empty_error(),
   )
 }
 
@@ -228,6 +222,11 @@ pub fn set_type_(state: ModalState, type_: TransactionType) -> ModalState {
   ModalState(..state, form: Form(..form, type_:))
 }
 
+pub fn set_is_transfer(state: ModalState, is_transfer: Bool) -> ModalState {
+  let ModalState(form:, ..) = state
+  ModalState(..state, form: Form(..form, is_transfer:))
+}
+
 pub fn set_description(state: ModalState, description: String) -> ModalState {
   let ModalState(form:, ..) = state
   ModalState(..state, form: set_form_description(form, description))
@@ -261,7 +260,7 @@ pub fn validate(
   state: ModalState,
 ) -> Result(CreateTransactionRequest, FormError) {
   let ModalState(form:, ..) = state
-  let Form(amount:, type_:, description:, date:, error: _) = form
+  let Form(amount:, type_:, is_transfer:, description:, date:, error: _) = form
 
   let amount = validate_amount(amount)
   let description = validate_description(description)
@@ -278,6 +277,7 @@ pub fn validate(
         amount:,
         description: description,
         date: date,
+        is_transfer: is_transfer,
       )
       |> Ok
     }
@@ -296,6 +296,7 @@ pub fn view(
   state: ModalState,
   on_amount_input on_amount_input: fn(String) -> msg,
   on_type_click on_type_click: fn(TransactionType) -> msg,
+  on_is_transfer_input on_is_transfer_input: fn(Bool) -> msg,
   on_description_input on_description_input: fn(String) -> msg,
   on_date_input on_date_input: fn(String) -> msg,
   on_submit on_submit: msg,
@@ -308,7 +309,7 @@ pub fn view(
     Edit(_) -> #("Edit Transaction", "Update Transaction")
   }
 
-  let Form(amount:, type_:, description:, date:, error:) = form
+  let Form(amount:, type_:, is_transfer:, description:, date:, error:) = form
 
   let FormError(
     amount: amount_error,
@@ -416,6 +417,20 @@ pub fn view(
                   html.text("Credit"),
                 ],
               ),
+            ]),
+          ]),
+          html.label([attribute.class("flex items-center gap-2")], [
+            html.input([
+              attribute.type_("checkbox"),
+              attribute.name("is_transfer"),
+              attribute.checked(is_transfer),
+              attribute.class(
+                "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500",
+              ),
+              event.on_check(on_is_transfer_input),
+            ]),
+            html.span([attribute.class("text-sm font-medium text-gray-700")], [
+              html.text("Transfer between my own accounts"),
             ]),
           ]),
           html.label([attribute.class("block")], [

@@ -62,6 +62,10 @@ CREATE TABLE Transactions (
     Description TEXT     NOT NULL,
     -- When the transaction occurred.
     Date        DATE     NOT NULL,
+    -- Whether the transaction represents an internal transfer between a user's own accounts.
+    -- If true, the transaction should only be shown in the transactions table, but not anywhere else.
+    -- It should not contribute to any statistics or charts.
+    IsTransfer  BOOL     NOT NULL,
     -- The account associated with the transaction.
     -- NULL indicates the account info is not available or not applicable (e.g., cash).
     AccountId   GUID,

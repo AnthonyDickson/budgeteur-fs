@@ -109,20 +109,29 @@ pub fn set_date_records_not_a_date_error_test() {
   state.form.error.date |> should.equal(Some(NotADate))
 }
 
-pub fn from_prefills_without_validation_errors_test() {
-  let form = transaction_form.from("12.5", Debit, "Coffee", "2026-01-02")
-  form.error.amount |> should.be_none
-  form.error.description |> should.be_none
-  form.error.date |> should.be_none
-  let state = transaction_form.ModalState(form, transaction_form.Create, False)
-  transaction_form.validate(state) |> should.be_ok
-}
-
 pub fn set_type_switches_to_credit_test() {
   let state =
     transaction_form.empty_modal()
     |> transaction_form.set_type_(Credit)
   transaction_form.validate(state) |> should.be_error
+}
+
+pub fn set_is_transfer_toggles_field_test() {
+  let state =
+    transaction_form.empty_modal()
+    |> transaction_form.set_is_transfer(True)
+  state.form.is_transfer |> should.be_true
+}
+
+pub fn validate_includes_is_transfer_test() {
+  let state =
+    transaction_form.empty_modal()
+    |> transaction_form.set_amount("12.5")
+    |> transaction_form.set_description("Coffee")
+    |> transaction_form.set_date("2026-01-02")
+    |> transaction_form.set_is_transfer(True)
+  let request = transaction_form.validate(state) |> should.be_ok
+  request.is_transfer |> should.be_true
 }
 
 pub fn validate_negates_debit_amounts_test() {
@@ -165,6 +174,7 @@ pub fn edit_modal_prefills_transaction_test() {
       amount: -12.5,
       description: "Coffee",
       date: calendar.Date(2026, calendar.January, 2),
+      is_transfer: False,
       account_id: None,
       category_id: None,
     )
@@ -186,6 +196,7 @@ pub fn edit_modal_maps_credit_transaction_test() {
       amount: 2500.0,
       description: "Salary",
       date: calendar.Date(2026, calendar.March, 15),
+      is_transfer: False,
       account_id: None,
       category_id: None,
     )
@@ -206,6 +217,7 @@ pub fn from_transaction_maps_debit_sign_to_type_test() {
       amount: -42.5,
       description: "Groceries",
       date: calendar.Date(2026, calendar.January, 2),
+      is_transfer: False,
       account_id: None,
       category_id: None,
     )
@@ -222,6 +234,7 @@ pub fn from_transaction_maps_credit_sign_to_type_test() {
       amount: 42.5,
       description: "Refund",
       date: calendar.Date(2026, calendar.January, 2),
+      is_transfer: False,
       account_id: None,
       category_id: None,
     )

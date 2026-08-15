@@ -7,6 +7,7 @@ type CreateTransactionRequest = {
     Amount : decimal
     Description : string
     Date : DateOnly
+    IsTransfer : bool
 }
 
 module Create =
@@ -65,6 +66,7 @@ module Create =
                     Amount = Money.roundToCents req.Amount
                     Description = description
                     Date = req.Date
+                    IsTransfer = req.IsTransfer
                     AccountId = None
                     CategoryId = None
                 }

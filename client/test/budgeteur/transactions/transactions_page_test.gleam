@@ -21,6 +21,7 @@ fn sample_transaction() -> transaction.Transaction {
     amount: -12.5,
     description: "Coffee",
     date: calendar.Date(2026, calendar.January, 2),
+    is_transfer: False,
     account_id: None,
     category_id: None,
   )

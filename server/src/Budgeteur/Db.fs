@@ -69,6 +69,7 @@ module main =
           Amount: decimal
           Description: string
           Date: System.DateOnly
+          IsTransfer: bool
           AccountId: Option<System.Guid>
           ImportHash: Option<string>
           CategoryId: Option<System.Guid> }

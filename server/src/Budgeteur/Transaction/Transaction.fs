@@ -16,6 +16,9 @@ type Transaction = {
     /// <summary>Date when the transaction occurred (UTC).</summary>
     Date : DateOnly
 
+    /// <summary>Whether the transaction represents an internal transfer between one's own accounts.</summary>
+    IsTransfer : bool
+
     /// <summary>The bank account associated with this transaction.</summary>
     AccountId : Option<Guid>
 
@@ -34,6 +37,7 @@ module Transaction =
         Amount = transaction.Amount
         Description = transaction.Description
         Date = transaction.Date
+        IsTransfer = transaction.IsTransfer
         AccountId = transaction.AccountId
         ImportHash = importHash
         CategoryId = transaction.CategoryId
@@ -44,6 +48,7 @@ module Transaction =
         Amount = row.Amount
         Description = row.Description
         Date = row.Date
+        IsTransfer = row.IsTransfer
         AccountId = row.AccountId
         CategoryId = row.CategoryId
     }

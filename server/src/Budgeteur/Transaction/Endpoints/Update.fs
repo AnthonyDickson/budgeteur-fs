@@ -7,6 +7,7 @@ type UpdateTransactionRequest = {
     Amount : decimal
     Description : string
     Date : DateOnly
+    IsTransfer : bool
 }
 
 module Update =
@@ -70,15 +71,16 @@ module Update =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! (req : UpdateTransactionRequest) = Json.read ctx
-                let! userId = Auth.getUserId ctx
 
+                let! userId = Auth.getUserId ctx
                 let! description = Validation.validateAndTrimDescription req.Description
-                // The URL owns resource identity; the validated body supplies the mutable fields.
+
                 let transaction = {
                     Id = id
                     Amount = Money.roundToCents req.Amount
                     Description = description
                     Date = req.Date
+                    IsTransfer = req.IsTransfer
                     AccountId = None
                     CategoryId = None
                 }

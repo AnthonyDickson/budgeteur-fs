@@ -23,6 +23,7 @@ module EndpointTests =
         Description = description
         // Aligned to whole seconds, matching the epoch-second precision used for storage.
         Date = DateOnly (2026, 3, 8)
+        IsTransfer = false
     }
 
     let newApp () =
