@@ -16,8 +16,6 @@
 
 ## Backlog
 
-- Fix E2E tests
-  - One test (suite) that exercises the full CRUD cycle for a transaction
 - Kiwibank statements have enough info to auto tag internal transfers without dedicated rule
   - If the both the source and target account numbers are in the user's accounts, then you can tag as an internal transfer.
   - This should only apply on import, manual imports must be manually categorised.

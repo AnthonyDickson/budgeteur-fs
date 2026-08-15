@@ -23,11 +23,11 @@ services:
     stdin_open: true
     tty: true
     command: >
-      sh -c "rm -f /tmp/todos_e2e.db && dotnet watch run --no-hot-reload"
+      sh -c "rm -f /tmp/budgeteur_e2e.db && dotnet watch run --no-hot-reload"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - Login__ReturnUrl=http://localhost:5173/
-      - ConnectionStrings__Default=Data Source=/tmp/todos_e2e.db
+      - ConnectionStrings__Default=Data Source=/tmp/budgeteur_e2e.db
     volumes:
       - ./.git:/src/.git:ro
       - ./server:/src/server

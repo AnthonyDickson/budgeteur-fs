@@ -325,6 +325,7 @@ pub fn view(
   html.dialog(
     [
       attribute.id(dom_id),
+      attribute.attribute("data-testid", "transaction-modal"),
       attribute.class(
         "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
       ),
@@ -349,6 +350,7 @@ pub fn view(
             ),
             html.input([
               attribute.type_("text"),
+              attribute.attribute("data-testid", "transaction-amount-input"),
               attribute.inputmode("decimal"),
               attribute.step("0.01"),
               attribute.placeholder("0.00"),
@@ -386,6 +388,7 @@ pub fn view(
                 [
                   html.input([
                     attribute.type_("radio"),
+                    attribute.attribute("data-testid", "transaction-type-debit"),
                     attribute.name("transaction_type"),
                     attribute.checked(type_ == Debit),
                     attribute.class(
@@ -407,6 +410,10 @@ pub fn view(
                 [
                   html.input([
                     attribute.type_("radio"),
+                    attribute.attribute(
+                      "data-testid",
+                      "transaction-type-credit",
+                    ),
                     attribute.name("transaction_type"),
                     attribute.checked(type_ == Credit),
                     attribute.class(
@@ -422,6 +429,10 @@ pub fn view(
           html.label([attribute.class("flex items-center gap-2")], [
             html.input([
               attribute.type_("checkbox"),
+              attribute.attribute(
+                "data-testid",
+                "transaction-is-transfer-input",
+              ),
               attribute.name("is_transfer"),
               attribute.checked(is_transfer),
               attribute.class(
@@ -440,6 +451,10 @@ pub fn view(
             ),
             html.input([
               attribute.type_("text"),
+              attribute.attribute(
+                "data-testid",
+                "transaction-description-input",
+              ),
               attribute.placeholder("What was this for?"),
               attribute.class(
                 "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
@@ -471,6 +486,7 @@ pub fn view(
             ),
             html.input([
               attribute.type_("date"),
+              attribute.attribute("data-testid", "transaction-date-input"),
               attribute.class(
                 "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
                 <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
@@ -491,6 +507,7 @@ pub fn view(
             html.button(
               [
                 attribute.type_("button"),
+                attribute.attribute("data-testid", "transaction-cancel-button"),
                 attribute.class(
                   "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
                   <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2",
@@ -502,6 +519,7 @@ pub fn view(
             html.button(
               [
                 attribute.type_("submit"),
+                attribute.attribute("data-testid", "transaction-submit-button"),
                 attribute.class(
                   "inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium "
                   <> "text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 "

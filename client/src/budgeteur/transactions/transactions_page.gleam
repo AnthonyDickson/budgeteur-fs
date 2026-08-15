@@ -409,6 +409,7 @@ pub fn view(model: Model) -> Element(Msg) {
             <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
             <> "focus:ring-indigo-500 focus:ring-offset-2",
           ),
+          attribute.attribute("data-testid", "record-transaction-button"),
           event.on_click(UserRequestedCreationForm),
         ],
         [html.text("Record Transaction")],
@@ -478,77 +479,92 @@ fn transactions_table(transactions: List(Transaction)) -> Element(Msg) {
             html.tbody(
               [attribute.class("divide-y divide-gray-200 bg-white")],
               list.map(transactions, fn(transaction) {
-                html.tr([attribute.class("hover:bg-gray-50")], [
-                  html.td(
-                    [
-                      attribute.class(
-                        "whitespace-nowrap px-4 py-3 text-sm text-gray-700",
-                      ),
-                    ],
-                    [html.text(transaction.date |> date.format)],
-                  ),
-                  html.td(
-                    [
-                      attribute.class(
-                        "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-gray-900 text-right",
-                      ),
-                    ],
-                    [html.text(transaction.amount |> money.format)],
-                  ),
-                  html.td([attribute.class("px-4 py-3 text-sm text-gray-700")], [
-                    html.text(transaction.description),
-                  ]),
-                  html.td(
-                    [attribute.class("whitespace-nowrap px-4 py-3 text-right")],
-                    [
-                      html.div(
-                        [
-                          attribute.class("flex items-center justify-end gap-2"),
-                        ],
-                        [
-                          html.button(
-                            [
-                              attribute.class(
-                                "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
-                                <> "hover:bg-indigo-50 hover:text-indigo-700 "
-                                <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-                                <> "focus:ring-offset-2",
-                              ),
-                              attribute.attribute(
-                                "data-testid",
-                                "edit-transaction-"
-                                  <> uuid.to_string(transaction.id),
-                              ),
-                              event.on_click(UserRequestedEditForm(
-                                transaction.id,
-                              )),
-                            ],
-                            [html.text("Edit")],
-                          ),
-                          html.button(
-                            [
-                              attribute.class(
-                                "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
-                                <> "hover:bg-red-50 hover:text-red-700 "
-                                <> "focus:outline-none focus:ring-2 focus:ring-red-500 "
-                                <> "focus:ring-offset-2",
-                              ),
-                              attribute.attribute(
-                                "data-testid",
-                                "delete-transaction-"
-                                  <> uuid.to_string(transaction.id),
-                              ),
-                              event.on_click(UserRequestedDeleteForm(
-                                transaction,
-                              )),
-                            ],
-                            [html.text("Delete")],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ])
+                html.tr(
+                  [
+                    attribute.class("hover:bg-gray-50"),
+                    attribute.attribute("data-testid", "transaction-row"),
+                  ],
+                  [
+                    html.td(
+                      [
+                        attribute.class(
+                          "whitespace-nowrap px-4 py-3 text-sm text-gray-700",
+                        ),
+                      ],
+                      [html.text(transaction.date |> date.format)],
+                    ),
+                    html.td(
+                      [
+                        attribute.class(
+                          "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-gray-900 text-right",
+                        ),
+                      ],
+                      [html.text(transaction.amount |> money.format)],
+                    ),
+                    html.td(
+                      [attribute.class("px-4 py-3 text-sm text-gray-700")],
+                      [
+                        html.text(transaction.description),
+                      ],
+                    ),
+                    html.td(
+                      [
+                        attribute.class(
+                          "whitespace-nowrap px-4 py-3 text-right",
+                        ),
+                      ],
+                      [
+                        html.div(
+                          [
+                            attribute.class(
+                              "flex items-center justify-end gap-2",
+                            ),
+                          ],
+                          [
+                            html.button(
+                              [
+                                attribute.class(
+                                  "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
+                                  <> "hover:bg-indigo-50 hover:text-indigo-700 "
+                                  <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+                                  <> "focus:ring-offset-2",
+                                ),
+                                attribute.attribute(
+                                  "data-testid",
+                                  "edit-transaction-"
+                                    <> uuid.to_string(transaction.id),
+                                ),
+                                event.on_click(UserRequestedEditForm(
+                                  transaction.id,
+                                )),
+                              ],
+                              [html.text("Edit")],
+                            ),
+                            html.button(
+                              [
+                                attribute.class(
+                                  "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
+                                  <> "hover:bg-red-50 hover:text-red-700 "
+                                  <> "focus:outline-none focus:ring-2 focus:ring-red-500 "
+                                  <> "focus:ring-offset-2",
+                                ),
+                                attribute.attribute(
+                                  "data-testid",
+                                  "delete-transaction-"
+                                    <> uuid.to_string(transaction.id),
+                                ),
+                                event.on_click(UserRequestedDeleteForm(
+                                  transaction,
+                                )),
+                              ],
+                              [html.text("Delete")],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                )
               }),
             ),
           ]),

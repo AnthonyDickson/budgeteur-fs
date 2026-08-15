@@ -20,16 +20,8 @@ Logs in once via Authelia before the test suite, saves `auth.json`:
 
 ### Database
 
-Server uses `/tmp/todos_e2e.db` (ephemeral, cleared on each startup via
+Server uses `/tmp/budgeteur_e2e.db` (ephemeral, cleared on each startup via
 `rm -f` before `dotnet watch run`). Fresh DB every run.
-
-## Test Selectors
-
-All selectors use `data-testid` attributes from `todo_page.gleam`:
-
-`new-todo-input`, `edit-todo-input`, `todo-item`, `todo-title`,
-`todo-checkbox`, `delete-todo`, `clear-completed`, `todo-count`,
-`filter-all`, `filter-active`, `filter-completed`, `logout`
 
 ## Configuration
 
