@@ -3,6 +3,7 @@ namespace Budgeteur.Tests.Transactions
 open System
 open Expecto
 open FsCheck
+open FsCheck.FSharp
 
 open Budgeteur.Transaction
 
@@ -24,7 +25,9 @@ module ValidationPropertyTests =
         /// generated strings to non-null (the validation function's actual contract).
         type NonNullStrings =
             static member String () : Arbitrary<string> =
-                Arb.Default.String () |> Arb.filter (fun s -> not (isNull s))
+                ArbMap.defaults
+                |> ArbMap.arbitrary<string>
+                |> Arb.filter (fun s -> not (isNull s))
 
     let private maxDescriptionLength = 256
 
