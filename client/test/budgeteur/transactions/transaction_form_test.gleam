@@ -24,9 +24,9 @@ pub fn clip_amount_preserves_trailing_decimal_point_test() {
   |> should.equal("12.")
 }
 
-pub fn clip_amount_ignores_additional_decimal_points_test() {
+pub fn clip_amount_leaves_multiple_decimal_points_untouched_test() {
   transaction_form.clip_amount_to_two_dp("12.34.56")
-  |> should.equal("12.34")
+  |> should.equal("12.34.56")
 }
 
 pub fn clip_amount_leaves_whole_numbers_untouched_test() {
@@ -71,6 +71,28 @@ pub fn set_amount_blank_field_is_empty_state_test() {
     transaction_form.empty_modal()
     |> transaction_form.set_amount("")
   let assert transaction_form.EmptyAmount("") = state.form.amount
+}
+
+pub fn set_amount_double_dot_is_not_a_number_error_test() {
+  let state =
+    transaction_form.empty_modal()
+    |> transaction_form.set_amount("12..")
+  let assert transaction_form.InvalidAmount(input: "12..", error: NotANumber) =
+    state.form.amount
+}
+
+pub fn set_amount_digit_between_dots_is_not_a_number_error_test() {
+  let state =
+    transaction_form.empty_modal()
+    |> transaction_form.set_amount("1.2.3")
+  let assert transaction_form.InvalidAmount(input: "1.2.3", error: NotANumber) =
+    state.form.amount
+}
+
+pub fn clip_amount_leaves_malformed_dot_input_untouched_test() {
+  "12.." |> transaction_form.clip_amount_to_two_dp() |> should.equal("12..")
+  "1.2.3" |> transaction_form.clip_amount_to_two_dp() |> should.equal("1.2.3")
+  "12." |> transaction_form.clip_amount_to_two_dp() |> should.equal("12.")
 }
 
 pub fn set_description_blank_field_is_empty_state_test() {

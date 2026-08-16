@@ -144,9 +144,12 @@ pub fn from_transaction(transaction: Transaction) -> Form {
   )
 }
 
+/// Note: only clips valid numbers such as "1.234".
+/// Invalid numbers such as "12.." and "12.34.56" pass through for the validation
+/// layer to catch the issue.
 pub fn clip_amount_to_two_dp(amount: String) -> String {
   case string.split(amount, ".") {
-    [whole, fraction, ..] ->
+    [whole, fraction] ->
       whole <> "." <> string.slice(from: fraction, at_index: 0, length: 2)
     _ -> amount
   }
