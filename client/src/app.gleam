@@ -101,13 +101,11 @@ fn restore_model_from_store() -> effect.Effect(Msg) {
 }
 
 pub fn init(_flags) -> #(Model, Effect(Msg)) {
-  let #(page_model, page_effect) = transactions_page.init()
-  let model = Model(page: TransactionsPage(page_model), toasts: [])
+  let model = Model(page: NotFound, toasts: [])
 
   let effects =
     effect.batch([
       restore_model_from_store(),
-      effect.map(page_effect, TransactionsPageMsg),
       effect.init_routing(UrlChanged),
       effect.set_title("Budgeteur"),
     ])
@@ -147,8 +145,12 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg, model {
     ClientRestoredModel(restored_model), _ -> #(restored_model, effect.none())
     UrlChanged(url), _ -> {
-      case route.from_string(url) {
-        route.Transactions -> {
+      case route.from_string(url), model.page {
+        route.Transactions, TransactionsPage(_) -> {
+          let #(_, page_effect) = transactions_page.init()
+          #(model, effect.map(page_effect, TransactionsPageMsg))
+        }
+        route.Transactions, _ -> {
           let #(inner_model, inner_effect) = transactions_page.init()
 
           let model = Model(..model, page: TransactionsPage(inner_model))
@@ -156,7 +158,8 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
           #(model, effect)
         }
-        route.NotFound -> #(Model(..model, page: NotFound), effect.none())
+        route.NotFound, NotFound -> #(model, effect.none())
+        route.NotFound, _ -> #(Model(..model, page: NotFound), effect.none())
       }
     }
     TransactionsPageMsg(inner_msg),
