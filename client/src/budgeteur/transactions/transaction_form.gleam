@@ -34,38 +34,44 @@ pub type TransactionType {
 pub type AmountError {
   NotANumber
   NotPositive
+  AmountRequired
 }
 
 pub type DescriptionError {
-  EmptyDescription
+  DescriptionRequired
   TooLong
 }
 
 pub type DateError {
   NotADate
-  EmptyDate
+  DateRequired
 }
 
-pub type FormError {
-  FormError(
-    amount: Option(AmountError),
-    description: Option(DescriptionError),
-    date: Option(DateError),
-  )
+pub type AmountField {
+  EmptyAmount(input: String)
+  ValidAmount(value: Float, input: String)
+  InvalidAmount(input: String, error: AmountError)
 }
 
-pub fn empty_error() -> FormError {
-  FormError(amount: None, description: None, date: None)
+pub type DescriptionField {
+  EmptyDescription(input: String)
+  ValidDescription(input: String)
+  InvalidDescription(input: String, error: DescriptionError)
+}
+
+pub type DateField {
+  EmptyDate(input: String)
+  ValidDate(value: Date, input: String)
+  InvalidDate(input: String, error: DateError)
 }
 
 pub type Form {
   Form(
-    amount: String,
+    amount: AmountField,
     type_: TransactionType,
     is_transfer: Bool,
-    description: String,
-    date: String,
-    error: FormError,
+    description: DescriptionField,
+    date: DateField,
   )
 }
 
@@ -86,12 +92,11 @@ pub type ModalState {
 
 pub fn empty() -> Form {
   Form(
-    amount: "",
+    amount: EmptyAmount(""),
     type_: Debit,
     is_transfer: False,
-    description: "",
-    date: "",
-    error: empty_error(),
+    description: EmptyDescription(""),
+    date: EmptyDate(""),
   )
 }
 
@@ -128,13 +133,14 @@ pub fn from_transaction(transaction: Transaction) -> Form {
     False -> Credit
   }
 
+  let amount = amount |> float.absolute_value
+
   Form(
-    amount: amount |> float.absolute_value |> money.to_string,
+    amount: ValidAmount(value: amount, input: money.to_string(amount)),
     type_:,
     is_transfer:,
-    description:,
-    date: date.format(date),
-    error: empty_error(),
+    description: ValidDescription(input: description),
+    date: ValidDate(value: date, input: date.format(date)),
   )
 }
 
@@ -176,7 +182,7 @@ fn validate_description(
   let trimmed = string.trim(description)
 
   case string.is_empty(trimmed) {
-    True -> Error(EmptyDescription)
+    True -> Error(DescriptionRequired)
     False ->
       case string.length(trimmed) > max_description_length {
         True -> Error(TooLong)
@@ -189,19 +195,12 @@ fn validate_date(date_string: String) -> Result(Date, DateError) {
   let trimmed = string.trim(date_string)
 
   case string.is_empty(trimmed) {
-    True -> Error(EmptyDate)
+    True -> Error(DateRequired)
     False ->
       case date.parse(trimmed) {
         Ok(date) -> Ok(date)
         Error(Nil) -> Error(NotADate)
       }
-  }
-}
-
-fn error_from(result: Result(_, a)) -> Option(a) {
-  case result {
-    Ok(_) -> None
-    Error(error) -> Some(error)
   }
 }
 
@@ -212,9 +211,15 @@ pub fn set_amount(state: ModalState, amount: String) -> ModalState {
 
 fn set_form_amount(form: Form, amount: String) -> Form {
   let amount = clip_amount_to_two_dp(amount)
-  let error =
-    FormError(..form.error, amount: error_from(validate_amount(amount)))
-  Form(..form, amount:, error:)
+  let amount = case string.is_empty(amount) {
+    True -> EmptyAmount(amount)
+    False ->
+      case validate_amount(amount) {
+        Ok(value) -> ValidAmount(value: value, input: amount)
+        Error(error) -> InvalidAmount(input: amount, error:)
+      }
+  }
+  Form(..form, amount:)
 }
 
 pub fn set_type_(state: ModalState, type_: TransactionType) -> ModalState {
@@ -233,12 +238,12 @@ pub fn set_description(state: ModalState, description: String) -> ModalState {
 }
 
 fn set_form_description(form: Form, description: String) -> Form {
-  let error =
-    FormError(
-      ..form.error,
-      description: error_from(validate_description(description)),
-    )
-  Form(..form, description:, error:)
+  let description = case validate_description(description) {
+    Ok(_) -> ValidDescription(input: description)
+    Error(DescriptionRequired) -> EmptyDescription(description)
+    Error(TooLong) -> InvalidDescription(input: description, error: TooLong)
+  }
+  Form(..form, description:)
 }
 
 pub fn set_date(state: ModalState, date: String) -> ModalState {
@@ -247,48 +252,108 @@ pub fn set_date(state: ModalState, date: String) -> ModalState {
 }
 
 fn set_form_date(form: Form, date: String) -> Form {
-  let error = FormError(..form.error, date: error_from(validate_date(date)))
-  Form(..form, date:, error:)
+  let date = case validate_date(date) {
+    Ok(value) -> ValidDate(value:, input: date)
+    Error(DateRequired) -> EmptyDate(date)
+    Error(NotADate) -> InvalidDate(input: date, error: NotADate)
+  }
+  Form(..form, date:)
 }
 
-pub fn with_error(state: ModalState, error: FormError) -> ModalState {
-  let ModalState(form:, ..) = state
-  ModalState(..state, form: Form(..form, error:))
+fn finalize(form: Form) -> Form {
+  let Form(amount:, description:, date:, ..) = form
+  Form(
+    ..form,
+    amount: case amount {
+      EmptyAmount(input) -> InvalidAmount(input:, error: AmountRequired)
+      other -> other
+    },
+    description: case description {
+      EmptyDescription(input) ->
+        InvalidDescription(input:, error: DescriptionRequired)
+      other -> other
+    },
+    date: case date {
+      EmptyDate(input) -> InvalidDate(input:, error: DateRequired)
+      other -> other
+    },
+  )
 }
 
-pub fn validate(
-  state: ModalState,
-) -> Result(CreateTransactionRequest, FormError) {
+pub fn validate(state: ModalState) -> Result(CreateTransactionRequest, Form) {
   let ModalState(form:, ..) = state
-  let Form(amount:, type_:, is_transfer:, description:, date:, error: _) = form
+  let form = finalize(form)
 
-  let amount = validate_amount(amount)
-  let description = validate_description(description)
-  let date = validate_date(date)
-
-  case amount, description, date {
-    Ok(amount), Ok(description), Ok(date) -> {
+  case form {
+    Form(
+      amount: ValidAmount(value: amount_value, ..),
+      type_:,
+      is_transfer:,
+      description: ValidDescription(input: description),
+      date: ValidDate(value: date, ..),
+    ) -> {
       let amount = case type_ {
-        Debit -> -1.0 *. amount
-        Credit -> amount
+        Debit -> -1.0 *. amount_value
+        Credit -> amount_value
       }
 
       create_transaction_request.CreateTransactionRequest(
         amount:,
-        description: description,
-        date: date,
-        is_transfer: is_transfer,
+        description: string.trim(description),
+        date:,
+        is_transfer:,
       )
       |> Ok
     }
 
-    _, _, _ ->
-      FormError(
-        amount: error_from(amount),
-        description: error_from(description),
-        date: error_from(date),
-      )
-      |> Error
+    _ -> Error(form)
+  }
+}
+
+fn field_amount_input(field: AmountField) -> String {
+  case field {
+    EmptyAmount(input) -> input
+    ValidAmount(input:, ..) -> input
+    InvalidAmount(input:, ..) -> input
+  }
+}
+
+fn field_description_input(field: DescriptionField) -> String {
+  case field {
+    EmptyDescription(input) -> input
+    ValidDescription(input) -> input
+    InvalidDescription(input:, ..) -> input
+  }
+}
+
+fn field_date_input(field: DateField) -> String {
+  case field {
+    EmptyDate(input) -> input
+    ValidDate(input:, ..) -> input
+    InvalidDate(input:, ..) -> input
+  }
+}
+
+fn field_amount_error(field: AmountField) -> Option(AmountError) {
+  case field {
+    InvalidAmount(error:, ..) -> Some(error)
+    _ -> None
+  }
+}
+
+fn field_description_error(
+  field: DescriptionField,
+) -> Option(DescriptionError) {
+  case field {
+    InvalidDescription(error:, ..) -> Some(error)
+    _ -> None
+  }
+}
+
+fn field_date_error(field: DateField) -> Option(DateError) {
+  case field {
+    InvalidDate(error:, ..) -> Some(error)
+    _ -> None
   }
 }
 
@@ -309,13 +374,11 @@ pub fn view(
     Edit(_) -> #("Edit Transaction", "Update Transaction")
   }
 
-  let Form(amount:, type_:, is_transfer:, description:, date:, error:) = form
+  let Form(amount:, type_:, is_transfer:, description:, date:) = form
 
-  let FormError(
-    amount: amount_error,
-    description: description_error,
-    date: date_error,
-  ) = error
+  let amount_error = field_amount_error(amount)
+  let description_error = field_description_error(description)
+  let date_error = field_date_error(date)
 
   let has_error =
     option.is_some(amount_error)
@@ -355,7 +418,7 @@ pub fn view(
               attribute.step("0.01"),
               attribute.placeholder("0.00"),
               attribute.min("0"),
-              attribute.value(amount),
+              attribute.value(field_amount_input(amount)),
               attribute.class(
                 "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
                 <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
@@ -368,6 +431,8 @@ pub fn view(
             case amount_error {
               Some(NotANumber) -> form_error_message("Not a valid number")
               Some(NotPositive) -> form_error_message("Amount must be positive")
+              Some(AmountRequired) ->
+                form_error_message("Amount cannot be empty")
               None -> element.none()
             },
           ]),
@@ -464,11 +529,11 @@ pub fn view(
                 #(error_border_style, option.is_some(description_error)),
               ]),
               attribute.minlength(1),
-              attribute.value(description),
+              attribute.value(field_description_input(description)),
               event.on_input(on_description_input),
             ]),
             case description_error {
-              Some(EmptyDescription) ->
+              Some(DescriptionRequired) ->
                 form_error_message("Description cannot be empty")
               Some(TooLong) ->
                 form_error_message(
@@ -494,12 +559,12 @@ pub fn view(
               attribute.classes([
                 #(error_border_style, option.is_some(date_error)),
               ]),
-              attribute.value(date),
+              attribute.value(field_date_input(date)),
               event.on_input(on_date_input),
             ]),
             case date_error {
               Some(NotADate) -> form_error_message("Not a valid date")
-              Some(EmptyDate) -> form_error_message("Date cannot be empty")
+              Some(DateRequired) -> form_error_message("Date cannot be empty")
               None -> element.none()
             },
           ]),

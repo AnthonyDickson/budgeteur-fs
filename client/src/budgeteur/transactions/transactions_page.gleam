@@ -252,8 +252,8 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
             None,
           )
         }
-        Error(error) -> #(
-          Model(..model, modal: transaction_form.with_error(model.modal, error)),
+        Error(form) -> #(
+          Model(..model, modal: ModalState(..model.modal, form: form)),
           effect.none(),
           None,
         )

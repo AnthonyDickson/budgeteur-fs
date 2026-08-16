@@ -51,10 +51,15 @@ pub fn user_requested_edit_form_prefills_modal_test() {
 
   let assert transaction_form.Edit(edit_id) = new_model.modal.mode
   edit_id |> should.equal(transaction.id)
-  new_model.modal.form.amount |> should.equal("12.50")
+  let assert transaction_form.ValidAmount(value: amount, input: "12.50") =
+    new_model.modal.form.amount
+  amount |> should.equal(12.5)
   new_model.modal.form.type_ |> should.equal(transaction_form.Debit)
-  new_model.modal.form.description |> should.equal("Coffee")
-  new_model.modal.form.date |> should.equal("2026-01-02")
+  let assert transaction_form.ValidDescription(input: "Coffee") =
+    new_model.modal.form.description
+  let assert transaction_form.ValidDate(value: date, ..) =
+    new_model.modal.form.date
+  date |> should.equal(calendar.Date(2026, calendar.January, 2))
 }
 
 pub fn user_requested_edit_form_unknown_id_is_noop_test() {
