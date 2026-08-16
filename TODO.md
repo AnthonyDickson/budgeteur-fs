@@ -28,7 +28,8 @@
 - Consider how to manage styling across pages/source code files for consistent styling.
 - Reconsider toasts for error handling in modal forms, the toasts are behind the backdrop layer so they are dimmed and
   not clickable.
-- Fix double fetch of transactions on cold load of transactions page
+- Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then replacing
+  it with the server data.
 
 ## CSV Parsing
 

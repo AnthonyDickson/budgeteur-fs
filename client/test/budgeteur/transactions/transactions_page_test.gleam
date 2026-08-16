@@ -9,7 +9,9 @@ import budgeteur/transactions/transaction_delete_modal.{
 }
 import budgeteur/transactions/transaction_form
 import budgeteur/transactions/transactions_page
+import gleam/json
 import gleam/option.{None, Some}
+import gleam/string
 import gleam/time/calendar
 import gleeunit/should
 import youid/uuid
@@ -292,4 +294,163 @@ pub fn user_cancelled_delete_modal_closes_test() {
   let assert Hidden = new_model.delete_modal
   let assert effect.CloseDialog(selector: selector) = effect
   selector |> should.equal(transaction_delete_modal.dom_id_selector)
+}
+
+// ── Local backup ─────────────────────────────────────────────────────────────
+
+pub fn init_restores_from_store_test() {
+  let #(_, effect) = transactions_page.init()
+
+  let assert effect.Batch([
+    effect.LoadFromStore(key: key, ..),
+    effect.HttpRequest(..),
+  ]) = effect
+  key |> should.equal("budgeteur.transactions")
+}
+
+pub fn stored_transactions_round_trip_test() {
+  let transaction = sample_transaction()
+
+  let stored = transactions_page.stored_transactions_encoder([transaction])
+  let assert Ok(restored) =
+    json.parse(stored, using: transactions_page.stored_transactions_decoder())
+  restored |> should.equal([transaction])
+}
+
+pub fn client_restored_transactions_sets_list_test() {
+  let transaction = sample_transaction()
+  let model = empty_model()
+
+  let #(new_model, effect, out_msg) =
+    transactions_page.update(
+      model,
+      transactions_page.ClientRestoredTransactions(Some([transaction])),
+    )
+
+  new_model.transactions |> should.equal([transaction])
+  out_msg |> should.equal(None)
+  let assert effect.Batch([effect.None, effect.SaveToStore(key:, value:)]) =
+    effect
+  key |> should.equal("budgeteur.transactions")
+  value |> string.starts_with("{\"transactions\":[") |> should.be_true
+}
+
+pub fn client_restored_transactions_none_is_noop_test() {
+  let transaction = sample_transaction()
+  let model = empty_model() |> with_transaction(transaction)
+
+  let #(new_model, effect, out_msg) =
+    transactions_page.update(
+      model,
+      transactions_page.ClientRestoredTransactions(None),
+    )
+
+  new_model |> should.equal(model)
+  effect |> should.equal(effect.none())
+  out_msg |> should.equal(None)
+}
+
+pub fn server_created_transaction_persists_to_store_test() {
+  let transaction = sample_transaction()
+  let model = empty_model()
+
+  let #(new_model, effect, _) =
+    transactions_page.update(
+      model,
+      transactions_page.ServerCreatedTransaction(Ok(transaction)),
+    )
+
+  new_model.transactions |> should.equal([transaction])
+  let assert effect.Batch([
+    effect.CloseDialog(..),
+    effect.SaveToStore(key:, value:),
+  ]) = effect
+  key |> should.equal("budgeteur.transactions")
+  value |> string.starts_with("{\"transactions\":[") |> should.be_true
+}
+
+pub fn server_updated_transaction_persists_to_store_test() {
+  let transaction = sample_transaction()
+  let updated =
+    transaction.Transaction(..transaction, description: "Flat White")
+  let model = empty_model() |> with_transaction(transaction)
+
+  let #(new_model, effect, _) =
+    transactions_page.update(
+      model,
+      transactions_page.ServerUpdatedTransaction(Ok(updated)),
+    )
+
+  new_model.transactions |> should.equal([updated])
+  let assert effect.Batch([
+    effect.CloseDialog(..),
+    effect.SaveToStore(key:, value:),
+  ]) = effect
+  key |> should.equal("budgeteur.transactions")
+  value |> string.starts_with("{\"transactions\":[") |> should.be_true
+}
+
+pub fn server_deleted_transaction_persists_to_store_test() {
+  let transaction = sample_transaction()
+  let model = empty_model() |> with_transaction(transaction)
+
+  let #(new_model, effect, _) =
+    transactions_page.update(
+      model,
+      transactions_page.ServerDeletedTransaction(transaction, Ok(Nil)),
+    )
+
+  new_model.transactions |> should.equal([])
+  let assert effect.Batch([
+    effect.CloseDialog(..),
+    effect.SaveToStore(key:, value:),
+  ]) = effect
+  key |> should.equal("budgeteur.transactions")
+  value |> should.equal("{\"transactions\":[]}")
+}
+
+pub fn server_fetched_transactions_persists_to_store_test() {
+  let transaction = sample_transaction()
+  let model = empty_model()
+
+  let #(new_model, effect, _) =
+    transactions_page.update(
+      model,
+      transactions_page.ClientFetchedTransactions(Ok([transaction])),
+    )
+
+  new_model.transactions |> should.equal([transaction])
+  let assert effect.Batch([effect.None, effect.SaveToStore(key:, value:)]) =
+    effect
+  key |> should.equal("budgeteur.transactions")
+  value |> string.starts_with("{\"transactions\":[") |> should.be_true
+}
+
+pub fn non_mutating_message_does_not_persist_test() {
+  let transaction = sample_transaction()
+  let model = empty_model() |> with_transaction(transaction)
+
+  let #(new_model, effect, _) =
+    transactions_page.update(
+      model,
+      transactions_page.UserUpdatedFormAmount("5"),
+    )
+
+  new_model.transactions |> should.equal([transaction])
+  effect |> should.equal(effect.none())
+}
+
+fn empty_model() -> transactions_page.Model {
+  transactions_page.Model(
+    transactions: [],
+    modal: transaction_form.empty_modal(),
+    delete_modal: transaction_delete_modal.empty(),
+  )
+}
+
+fn with_transaction(
+  model: transactions_page.Model,
+  transaction: transaction.Transaction,
+) -> transactions_page.Model {
+  transactions_page.Model(..model, transactions: [transaction])
 }
