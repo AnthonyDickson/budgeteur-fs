@@ -4,15 +4,23 @@
 
 - [x] Transaction CRUD
 - [ ] Category (tag) CRUD
+- [ ] Rules CRUD
 - [ ] Balances (Assets, Liabilities) CRUD
 - [ ] Dashboard MVP
-- [ ] Rules CRUD
 - [ ] Auto-tagging
 - [ ] CSV Imports
 - [ ] Quick-tagging
 - [ ] Full dashboard w/ charts
 - [ ] Transaction search
 - [ ] Regular snapshots with balance sheets, income statement
+
+## Current Tasks
+
+- Tags and rules page:
+  - Consider renaming top level modules and folder to `tags_and_rules*`
+  - Add E2E tests
+  - Implement backend for page
+  - Consider breaking up `tags_page.gleam`
 
 ## Backlog
 
@@ -21,11 +29,13 @@
   - This should only apply on import, manual imports must be manually categorised.
   - May want user setting around which category to use for internal transfer, or hardcode and force user to use it.
   - Initial imports will be missed if the accounts are not added beforehand
+- Add view for empty transactions table, currently it just shows the header and a blank page
 - Page transactions in table view
   - Next page should append to list, search should replace paging many times.
   - Response could include path with query params to get next page or none if at last page.
   - Paging is expected to used infrequently
 - Consider how to manage styling across pages/source code files for consistent styling.
+  - Consider Catppuccin Latte and Mocha
 - Reconsider toasts for error handling in modal forms, the toasts are behind the backdrop layer so they are dimmed and
   not clickable.
 - Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then replacing

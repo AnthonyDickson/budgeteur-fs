@@ -202,13 +202,19 @@ pub fn init() -> #(Model, Effect(Msg)) {
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let #(new_model, effect, out_msg) = update_inner(model, msg)
-  case new_model.transactions == model.transactions {
-    True -> #(new_model, effect, out_msg)
-    False -> #(
-      new_model,
-      effect.batch([effect, persist_transactions(new_model.transactions)]),
-      out_msg,
-    )
+
+  case msg {
+    // Restored data came from the store, so don't write it straight back.
+    ClientRestoredTransactions(_) -> #(new_model, effect, out_msg)
+    _ ->
+      case new_model.transactions == model.transactions {
+        True -> #(new_model, effect, out_msg)
+        False -> #(
+          new_model,
+          effect.batch([effect, persist_transactions(new_model.transactions)]),
+          out_msg,
+        )
+      }
   }
 }
 

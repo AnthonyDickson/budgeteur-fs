@@ -329,10 +329,8 @@ pub fn client_restored_transactions_sets_list_test() {
 
   new_model.transactions |> should.equal([transaction])
   out_msg |> should.equal(None)
-  let assert effect.Batch([effect.None, effect.SaveToStore(key:, value:)]) =
-    effect
-  key |> should.equal("budgeteur.transactions")
-  value |> string.starts_with("{\"transactions\":[") |> should.be_true
+  // Restored data came from the store, so it is not written straight back.
+  effect |> should.equal(effect.none())
 }
 
 pub fn client_restored_transactions_none_is_noop_test() {
