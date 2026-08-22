@@ -1,13 +1,15 @@
 import budgeteur/effect.{type Effect}
 import budgeteur/guard
 import budgeteur/out_msg.{type OutMsg}
-import budgeteur/tags/rule/rule.{type Rule, Rule}
-import budgeteur/tags/rule/rule_delete_modal
-import budgeteur/tags/rule/rule_form
-import budgeteur/tags/tag/tag.{type Tag, Tag}
-import budgeteur/tags/tag/tag_delete_modal
-import budgeteur/tags/tag/tag_form
-import budgeteur/tags/tags_page_data.{type TagsPageData, TagsPageData}
+import budgeteur/tags_and_rules/rule/rule.{type Rule, Rule}
+import budgeteur/tags_and_rules/rule/rule_delete_modal
+import budgeteur/tags_and_rules/rule/rule_form
+import budgeteur/tags_and_rules/tag/tag.{type Tag, Tag}
+import budgeteur/tags_and_rules/tag/tag_delete_modal
+import budgeteur/tags_and_rules/tag/tag_form
+import budgeteur/tags_and_rules/tags_and_rules_page_data.{
+  type TagsAndRulesPageData, TagsAndRulesPageData,
+}
 import budgeteur/toast
 import gleam/json
 import gleam/list
@@ -32,7 +34,7 @@ pub type Model {
 }
 
 pub type Msg {
-  ClientRestoredData(Option(TagsPageData))
+  ClientRestoredData(Option(TagsAndRulesPageData))
   // Tag modal messages
   UserRequestedTagCreation
   UserRequestedTagEdit(Uuid)
@@ -61,8 +63,8 @@ pub type Msg {
 
 fn persist_data(model: Model) -> Effect(Msg) {
   effect.SaveToStore(
-    tags_page_data.storage_key,
-    tags_page_data.data_to_string(TagsPageData(
+    tags_and_rules_page_data.storage_key,
+    tags_and_rules_page_data.data_to_string(TagsAndRulesPageData(
       tags: model.tags,
       rules: model.rules,
     )),
@@ -71,11 +73,13 @@ fn persist_data(model: Model) -> Effect(Msg) {
 
 fn restore_data_from_store() -> Effect(Msg) {
   effect.LoadFromStore(
-    key: tags_page_data.storage_key,
+    key: tags_and_rules_page_data.storage_key,
     callback: fn(store_result) {
       case store_result {
         Ok(value) -> {
-          case json.parse(value, using: tags_page_data.data_decoder()) {
+          case
+            json.parse(value, using: tags_and_rules_page_data.data_decoder())
+          {
             Ok(data) -> ClientRestoredData(Some(data))
             Error(_) -> ClientRestoredData(None)
           }

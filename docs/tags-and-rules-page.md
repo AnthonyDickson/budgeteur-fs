@@ -39,9 +39,9 @@ page is the natural moment to add a minimal header nav in the app shell
 ├───────────────────────────────────────────────────────────┤
 ```
 
-- New route: `/tags`, added to `Route` in `route.gleam`.
+- New route: `/tags-and-rules`, added to `Route` in `route.gleam`.
 - The header lives in `app.gleam`'s `view` so every page gets it.
-- Nav items: "Transactions" (`/transactions`), "Tags & Rules" (`/tags`).
+- Nav items: "Transactions" (`/transactions`), "Tags & Rules" (`/tags-and-rules`).
 - Active item is highlighted via the current route.
 
 ## Page Structure — Master-Detail
@@ -405,16 +405,16 @@ marked.
 Follow the transactions slice layout:
 
 Tag and rule are distinct aggregates (each with its own type, form, and
-delete modal), so they get subfolders; page-level modules stay at the `tags/`
-root:
+delete modal), so they get subfolders; page-level modules stay at the
+`tags_and_rules/` root:
 
 ```
 client/src/budgeteur/
-  tags/
-    tags_page.gleam        # page: Model, Msg, update, view, master-detail layout,
-                           # localStorage load/persist
-    tags_page_data.gleam   # TagsPageData payload type + JSON codecs + storage key
-                           # (the future GET /api/tags payload, defined now)
+  tags_and_rules/
+    tags_and_rules_page.gleam        # page: Model, Msg, update, view, master-detail layout,
+                                     # localStorage load/persist
+    tags_and_rules_page_data.gleam   # TagsAndRulesPageData payload type + JSON codecs + storage key
+                                     # (the future GET /api/tags payload, defined now)
     tag/
       tag.gleam            # Tag type + JSON codec (id, name, color)
       tag_form.gleam       # create/rename modal: name + color picker
@@ -427,4 +427,4 @@ client/src/budgeteur/
 
 Plus wiring: new `Route` variant in `route.gleam`, `Page`/`Msg` variants and
 header nav in `app.gleam`. No `ApiRoute` changes for the MVP — the future
-endpoint's shape is mirrored by `tags_page_data`.
+endpoint's shape is mirrored by `tags_and_rules_page_data`.

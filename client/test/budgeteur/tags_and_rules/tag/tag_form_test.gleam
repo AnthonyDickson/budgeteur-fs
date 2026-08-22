@@ -1,5 +1,5 @@
-import budgeteur/tags/tag/tag
-import budgeteur/tags/tag/tag_form.{Duplicate, NameRequired, TooLong}
+import budgeteur/tags_and_rules/tag/tag
+import budgeteur/tags_and_rules/tag/tag_form.{Duplicate, NameRequired, TooLong}
 import gleam/string
 import gleeunit/should
 import youid/uuid

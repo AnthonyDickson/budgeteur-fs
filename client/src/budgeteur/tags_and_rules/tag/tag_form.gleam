@@ -1,4 +1,4 @@
-import budgeteur/tags/tag/tag.{type Tag, Tag}
+import budgeteur/tags_and_rules/tag/tag.{type Tag, Tag}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}

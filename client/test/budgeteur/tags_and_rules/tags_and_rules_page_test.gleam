@@ -1,13 +1,13 @@
 import budgeteur/effect
 import budgeteur/out_msg.{type OutMsg}
-import budgeteur/tags/rule/rule
-import budgeteur/tags/rule/rule_delete_modal
-import budgeteur/tags/rule/rule_form
-import budgeteur/tags/tag/tag
-import budgeteur/tags/tag/tag_delete_modal
-import budgeteur/tags/tag/tag_form
-import budgeteur/tags/tags_page
-import budgeteur/tags/tags_page_data.{TagsPageData}
+import budgeteur/tags_and_rules/rule/rule
+import budgeteur/tags_and_rules/rule/rule_delete_modal
+import budgeteur/tags_and_rules/rule/rule_form
+import budgeteur/tags_and_rules/tag/tag
+import budgeteur/tags_and_rules/tag/tag_delete_modal
+import budgeteur/tags_and_rules/tag/tag_form
+import budgeteur/tags_and_rules/tags_and_rules_page
+import budgeteur/tags_and_rules/tags_and_rules_page_data.{TagsAndRulesPageData}
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import gleeunit/should
@@ -27,8 +27,8 @@ fn make_rule_for(for_tag: uuid.Uuid) -> rule.Rule {
   rule.Rule(id: tag_id(9), pattern: "STARBUCKS", tag_id: for_tag)
 }
 
-fn empty_model() -> tags_page.Model {
-  tags_page.Model(
+fn empty_model() -> tags_and_rules_page.Model {
+  tags_and_rules_page.Model(
     tags: [],
     rules: [],
     selected_tag: None,
@@ -41,12 +41,15 @@ fn empty_model() -> tags_page.Model {
 
 pub fn restored_data_sorts_and_selects_first_tag_test() {
   let data =
-    TagsPageData(
+    TagsAndRulesPageData(
       tags: [tag_named(tag_id(2), "Rent"), tag_named(tag_id(1), "Coffee")],
       rules: [],
     )
   let #(new_model, _, _) =
-    tags_page.update(empty_model(), tags_page.ClientRestoredData(Some(data)))
+    tags_and_rules_page.update(
+      empty_model(),
+      tags_and_rules_page.ClientRestoredData(Some(data)),
+    )
 
   new_model.tags
   |> should.equal([
@@ -60,7 +63,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
   let coffee = tag_named(tag_id(1), "Coffee")
   let rent = tag_named(tag_id(2), "Rent")
   let model =
-    tags_page.Model(
+    tags_and_rules_page.Model(
       ..empty_model(),
       tags: [coffee, rent],
       rules: [make_rule_for(coffee.id)],
@@ -68,7 +71,10 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
     )
 
   let #(new_model, _, _) =
-    tags_page.update(model, tags_page.UserRequestedTagDelete(coffee))
+    tags_and_rules_page.update(
+      model,
+      tags_and_rules_page.UserRequestedTagDelete(coffee),
+    )
     |> then_confirm
 
   new_model.tags |> should.equal([rent])
@@ -81,7 +87,7 @@ pub fn creating_rule_appends_to_existing_rules_test() {
   let existing =
     rule.Rule(..make_rule_for(coffee.id), id: tag_id(7), pattern: "7-ELEVEN")
   let model =
-    tags_page.Model(
+    tags_and_rules_page.Model(
       ..empty_model(),
       tags: [coffee],
       rules: [existing],
@@ -89,11 +95,20 @@ pub fn creating_rule_appends_to_existing_rules_test() {
     )
 
   let #(opened, _, _) =
-    tags_page.update(model, tags_page.UserRequestedRuleCreation)
+    tags_and_rules_page.update(
+      model,
+      tags_and_rules_page.UserRequestedRuleCreation,
+    )
   let #(after_pattern, _, _) =
-    tags_page.update(opened, tags_page.UserUpdatedRulePattern("STARBUCKS"))
+    tags_and_rules_page.update(
+      opened,
+      tags_and_rules_page.UserUpdatedRulePattern("STARBUCKS"),
+    )
   let #(new_model, _, _) =
-    tags_page.update(after_pattern, tags_page.UserSubmittedRuleForm)
+    tags_and_rules_page.update(
+      after_pattern,
+      tags_and_rules_page.UserSubmittedRuleForm,
+    )
 
   // New rules append so insertion order equals rule evaluation order.
   let assert [existing_kept, created] = new_model.rules
@@ -107,7 +122,7 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
   let rent = tag_named(tag_id(2), "Rent")
   let starbucks = make_rule_for(coffee.id)
   let model =
-    tags_page.Model(
+    tags_and_rules_page.Model(
       ..empty_model(),
       tags: [coffee, rent],
       rules: [starbucks],
@@ -115,22 +130,36 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
     )
 
   let #(opened, _, _) =
-    tags_page.update(model, tags_page.UserRequestedRuleEdit(starbucks.id))
+    tags_and_rules_page.update(
+      model,
+      tags_and_rules_page.UserRequestedRuleEdit(starbucks.id),
+    )
   let #(after_tag, _, _) =
-    tags_page.update(
+    tags_and_rules_page.update(
       opened,
-      tags_page.UserUpdatedRuleTag(uuid.to_string(rent.id)),
+      tags_and_rules_page.UserUpdatedRuleTag(uuid.to_string(rent.id)),
     )
   let #(new_model, _, _) =
-    tags_page.update(after_tag, tags_page.UserSubmittedRuleForm)
+    tags_and_rules_page.update(
+      after_tag,
+      tags_and_rules_page.UserSubmittedRuleForm,
+    )
 
   let assert [moved] = new_model.rules
   moved.tag_id |> should.equal(rent.id)
 }
 
 fn then_confirm(
-  result: #(tags_page.Model, effect.Effect(tags_page.Msg), Option(OutMsg)),
-) -> #(tags_page.Model, effect.Effect(tags_page.Msg), Option(OutMsg)) {
+  result: #(
+    tags_and_rules_page.Model,
+    effect.Effect(tags_and_rules_page.Msg),
+    Option(OutMsg),
+  ),
+) -> #(
+  tags_and_rules_page.Model,
+  effect.Effect(tags_and_rules_page.Msg),
+  Option(OutMsg),
+) {
   let #(model, _, _) = result
-  tags_page.update(model, tags_page.UserConfirmedTagDelete)
+  tags_and_rules_page.update(model, tags_and_rules_page.UserConfirmedTagDelete)
 }

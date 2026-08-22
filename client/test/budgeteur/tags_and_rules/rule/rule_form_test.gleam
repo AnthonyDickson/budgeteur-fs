@@ -1,5 +1,5 @@
-import budgeteur/tags/rule/rule
-import budgeteur/tags/rule/rule_form
+import budgeteur/tags_and_rules/rule/rule
+import budgeteur/tags_and_rules/rule/rule_form
 import gleeunit/should
 import youid/uuid
 

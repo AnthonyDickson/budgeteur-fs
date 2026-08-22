@@ -5,7 +5,7 @@ import budgeteur/header
 import budgeteur/http_effect
 import budgeteur/out_msg.{type OutMsg}
 import budgeteur/route
-import budgeteur/tags/tags_page
+import budgeteur/tags_and_rules/tags_and_rules_page
 import budgeteur/toast.{type Toast}
 import budgeteur/transactions/transactions_page
 import gleam/io
@@ -24,7 +24,7 @@ import youid/uuid.{type Uuid}
 
 pub type Page {
   TransactionsPage(transactions_page.Model)
-  TagsPage(tags_page.Model)
+  TagsAndRulesPage(tags_and_rules_page.Model)
   NotFound
 }
 
@@ -35,7 +35,7 @@ pub type Model {
 pub type Msg {
   SessionExpired
   TransactionsPageMsg(transactions_page.Msg)
-  TagsPageMsg(tags_page.Msg)
+  TagsAndRulesPageMsg(tags_and_rules_page.Msg)
   ToastDismissed(id: Uuid)
   UrlChanged(url: String)
   NoOp
@@ -92,9 +92,9 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           let #(_, page_effect) = transactions_page.init()
           #(model, effect.map(page_effect, TransactionsPageMsg))
         }
-        route.Tags, TagsPage(_) -> {
-          let #(_, page_effect) = tags_page.init()
-          #(model, effect.map(page_effect, TagsPageMsg))
+        route.TagsAndRules, TagsAndRulesPage(_) -> {
+          let #(_, page_effect) = tags_and_rules_page.init()
+          #(model, effect.map(page_effect, TagsAndRulesPageMsg))
         }
         route.Transactions, _ -> {
           let #(inner_model, inner_effect) = transactions_page.init()
@@ -104,11 +104,11 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
           #(model, effect)
         }
-        route.Tags, _ -> {
-          let #(inner_model, inner_effect) = tags_page.init()
+        route.TagsAndRules, _ -> {
+          let #(inner_model, inner_effect) = tags_and_rules_page.init()
 
-          let model = Model(..model, page: TagsPage(inner_model))
-          let effect = effect.map(inner_effect, TagsPageMsg)
+          let model = Model(..model, page: TagsAndRulesPage(inner_model))
+          let effect = effect.map(inner_effect, TagsAndRulesPageMsg)
 
           #(model, effect)
         }
@@ -128,13 +128,15 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       )
       |> with_out_msg(out_msg)
     }
-    TagsPageMsg(inner_msg), Model(page: TagsPage(inner_model), ..) -> {
+    TagsAndRulesPageMsg(inner_msg),
+      Model(page: TagsAndRulesPage(inner_model), ..)
+    -> {
       let #(inner_model, inner_effect, out_msg) =
-        tags_page.update(inner_model, inner_msg)
+        tags_and_rules_page.update(inner_model, inner_msg)
 
       #(
-        Model(..model, page: TagsPage(inner_model)),
-        effect.map(inner_effect, TagsPageMsg),
+        Model(..model, page: TagsAndRulesPage(inner_model)),
+        effect.map(inner_effect, TagsAndRulesPageMsg),
       )
       |> with_out_msg(out_msg)
     }
@@ -199,9 +201,9 @@ pub fn view(model: Model) -> Element(Msg) {
       transactions_page.view(inner_model)
       |> element.map(TransactionsPageMsg)
 
-    TagsPage(inner_model) ->
-      tags_page.view(inner_model)
-      |> element.map(TagsPageMsg)
+    TagsAndRulesPage(inner_model) ->
+      tags_and_rules_page.view(inner_model)
+      |> element.map(TagsAndRulesPageMsg)
 
     NotFound -> view_not_found()
   }
@@ -218,7 +220,7 @@ pub fn view(model: Model) -> Element(Msg) {
 fn current_route(page: Page) -> route.Route {
   case page {
     TransactionsPage(_) -> route.Transactions
-    TagsPage(_) -> route.Tags
+    TagsAndRulesPage(_) -> route.TagsAndRules
     NotFound -> route.NotFound
   }
 }

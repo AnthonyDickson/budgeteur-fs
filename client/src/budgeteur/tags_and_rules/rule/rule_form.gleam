@@ -1,5 +1,5 @@
-import budgeteur/tags/rule/rule.{type Rule, Rule}
-import budgeteur/tags/tag/tag.{type Tag}
+import budgeteur/tags_and_rules/rule/rule.{type Rule, Rule}
+import budgeteur/tags_and_rules/tag/tag.{type Tag}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}

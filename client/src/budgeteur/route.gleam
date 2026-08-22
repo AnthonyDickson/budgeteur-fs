@@ -4,7 +4,7 @@ import gleam/uri
 /// A route to a page in this SPA.
 pub type Route {
   Transactions
-  Tags
+  TagsAndRules
   NotFound
 }
 
@@ -12,7 +12,7 @@ pub type Route {
 pub fn to_string(route: Route) -> String {
   case route {
     Transactions -> "/transactions"
-    Tags -> "/tags"
+    TagsAndRules -> "/tags-and-rules"
     NotFound -> "/not_found"
   }
 }
@@ -20,7 +20,7 @@ pub fn to_string(route: Route) -> String {
 fn from_path_segments(path: List(String)) -> Route {
   case path {
     ["transactions"] -> Transactions
-    ["tags"] -> Tags
+    ["tags-and-rules"] -> TagsAndRules
     _ -> NotFound
   }
 }

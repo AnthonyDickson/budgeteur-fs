@@ -17,10 +17,9 @@
 ## Current Tasks
 
 - Tags and rules page:
-  - Consider renaming top level modules and folder to `tags_and_rules*`
   - Add E2E tests
   - Implement backend for page
-  - Consider breaking up `tags_page.gleam`
+  - Consider breaking up `tags_and_rules_page.gleam`
 
 ## Backlog
 
