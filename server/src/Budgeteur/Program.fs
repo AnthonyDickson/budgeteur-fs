@@ -212,11 +212,12 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
 
     let authEndpoints = Auth.endpoints loginReturnUrl
     let transactionEndpoints = Transaction.Api.endpoints queryContext |> withAuth
+    let tagEndpoints = Tag.Api.endpoints queryContext |> withAuth
 
     let statusEndpoints =
         Status.endpoints connectionString app.Environment.EnvironmentName startedAt
 
-    Seq.concat [ authEndpoints; transactionEndpoints; statusEndpoints ]
+    Seq.concat [ authEndpoints; transactionEndpoints; tagEndpoints; statusEndpoints ]
 
 
 let private configureBuilder (builder : WebApplicationBuilder) (config : AppConfig) : unit =

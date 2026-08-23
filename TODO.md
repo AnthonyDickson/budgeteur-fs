@@ -17,9 +17,12 @@
 ## Current Tasks
 
 - Tags and rules page:
-  - Add E2E tests
   - Implement backend for page
+  - Add E2E tests
   - Consider breaking up `tags_and_rules_page.gleam`
+  - Ensures docs are up-to-date and sufficient
+  - Set transaction tag via create and update transaction dialogs
+  - Display transaction tag in transactions table
 
 ## Backlog
 

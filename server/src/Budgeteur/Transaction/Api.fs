@@ -4,7 +4,6 @@ namespace Budgeteur.Transaction
 module Api =
     open Oxpecker
 
-    open Budgeteur.Auth
     open Budgeteur.Db
     open Budgeteur.Transaction.Endpoints.Create
     open Budgeteur.Transaction.Endpoints.Delete

@@ -22,6 +22,15 @@
     <Compile Include="Db.fs" />
     <Compile Include="Endpoint.fs" />
     <Compile Include="Money.fs" />
+    <!-- Tag Feature Slice -->
+    <Compile Include="Tag/Tag.fs" />
+    <Compile Include="Tag/Validation.fs" />
+    <Compile Include="Tag/Endpoints/Create.fs" />
+    <Compile Include="Tag/Endpoints/Read.fs" />
+    <Compile Include="Tag/Endpoints/Update.fs" />
+    <Compile Include="Tag/Endpoints/Delete.fs" />
+    <Compile Include="Tag/Api.fs" />
+    <!-- END Tag Feature Slice -->
     <!-- Transaction Feature Slice -->
     <Compile Include="Transaction/Transaction.fs" />
     <Compile Include="Transaction/Validation.fs" />
