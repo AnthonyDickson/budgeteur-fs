@@ -18,7 +18,7 @@ pub type Transaction {
     // Whether the transaction represents an internal transfer between one's own accounts.
     is_transfer: Bool,
     account_id: Option(Uuid),
-    category_id: Option(Uuid),
+    tag_id: Option(Uuid),
   )
 }
 
@@ -43,8 +43,8 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
     None,
     decode.optional(uuid_decoder()),
   )
-  use category_id <- decode.optional_field(
-    "categoryId",
+  use tag_id <- decode.optional_field(
+    "tagId",
     None,
     decode.optional(uuid_decoder()),
   )
@@ -55,7 +55,7 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
     date:,
     is_transfer:,
     account_id:,
-    category_id:,
+    tag_id: tag_id,
   ))
 }
 
@@ -67,7 +67,7 @@ pub fn transaction_to_json(transaction: Transaction) -> json.Json {
     date:,
     is_transfer:,
     account_id:,
-    category_id:,
+    tag_id:,
   ) = transaction
   json.object([
     #("id", json.string(uuid.to_string(id))),
@@ -79,7 +79,7 @@ pub fn transaction_to_json(transaction: Transaction) -> json.Json {
       None -> json.null()
       option.Some(value) -> json.string(uuid.to_string(value))
     }),
-    #("categoryId", case category_id {
+    #("tagId", case tag_id {
       None -> json.null()
       option.Some(value) -> json.string(uuid.to_string(value))
     }),

@@ -22,13 +22,11 @@ type Transaction = {
     /// <summary>The bank account associated with this transaction.</summary>
     AccountId : Guid option
 
-    /// <summary>The type of transaction.</summary>
-    CategoryId : Guid option
+    /// <summary>The category of transaction.</summary>
+    TagId : Guid option
 }
 
 module Transaction =
-    open Thoth.Json.Net
-
     open Budgeteur.Db
 
     let toRow (transaction : Transaction) (userId : string) (importHash : string option) : main.Transactions = {
@@ -40,7 +38,7 @@ module Transaction =
         IsTransfer = transaction.IsTransfer
         AccountId = transaction.AccountId
         ImportHash = importHash
-        CategoryId = transaction.CategoryId
+        TagId = transaction.TagId
     }
 
     let fromRow (row : main.Transactions) : Transaction = {
@@ -50,5 +48,5 @@ module Transaction =
         Date = row.Date
         IsTransfer = row.IsTransfer
         AccountId = row.AccountId
-        CategoryId = row.CategoryId
+        TagId = row.TagId
     }

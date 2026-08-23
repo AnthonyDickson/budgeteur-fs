@@ -37,16 +37,16 @@ CREATE TABLE Accounts (
 
 CREATE INDEX IX_Accounts_UserId on Accounts(UserId);
 
--- Categories
+-- Tags
 
-CREATE TABLE Categories (
+CREATE TABLE Tags (
     -- v7 UUID
     Id     GUID NOT NULL PRIMARY KEY,
     UserId TEXT NOT NULL,
     Name   TEXT NOT NULL
 );
 
-CREATE INDEX IX_Categories_UserId on Categories(UserId);
+CREATE INDEX IX_Tags_UserId on Tags(UserId);
 
 -- Transactions
 
@@ -72,13 +72,13 @@ CREATE TABLE Transactions (
     -- The hash of the CSV row that uniquely identifies a transaction imported from a CSV file.
     -- NULL for transactions directly created by the user.
     ImportHash  TEXT,
-    CategoryId  GUID,
+    TagId  GUID,
     FOREIGN KEY(AccountId)  REFERENCES Accounts(Id)   ON UPDATE CASCADE ON DELETE SET NULL,
-    FOREIGN KEY(CategoryId) REFERENCES Categories(Id) ON UPDATE CASCADE ON DELETE SET NULL
+    FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE SET NULL
 );
 
 CREATE INDEX IX_Transactions_UserId ON Transactions(UserId);
-CREATE INDEX IX_Transactions_UserId_CategoryId ON Transactions(UserId, CategoryId);
+CREATE INDEX IX_Transactions_UserId_TagId ON Transactions(UserId, TagId);
 
 -- Auto-tagging rules
 
@@ -88,10 +88,10 @@ CREATE TABLE Rules (
     UserId     TEXT NOT NULL,
     -- The string pattern to match in transaction descriptions
     Pattern    TEXT NOT NULL,
-    -- The category (tag) to apply when the pattern matches the transaction description
-    CategoryId GUID NOT NULL,
-    FOREIGN KEY(CategoryId) REFERENCES Categories(Id) ON UPDATE CASCADE ON DELETE CASCADE,
-    UNIQUE(UserId, Pattern, CategoryId)
+    -- The tag to apply when the pattern matches the transaction description
+    TagId GUID NOT NULL,
+    FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE CASCADE,
+    UNIQUE(UserId, Pattern, TagId)
 );
 
 CREATE INDEX IX_Rules_UserId ON Rules(UserId);
@@ -109,20 +109,8 @@ CREATE TABLE TaggingQueue (
 CREATE INDEX IX_TaggingQueue_UserId ON TaggingQueue(UserId);
 
 CREATE TRIGGER RemoveTransactionFromTaggingQueueWhenTagSet
-AFTER UPDATE OF CategoryId ON Transactions
-WHEN OLD.CategoryId IS NULL AND NEW.CategoryId IS NOT NULL
+AFTER UPDATE OF TagId ON Transactions
+WHEN OLD.TagId IS NULL AND NEW.TagId IS NOT NULL
 BEGIN
     DELETE FROM TaggingQueue WHERE TransactionId = NEW.Id;
 END;
-
-
--- User Preferences
-
--- Categories that should be excluded from summary statistics, e.g. internal transfers
-CREATE TABLE HiddenCategories (
-    CategoryId GUID NOT NULL PRIMARY KEY,
-    UserId     TEXT NOT NULL,
-    FOREIGN KEY(CategoryId) REFERENCES Categories(Id) ON UPDATE CASCADE ON DELETE CASCADE
-);
-
-CREATE INDEX IX_HiddenCategories_UserId ON HiddenCategories(UserId);

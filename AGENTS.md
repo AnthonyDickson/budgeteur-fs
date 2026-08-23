@@ -4,7 +4,7 @@
 
 A full-stack web app with an Oxpecker F# .NET 10 backend (SQLite + OIDC auth + OpenAPI) and a Gleam/Lustre SPA frontend styled with Tailwind CSS v4 and bundled with Vite.
 
-The domain is a personal finance tracker: accounts, categories, and transactions, with auto-tagging rules on the roadmap. The `Transaction` slice is the reference implementation of the architecture patterns below.
+The domain is a personal finance tracker: accounts, tags (categories), and transactions, with auto-tagging rules on the roadmap. The `Transaction` slice is the reference implementation of the architecture patterns below.
 
 ## Essential Commands
 

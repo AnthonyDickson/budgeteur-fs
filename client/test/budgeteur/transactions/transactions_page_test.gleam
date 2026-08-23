@@ -25,7 +25,7 @@ fn sample_transaction() -> transaction.Transaction {
     date: calendar.Date(2026, calendar.January, 2),
     is_transfer: False,
     account_id: None,
-    category_id: None,
+    tag_id: None,
   )
 }
 

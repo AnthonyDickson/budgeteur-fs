@@ -195,7 +195,7 @@ pub fn edit_modal_prefills_transaction_test() {
       date: calendar.Date(2026, calendar.January, 2),
       is_transfer: False,
       account_id: None,
-      category_id: None,
+      tag_id: None,
     )
   let state = transaction_form.edit_modal(transaction)
   let assert transaction_form.Edit(state_id) = state.mode
@@ -221,7 +221,7 @@ pub fn edit_modal_maps_credit_transaction_test() {
       date: calendar.Date(2026, calendar.March, 15),
       is_transfer: False,
       account_id: None,
-      category_id: None,
+      tag_id: None,
     )
   let state = transaction_form.edit_modal(transaction)
   let assert transaction_form.Edit(state_id) = state.mode

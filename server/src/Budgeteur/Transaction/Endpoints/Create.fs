@@ -67,7 +67,7 @@ module Create =
                     Date = req.Date
                     IsTransfer = req.IsTransfer
                     AccountId = None
-                    CategoryId = None
+                    TagId = None
                 }
 
                 let! () = insert queryContext transaction userId

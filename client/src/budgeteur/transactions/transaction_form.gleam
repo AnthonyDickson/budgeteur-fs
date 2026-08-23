@@ -125,7 +125,7 @@ pub fn from_transaction(transaction: Transaction) -> Form {
     date:,
     is_transfer:,
     account_id: _,
-    category_id: _,
+    tag_id: _,
   ) = transaction
 
   let type_ = case amount <. 0.0 {

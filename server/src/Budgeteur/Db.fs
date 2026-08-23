@@ -23,26 +23,11 @@ module main =
     let Accounts = table<Accounts>
 
     [<CLIMutable>]
-    type Categories =
-        { Id: System.Guid
-          UserId: string
-          Name: string }
-
-    let Categories = table<Categories>
-
-    [<CLIMutable>]
-    type HiddenCategories =
-        { CategoryId: System.Guid
-          UserId: string }
-
-    let HiddenCategories = table<HiddenCategories>
-
-    [<CLIMutable>]
     type Rules =
         { Id: System.Guid
           UserId: string
           Pattern: string
-          CategoryId: System.Guid }
+          TagId: System.Guid }
 
     let Rules = table<Rules>
 
@@ -63,6 +48,14 @@ module main =
     let TaggingQueue = table<TaggingQueue>
 
     [<CLIMutable>]
+    type Tags =
+        { Id: System.Guid
+          UserId: string
+          Name: string }
+
+    let Tags = table<Tags>
+
+    [<CLIMutable>]
     type Transactions =
         { Id: System.Guid
           UserId: string
@@ -72,7 +65,7 @@ module main =
           IsTransfer: bool
           AccountId: Option<System.Guid>
           ImportHash: Option<string>
-          CategoryId: Option<System.Guid> }
+          TagId: Option<System.Guid> }
 
     let Transactions = table<Transactions>
 

@@ -82,7 +82,7 @@ module Update =
                     Date = req.Date
                     IsTransfer = req.IsTransfer
                     AccountId = None
-                    CategoryId = None
+                    TagId = None
                 }
 
                 let! updated = update queryContext transaction userId
