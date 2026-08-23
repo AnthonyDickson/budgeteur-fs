@@ -43,7 +43,8 @@ CREATE TABLE Tags (
     -- v7 UUID
     Id     GUID NOT NULL PRIMARY KEY,
     UserId TEXT NOT NULL,
-    Name   TEXT NOT NULL
+    Name   TEXT NOT NULL,
+    UNIQUE(UserId, Name)
 );
 
 CREATE INDEX IX_Tags_UserId on Tags(UserId);
