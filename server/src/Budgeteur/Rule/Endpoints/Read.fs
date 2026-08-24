@@ -1,0 +1,76 @@
+namespace Budgeteur.Rule.Endpoints.Read
+
+open System
+
+module Read =
+    open System.Collections.Generic
+    open System.Threading.Tasks
+
+    open FsToolkit.ErrorHandling
+    open Microsoft.OpenApi
+    open Oxpecker
+    open Oxpecker.OpenApi
+    open SqlHydra.Query
+
+    open Budgeteur.ApiError
+    open Budgeteur.Auth
+    open Budgeteur.Db
+    open Budgeteur.DomainError
+    open Budgeteur.Endpoint
+    open Budgeteur.Json
+    open Budgeteur.RequestLogging
+    open Budgeteur.Rule
+
+    [<Literal>]
+    let Path = "/api/rules/{%O:guid}"
+
+    let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+        task {
+            try
+                let! result =
+                    selectTask queryContext {
+                        for t in main.Rules do
+                            where (t.Id = id && t.UserId = userId)
+                            tryHead
+                    }
+
+                let rule = result |> Option.map Rule.fromRow
+
+                return Ok rule
+            with ex ->
+                return Error (DatabaseError (ex.Message, Some ex))
+        }
+
+    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+        Endpoint.handler (fun ctx ->
+            taskResult {
+                let! userId = Auth.getUserId ctx
+                let! rule = get queryContext id userId
+                let log = RequestLog.fromContext ctx
+
+                match rule with
+                | Some rule ->
+                    log.Info ($"Returned rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))
+                    do! Json.write ctx rule
+                | None ->
+                    log.Warn ($"Rule %O{id} not found", LogProp.prop "ruleId" (id.ToString ()))
+                    return! Error (NotFound $"Rule %O{id} not found")
+            })
+
+    let endpoint (queryContext : QueryContextFactory) =
+        routef Path (handler queryContext)
+        |> addOpenApi (
+            OpenApiConfig (
+                responseBodies = [|
+                    ResponseBody typeof<Rule>
+                    ResponseBody (typeof<ApiError>, statusCode = 401)
+                    ResponseBody (typeof<ApiError>, statusCode = 404)
+                |],
+                configureOperation =
+                    fun op _ _ ->
+                        op.Summary <- "Get a rule by ID"
+                        op.Description <- "Returns a single rule, or 404 if not found."
+                        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
+                        Task.CompletedTask
+            )
+        )

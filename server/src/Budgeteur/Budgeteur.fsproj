@@ -31,6 +31,15 @@
     <Compile Include="Tag/Endpoints/Delete.fs" />
     <Compile Include="Tag/Api.fs" />
     <!-- END Tag Feature Slice -->
+    <!-- Rule Feature Slice -->
+    <Compile Include="Rule/Rule.fs" />
+    <Compile Include="Rule/Validation.fs" />
+    <Compile Include="Rule/Endpoints/Create.fs" />
+    <Compile Include="Rule/Endpoints/Read.fs" />
+    <Compile Include="Rule/Endpoints/Update.fs" />
+    <Compile Include="Rule/Endpoints/Delete.fs" />
+    <Compile Include="Rule/Api.fs" />
+    <!-- END Rule Feature Slice -->
     <!-- Transaction Feature Slice -->
     <Compile Include="Transaction/Transaction.fs" />
     <Compile Include="Transaction/Validation.fs" />
