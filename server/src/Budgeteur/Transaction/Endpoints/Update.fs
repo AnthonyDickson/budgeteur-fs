@@ -15,7 +15,6 @@ module Update =
     open System.Threading.Tasks
 
     open FsToolkit.ErrorHandling
-    open Microsoft.Data.Sqlite
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi

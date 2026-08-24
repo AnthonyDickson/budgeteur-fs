@@ -5,12 +5,10 @@ module ReadAll =
     open System.Threading.Tasks
 
     open FsToolkit.ErrorHandling
-    open Microsoft.Data.Sqlite
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
     open SqlHydra.Query
-    open Thoth.Json.Net
 
     open Budgeteur.ApiError
     open Budgeteur.Auth
