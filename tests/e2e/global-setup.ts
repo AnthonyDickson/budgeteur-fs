@@ -7,7 +7,9 @@ async function globalSetup(config: FullConfig) {
   const page = await context.newPage();
 
   try {
-    await page.goto(baseURL!);
+    // TODO: Revert to just baseURL once dashboard makes request to protected route
+    // HACK: Use transactions page to trigger auth redirect
+    await page.goto(baseURL! + "/transactions");
 
     // SPA detects 401, redirects to /login, OIDC challenge lands on Authelia
     await page.waitForURL('**127.0.0.1:9091**');
