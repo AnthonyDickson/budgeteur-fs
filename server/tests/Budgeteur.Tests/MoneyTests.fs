@@ -4,10 +4,10 @@ open System
 open Expecto
 open FsCheck
 
-open Budgeteur.Money
+open Budgeteur.Shared.Money
 
 /// <summary>
-/// Property-based tests for <c>Budgeteur.Money.roundToCents</c>. The Update
+/// Property-based tests for <c>Budgeteur.Shared.Money.roundToCents</c>. The Update
 /// endpoint once used F# core <c>round</c> (nearest integer) instead, silently
 /// corrupting amounts; these properties pin the contract of the single shared
 /// rounding function so the behaviour can never regress silently.

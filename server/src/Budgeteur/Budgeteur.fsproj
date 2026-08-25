@@ -11,51 +11,52 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="ApiError.fs" />
-    <Compile Include="DomainError.fs" />
-    <Compile Include="RequestLogging.fs" />
-    <Compile Include="Coders.fs" />
-    <Compile Include="Config.fs" />
-    <Compile Include="Auth.fs" />
-    <Compile Include="OpenApi.fs" />
-    <Compile Include="Json.fs" />
-    <Compile Include="Db.fs" />
-    <Compile Include="Endpoint.fs" />
-    <Compile Include="Money.fs" />
-    <!-- Tag Feature Slice -->
-    <Compile Include="Tag/Tag.fs" />
-    <Compile Include="Tag/Validation.fs" />
-    <Compile Include="Tag/Endpoints/Create.fs" />
-    <Compile Include="Tag/Endpoints/Read.fs" />
-    <Compile Include="Tag/Endpoints/Update.fs" />
-    <Compile Include="Tag/Endpoints/Delete.fs" />
-    <Compile Include="Tag/Api.fs" />
-    <!-- END Tag Feature Slice -->
-    <!-- Rule Feature Slice -->
-    <Compile Include="Rule/Rule.fs" />
-    <Compile Include="Rule/Validation.fs" />
-    <Compile Include="Rule/Endpoints/Create.fs" />
-    <Compile Include="Rule/Endpoints/Read.fs" />
-    <Compile Include="Rule/Endpoints/Update.fs" />
-    <Compile Include="Rule/Endpoints/Delete.fs" />
-    <Compile Include="Rule/Api.fs" />
-    <!-- END Rule Feature Slice -->
-    <!-- Transaction Feature Slice -->
-    <Compile Include="Transaction/Transaction.fs" />
-    <Compile Include="Transaction/Validation.fs" />
-    <Compile Include="Transaction/Endpoints/Create.fs" />
-    <Compile Include="Transaction/Endpoints/Read.fs" />
-    <Compile Include="Transaction/Endpoints/ReadAll.fs" />
-    <Compile Include="Transaction/Endpoints/Update.fs" />
-    <Compile Include="Transaction/Endpoints/Delete.fs" />
-    <Compile Include="Transaction/Api.fs" />
-    <!-- END Transaction Feature Slice -->
-    <Compile Include="Status.fs" />
+    <Compile Include="Shared/ApiError.fs" />
+    <Compile Include="Shared/DomainError.fs" />
+    <Compile Include="Shared/RequestLogging.fs" />
+    <Compile Include="Shared/Coders.fs" />
+    <Compile Include="Shared/Config.fs" />
+    <Compile Include="Shared/Auth.fs" />
+    <Compile Include="Shared/OpenApi.fs" />
+    <Compile Include="Shared/Json.fs" />
+    <Compile Include="Shared/Endpoint.fs" />
+    <Compile Include="Shared/Money.fs" />
+
+    <Compile Include="Domain/Tag.fs" />
+    <Compile Include="Domain/Transaction.fs" />
+    <Compile Include="Domain/Rule.fs" />
+
+    <Compile Include="Data/Db.fs" />
+
+    <Compile Include="Feature/Auth/Login.fs" />
+    <Compile Include="Feature/Auth/Logout.fs" />
+
+    <Compile Include="Feature/Tag/Tag.Data.fs" />
+    <Compile Include="Feature/Tag/CreateTag.fs" />
+    <Compile Include="Feature/Tag/ReadTag.fs" />
+    <Compile Include="Feature/Tag/UpdateTag.fs" />
+    <Compile Include="Feature/Tag/DeleteTag.fs" />
+
+    <Compile Include="Feature/Rule/Rule.Data.fs" />
+    <Compile Include="Feature/Rule/CreateRule.fs" />
+    <Compile Include="Feature/Rule/ReadRule.fs" />
+    <Compile Include="Feature/Rule/UpdateRule.fs" />
+    <Compile Include="Feature/Rule/DeleteRule.fs" />
+
+    <Compile Include="Feature/Transaction/Transaction.Data.fs" />
+    <Compile Include="Feature/Transaction/CreateTransaction.fs" />
+    <Compile Include="Feature/Transaction/ReadTransaction.fs" />
+    <Compile Include="Feature/Transaction/ReadAllTransactions.fs" />
+    <Compile Include="Feature/Transaction/UpdateTransaction.fs" />
+    <Compile Include="Feature/Transaction/DeleteTransaction.fs" />
+
+    <Compile Include="Feature/GetStatus.fs" />
+
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="migrations/**/*.sql" />
+    <EmbeddedResource Include="Data/Migrations/**/*.sql" />
   </ItemGroup>
 
   <ItemGroup>

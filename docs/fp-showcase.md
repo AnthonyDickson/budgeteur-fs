@@ -133,22 +133,22 @@ doesn't need `Option` at all: `Confirming(transaction: Transaction)` and
 attached, so there's nothing left that could be missing.
 
 Both halves of this repo lean on `Option` everywhere. A transaction may or may
-not be linked to an account or a category, and the type says so explicitly
-(`Transaction.fs`):
+not be linked to an account or a tag, and the type says so explicitly
+(`Domain/Transaction.fs`):
 
 ```fsharp
 type Transaction = {
   // .. other fields ..
-  AccountId : Guid option   // linked to a bank account, or not
-  CategoryId : Guid option  // categorised, or not
+  AccountId : Guid option  // linked to a bank account, or not
+  TagId : Guid option      // tagged, or not
 }
 ```
 
-A new transaction starts with `AccountId = None` and `CategoryId = None` (see
-the `Create.fs` handler in stop 7), and anything that reads a transaction must
+A new transaction starts with `AccountId = None` and `TagId = None` (see
+the `CreateTransaction.fs` handler in stop 7), and anything that reads a transaction must
 decide what "no account" means at every use. The client's `transaction.gleam`
 mirrors the same two fields as `account_id: Option(Uuid)` and
-`category_id: Option(Uuid)`. Even the server's error type uses the pattern:
+`tag_id: Option(Uuid)`. Even the server's error type uses the pattern:
 `DomainError` (stop 3) carries an `exn option`, so a database error can
 include the underlying .NET exception when one exists.
 
@@ -218,7 +218,7 @@ Three problems with exceptions, in increasing order of cost:
 This repo answers all three by making failure part of the type. Handlers never
 throw; they return a `Result`, a value that is _either_ a success (`Ok`) _or_
 a failure (`Error`). Here is an entire endpoint
-(`Transaction/Endpoints/Read.fs`):
+(`Feature/Transaction/ReadTransaction.fs`):
 
 ```fsharp
 let handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
@@ -250,7 +250,7 @@ try/catch and no hand-written propagation, yet the compiler still knows
 exactly what each step can fail with, something a try/catch version never
 tells you without reading its body.
 
-One central place, `Endpoint.handler` (`Endpoint.fs`), decides what errors
+One central place, `Endpoint.handler` (`Shared/Endpoint.fs`), decides what errors
 become on the wire:
 
 ```fsharp
@@ -286,7 +286,7 @@ the pipe operator `|>`, top-to-bottom; both languages in this stack have it.
 If you've chained LINQ methods in C# or `.map()`/`.filter()` in JavaScript, the
 reading experience is the same; the difference is that `|>` works with any
 function, not just methods defined on the object you're chaining from. The
-description validation in `Transaction/Validation.fs` is a three-step chain,
+description validation in `Domain/Transaction.fs` is a three-step chain,
 read as a sentence:
 
 ```fsharp
@@ -326,13 +326,13 @@ gains a new value, and every `switch` that should have handled it is found by
 searching, or by a bug report. In this repo, the compiler does the searching.
 Two concrete results of strong typing + exhaustive matching:
 
-**Miss a case, and it won't compile.** In `Endpoint.fs`, every `DomainError`
+**Miss a case, and it won't compile.** In `Shared/Endpoint.fs`, every `DomainError`
 case is handled explicitly. Add a new case to the type tomorrow and the
 compiler will point at every place that must handle it. In OOP terms: the
 compiler enforces the "update all subclasses" step of the Visitor pattern.
 
 **The schema and the code cannot drift.** Tables are defined in migration SQL
-(`migrations/001_add_core_data_models.sql`) using special type hints:
+(`Data/Migrations/001_add_core_data_models.sql`) using special type hints:
 
 ```sql
 Id     GUID     NOT NULL PRIMARY KEY,
@@ -352,7 +352,7 @@ FP is usually pitched as all-or-nothing: to get the benefits you adopt a pure
 language, a different runtime, and re-implement the ecosystem. This repo is the
 counter-argument: a real ASP.NET Core app where "pragmatic" means FP where it
 pays, and the platform where it doesn't. Here is a whole endpoint, verbatim
-(`Transaction/Endpoints/Create.fs`):
+(`Feature/Transaction/CreateTransaction.fs`):
 
 ```fsharp
 let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -370,7 +370,7 @@ let private handler (queryContext : QueryContextFactory) : EndpointHandler =
                 Date = req.Date
                 IsTransfer = req.IsTransfer
                 AccountId = None
-                CategoryId = None
+                TagId = None
             }
 
             let! () = insert queryContext transaction userId
@@ -394,7 +394,7 @@ stop 4's `let!` sugar again, here from FsToolkit over `Task<Result<...>>`: the
 safety of typed errors with the reading experience of plain code.
 
 The pragmatism isn't just syntax. Notice what the same file does at the edge of
-the platform (`Create.fs`):
+the platform (`CreateTransaction.fs`):
 
 ```fsharp
 try
@@ -625,11 +625,18 @@ mocked, constructor injection, and registration wiring to maintain. That wiring
 is a second description of the dependency graph. When it disagrees with
 reality, the failure shows up at runtime, at the moment the chain is first
 resolved. The FP answer is simpler: _pass what you need_. The server creates
-its `QueryContextFactory` once in `Program.fs` and threads it into each slice's
-`endpoints` function:
+its `QueryContextFactory` once in `Program.fs` and threads it into each
+operation's `endpoint` function, grouping them by HTTP method:
 
 ```fsharp
-let transactionEndpoints = Transaction.Api.endpoints queryContext |> withAuth
+let transactionEndpoints =
+    [
+        GET [ ReadTransaction.endpoint queryContext; ReadAllTransactions.endpoint queryContext ]
+        POST [ CreateTransaction.endpoint queryContext ]
+        PUT [ UpdateTransaction.endpoint queryContext ]
+        DELETE [ DeleteTransaction.endpoint queryContext ]
+    ]
+    |> withAuth
 ```
 
 Nothing is hidden behind an interface for mockability, because nothing is
@@ -758,7 +765,7 @@ costs.
 
 - `docs/architecture.md`: the mechanical how-it-works counterpart to this tour.
 - `docs/database.md`, `docs/server-tests.md`, `docs/e2e-tests.md`: the details.
-- Start reading `Transaction/Endpoints/Read.fs` (server) and
+- Start reading `Feature/Transaction/ReadTransaction.fs` (server) and
   `transactions/transactions_page.gleam` (client): the two reference
   implementations of everything above.
 

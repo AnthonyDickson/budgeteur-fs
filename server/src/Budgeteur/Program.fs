@@ -25,14 +25,18 @@ open Serilog
 open Serilog.Events
 open Serilog.Formatting.Compact
 
-open Budgeteur.ApiError
-open Budgeteur.Auth
-open Budgeteur.Config
-open Budgeteur.Db
-open Budgeteur.Json
-open Budgeteur.OpenApi
-open Budgeteur.Status
-open Budgeteur.Transaction
+open Budgeteur.Data.Db
+open Budgeteur.Shared.ApiError
+open Budgeteur.Shared.Auth
+open Budgeteur.Shared.Config
+open Budgeteur.Shared.Json
+open Budgeteur.Shared.OpenApi
+open Budgeteur.Shared.RequestLogging
+open Budgeteur.Feature.Auth
+open Budgeteur.Feature.Rule
+open Budgeteur.Feature.Status
+open Budgeteur.Feature.Tag
+open Budgeteur.Feature.Transaction
 
 
 let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAuth2Config) =
@@ -178,7 +182,7 @@ let private configureSerilog
                 | _ -> 0
             | _ -> 0
 
-        let isStatusProbe = requestPath.StartsWith Status.Api.Path
+        let isStatusProbe = requestPath.StartsWith GetStatus.Path
 
         let isFrameworkLog =
             source.StartsWith "Microsoft.AspNetCore"
@@ -210,13 +214,44 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
     let queryContext = QueryContextFactory.Create connectionString
     let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime ()
 
-    let authEndpoints = Auth.endpoints loginReturnUrl
-    let transactionEndpoints = Transaction.Api.endpoints queryContext |> withAuth
-    let tagEndpoints = Tag.Api.endpoints queryContext |> withAuth
-    let ruleEndpoints = Rule.Api.endpoints queryContext |> withAuth
+    let authEndpoints =
+        seq [ GET [ Login.endpoint loginReturnUrl; Logout.endpoint "/" ] ]
 
-    let statusEndpoints =
-        Status.endpoints connectionString app.Environment.EnvironmentName startedAt
+    let statusEndpoints = [
+        GET [
+            GetStatus.endpoint connectionString app.Environment.EnvironmentName startedAt
+        ]
+    ]
+
+    let transactionEndpoints =
+        [
+            GET [
+                ReadTransaction.endpoint queryContext
+                ReadAllTransactions.endpoint queryContext
+            ]
+            POST [ CreateTransaction.endpoint queryContext ]
+            PUT [ UpdateTransaction.endpoint queryContext ]
+            DELETE [ DeleteTransaction.endpoint queryContext ]
+        ]
+        |> withAuth
+
+    let tagEndpoints =
+        [
+            GET [ ReadTag.endpoint queryContext ]
+            POST [ CreateTag.endpoint queryContext ]
+            PUT [ UpdateTag.endpoint queryContext ]
+            DELETE [ DeleteTag.endpoint queryContext ]
+        ]
+        |> withAuth
+
+    let ruleEndpoints =
+        [
+            POST [ CreateRule.endpoint queryContext ]
+            GET [ ReadRule.endpoint queryContext ]
+            PUT [ UpdateRule.endpoint queryContext ]
+            DELETE [ DeleteRule.endpoint queryContext ]
+        ]
+        |> withAuth
 
     Seq.concat [
         authEndpoints
@@ -265,7 +300,7 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     app.UseAuthentication () |> ignore
 
     app.Use (
-        RequestLogging.Middleware.requestLogging (
+        Middleware.requestLogging (
             (app.Services.GetRequiredService<Serilog.ILogger> ()).ForContext ("SourceContext", "Budgeteur.Request")
         )
     )

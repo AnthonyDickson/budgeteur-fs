@@ -5,7 +5,7 @@ open Expecto
 open FsCheck
 open FsCheck.FSharp
 
-open Budgeteur.Transaction
+open Budgeteur.Domain.Transaction
 
 /// <summary>
 /// Property-based tests for <c>Transactions.Validation</c>. These complement the

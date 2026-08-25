@@ -54,8 +54,39 @@ format:
 	cd server && dotnet fantomas .
 
 # Lint with fsharplint
-lint:
+lint: check-feature-boundaries
 	cd server && dotnet fsharplint lint Budgeteur.slnx
+
+# Fail if kernel code depends on a feature, or a feature imports another feature slice
+check-feature-boundaries:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	fail=0
+
+	# Feature files may only open their own slice (or Domain/Data/Shared)
+	while IFS= read -r file; do
+		slice="$(basename "$(dirname "$file")")"
+		opens="$(grep -oE 'open Budgeteur\.Feature\.[A-Za-z]+' "$file" | sed 's/open Budgeteur\.Feature\.//' | sort -u || true)"
+		while read -r dep; do
+			if [[ -n "$dep" && "$dep" != "$slice" ]]; then
+				echo "Cross-slice dependency: $file opens Budgeteur.Feature.$dep"
+				fail=1
+			fi
+		done <<< "$opens"
+	done < <(find server/src/Budgeteur/Feature -name '*.fs' -type f)
+
+	# Kernel code (Shared/Domain/Data) must not depend on any feature
+	while IFS= read -r file; do
+		if grep -qE 'open Budgeteur\.Feature\.' "$file"; then
+			echo "Kernel depends on a feature: $file"
+			fail=1
+		fi
+	done < <(find server/src/Budgeteur/{Shared,Domain,Data} -name '*.fs' -type f)
+
+	if [[ $fail -ne 0 ]]; then
+		echo "Feature boundary violations found (see above)"
+		exit 1
+	fi
 
 audit:
 	cd client && npm audit
@@ -72,12 +103,12 @@ outdated:
 db-migration name:
 	#!/usr/bin/env bash
 	set -euo pipefail
-	dir="server/src/Budgeteur/migrations"
+	dir="server/src/Budgeteur/Data/Migrations"
 	count=$(ls "$dir"/*.sql 2>/dev/null | wc -l)
 	num=$(printf "%03d" $((count + 1)))
 	file="$dir/${num}_{{name}}.sql"
 	echo "-- {{name}}" > "$file"
-	echo "Created migration: migrations/$(basename "$file")"
+	echo "Created migration: Data/Migrations/$(basename "$file")"
 
 # Apply pending migrations (standalone script)
 db-migrate:

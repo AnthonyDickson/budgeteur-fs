@@ -49,7 +49,7 @@ Deletes `app.sqlite3`, re-applies all migrations in order, regenerates `Db.fs`.
 ## Schema
 
 The core schema (accounts, categories, transactions, auto-tagging rules, a
-tagging queue, and user preferences) is defined in `migrations/`. The header
+tagging queue, and user preferences) is defined in `Data/Migrations/`. The header
 comment of the first migration documents the column type conventions — the
 `GUID`, `BOOLEAN`, `DATETIME` etc. hints are not real SQLite types but drive
 SqlHydra's F# codegen. See
@@ -69,6 +69,11 @@ PRAGMA after migrations run — SQLite silently ignores foreign keys otherwise.
 - **Mapping layer.** Each domain module converts between DB row types and its
   public API type (e.g. `Transaction.toRow` / `Transaction.fromRow`). This is
   the control point — DB columns never leak to the API.
+- **Migration paths are part of the schema history.** DbUp keys `SchemaVersions`
+  on the migration's resource name (its path under `Data/Migrations/`). Moving
+  or renaming an already-applied migration makes DbUp treat it as new and
+  re-run it, which fails on an existing database — run `just db-reset` after
+  such a move.
 - **Standalone migrations.** `scripts/migrate.fsx` applies migrations without
   building the server. This avoids the chicken-and-egg problem where a schema
   change breaks the build before `Db.fs` is regenerated.

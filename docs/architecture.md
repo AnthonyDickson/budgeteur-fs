@@ -10,19 +10,22 @@ workflows, and gotchas; `docs/database.md`, `docs/server-tests.md`, and
 
 ### Vertical slices
 
-Each domain is a folder, and `Transaction/` is the reference implementation:
+The server is split across three folders, and `Feature/Transaction/` is the
+reference implementation:
 
-- **`Api.fs`** — the slice's public surface: `endpoints (queryContext)` returns
-  the route list.
-- **`<Domain>.fs`** — the domain type plus `toRow` / `fromRow` DB mapping.
-- **`Validation.fs`** — domain validation rules.
-- **`Endpoints/`** — one file per HTTP operation (`Create`, `Read`, `ReadAll`,
-  `Update`, `Delete`, `Import`), each exposing a `Path` literal and an
-  `endpoint` function.
+- **`Shared/`** — cross-cutting concerns (`Auth.fs`, `Endpoint.fs`, `Json.fs`,
+  `ApiError.fs`, `DomainError.fs`, `Money.fs`, `OpenApi.fs`, …).
+- **`Domain/`** — one file per domain type (`Transaction.fs`, `Tag.fs`, `Rule.fs`).
+- **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`,
+  `ReadTransaction.fs`, `ReadAllTransactions.fs`, `UpdateTransaction.fs`,
+  `DeleteTransaction.fs`, …), each exposing a `Path` literal and an
+  `endpoint (queryContext)` function. `<Name>.Data.fs` holds the `toRow` /
+  `fromRow` DB mapping; value invariants live with the type in `Domain/`.
 
-The `QueryContextFactory` (from the generated `Db.fs`) is created once in
-`Program.fs` and threaded into each slice's `endpoints` function; there,
-feature endpoints are also wrapped with `Auth.requireAuth`. Routes use
+The `QueryContextFactory` (from the generated `Data/Db.fs`) is created once in
+`Program.fs` and threaded into each operation's `endpoint` function; there,
+endpoints are grouped by HTTP method (`GET` / `POST` / `PUT` / `DELETE`) and
+feature lists are wrapped with `Auth.requireAuth`. Routes use
 `/api/<resource>` for collections and `/api/<resource>/{id}` for items. IDs are
 v7 UUIDs generated server-side — create requests carry no id.
 
@@ -74,7 +77,7 @@ SQLite with DbUp migrations and SqlHydra type-safe queries. See
 - Numbered migration `.sql` files are embedded in the assembly, applied in
   order at startup, tracked in a `SchemaVersions` table. Never modify an
   already-applied migration.
-- `Db.fs` is SqlHydra-generated and committed. SqlHydra-compatible type hints
+- `Data/Db.fs` is SqlHydra-generated and committed. SqlHydra-compatible type hints
   (`GUID`, `BOOLEAN`, `DATETIME`, `CURRENCY`, …) in migration columns are not
   real SQLite types but drive codegen; the first migration's header comment
   documents the conventions (v7 UUIDs, UTC timestamps, etc.).
@@ -83,8 +86,8 @@ SQLite with DbUp migrations and SqlHydra type-safe queries. See
 - `Program.fs` enables WAL journal mode and foreign-key enforcement after
   migrations run; SQLite silently ignores foreign keys otherwise.
 - `scripts/migrate.fsx` applies migrations without building the server, so a
-  schema change can be migrated and `Db.fs` regenerated before the domain code
-  is fixed. CI re-runs this and fails if `Db.fs` is out of date.
+  schema change can be migrated and `Data/Db.fs` regenerated before the domain code
+  is fixed. CI re-runs this and fails if `Data/Db.fs` is out of date.
 
 ### Logging
 
