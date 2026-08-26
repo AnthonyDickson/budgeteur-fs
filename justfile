@@ -94,7 +94,8 @@ audit:
 
 outdated:
 	cd client && gleam deps outdated
-	cd client && npm outdated
+	# use `-` to ignore the exit code npm so outdated packages don't stop the next command from being run by just
+	-cd client && npm outdated
 	cd server && dotnet list package --outdated
 
 # ── Database ──────────────────────────────────────────────────────────────
