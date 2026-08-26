@@ -30,7 +30,7 @@ module CreateTag =
 
     let private insert (queryContext : QueryContextFactory) (tag : Tag) (userId : string) =
         task {
-            let row = Tag.toRow tag userId
+            let row = TagCodec.toRow tag userId
 
             try
                 let! _ =
@@ -52,11 +52,12 @@ module CreateTag =
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
                 let! (req : CreateTagRequest) = Json.read ctx
-                let! name = Validation.validateAndTrimName req.Name
 
-                let tag = {
+                let! tagName = TagName.create req.Name
+
+                let tag : Tag = {
                     Id = Guid.CreateVersion7 ()
-                    Name = name
+                    Name = tagName
                 }
 
                 let! () = insert queryContext tag userId
@@ -64,7 +65,7 @@ module CreateTag =
                 log.Info ($"Created tag %O{tag.Id}", LogProp.prop "tagId" (tag.Id.ToString ()))
 
                 ctx.SetStatusCode 201
-                do! Json.write ctx tag
+                do! Json.write ctx (TagResponse.fromDomain tag)
             })
 
     let endpoint (queryContext : QueryContextFactory) =
@@ -73,7 +74,7 @@ module CreateTag =
             OpenApiConfig (
                 requestBody = RequestBody typeof<CreateTagRequest>,
                 responseBodies = [|
-                    ResponseBody (typeof<Tag>, statusCode = 201)
+                    ResponseBody (typeof<TagResponse>, statusCode = 201)
                     ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 409)

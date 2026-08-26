@@ -4,13 +4,13 @@ open System
 
 open Budgeteur.Shared.DomainError
 
-type Tag = { Id : Guid; Name : string }
+type TagName = private TagName of string
 
-module Validation =
+module TagName =
     [<Literal>]
     let private MaxNameLength = 256
 
-    let private nonEmpty (name : string) =
+    let private nonEmpty name =
         if System.String.IsNullOrWhiteSpace name then
             Error (ValidationFailed "Tag name cannot be null or whitespace")
         else
@@ -26,6 +26,12 @@ module Validation =
         else
             Ok name
 
-    /// <summary>Trim whitespace and then validate a tag name. Returns the trimmed name.</summary>
-    let validateAndTrimName (name : string) =
-        name.Trim () |> nonEmpty |> Result.bind acceptableLength
+    let create (name : string) =
+        name.Trim () |> nonEmpty |> Result.bind acceptableLength |> Result.map TagName
+
+    let value (TagName name) = name
+
+    /// An escape hatch for the smart constructor for reading trusted values from the database.
+    let internal unsafeFromString name = TagName name
+
+type Tag = { Id : Guid; Name : TagName }

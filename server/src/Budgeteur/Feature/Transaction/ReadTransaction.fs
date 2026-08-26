@@ -35,7 +35,7 @@ module ReadTransaction =
                             tryHead
                     }
 
-                let transaction = result |> Option.map Transaction.fromRow
+                let transaction = result |> Option.map TransactionCodec.fromRow
 
                 return Ok transaction
             with ex ->
@@ -52,7 +52,7 @@ module ReadTransaction =
                 match transaction with
                 | Some transaction ->
                     log.Info ($"Returned transaction %O{id}", LogProp.prop "transactionId" (id.ToString ()))
-                    do! Json.write ctx transaction
+                    do! Json.write ctx (TransactionResponse.fromDomain transaction)
                 | None ->
                     log.Warn ($"Transaction %O{id} not found", LogProp.prop "transactionId" (id.ToString ()))
                     return! Error (NotFound $"Transaction %O{id} not found")
@@ -63,7 +63,7 @@ module ReadTransaction =
         |> addOpenApi (
             OpenApiConfig (
                 responseBodies = [|
-                    ResponseBody typeof<Transaction>
+                    ResponseBody typeof<TransactionResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],

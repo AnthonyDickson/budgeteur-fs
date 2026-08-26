@@ -8,12 +8,12 @@ open FsCheck.FSharp
 open Budgeteur.Domain.Transaction
 
 /// <summary>
-/// Property-based tests for <c>Transactions.Validation</c>. These complement the
+/// Property-based tests for <c>TransactionDescription</c>. These complement the
 /// hand-written endpoint tests by sampling the full input space instead of a few
 /// canned examples, catching off-by-one errors at the length boundary and pinning
-/// down the trim/whitespace behaviour of <c>validateAndTrimDescription</c>.
+/// down the trim/whitespace behaviour of <c>create</c>.
 /// </summary>
-module ValidationPropertyTests =
+module TransactionDescriptionPropertyTests =
 
     /// FsCheck's default string generator can produce null, but the validation
     /// function assumes a non-null description. The endpoint guarantees that via
@@ -41,14 +41,14 @@ module ValidationPropertyTests =
 
     /// Acceptance preserves trim: an accepted description equals the trimmed input.
     let private propPreservesTrim (s : string) =
-        match Validation.validateAndTrimDescription s with
-        | Ok trimmed -> trimmed = s.Trim ()
+        match TransactionDescription.create s with
+        | Ok trimmed -> TransactionDescription.value trimmed = s.Trim ()
         | Error _ -> true
 
     /// Length bounded on accept: accepted descriptions never exceed the limit.
     let private propLengthBounded (s : string) =
-        match Validation.validateAndTrimDescription s with
-        | Ok trimmed -> trimmed.Length <= maxDescriptionLength
+        match TransactionDescription.create s with
+        | Ok trimmed -> (TransactionDescription.value trimmed).Length <= maxDescriptionLength
         | Error _ -> true
 
     /// Whitespace rejection: within the acceptable-length domain, the result is an
@@ -59,7 +59,7 @@ module ValidationPropertyTests =
 
         if whitespaceOnly then
             // A whitespace-only description is always rejected.
-            match Validation.validateAndTrimDescription s with
+            match TransactionDescription.create s with
             | Error _ -> true
             | Ok _ -> false
         else
@@ -67,13 +67,13 @@ module ValidationPropertyTests =
             // which is out of scope for this property (see the length property).
             let trimmed = s.Trim ()
 
-            match Validation.validateAndTrimDescription s with
+            match TransactionDescription.create s with
             | Ok _ -> trimmed.Length <= maxDescriptionLength
             | Error _ -> trimmed.Length > maxDescriptionLength
 
     [<Tests>]
     let validationPropertyTests =
-        testList "Transactions Validation (property)" [
+        testList "TransactionDescription Validation (property)" [
             testPropertyWithConfig
                 config
                 "Acceptance preserves trim: Ok trimmed exactly equals s.Trim()"

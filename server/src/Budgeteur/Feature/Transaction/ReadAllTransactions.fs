@@ -33,7 +33,7 @@ module ReadAllTransactions =
                             where (t.UserId = userId)
                     }
 
-                let transactions = rows |> List.ofSeq |> List.map Transaction.fromRow
+                let transactions = rows |> List.ofSeq |> List.map TransactionCodec.fromRow
 
                 return Ok transactions
             with ex ->
@@ -53,7 +53,8 @@ module ReadAllTransactions =
                     LogProp.prop "count" (List.length transactions)
                 )
 
-                do! Json.write ctx transactions
+                let response = List.map TransactionResponse.fromDomain transactions
+                do! Json.write ctx response
             })
 
     let endpoint (queryContext : QueryContextFactory) =
@@ -61,7 +62,7 @@ module ReadAllTransactions =
         |> addOpenApi (
             OpenApiConfig (
                 responseBodies = [|
-                    ResponseBody typeof<Transaction list>
+                    ResponseBody typeof<TransactionResponse list>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                 |],
                 configureOperation =

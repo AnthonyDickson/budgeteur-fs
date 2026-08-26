@@ -35,7 +35,7 @@ module ReadTag =
                             tryHead
                     }
 
-                let tag = result |> Option.map Tag.fromRow
+                let tag = result |> Option.map TagCodec.fromRow
 
                 return Ok tag
             with ex ->
@@ -52,7 +52,7 @@ module ReadTag =
                 match tag with
                 | Some tag ->
                     log.Info ($"Returned tag %O{id}", LogProp.prop "tagId" (id.ToString ()))
-                    do! Json.write ctx tag
+                    do! Json.write ctx (TagResponse.fromDomain tag)
                 | None ->
                     log.Warn ($"Tag %O{id} not found", LogProp.prop "tagId" (id.ToString ()))
                     return! Error (NotFound $"Tag %O{id} not found")
@@ -63,7 +63,7 @@ module ReadTag =
         |> addOpenApi (
             OpenApiConfig (
                 responseBodies = [|
-                    ResponseBody typeof<Tag>
+                    ResponseBody typeof<TagResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],

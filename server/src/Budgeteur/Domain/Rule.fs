@@ -4,13 +4,9 @@ open System
 
 open Budgeteur.Shared.DomainError
 
-type Rule = {
-    Id : Guid
-    Pattern : string
-    TagId : Guid
-}
+type RulePattern = private RulePattern of string
 
-module Validation =
+module RulePattern =
     [<Literal>]
     let private MaxPatternLength = 256
 
@@ -31,5 +27,19 @@ module Validation =
             Ok pattern
 
     /// <summary>Trim whitespace and then validate a rule pattern. Returns the trimmed pattern.</summary>
-    let validateAndTrimPattern (pattern : string) =
-        pattern.Trim () |> nonEmpty |> Result.bind acceptableLength
+    let create (pattern : string) =
+        pattern.Trim ()
+        |> nonEmpty
+        |> Result.bind acceptableLength
+        |> Result.map RulePattern
+
+    let value (RulePattern pattern) = pattern
+
+    /// An escape hatch for the smart constructor for reading trusted values from the database.
+    let internal unsafeFromString pattern = RulePattern pattern
+
+type Rule = {
+    Id : Guid
+    Pattern : RulePattern
+    TagId : Guid
+}

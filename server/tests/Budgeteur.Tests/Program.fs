@@ -12,7 +12,7 @@ open Budgeteur.Tests
 let testRoot =
     testList "Budgeteur.Tests" [
         Transactions.EndpointTests.tests
-        Transactions.ValidationPropertyTests.validationPropertyTests
+        Transactions.TransactionDescriptionPropertyTests.validationPropertyTests
         MoneyTests.moneyTests
     ]
 

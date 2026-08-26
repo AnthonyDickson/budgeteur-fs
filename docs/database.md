@@ -66,9 +66,10 @@ PRAGMA after migrations run — SQLite silently ignores foreign keys otherwise.
 - **`Db.fs` is auto-generated** by `dotnet sqlhydra sqlite` — record types,
   table declarations, and `QueryContextFactory`. Committed to source control; do
   not hand-edit. `just db-update` regenerates it from the live database.
-- **Mapping layer.** Each domain module converts between DB row types and its
-  public API type (e.g. `Transaction.toRow` / `Transaction.fromRow`). This is
-  the control point — DB columns never leak to the API.
+- **Mapping layer.** Each feature slice's codec module converts between DB row
+  types and its domain type (e.g. `TransactionCodec.toRow` /
+  `TransactionCodec.fromRow`). This is the control point — DB columns never
+  leak to the API.
 - **Migration paths are part of the schema history.** DbUp keys `SchemaVersions`
   on the migration's resource name (its path under `Data/Migrations/`). Moving
   or renaming an already-applied migration makes DbUp treat it as new and

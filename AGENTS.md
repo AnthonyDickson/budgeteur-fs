@@ -50,7 +50,7 @@ The server is split across three folders:
 
 - **`Shared/`** — cross-cutting concerns: `Auth.fs`, `Endpoint.fs`, `Json.fs`, `ApiError.fs`, `DomainError.fs`, `Money.fs`, `OpenApi.fs`, `RequestLogging.fs`, `Config.fs`, `Coders.fs`.
 - **`Domain/`** — one file per domain type (`Transaction.fs`, `Tag.fs`, `Rule.fs`).
-- **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`, `ReadTransaction.fs`, `ReadAllTransactions.fs`, `UpdateTransaction.fs`, `DeleteTransaction.fs`, …), each exposing a `Path` literal and an `endpoint (queryContext)` function. `<Name>.Data.fs` holds the `toRow` / `fromRow` DB mapping; value invariants live with the type in `Domain/`.
+- **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`, `ReadTransaction.fs`, `ReadAllTransactions.fs`, `UpdateTransaction.fs`, `DeleteTransaction.fs`, …), each exposing a `Path` literal and an `endpoint (queryContext)` function. `<Name>Codec.fs` holds the `toRow` / `fromRow` DB mapping and `<Name>Response.fs` the wire DTO; value invariants live with the type in `Domain/` as refined types (private single-case unions with `create` / `value`).
 
 Handlers run through `Endpoint.handler`, which executes a `Task<Result<unit, DomainError>>` body and maps `DomainError` values to HTTP responses (see `Shared/Endpoint.fs`). Routes use `/api/<resource>` for collections and `/api/<resource>/{id}` for items; each endpoint is decorated with OpenAPI metadata via `addOpenApi`. IDs are v7 UUIDs generated server-side — create requests carry no id.
 
@@ -102,7 +102,7 @@ just db-reset                         # delete DB, re-apply all migrations, rege
 **Key constraints:**
 
 - Migration files are applied once, in order — never modify an already-run migration. Add a new file for changes.
-- `Db.fs` is auto-generated — do not hand-edit. The mapping layer in the domain module (`toRow` / `fromRow`) is the control point for DB ↔ API type conversions.
+- `Db.fs` is auto-generated — do not hand-edit. The mapping layer in the feature slices' `*Codec.fs` (`toRow` / `fromRow`) is the control point for DB ↔ API type conversions.
 - Connection string is `Data Source=app.sqlite3` (relative, resolves to the server project). Override with an absolute path (e.g. `/data/app.sqlite3`) in production via `ConnectionStrings__Default` env var.
 
 ### Logging Architecture
@@ -163,7 +163,6 @@ Three layers — see the linked docs for details:
 - Functions: camelCase
 - Types (records, DUs): PascalCase
 - `[<RequireQualifiedAccess>]` on modules that expose a type alias
-- `[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]` when module and type share a name
 
 ### Error Handling
 

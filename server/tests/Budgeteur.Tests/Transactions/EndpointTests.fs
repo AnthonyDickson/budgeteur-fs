@@ -56,7 +56,7 @@ module EndpointTests =
 
                 let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
 
-                match Decode.fromStringAuto<Transaction list> body with
+                match Decode.fromStringAuto<TransactionResponse list> body with
                 | Ok [ item ] ->
                     Expect.equal input.Description item.Description "description should match"
                     Expect.equal input.Amount item.Amount "amount should match"
@@ -74,7 +74,7 @@ module EndpointTests =
                 let! createBody = createResponse.Content.ReadAsStringAsync () |> Async.AwaitTask
 
                 let id =
-                    match Decode.fromStringAuto<Transaction> createBody with
+                    match Decode.fromStringAuto<TransactionResponse> createBody with
                     | Ok created -> created.Id
                     | Error err -> failtest err
 
@@ -84,7 +84,7 @@ module EndpointTests =
 
                 let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
 
-                match Decode.fromStringAuto<Transaction> body with
+                match Decode.fromStringAuto<TransactionResponse> body with
                 | Ok item ->
                     Expect.equal input.Description item.Description "description should match"
                     Expect.equal input.Amount item.Amount "amount should match"
@@ -114,7 +114,7 @@ module EndpointTests =
 
                 let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
 
-                match Decode.fromStringAuto<Transaction> body with
+                match Decode.fromStringAuto<TransactionResponse> body with
                 | Ok created ->
                     Expect.equal input.Description created.Description "description should match"
                     Expect.equal input.Amount created.Amount "amount should match"
@@ -137,7 +137,7 @@ module EndpointTests =
 
                 let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
 
-                match Decode.fromStringAuto<Transaction> body with
+                match Decode.fromStringAuto<TransactionResponse> body with
                 | Ok created -> Expect.equal created.Description "Rent" "description should be trimmed"
                 | Error err -> failtest err
             }
@@ -154,7 +154,7 @@ module EndpointTests =
                 let! body = app.Client.GetStringAsync ReadAllTransactions.Path |> Async.AwaitTask
 
                 let id =
-                    match Decode.fromStringAuto<Transaction list> body with
+                    match Decode.fromStringAuto<TransactionResponse list> body with
                     | Ok [ item ] -> item.Id
                     | _ -> failtest "Expected one transaction"
 
@@ -170,7 +170,7 @@ module EndpointTests =
 
                 let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
 
-                match Decode.fromStringAuto<Transaction> body with
+                match Decode.fromStringAuto<TransactionResponse> body with
                 | Ok updated ->
                     Expect.equal id updated.Id "id should match the URL id"
                     Expect.equal update.Description updated.Description "description should match"
@@ -190,7 +190,7 @@ module EndpointTests =
                 let! body = app.Client.GetStringAsync ReadAllTransactions.Path |> Async.AwaitTask
 
                 let id =
-                    match Decode.fromStringAuto<Transaction list> body with
+                    match Decode.fromStringAuto<TransactionResponse list> body with
                     | Ok [ item ] -> item.Id
                     | _ -> failtest "Expected one transaction"
 

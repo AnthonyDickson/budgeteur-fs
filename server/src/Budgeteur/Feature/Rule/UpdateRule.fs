@@ -33,7 +33,7 @@ module UpdateRule =
                 use! shared = queryContext.OpenContextAsync ()
                 shared.BeginTransaction ()
 
-                let row = Rule.toRow rule userId
+                let row = RuleCodec.toRow rule userId
 
                 let! _rowsAffected =
                     updateTask shared {
@@ -52,7 +52,7 @@ module UpdateRule =
 
                 shared.CommitTransaction ()
 
-                let rule = result |> Option.map Rule.fromRow
+                let rule = result |> Option.map RuleCodec.fromRow
 
                 return Ok rule
             with ex ->
@@ -66,9 +66,9 @@ module UpdateRule =
                 let! (req : UpdateRuleRequest) = Json.read ctx
 
                 let! userId = Auth.getUserId ctx
-                let! pattern = Validation.validateAndTrimPattern req.Pattern
+                let! pattern = RulePattern.create req.Pattern
 
-                let rule = {
+                let rule : Rule = {
                     Id = id
                     Pattern = pattern
                     TagId = req.TagId
@@ -79,7 +79,7 @@ module UpdateRule =
                 match updated with
                 | Some updated ->
                     log.Info ($"Updated rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))
-                    do! Json.write ctx updated
+                    do! Json.write ctx (RuleResponse.fromDomain updated)
                 | None ->
                     log.Warn ($"Rule %O{id} not found", LogProp.prop "ruleId" (id.ToString ()))
                     return! Error (NotFound $"Rule %O{id} not found")
@@ -91,7 +91,7 @@ module UpdateRule =
             OpenApiConfig (
                 requestBody = RequestBody typeof<UpdateRuleRequest>,
                 responseBodies = [|
-                    ResponseBody typeof<Rule>
+                    ResponseBody typeof<RuleResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)

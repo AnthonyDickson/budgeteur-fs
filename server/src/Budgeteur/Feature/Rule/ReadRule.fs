@@ -35,7 +35,7 @@ module ReadRule =
                             tryHead
                     }
 
-                let rule = result |> Option.map Rule.fromRow
+                let rule = result |> Option.map RuleCodec.fromRow
 
                 return Ok rule
             with ex ->
@@ -52,7 +52,7 @@ module ReadRule =
                 match rule with
                 | Some rule ->
                     log.Info ($"Returned rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))
-                    do! Json.write ctx rule
+                    do! Json.write ctx (RuleResponse.fromDomain rule)
                 | None ->
                     log.Warn ($"Rule %O{id} not found", LogProp.prop "ruleId" (id.ToString ()))
                     return! Error (NotFound $"Rule %O{id} not found")
@@ -63,7 +63,7 @@ module ReadRule =
         |> addOpenApi (
             OpenApiConfig (
                 responseBodies = [|
-                    ResponseBody typeof<Rule>
+                    ResponseBody typeof<RuleResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],

@@ -149,7 +149,7 @@ module GetStatus =
             }
 
     let endpoint (connectionString : string) (environment : string) (startedAt : DateTime) =
-        let queryContext = (createProbeFactory connectionString)
+        let queryContext = createProbeFactory connectionString
 
         route Path (handler queryContext environment startedAt)
         |> addOpenApi (

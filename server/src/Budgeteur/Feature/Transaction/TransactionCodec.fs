@@ -1,6 +1,6 @@
 namespace Budgeteur.Feature.Transaction
 
-module Transaction =
+module TransactionCodec =
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Transaction
 
@@ -8,7 +8,7 @@ module Transaction =
         Id = transaction.Id
         UserId = userId
         Amount = transaction.Amount
-        Description = transaction.Description
+        Description = TransactionDescription.value transaction.Description
         Date = transaction.Date
         IsTransfer = transaction.IsTransfer
         AccountId = transaction.AccountId
@@ -19,7 +19,7 @@ module Transaction =
     let fromRow (row : main.Transactions) : Transaction = {
         Id = row.Id
         Amount = row.Amount
-        Description = row.Description
+        Description = TransactionDescription.unsafeFromString row.Description
         Date = row.Date
         IsTransfer = row.IsTransfer
         AccountId = row.AccountId

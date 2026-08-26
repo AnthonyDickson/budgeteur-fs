@@ -19,7 +19,7 @@ reference implementation:
 - **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`,
   `ReadTransaction.fs`, `ReadAllTransactions.fs`, `UpdateTransaction.fs`,
   `DeleteTransaction.fs`, …), each exposing a `Path` literal and an
-  `endpoint (queryContext)` function. `<Name>.Data.fs` holds the `toRow` /
+  `endpoint (queryContext)` function. `<Name>Codec.fs` holds the `toRow` /
   `fromRow` DB mapping; value invariants live with the type in `Domain/`.
 
 The `QueryContextFactory` (from the generated `Data/Db.fs`) is created once in
@@ -28,6 +28,61 @@ endpoints are grouped by HTTP method (`GET` / `POST` / `PUT` / `DELETE`) and
 feature lists are wrapped with `Auth.requireAuth`. Routes use
 `/api/<resource>` for collections and `/api/<resource>/{id}` for items. IDs are
 v7 UUIDs generated server-side — create requests carry no id.
+
+### Domain invariants and wire types
+
+Value invariants are enforced at the type level with **refined types**: a
+single-case union with a private case, defined in the same `Domain/` file as the
+aggregate that owns the field it refines.
+
+```fsharp
+type TagName = private TagName of string
+
+module TagName =
+    let create (s : string) : Result<TagName, DomainError> = ...  // validation lives here
+    let value (TagName s) : string = s                             // the only way out
+```
+
+Rules:
+
+- **The refined type replaces the `Validation` module** — `create` subsumes the
+  old `validateAndTrim*` functions, which are removed. Currently: `TagName` for
+  `Tag`, `RulePattern` for `Rule`, `TransactionDescription` for `Transaction`.
+- **Records stay public.** An invalid record is unconstructable because a
+  refined field value cannot be obtained without passing `create`. Do not hide
+  the record constructor — F# cannot split constructor privacy from field
+  access, and hiding the fields breaks `toRow` and the Thoth reflection encoder
+  (`Json.write` serialises public properties only).
+- **Field access is via `value`**, at exactly two sanctioned unwrap points per
+  slice: `toRow` and the DTO mapping. Outside the owning module, refined values
+  are opaque tokens; pattern matching on the case is not possible because it is
+  `private`. Structural equality still applies, so tests can assert on refined
+  values directly without unwrapping.
+- **Placement**: a refined type lives with its sole consumer. Promote it to a
+  shared location (e.g. `Domain/Shared.fs`) only when a second consumer appears.
+
+Responses never serialise refined types. Each slice defines a **response DTO**
+with primitives only, in its own file (`Feature/Tag/TagResponse.fs`, already
+wired in the `.fsproj`):
+
+```fsharp
+type TagResponse = { Id : Guid; Name : string }
+
+module TagResponse =
+    let fromDomain (t : Tag) : TagResponse = { Id = t.Id; Name = TagName.value t.Name }
+```
+
+- DTOs are encode-only (responses); decoding goes through the raw-string
+  request DTOs defined inline in the endpoint files.
+- Because DTOs contain only primitives, both serialisers work with zero custom
+  code: Thoth's `Encode.toStringAuto` for payloads and the STJ-based OpenAPI
+  schema generation (`responseBodies` reference `typeof<TagResponse>`).
+- **Keep DTO mapping separate from DB mapping.** `TagCodec.fs` (`toRow` /
+  `fromRow`) is SqlHydra-coupled and changes with the schema; `TagResponse.fs`
+  is pure F# and changes with the API contract — different dependencies and
+  different change drivers, so they never merge.
+- `fromRow` is the sanctioned trusted bypass for the DB → domain direction:
+  rows were validated on write, so `fromRow` does not re-validate.
 
 ### Request pipeline and errors
 

@@ -36,7 +36,7 @@ module CreateTransaction =
 
     let private insert (queryContext : QueryContextFactory) (transaction : Transaction) (userId : string) =
         task {
-            let row = Transaction.toRow transaction userId None
+            let row = TransactionCodec.toRow transaction userId None
 
             try
                 let! _ =
@@ -58,9 +58,9 @@ module CreateTransaction =
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
                 let! (req : CreateTransactionRequest) = Json.read ctx
-                let! description = Validation.validateAndTrimDescription req.Description
+                let! description = TransactionDescription.create req.Description
 
-                let transaction = {
+                let transaction : Transaction = {
                     Id = Guid.CreateVersion7 ()
                     Amount = Money.roundToCents req.Amount
                     Description = description
@@ -78,7 +78,7 @@ module CreateTransaction =
                 )
 
                 ctx.SetStatusCode 201
-                do! Json.write ctx transaction
+                do! Json.write ctx (TransactionResponse.fromDomain transaction)
             })
 
     let endpoint (queryContext : QueryContextFactory) =
@@ -87,7 +87,7 @@ module CreateTransaction =
             OpenApiConfig (
                 requestBody = RequestBody typeof<CreateTransactionRequest>,
                 responseBodies = [|
-                    ResponseBody (typeof<Transaction>, statusCode = 201)
+                    ResponseBody (typeof<TransactionResponse>, statusCode = 201)
                     ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 409)

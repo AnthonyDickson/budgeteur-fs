@@ -40,7 +40,7 @@ module UpdateTransaction =
                 use! shared = queryContext.OpenContextAsync ()
                 shared.BeginTransaction ()
 
-                let row = Transaction.toRow transaction userId None
+                let row = TransactionCodec.toRow transaction userId None
 
                 let! _rowsAffected =
                     updateTask shared {
@@ -59,7 +59,7 @@ module UpdateTransaction =
 
                 shared.CommitTransaction ()
 
-                let transaction = result |> Option.map Transaction.fromRow
+                let transaction = result |> Option.map TransactionCodec.fromRow
 
                 return Ok transaction
             with ex ->
@@ -73,9 +73,9 @@ module UpdateTransaction =
                 let! (req : UpdateTransactionRequest) = Json.read ctx
 
                 let! userId = Auth.getUserId ctx
-                let! description = Validation.validateAndTrimDescription req.Description
+                let! description = TransactionDescription.create req.Description
 
-                let transaction = {
+                let transaction : Transaction = {
                     Id = id
                     Amount = Money.roundToCents req.Amount
                     Description = description
@@ -90,7 +90,7 @@ module UpdateTransaction =
                 match updated with
                 | Some updated ->
                     log.Info ($"Updated transaction %O{id}", LogProp.prop "transactionId" (id.ToString ()))
-                    do! Json.write ctx updated
+                    do! Json.write ctx (TransactionResponse.fromDomain updated)
                 | None ->
                     log.Warn ($"Transaction %O{id} not found", LogProp.prop "transactionId" (id.ToString ()))
                     return! Error (NotFound $"Transaction %O{id} not found")
@@ -102,7 +102,7 @@ module UpdateTransaction =
             OpenApiConfig (
                 requestBody = RequestBody typeof<UpdateTransactionRequest>,
                 responseBodies = [|
-                    ResponseBody typeof<Transaction>
+                    ResponseBody typeof<TransactionResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)

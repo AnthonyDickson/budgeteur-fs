@@ -31,19 +31,22 @@
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 
-    <Compile Include="Feature/Tag/Tag.Data.fs" />
+    <Compile Include="Feature/Tag/TagCodec.fs" />
+    <Compile Include="Feature/Tag/TagResponse.fs" />
     <Compile Include="Feature/Tag/CreateTag.fs" />
     <Compile Include="Feature/Tag/ReadTag.fs" />
     <Compile Include="Feature/Tag/UpdateTag.fs" />
     <Compile Include="Feature/Tag/DeleteTag.fs" />
 
-    <Compile Include="Feature/Rule/Rule.Data.fs" />
+    <Compile Include="Feature/Rule/RuleCodec.fs" />
+    <Compile Include="Feature/Rule/RuleResponse.fs" />
     <Compile Include="Feature/Rule/CreateRule.fs" />
     <Compile Include="Feature/Rule/ReadRule.fs" />
     <Compile Include="Feature/Rule/UpdateRule.fs" />
     <Compile Include="Feature/Rule/DeleteRule.fs" />
 
-    <Compile Include="Feature/Transaction/Transaction.Data.fs" />
+    <Compile Include="Feature/Transaction/TransactionCodec.fs" />
+    <Compile Include="Feature/Transaction/TransactionResponse.fs" />
     <Compile Include="Feature/Transaction/CreateTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadAllTransactions.fs" />

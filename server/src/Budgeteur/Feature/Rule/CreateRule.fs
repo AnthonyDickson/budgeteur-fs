@@ -30,7 +30,7 @@ module CreateRule =
 
     let private insert (queryContext : QueryContextFactory) (rule : Rule) (userId : string) =
         task {
-            let row = Rule.toRow rule userId
+            let row = RuleCodec.toRow rule userId
 
             try
                 let! _ =
@@ -52,9 +52,9 @@ module CreateRule =
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
                 let! (req : CreateRuleRequest) = Json.read ctx
-                let! pattern = Validation.validateAndTrimPattern req.Pattern
+                let! pattern = RulePattern.create req.Pattern
 
-                let rule = {
+                let rule : Rule = {
                     Id = Guid.CreateVersion7 ()
                     Pattern = pattern
                     TagId = req.TagId
@@ -65,7 +65,7 @@ module CreateRule =
                 log.Info ($"Created rule %O{rule.Id}", LogProp.prop "ruleId" (rule.Id.ToString ()))
 
                 ctx.SetStatusCode 201
-                do! Json.write ctx rule
+                do! Json.write ctx (RuleResponse.fromDomain rule)
             })
 
     let endpoint (queryContext : QueryContextFactory) =
@@ -74,7 +74,7 @@ module CreateRule =
             OpenApiConfig (
                 requestBody = RequestBody typeof<CreateRuleRequest>,
                 responseBodies = [|
-                    ResponseBody (typeof<Rule>, statusCode = 201)
+                    ResponseBody (typeof<RuleResponse>, statusCode = 201)
                     ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 409)

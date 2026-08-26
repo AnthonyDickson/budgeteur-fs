@@ -33,7 +33,7 @@ module UpdateTag =
                 use! shared = queryContext.OpenContextAsync ()
                 shared.BeginTransaction ()
 
-                let row = Tag.toRow tag userId
+                let row = TagCodec.toRow tag userId
 
                 let! _rowsAffected =
                     updateTask shared {
@@ -52,9 +52,7 @@ module UpdateTag =
 
                 shared.CommitTransaction ()
 
-                let tag = result |> Option.map Tag.fromRow
-
-                return Ok tag
+                return Ok (Option.map TagCodec.fromRow result)
             with ex ->
                 return Error (DatabaseError (ex.Message, Some ex))
         }
@@ -64,18 +62,16 @@ module UpdateTag =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! (req : UpdateTagRequest) = Json.read ctx
-
                 let! userId = Auth.getUserId ctx
-                let! name = Validation.validateAndTrimName req.Name
 
-                let tag = { Id = id; Name = name }
-
+                let! name = TagName.create req.Name
+                let tag : Tag = { Id = id; Name = name }
                 let! updated = update queryContext tag userId
 
                 match updated with
                 | Some updated ->
                     log.Info ($"Updated tag %O{id}", LogProp.prop "tagId" (id.ToString ()))
-                    do! Json.write ctx updated
+                    do! Json.write ctx (TagResponse.fromDomain updated)
                 | None ->
                     log.Warn ($"Tag %O{id} not found", LogProp.prop "tagId" (id.ToString ()))
                     return! Error (NotFound $"Tag %O{id} not found")
@@ -87,7 +83,7 @@ module UpdateTag =
             OpenApiConfig (
                 requestBody = RequestBody typeof<UpdateTagRequest>,
                 responseBodies = [|
-                    ResponseBody typeof<Tag>
+                    ResponseBody typeof<TagResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)

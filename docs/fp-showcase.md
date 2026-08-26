@@ -286,37 +286,43 @@ the pipe operator `|>`, top-to-bottom; both languages in this stack have it.
 If you've chained LINQ methods in C# or `.map()`/`.filter()` in JavaScript, the
 reading experience is the same; the difference is that `|>` works with any
 function, not just methods defined on the object you're chaining from. The
-description validation in `Domain/Transaction.fs` is a three-step chain,
+description validation in `Domain/Transaction.fs` is a pipeline,
 read as a sentence:
 
 ```fsharp
-let validateAndTrimDescription (description : string) =
-    description.Trim () |> nonEmpty |> Result.bind acceptableLength
+let create (description : string) =
+    description.Trim ()
+    |> nonEmpty
+    |> Result.bind acceptableLength
+    |> Result.map TransactionDescription
 ```
 
-"Trim it, then require it to be non-empty, then check the length." `nonEmpty`
+"Trim it, then require it to be non-empty, then check the length, then wrap
+the result in the `TransactionDescription` type." `nonEmpty`
 and `acceptableLength` are plain functions returning `Ok`/`Error`. `Result.bind`
 is what chains them: given a `Result` and a function, it runs the function on
 the value inside if the `Result` is `Ok`, or skips the function and passes the
 `Error` straight through if it isn't, the same short-circuit as `let!` (stop
-4), just written as a function instead of block syntax. The same logic written
+4), just written as a function instead of block syntax. The wrapping step
+(`Result.map`) is what turns the validated string into a value that cannot be
+constructed unvalidated anywhere else. The same logic written
 imperatively is an `if` chain with the rules baked into the control flow:
 
 ```fsharp
-let validateAndTrimDescription (description : string) =
+let create (description : string) =
     let trimmed = description.Trim ()
     if System.String.IsNullOrWhiteSpace trimmed then
         Error (ValidationFailed "Description cannot be null or just whitespace")
     elif trimmed.Length > MaxTransactionDescriptionLength then
         Error (ValidationFailed "Description must be at most 256 characters")
     else
-        Ok trimmed
+        Ok (TransactionDescription trimmed)
 ```
 
 The contrast shows when a rule is added. The imperative version needs a new
 `elif` in the middle of the function, and the whole chain must be re-read to
 confirm it still holds. The pipeline appends one step; the existing steps are
-untouched, and the property tests in `ValidationPropertyTests.fs` keep driving
+untouched, and the property tests in `TransactionDescriptionPropertyTests.fs` keep driving
 the composed chain with generated inputs.
 
 ### 6. Compiler as a pair programmer
@@ -361,9 +367,9 @@ let private handler (queryContext : QueryContextFactory) : EndpointHandler =
             let log = RequestLog.fromContext ctx
             let! userId = Auth.getUserId ctx
             let! (req : CreateTransactionRequest) = Json.read ctx
-            let! description = Validation.validateAndTrimDescription req.Description
+            let! description = TransactionDescription.create req.Description
 
-            let transaction = {
+            let transaction : Transaction = {
                 Id = Guid.CreateVersion7 ()
                 Amount = Money.roundToCents req.Amount
                 Description = description
@@ -381,7 +387,7 @@ let private handler (queryContext : QueryContextFactory) : EndpointHandler =
             )
 
             ctx.SetStatusCode 201
-            do! Json.write ctx transaction
+            do! Json.write ctx (TransactionResponse.fromDomain transaction)
         })
 ```
 

@@ -13,7 +13,7 @@
     <Compile Include="TestApp.fs" />
     <Compile Include="TestHttp.fs" />
     <Compile Include="Transactions/EndpointTests.fs" />
-    <Compile Include="Transactions/ValidationPropertyTests.fs" />
+    <Compile Include="Transactions/TransactionDescriptionPropertyTests.fs" />
     <Compile Include="MoneyTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
