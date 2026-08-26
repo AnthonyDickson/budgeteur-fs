@@ -8,10 +8,10 @@
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.11" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.11" />
     <PackageVersion Include="Oxpecker.OpenApi" Version="2.1.2" />
-    <PackageVersion Include="Oxpecker" Version="2.1.0" />
-    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.20" />
+    <PackageVersion Include="Oxpecker" Version="2.1.1" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.17.1" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
-    <PackageVersion Include="SqlHydra.Query" Version="4.0.4" />
+    <PackageVersion Include="SqlHydra.Query" Version="4.1.0" />
     <PackageVersion Include="Thoth.Json.Net" Version="12.0.0" />
     <!-- Testing -->
     <PackageVersion Include="Expecto" Version="11.1.0" />
