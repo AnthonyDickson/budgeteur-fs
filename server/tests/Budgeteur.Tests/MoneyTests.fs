@@ -1,8 +1,6 @@
 namespace Budgeteur.Tests
 
-open System
 open Expecto
-open FsCheck
 
 open Budgeteur.Shared.Money
 

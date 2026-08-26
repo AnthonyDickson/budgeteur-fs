@@ -11,7 +11,7 @@ module RulePattern =
     let private MaxPatternLength = 256
 
     let private nonEmpty (pattern : string) =
-        if System.String.IsNullOrWhiteSpace pattern then
+        if String.IsNullOrWhiteSpace pattern then
             Error (ValidationFailed "Rule pattern cannot be null or whitespace")
         else
             Ok pattern

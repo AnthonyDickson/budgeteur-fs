@@ -1,7 +1,6 @@
 module Budgeteur.Program
 
 open System.Collections.Generic
-open System.ComponentModel.DataAnnotations
 open System.Diagnostics
 open System.Reflection
 open System.Threading.Tasks
@@ -12,7 +11,6 @@ open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.Data.Sqlite
-open Microsoft.Extensions.Configuration
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging

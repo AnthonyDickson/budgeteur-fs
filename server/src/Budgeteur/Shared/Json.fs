@@ -6,7 +6,6 @@ module Json =
     open System.Text
 
     open Microsoft.AspNetCore.Http
-    open Thoth.Json.Net
 
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Coders

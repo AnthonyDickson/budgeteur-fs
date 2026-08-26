@@ -104,9 +104,7 @@ module Middleware =
     open System.Diagnostics
     open System.Threading.Tasks
 
-    open Microsoft.AspNetCore.Authentication
     open Serilog
-    open Serilog.Context
 
     let private entryToDict (e : LogEntry) =
         let dict = Dictionary<string, obj> ()

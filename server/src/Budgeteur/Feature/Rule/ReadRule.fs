@@ -13,7 +13,6 @@ module ReadRule =
     open SqlHydra.Query
 
     open Budgeteur.Data.Db
-    open Budgeteur.Domain.Rule
     open Budgeteur.Feature.Rule
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth

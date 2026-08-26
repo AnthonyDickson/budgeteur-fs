@@ -9,7 +9,6 @@ module OpenApi =
     open System.IO
     open System.Reflection
     open System.Text.Json
-    open System.Text.Json.Nodes
     open System.Threading
     open System.Threading.Tasks
     open System.Xml.Linq

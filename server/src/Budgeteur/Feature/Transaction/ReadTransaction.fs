@@ -13,7 +13,6 @@ module ReadTransaction =
     open SqlHydra.Query
 
     open Budgeteur.Data.Db
-    open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth

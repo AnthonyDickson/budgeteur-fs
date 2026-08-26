@@ -11,7 +11,7 @@ module TagName =
     let private MaxNameLength = 256
 
     let private nonEmpty name =
-        if System.String.IsNullOrWhiteSpace name then
+        if String.IsNullOrWhiteSpace name then
             Error (ValidationFailed "Tag name cannot be null or whitespace")
         else
             Ok name

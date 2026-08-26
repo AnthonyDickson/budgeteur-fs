@@ -11,7 +11,7 @@ module TransactionDescription =
     let private MaxTransactionDescriptionLength = 256
 
     let private nonEmpty (description : string) =
-        if System.String.IsNullOrWhiteSpace description then
+        if String.IsNullOrWhiteSpace description then
             Error (ValidationFailed "Description cannot be null or just whitespace")
         else
             Ok description

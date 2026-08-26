@@ -16,7 +16,6 @@ module DeleteTransaction =
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
-    open Budgeteur.Shared.Json
     open Budgeteur.Shared.RequestLogging
 
     [<Literal>]
