@@ -26,19 +26,16 @@ module ReadRule =
 
     let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
         task {
-            try
-                let! result =
-                    selectTask queryContext {
-                        for t in main.Rules do
-                            where (t.Id = id && t.UserId = userId)
-                            tryHead
-                    }
+            let! result =
+                selectTask queryContext {
+                    for t in main.Rules do
+                        where (t.Id = id && t.UserId = userId)
+                        tryHead
+                }
 
-                let rule = result |> Option.map RuleCodec.fromRow
+            let rule = result |> Option.map RuleCodec.fromRow
 
-                return Ok rule
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            return rule
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =

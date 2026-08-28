@@ -32,18 +32,13 @@ module CreateTag =
         task {
             let row = TagCodec.toRow tag userId
 
-            try
-                let! _ =
-                    insertTask queryContext {
-                        for t in main.Tags do
-                            entity row
-                    }
+            let! _ =
+                insertTask queryContext {
+                    for t in main.Tags do
+                        entity row
+                }
 
-                return Ok ()
-            with
-            | :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
-                return Error (Conflict $"A tag with ID %O{tag.Id} already exists")
-            | ex -> return Error (DatabaseError (ex.Message, Some ex))
+            return ()
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =

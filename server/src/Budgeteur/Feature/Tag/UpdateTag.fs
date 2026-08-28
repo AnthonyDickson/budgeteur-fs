@@ -29,32 +29,29 @@ module UpdateTag =
 
     let private update (queryContext : QueryContextFactory) (tag : Tag) (userId : string) =
         task {
-            try
-                use! shared = queryContext.OpenContextAsync ()
-                shared.BeginTransaction ()
+            use! shared = queryContext.OpenContextAsync ()
+            shared.BeginTransaction ()
 
-                let row = TagCodec.toRow tag userId
+            let row = TagCodec.toRow tag userId
 
-                let! _rowsAffected =
-                    updateTask shared {
-                        for t in main.Tags do
-                            entity row
-                            excludeColumn t.Id
-                            where (t.Id = tag.Id && t.UserId = userId)
-                    }
+            let! _rowsAffected =
+                updateTask shared {
+                    for t in main.Tags do
+                        entity row
+                        excludeColumn t.Id
+                        where (t.Id = tag.Id && t.UserId = userId)
+                }
 
-                let! result =
-                    selectTask shared {
-                        for t in main.Tags do
-                            where (t.Id = tag.Id && t.UserId = userId)
-                            tryHead
-                    }
+            let! result =
+                selectTask shared {
+                    for t in main.Tags do
+                        where (t.Id = tag.Id && t.UserId = userId)
+                        tryHead
+                }
 
-                shared.CommitTransaction ()
+            shared.CommitTransaction ()
 
-                return Ok (Option.map TagCodec.fromRow result)
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            return Option.map TagCodec.fromRow result
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =

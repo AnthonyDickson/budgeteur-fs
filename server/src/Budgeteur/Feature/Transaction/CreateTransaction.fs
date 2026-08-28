@@ -38,18 +38,13 @@ module CreateTransaction =
         task {
             let row = TransactionCodec.toRow transaction userId None
 
-            try
-                let! _ =
-                    insertTask queryContext {
-                        for t in main.Transactions do
-                            entity row
-                    }
+            let! _ =
+                insertTask queryContext {
+                    for t in main.Transactions do
+                        entity row
+                }
 
-                return Ok ()
-            with
-            | :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
-                return Error (Conflict $"A transaction with ID %O{transaction.Id} already exists")
-            | ex -> return Error (DatabaseError (ex.Message, Some ex))
+            ()
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =

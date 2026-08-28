@@ -29,34 +29,31 @@ module UpdateRule =
 
     let private update (queryContext : QueryContextFactory) (rule : Rule) (userId : string) =
         task {
-            try
-                use! shared = queryContext.OpenContextAsync ()
-                shared.BeginTransaction ()
+            use! shared = queryContext.OpenContextAsync ()
+            shared.BeginTransaction ()
 
-                let row = RuleCodec.toRow rule userId
+            let row = RuleCodec.toRow rule userId
 
-                let! _rowsAffected =
-                    updateTask shared {
-                        for t in main.Rules do
-                            entity row
-                            excludeColumn t.Id
-                            where (t.Id = rule.Id && t.UserId = userId)
-                    }
+            let! _rowsAffected =
+                updateTask shared {
+                    for t in main.Rules do
+                        entity row
+                        excludeColumn t.Id
+                        where (t.Id = rule.Id && t.UserId = userId)
+                }
 
-                let! result =
-                    selectTask shared {
-                        for t in main.Rules do
-                            where (t.Id = rule.Id && t.UserId = userId)
-                            tryHead
-                    }
+            let! result =
+                selectTask shared {
+                    for t in main.Rules do
+                        where (t.Id = rule.Id && t.UserId = userId)
+                        tryHead
+                }
 
-                shared.CommitTransaction ()
+            shared.CommitTransaction ()
 
-                let rule = result |> Option.map RuleCodec.fromRow
+            let rule = result |> Option.map RuleCodec.fromRow
 
-                return Ok rule
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            return rule
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =

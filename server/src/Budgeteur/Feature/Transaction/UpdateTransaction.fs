@@ -36,34 +36,31 @@ module UpdateTransaction =
 
     let private update (queryContext : QueryContextFactory) (transaction : Transaction) (userId : string) =
         task {
-            try
-                use! shared = queryContext.OpenContextAsync ()
-                shared.BeginTransaction ()
+            use! shared = queryContext.OpenContextAsync ()
+            shared.BeginTransaction ()
 
-                let row = TransactionCodec.toRow transaction userId None
+            let row = TransactionCodec.toRow transaction userId None
 
-                let! _rowsAffected =
-                    updateTask shared {
-                        for t in main.Transactions do
-                            entity row
-                            excludeColumn t.Id
-                            where (t.Id = transaction.Id && t.UserId = userId)
-                    }
+            let! _rowsAffected =
+                updateTask shared {
+                    for t in main.Transactions do
+                        entity row
+                        excludeColumn t.Id
+                        where (t.Id = transaction.Id && t.UserId = userId)
+                }
 
-                let! result =
-                    selectTask shared {
-                        for t in main.Transactions do
-                            where (t.Id = transaction.Id && t.UserId = userId)
-                            tryHead
-                    }
+            let! result =
+                selectTask shared {
+                    for t in main.Transactions do
+                        where (t.Id = transaction.Id && t.UserId = userId)
+                        tryHead
+                }
 
-                shared.CommitTransaction ()
+            shared.CommitTransaction ()
 
-                let transaction = result |> Option.map TransactionCodec.fromRow
+            let transaction = result |> Option.map TransactionCodec.fromRow
 
-                return Ok transaction
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            return transaction
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =

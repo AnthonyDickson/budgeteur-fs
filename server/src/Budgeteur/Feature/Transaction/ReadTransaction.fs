@@ -26,19 +26,16 @@ module ReadTransaction =
 
     let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
         task {
-            try
-                let! result =
-                    selectTask queryContext {
-                        for t in main.Transactions do
-                            where (t.Id = id && t.UserId = userId)
-                            tryHead
-                    }
+            let! result =
+                selectTask queryContext {
+                    for t in main.Transactions do
+                        where (t.Id = id && t.UserId = userId)
+                        tryHead
+                }
 
-                let transaction = result |> Option.map TransactionCodec.fromRow
+            let transaction = result |> Option.map TransactionCodec.fromRow
 
-                return Ok transaction
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            return transaction
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =

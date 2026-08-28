@@ -32,18 +32,13 @@ module CreateRule =
         task {
             let row = RuleCodec.toRow rule userId
 
-            try
-                let! _ =
-                    insertTask queryContext {
-                        for t in main.Rules do
-                            entity row
-                    }
+            let! _ =
+                insertTask queryContext {
+                    for t in main.Rules do
+                        entity row
+                }
 
-                return Ok ()
-            with
-            | :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
-                return Error (Conflict $"A rule with ID %O{rule.Id} already exists")
-            | ex -> return Error (DatabaseError (ex.Message, Some ex))
+            return ()
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =

@@ -148,9 +148,9 @@ A new transaction starts with `AccountId = None` and `TagId = None` (see
 the `CreateTransaction.fs` handler in stop 7), and anything that reads a transaction must
 decide what "no account" means at every use. The client's `transaction.gleam`
 mirrors the same two fields as `account_id: Option(Uuid)` and
-`tag_id: Option(Uuid)`. Even the server's error type uses the pattern:
-`DomainError` (stop 3) carries an `exn option`, so a database error can
-include the underlying .NET exception when one exists.
+`tag_id: Option(Uuid)`. Even the server's error type keeps failure explicit:
+`DomainError` (stop 3) carries the underlying .NET exception directly, so a
+database error can be logged with its cause.
 
 F# keeps `null` around for .NET interop, because any library on the platform
 can hand one back. Idiomatic F# routes around it with the same `Option` type,
@@ -176,10 +176,10 @@ with named cases (`DomainError.fs`):
 type DomainError =
     | ValidationFailed of string
     | NotFound of string
-    | Conflict of string
-    | UserNotFound
-    | DatabaseError of string * exn option
-    | UnhandledException of string * exn option
+    | Conflict of exn
+    | Unauthorised
+    | DatabaseError of exn
+    | UnhandledException of exn
 ```
 
 A closed type flips the trade. This is the expression problem (Wadler 1998):
@@ -215,9 +215,32 @@ Three problems with exceptions, in increasing order of cost:
   `catch` blocks swallow failures silently, and the unhandled case surfaces as
   a 500 in production, found by a bug report, not by the compiler.
 
-This repo answers all three by making failure part of the type. Handlers never
-throw; they return a `Result`, a value that is _either_ a success (`Ok`) _or_
-a failure (`Error`). Here is an entire endpoint
+This repo answers all three by making failure part of the type. The purest
+example has no I/O in sight. `RulePattern` is a refined type whose only way in
+is a constructor that returns a `Result`, a value that is _either_ a success
+(`Ok`) _or_ a failure (`Error`). Here is the whole constructor
+(`Domain/Rule.fs`):
+
+```fsharp
+let create (pattern : string) =
+    pattern.Trim ()
+    |> nonEmpty
+    |> Result.bind acceptableLength
+    |> Result.map RulePattern
+```
+
+`nonEmpty` and `acceptableLength` each return `Result<string, DomainError>`;
+`Result.bind` threads the value through while an `Error` short-circuits the
+pipeline. The failure, a `ValidationFailed` carrying a readable message, is
+just another value moving through the same `|>` pipes as the success case.
+The signature is the whole contract: `string -> Result<RulePattern, DomainError>`,
+no exceptions, no null, nothing hidden. And the compiler enforces handling:
+you cannot get a `RulePattern` out of this function without having dealt with
+the `Error` case first.
+
+The same type appears at every layer of the stack. Auth shares it
+(`Auth.getUserId : HttpContext -> Result<string, DomainError>`), and endpoint
+handlers compose those value-returning steps with a computation expression
 (`Feature/Transaction/ReadTransaction.fs`):
 
 ```fsharp
@@ -236,44 +259,38 @@ let handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
 sequencing steps that don't behave like plain, linear code. If you know C#'s
 `async`/`await`, it's the same idea: sugar that lets you write code that reads
 top to bottom while something else, here "this step might fail or might still
-be running", happens underneath. Inside the block, `let!` unwraps a
-step's result and hands it to the next line; if that step is `Error`,
-everything after it is skipped and the `Error` becomes the whole block's
-result.
+be running", happens underneath. Inside the block, `let!` unwraps a step's
+result and hands it to the next line; if that step is `Error`, everything
+after it is skipped and the `Error` becomes the whole block's result. Because
+every layer shares that one `DomainError` type, `NotFound` means the same
+thing here and in the response mapping below: no try/catch and no
+hand-written propagation.
 
-Three failure sources funnel into one `DomainError` type: auth, the database,
-serialization. The contract is now readable: every step's type names what it
-can fail with. Because every layer shares that one type, `NotFound`
-means the same thing in the handler and in the response mapping. `let!` does
-the short-circuiting for you, so the handler above reads top to bottom with no
-try/catch and no hand-written propagation, yet the compiler still knows
-exactly what each step can fail with, something a try/catch version never
-tells you without reading its body.
-
-One central place, `Endpoint.handler` (`Shared/Endpoint.fs`), decides what errors
-become on the wire:
+`get` is the one step in that handler that isn't a value: it's a database
+call, and SQLite doesn't speak `Result`. Those platform exceptions are folded
+into this same type at the boundary, in exactly one place, so they never
+reach the value world (see stop 7). For the failures the app's own code
+produces, `Endpoint.handler` (`Shared/Endpoint.fs`) awaits the handler's
+`Result` and one match decides what each case becomes on the wire:
 
 ```fsharp
-match! body with
+match result with
 | Ok () -> ()
 | Error (ValidationFailed err) -> ctx.Response.StatusCode <- 400
 | Error (NotFound err)         -> ctx.Response.StatusCode <- 404
-| Error (Conflict err)         -> ctx.Response.StatusCode <- 409
+| Error (Conflict exn)         -> ctx.Response.StatusCode <- 409
 | ...all other cases...
 ```
 
-A global exception handler maps errors to responses just as centrally, so the
-mapping is not the difference. What differs is what arrives at the boundary:
-with exceptions, the failure set is whatever the code happened to throw, and
-the unhandled case is a 500. Here the set is the closed `DomainError` type
-(stop 3), and the compiler checks the mapping covers every case (stop 6). An
-unhandled failure is a compile error, not a 500. The mapping also fixes the
-wire shape once: every endpoint emits the same machine-readable
-`{ Error, Details, StatusCode, RequestId }`.
+The match also fixes the wire shape once: every endpoint emits the same
+machine-readable `{ Error, Details, StatusCode, RequestId }`. And because it
+is exhaustive, adding a case to `DomainError` makes the compiler point at
+every place that must handle it. An unhandled failure is a compile error, not
+a 500.
 
-Because the error is a _value_, it behaves like one. The `match` in the first
-snippet translates `None` into `NotFound` in plain code, and the tests in
-`server/tests/` drive error paths with real inputs: nothing is mocked into
+Because the error is a _value_, it behaves like one. The `match` in the
+handler snippet translates `None` into `NotFound` in plain code, and the tests
+in `server/tests/` drive error paths with real inputs: nothing is mocked into
 throwing. Rob Pike's name for this is "errors are values": failure is data,
 with the normal tools: return it, match it, transform it, log it.
 
@@ -394,31 +411,31 @@ let private handler (queryContext : QueryContextFactory) : EndpointHandler =
 Read it as a script: bind the user id, decode the request, validate the
 description, build the transaction, insert it, log it, respond. Every `let!`
 step can fail, and any failure short-circuits the rest: no nesting, no
-try/catch, no null checks. Yet it reads like the sequential imperative code
-you already know. That's the payoff of the `taskResult` computation expression,
-stop 4's `let!` sugar again, here from FsToolkit over `Task<Result<...>>`: the
-safety of typed errors with the reading experience of plain code.
+try/catch, no null checks. FsToolkit's `taskResult` — stop 4's `let!` sugar over
+`Task<Result<...>>` — keeps the type-safety of `Result` while reading like
+imperative code you already know.
 
-The pragmatism isn't just syntax. Notice what the same file does at the edge of
-the platform (`CreateTransaction.fs`):
+The pragmatism isn't just syntax. Notice where the platform's failures are
+handled: not in the feature slice, but at the one boundary every handler
+passes through (`Shared/Endpoint.fs`):
 
 ```fsharp
-try
-    let! _ =
-        insertTask queryContext {
-            for t in main.Transactions do
-                entity row
-        }
-    return Ok ()
-with
-| :? SqliteException as ex when ex.SqliteErrorCode = 19 ->
-    return Error (Conflict $"A transaction with ID %O{transaction.Id} already exists")
-| ex -> return Error (DatabaseError (ex.Message, Some ex))
+let! result =
+    task {
+        try
+            return! handler_fun ctx
+        with
+        | :? SqliteException as exn when exn.SqliteErrorCode = 19 ->
+            return Error (Conflict exn)
+        | :? SqliteException as exn -> return Error (DatabaseError exn)
+        | exn -> return Error (UnhandledException exn)
+    }
 ```
 
-SQLite's constraint violation arrives as a .NET exception and is folded into
-the domain error type at the boundary. `try/with` and type-test patterns are
-fine here; FP is about where errors live, not about avoiding the platform.
+SQLite's constraint violation still arrives as a .NET exception. `try/with`
+and type-test patterns are fine here: the seam is the one place where platform
+exceptions become `DomainError` values, and feature slices never see them.
+Everywhere else, errors are values.
 
 And configuration is the plain .NET way (`Config.fs`):
 

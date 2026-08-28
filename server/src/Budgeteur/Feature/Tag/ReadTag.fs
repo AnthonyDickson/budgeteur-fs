@@ -26,19 +26,16 @@ module ReadTag =
 
     let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
         task {
-            try
-                let! result =
-                    selectTask queryContext {
-                        for t in main.Tags do
-                            where (t.Id = id && t.UserId = userId)
-                            tryHead
-                    }
+            let! result =
+                selectTask queryContext {
+                    for t in main.Tags do
+                        where (t.Id = id && t.UserId = userId)
+                        tryHead
+                }
 
-                let tag = result |> Option.map TagCodec.fromRow
+            let tag = result |> Option.map TagCodec.fromRow
 
-                return Ok tag
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            return tag
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =

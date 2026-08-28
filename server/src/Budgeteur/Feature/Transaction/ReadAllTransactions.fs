@@ -24,19 +24,16 @@ module ReadAllTransactions =
 
     let private getAll (queryContext : QueryContextFactory) (userId : string) =
         task {
-            try
-                let! rows =
-                    selectTask queryContext {
-                        for t in main.Transactions do
-                            select t
-                            where (t.UserId = userId)
-                    }
+            let! rows =
+                selectTask queryContext {
+                    for t in main.Transactions do
+                        select t
+                        where (t.UserId = userId)
+                }
 
-                let transactions = rows |> List.ofSeq |> List.map TransactionCodec.fromRow
+            let transactions = rows |> List.ofSeq |> List.map TransactionCodec.fromRow
 
-                return Ok transactions
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            return transactions
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =

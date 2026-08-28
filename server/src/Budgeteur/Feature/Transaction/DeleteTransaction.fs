@@ -23,18 +23,15 @@ module DeleteTransaction =
 
     let delete (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
         task {
-            try
-                let! rows =
-                    deleteTask queryContext {
-                        for t in main.Transactions do
-                            where (t.Id = id && t.UserId = userId)
-                    }
+            let! rows =
+                deleteTask queryContext {
+                    for t in main.Transactions do
+                        where (t.Id = id && t.UserId = userId)
+                }
 
-                let deleted = rows > 0
+            let deleteSuccessful = rows > 0
 
-                return Ok deleted
-            with ex ->
-                return Error (DatabaseError (ex.Message, Some ex))
+            return deleteSuccessful
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
