@@ -3,6 +3,10 @@ PUBLISH_DIR := env_var_or_default("PUBLISH_DIR", "server/src/Budgeteur/bin/Relea
 VERSION := env_var_or_default("VERSION", "0.0.0-local")
 GIT_SHA := env_var_or_default("GIT_SHA", "")
 
+run:
+	docker compose up
+	docker compose down
+
 # Build the server
 server-build:
 	dotnet build server/src/Budgeteur/Budgeteur.fsproj
@@ -46,6 +50,7 @@ publish: copy-client-dist
 # Playwright E2E tests in Docker
 e2e-test:
 	docker compose -f docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
+	docker compose down
 
 # Format with fantomas + gleam format
 format:
