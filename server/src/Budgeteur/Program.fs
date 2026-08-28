@@ -223,11 +223,11 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
 
     let transactionEndpoints =
         [
+            POST [ CreateTransaction.endpoint queryContext ]
             GET [
                 ReadTransaction.endpoint queryContext
                 ReadAllTransactions.endpoint queryContext
             ]
-            POST [ CreateTransaction.endpoint queryContext ]
             PUT [ UpdateTransaction.endpoint queryContext ]
             DELETE [ DeleteTransaction.endpoint queryContext ]
         ]
@@ -235,8 +235,8 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
 
     let tagEndpoints =
         [
-            GET [ ReadTag.endpoint queryContext ]
             POST [ CreateTag.endpoint queryContext ]
+            GET [ ReadTag.endpoint queryContext; ReadAllTags.endpoint queryContext ]
             PUT [ UpdateTag.endpoint queryContext ]
             DELETE [ DeleteTag.endpoint queryContext ]
         ]
@@ -245,7 +245,7 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
     let ruleEndpoints =
         [
             POST [ CreateRule.endpoint queryContext ]
-            GET [ ReadRule.endpoint queryContext ]
+            GET [ ReadRule.endpoint queryContext; ReadAllRules.endpoint queryContext ]
             PUT [ UpdateRule.endpoint queryContext ]
             DELETE [ DeleteRule.endpoint queryContext ]
         ]

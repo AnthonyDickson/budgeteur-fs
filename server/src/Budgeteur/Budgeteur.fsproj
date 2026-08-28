@@ -35,6 +35,7 @@
     <Compile Include="Feature/Tag/TagResponse.fs" />
     <Compile Include="Feature/Tag/CreateTag.fs" />
     <Compile Include="Feature/Tag/ReadTag.fs" />
+    <Compile Include="Feature/Tag/ReadAllTags.fs" />
     <Compile Include="Feature/Tag/UpdateTag.fs" />
     <Compile Include="Feature/Tag/DeleteTag.fs" />
 
@@ -42,6 +43,7 @@
     <Compile Include="Feature/Rule/RuleResponse.fs" />
     <Compile Include="Feature/Rule/CreateRule.fs" />
     <Compile Include="Feature/Rule/ReadRule.fs" />
+    <Compile Include="Feature/Rule/ReadAllRules.fs" />
     <Compile Include="Feature/Rule/UpdateRule.fs" />
     <Compile Include="Feature/Rule/DeleteRule.fs" />
 
