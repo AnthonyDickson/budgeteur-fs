@@ -24,7 +24,7 @@ module ReadTag =
     [<Literal>]
     let Path = "/api/tags/{%O:guid}"
 
-    let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+    let private get (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
         task {
             let! result =
                 selectTask queryContext {
@@ -42,7 +42,7 @@ module ReadTag =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let! userId = Auth.getUserId ctx
-                let! tag = get queryContext id userId
+                let! tag = get queryContext userId id
                 let log = RequestLog.fromContext ctx
 
                 match tag with

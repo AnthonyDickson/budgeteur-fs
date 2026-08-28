@@ -1,7 +1,5 @@
 namespace Budgeteur.Feature.Rule
 
-open System
-
 module ReadAllRules =
     open System.Collections.Generic
     open System.Threading.Tasks
@@ -16,7 +14,6 @@ module ReadAllRules =
     open Budgeteur.Feature.Rule
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
-    open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
     open Budgeteur.Shared.RequestLogging

@@ -24,7 +24,7 @@ module ReadRule =
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
-    let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+    let private get (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
         task {
             let! result =
                 selectTask queryContext {
@@ -42,7 +42,7 @@ module ReadRule =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let! userId = Auth.getUserId ctx
-                let! rule = get queryContext id userId
+                let! rule = get queryContext userId id
                 let log = RequestLog.fromContext ctx
 
                 match rule with

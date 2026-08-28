@@ -27,6 +27,7 @@
     <Compile Include="Domain/Rule.fs" />
 
     <Compile Include="Data/Db.fs" />
+    <Compile Include="Data/Constraints.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />

@@ -1,7 +1,5 @@
 namespace Budgeteur.Feature.Tag
 
-open System
-
 module ReadAllTags =
     open System.Collections.Generic
     open System.Threading.Tasks
@@ -16,7 +14,6 @@ module ReadAllTags =
     open Budgeteur.Feature.Tag
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
-    open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
     open Budgeteur.Shared.RequestLogging

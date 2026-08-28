@@ -6,12 +6,12 @@ module CreateTag =
     open System.Threading.Tasks
 
     open FsToolkit.ErrorHandling
-    open Microsoft.Data.Sqlite
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
     open SqlHydra.Query
 
+    open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Tag
     open Budgeteur.Feature.Tag
@@ -27,7 +27,27 @@ module CreateTag =
     [<Literal>]
     let Path = "/api/tags"
 
-    let private insert (queryContext : QueryContextFactory) (tag : Tag) (userId : string) =
+    /// <summary>Verify that no tag with the same name exists for this user
+    /// (the <c>UNIQUE(UserId, Name)</c> constraint).</summary>
+    let private requireNameIsUnique (queryContext : QueryContextFactory) (userId : string) (tagName : TagName) =
+        task {
+            let name = TagName.value tagName
+
+            let! rowCount =
+                selectTask queryContext {
+                    for t in main.Tags do
+                        where (t.Name = name && t.UserId = userId)
+                        count
+                }
+
+            return
+                if rowCount = 0 then
+                    Ok ()
+                else
+                    Error (ConstraintError $"A tag with the name '{name}' already exists")
+        }
+
+    let private insert (queryContext : QueryContextFactory) (userId : string) (tag : Tag) =
         task {
             let row = TagCodec.toRow tag userId
 
@@ -48,13 +68,14 @@ module CreateTag =
                 let! (req : CreateTagRequest) = Json.read ctx
 
                 let! tagName = TagName.create req.Name
+                do! Constraints.requireOne (requireNameIsUnique queryContext userId tagName)
 
                 let tag : Tag = {
                     Id = Guid.CreateVersion7 ()
                     Name = tagName
                 }
 
-                let! () = insert queryContext tag userId
+                let! () = insert queryContext userId tag
 
                 log.Info ($"Created tag %O{tag.Id}", LogProp.prop "tagId" (tag.Id.ToString ()))
 

@@ -21,7 +21,7 @@ module DeleteRule =
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
-    let delete (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+    let delete (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
         task {
             let! rows =
                 deleteTask queryContext {
@@ -39,7 +39,7 @@ module DeleteRule =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! deleted = delete queryContext id userId
+                let! deleted = delete queryContext userId id
 
                 if deleted then
                     log.Info ($"Deleted rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))

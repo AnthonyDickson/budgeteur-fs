@@ -94,6 +94,11 @@ record (`{ Error; Details; StatusCode; RequestId }`). No exceptions escape
 handlers — a global middleware in `Program.fs` catches the unexpected as a last
 resort. Handlers compose with FsToolkit's `taskResult` CE.
 
+Database constraints are checked explicitly before writes via
+`Data/Constraints.fs`, so common violations surface as `400` `ValidationFailed`
+responses rather than the generic `409` conflict fallback — see
+[docs/database.md](database.md).
+
 ### Auth
 
 Two authentication schemes sit behind a policy scheme that selects the handler
@@ -138,6 +143,8 @@ SQLite with DbUp migrations and SqlHydra type-safe queries. See
   documents the conventions (v7 UUIDs, UTC timestamps, etc.).
 - The `toRow` / `fromRow` mapping layer is the control point — DB columns never
   leak to the API.
+- `Data/Constraints.fs` holds explicit `require*` checks mirroring the schema's
+  integrity constraints, to give friendly `ValidationFailed` errors.
 - `Program.fs` enables WAL journal mode and foreign-key enforcement after
   migrations run; SQLite silently ignores foreign keys otherwise.
 - `scripts/migrate.fsx` applies migrations without building the server, so a

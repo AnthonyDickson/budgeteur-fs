@@ -24,7 +24,7 @@ module ReadTransaction =
     [<Literal>]
     let Path = "/api/transactions/{%O:guid}"
 
-    let private get (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+    let private get (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
         task {
             let! result =
                 selectTask queryContext {
@@ -42,7 +42,7 @@ module ReadTransaction =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let! userId = Auth.getUserId ctx
-                let! transaction = get queryContext id userId
+                let! transaction = get queryContext userId id
                 let log = RequestLog.fromContext ctx
 
                 match transaction with

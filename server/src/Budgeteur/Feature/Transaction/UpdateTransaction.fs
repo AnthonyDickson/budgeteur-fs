@@ -12,6 +12,7 @@ module UpdateTransaction =
     open Oxpecker.OpenApi
     open SqlHydra.Query
 
+    open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
@@ -29,12 +30,53 @@ module UpdateTransaction =
         Description : string
         Date : DateOnly
         IsTransfer : bool
+        TagId : Guid option
+        AccountId : Guid option
     }
 
     [<Literal>]
     let Path = "/api/transactions/{%O:guid}"
 
-    let private update (queryContext : QueryContextFactory) (transaction : Transaction) (userId : string) =
+    /// <summary>Ensure the transaction exists before updating it.</summary>
+    let private requireTransactionExists (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
+        task {
+            let! rowCount =
+                selectTask queryContext {
+                    for t in main.Transactions do
+                        where (t.Id = id && t.UserId = userId)
+                        count
+                }
+
+            return
+                if rowCount > 0 then
+                    Ok ()
+                else
+                    Error (NotFound $"The transaction {id} could not be found")
+
+        }
+
+    /// <summary>Verify that the referenced account exists and belongs to the user. Skips the
+    /// check when no account is referenced (<c>None</c> succeeds).</summary>
+    let private requireAccountExists (queryContext : QueryContextFactory) (userId : string) (accountId : Guid option) =
+        task {
+            match accountId with
+            | Some accountId ->
+                let! rowCount =
+                    selectTask queryContext {
+                        for t in main.Accounts do
+                            where (t.Id = accountId && t.UserId = userId)
+                            count
+                    }
+
+                return
+                    if rowCount > 0 then
+                        Ok ()
+                    else
+                        Error (ConstraintError $"Could not find an account with the ID {accountId}")
+            | None -> return Ok ()
+        }
+
+    let private update (queryContext : QueryContextFactory) (userId : string) (transaction : Transaction) =
         task {
             use! shared = queryContext.OpenContextAsync ()
             shared.BeginTransaction ()
@@ -68,9 +110,16 @@ module UpdateTransaction =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! (req : UpdateTransactionRequest) = Json.read ctx
-
                 let! userId = Auth.getUserId ctx
+
+                do! requireTransactionExists queryContext userId id
                 let! description = TransactionDescription.create req.Description
+
+                do!
+                    Constraints.requireAll [
+                        Constraints.requireTagIfReferenced queryContext userId req.TagId
+                        requireAccountExists queryContext userId req.AccountId
+                    ]
 
                 let transaction : Transaction = {
                     Id = id
@@ -78,11 +127,11 @@ module UpdateTransaction =
                     Description = description
                     Date = req.Date
                     IsTransfer = req.IsTransfer
-                    AccountId = None
-                    TagId = None
+                    AccountId = req.AccountId
+                    TagId = req.TagId
                 }
 
-                let! updated = update queryContext transaction userId
+                let! updated = update queryContext userId transaction
 
                 match updated with
                 | Some updated ->

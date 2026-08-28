@@ -89,3 +89,11 @@ run through `Endpoint.handler`, which maps `DomainError` values to HTTP
 responses — validation → `400`, not found → `404`, conflict → `409`, everything
 else → `500`. A global middleware in `Program.fs` catches any unhandled
 exception as a last resort.
+
+Database integrity constraints are checked explicitly before writes
+(`Data/Constraints.fs`): `require*` helpers mirror the schema's constraints and
+return a `400` `ValidationFailed` with a friendly message, since SQLite does not
+always report which column triggered a violation. Combine them with
+`requireAll` / `requireOne` so a client sees every failure in one response. The
+`409` `Conflict` mapping remains as a safety net for violations the explicit
+checks cannot catch, e.g. a concurrent request racing a check-then-write.

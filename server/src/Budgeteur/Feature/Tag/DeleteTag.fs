@@ -21,7 +21,7 @@ module DeleteTag =
     [<Literal>]
     let Path = "/api/tags/{%O:guid}"
 
-    let delete (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+    let delete (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
         task {
             let! rows =
                 deleteTask queryContext {
@@ -39,7 +39,7 @@ module DeleteTag =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! deleted = delete queryContext id userId
+                let! deleted = delete queryContext userId id
 
                 if deleted then
                     log.Info ($"Deleted tag %O{id}", LogProp.prop "tagId" (id.ToString ()))

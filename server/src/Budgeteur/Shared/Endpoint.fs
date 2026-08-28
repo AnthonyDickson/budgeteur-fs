@@ -34,7 +34,13 @@ module Endpoint =
                         try
                             return! handler_fun ctx
                         with
-                        | :? SqliteException as exn when exn.SqliteErrorCode = 19 -> return Error (Conflict exn)
+                        | :? SqliteException as exn when exn.SqliteErrorCode = 19 ->
+                            log.Warn (
+                                $"Unhandled constraint violation: {exn.Message}",
+                                LogProp.prop "exception" (exn.ToString ())
+                            )
+
+                            return Error (Conflict exn)
                         | :? SqliteException as exn -> return Error (DatabaseError exn)
                         | exn -> return Error (UnhandledException exn)
                     }

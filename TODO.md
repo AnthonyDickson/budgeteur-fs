@@ -16,11 +16,6 @@
 
 ## Current Tasks
 
-- Clean up how constraint violations are handled for tags/rules.
-  - Have helpers that check constraints explicitly
-    - Makes invariants explicit
-    - SQLite doesn't always provide helpful error info, this approach makes it easy to create meaningful error messages.
-  - Use `DomainError.ValidationFailed` type
 - Move database row mappings to Data/ once they are shared across slices
 - Tags and rules page:
   - Implement backend for page

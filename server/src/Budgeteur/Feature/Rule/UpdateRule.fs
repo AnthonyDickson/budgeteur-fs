@@ -11,6 +11,7 @@ module UpdateRule =
     open Oxpecker.OpenApi
     open SqlHydra.Query
 
+    open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Rule
     open Budgeteur.Feature.Rule
@@ -27,7 +28,51 @@ module UpdateRule =
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
-    let private update (queryContext : QueryContextFactory) (rule : Rule) (userId : string) =
+    /// <summary>Ensure the rule exists before updating it.</summary>
+    let private requireRuleExists (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
+        task {
+            let! rowCount =
+                selectTask queryContext {
+                    for r in main.Rules do
+                        where (r.Id = id && r.UserId = userId)
+                        count
+                }
+
+            return
+                if rowCount > 0 then
+                    Ok ()
+                else
+                    Error (NotFound $"The rule {id} could not be found")
+
+        }
+
+    /// <summary>Verify that no other rule with the same pattern and tag exists for this user,
+    /// excluding the rule being updated (the <c>UNIQUE(UserId, Pattern, TagId)</c> constraint).</summary>
+    let private requireRuleIsUnique (queryContext : QueryContextFactory) (userId : string) (rule : Rule) =
+        task {
+            let pattern = RulePattern.value rule.Pattern
+
+            let! rowCount =
+                selectTask queryContext {
+                    for r in main.Rules do
+                        where (
+                            r.Id <> rule.Id
+                            && r.Pattern = pattern
+                            && r.TagId = rule.TagId
+                            && r.UserId = userId
+                        )
+
+                        count
+                }
+
+            return
+                if rowCount = 0 then
+                    Ok ()
+                else
+                    Error (ConstraintError $"The rule pattern '{pattern}' for tag {rule.TagId} already exists")
+        }
+
+    let private update (queryContext : QueryContextFactory) (userId : string) (rule : Rule) =
         task {
             use! shared = queryContext.OpenContextAsync ()
             shared.BeginTransaction ()
@@ -61,8 +106,10 @@ module UpdateRule =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! (req : UpdateRuleRequest) = Json.read ctx
-
                 let! userId = Auth.getUserId ctx
+
+                do! requireRuleExists queryContext userId id
+
                 let! pattern = RulePattern.create req.Pattern
 
                 let rule : Rule = {
@@ -71,7 +118,13 @@ module UpdateRule =
                     TagId = req.TagId
                 }
 
-                let! updated = update queryContext rule userId
+                do!
+                    Constraints.requireAll [
+                        Constraints.requireTagExists queryContext userId req.TagId
+                        requireRuleIsUnique queryContext userId rule
+                    ]
+
+                let! updated = update queryContext userId rule
 
                 match updated with
                 | Some updated ->

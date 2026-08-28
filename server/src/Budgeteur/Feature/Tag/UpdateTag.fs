@@ -11,6 +11,7 @@ module UpdateTag =
     open Oxpecker.OpenApi
     open SqlHydra.Query
 
+    open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Tag
     open Budgeteur.Feature.Tag
@@ -27,7 +28,45 @@ module UpdateTag =
     [<Literal>]
     let Path = "/api/tags/{%O:guid}"
 
-    let private update (queryContext : QueryContextFactory) (tag : Tag) (userId : string) =
+    /// <summary>Ensure the tag exists before updating it.</summary>
+    let private requireTagExists (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
+        task {
+            let! rowCount =
+                selectTask queryContext {
+                    for t in main.Tags do
+                        where (t.Id = id && t.UserId = userId)
+                        count
+                }
+
+            return
+                if rowCount > 0 then
+                    Ok ()
+                else
+                    Error (NotFound $"The tag {id} could not be found")
+
+        }
+
+    /// <summary>Verify that no other tag with the same name exists for this user, excluding the
+    /// tag being updated (the <c>UNIQUE(UserId, Name)</c> constraint).</summary>
+    let private requireTagIsUnique (queryContext : QueryContextFactory) (userId : string) (tag : Tag) =
+        task {
+            let name = TagName.value tag.Name
+
+            let! rowCount =
+                selectTask queryContext {
+                    for t in main.Tags do
+                        where (t.Id <> tag.Id && t.Name = name && t.UserId = userId)
+                        count
+                }
+
+            return
+                if rowCount = 0 then
+                    Ok ()
+                else
+                    Error (ConstraintError $"A tag with the name '{name}' already exists")
+        }
+
+    let private update (queryContext : QueryContextFactory) (userId : string) (tag : Tag) =
         task {
             use! shared = queryContext.OpenContextAsync ()
             shared.BeginTransaction ()
@@ -61,9 +100,12 @@ module UpdateTag =
                 let! (req : UpdateTagRequest) = Json.read ctx
                 let! userId = Auth.getUserId ctx
 
+                do! requireTagExists queryContext userId id
                 let! name = TagName.create req.Name
                 let tag : Tag = { Id = id; Name = name }
-                let! updated = update queryContext tag userId
+
+                do! Constraints.requireOne (requireTagIsUnique queryContext userId tag)
+                let! updated = update queryContext userId tag
 
                 match updated with
                 | Some updated ->

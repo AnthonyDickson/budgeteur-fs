@@ -390,15 +390,15 @@ marked.
 
 ## Decisions (resolved)
 
-| # | Question             | Decision                                                                                              |
-| - | -------------------- | ----------------------------------------------------------------------------------------------------- |
-| 1 | Default selection    | Auto-select the first tag (alphabetical) on load                                                      |
-| 2 | Matching semantics   | Case-insensitive substring; first matching rule wins; only untagged transactions are affected         |
-| 3 | Conflicting patterns | Forbidden in the UI — one pattern, one tag (DB index deferred to Phase 2)                             |
-| 4 | Match scope          | Description only                                                                                      |
-| 5 | Header nav           | Yes — minimal header in `app.gleam` with Transactions and Tags & Rules links, active item highlighted |
-| 6 | Tag color            | In the MVP — needs a `Categories.Color` migration                                                     |
-| 7 | One tag or many      | One primary tag per transaction; if more are added later, the primary stays for stats                 |
+| # | Question             | Decision                                                                                                                               |
+| - | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 | Default selection    | Auto-select the first tag (alphabetical) on load                                                                                       |
+| 2 | Matching semantics   | Case-insensitive substring; first matching rule wins; only untagged transactions are affected                                          |
+| 3 | Conflicting patterns | Forbidden — backend rejects duplicates with `400` via `requireRuleIsUnique` (`UNIQUE(UserId, Pattern, TagId)`), backed by the DB index |
+| 4 | Match scope          | Description only                                                                                                                       |
+| 5 | Header nav           | Yes — minimal header in `app.gleam` with Transactions and Tags & Rules links, active item highlighted                                  |
+| 6 | Tag color            | In the MVP — needs a `Categories.Color` migration                                                                                      |
+| 7 | One tag or many      | One primary tag per transaction; if more are added later, the primary stays for stats                                                  |
 
 ## Suggested File Layout (for when we implement)
 
