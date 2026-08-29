@@ -44,6 +44,7 @@ CREATE TABLE Tags (
     Id     GUID NOT NULL PRIMARY KEY,
     UserId TEXT NOT NULL,
     Name   TEXT NOT NULL,
+    Color  Text NOT NULL,
     UNIQUE(UserId, Name)
 );
 

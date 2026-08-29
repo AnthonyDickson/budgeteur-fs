@@ -23,7 +23,7 @@ module UpdateTag =
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for updating a tag.</summary>
-    type UpdateTagRequest = { Name : string }
+    type UpdateTagRequest = { Name : string; Color : string }
 
     [<Literal>]
     let Path = "/api/tags/{%O:guid}"
@@ -102,7 +102,8 @@ module UpdateTag =
 
                 do! requireTagExists queryContext userId id
                 let! name = TagName.create req.Name
-                let tag : Tag = { Id = id; Name = name }
+                let! color = TagColor.create req.Color
+                let tag : Tag = { Id = id; Name = name; Color = color }
 
                 do! Constraints.requireOne (requireTagIsUnique queryContext userId tag)
                 let! updated = update queryContext userId tag

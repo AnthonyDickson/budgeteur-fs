@@ -51,7 +51,8 @@ module main =
     type Tags =
         { Id: System.Guid
           UserId: string
-          Name: string }
+          Name: string
+          Color: string }
 
     let Tags = table<Tags>
 

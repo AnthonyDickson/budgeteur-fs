@@ -22,7 +22,7 @@ module CreateTag =
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for creating a tag. The id is generated server-side.</summary>
-    type CreateTagRequest = { Name : string }
+    type CreateTagRequest = { Name : string; Color : string }
 
     [<Literal>]
     let Path = "/api/tags"
@@ -68,11 +68,13 @@ module CreateTag =
                 let! (req : CreateTagRequest) = Json.read ctx
 
                 let! tagName = TagName.create req.Name
+                let! tagColor = TagColor.create req.Color
                 do! Constraints.requireOne (requireNameIsUnique queryContext userId tagName)
 
                 let tag : Tag = {
                     Id = Guid.CreateVersion7 ()
                     Name = tagName
+                    Color = tagColor
                 }
 
                 let! () = insert queryContext userId tag

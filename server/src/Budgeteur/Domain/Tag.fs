@@ -34,4 +34,26 @@ module TagName =
     /// An escape hatch for the smart constructor for reading trusted values from the database.
     let internal unsafeFromString name = TagName name
 
-type Tag = { Id : Guid; Name : TagName }
+type TagColor = private TagColor of string
+
+module TagColor =
+    open System.Text.RegularExpressions
+
+    let private regexPattern = "^#[A-Fa-f0-9]{6}$"
+
+    let create (color : string) : Result<TagColor, DomainError> =
+        if Regex.IsMatch (color, regexPattern) then
+            Ok (TagColor color)
+        else
+            Error (ValidationFailed $"Tag color should be hex color string matching '{regexPattern}', e.g. #00AAFF")
+
+    let value (TagColor color) = color
+
+    /// An escape hatch for the smart constructor for reading trusted values from the database.
+    let internal unsafeFromString color = TagColor color
+
+type Tag = {
+    Id : Guid
+    Name : TagName
+    Color : TagColor
+}

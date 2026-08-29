@@ -8,9 +8,11 @@ module TagCodec =
         Id = tag.Id
         Name = TagName.value tag.Name
         UserId = userId
+        Color = TagColor.value tag.Color
     }
 
     let fromRow (row : main.Tags) : Tag = {
         Id = row.Id
         Name = TagName.unsafeFromString row.Name
+        Color = TagColor.unsafeFromString row.Color
     }

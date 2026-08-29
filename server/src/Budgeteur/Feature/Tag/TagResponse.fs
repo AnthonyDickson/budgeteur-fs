@@ -2,7 +2,11 @@ namespace Budgeteur.Feature.Tag
 
 open System
 
-type TagResponse = { Id : Guid; Name : string }
+type TagResponse = {
+    Id : Guid
+    Name : string
+    Color : string
+}
 
 module TagResponse =
     open Budgeteur.Domain.Tag
@@ -10,4 +14,5 @@ module TagResponse =
     let fromDomain (tag : Tag) : TagResponse = {
         Id = tag.Id
         Name = TagName.value tag.Name
+        Color = TagColor.value tag.Color
     }
