@@ -34,6 +34,7 @@ open Budgeteur.Feature.Auth
 open Budgeteur.Feature.Rule
 open Budgeteur.Feature.Status
 open Budgeteur.Feature.Tag
+open Budgeteur.Feature.TaggingPage
 open Budgeteur.Feature.Transaction
 
 
@@ -251,12 +252,16 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
         ]
         |> withAuth
 
+    let taggingPageEndpoints =
+        [ GET [ ReadTagsAndRules.endpoint queryContext ] ] |> withAuth
+
     Seq.concat [
         authEndpoints
         ruleEndpoints
         statusEndpoints
         transactionEndpoints
         tagEndpoints
+        taggingPageEndpoints
     ]
 
 

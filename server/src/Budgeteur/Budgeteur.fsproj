@@ -56,6 +56,8 @@
     <Compile Include="Feature/Transaction/UpdateTransaction.fs" />
     <Compile Include="Feature/Transaction/DeleteTransaction.fs" />
 
+    <Compile Include="Feature/TaggingPage/ReadTagsAndRules.fs" />
+
     <Compile Include="Feature/GetStatus.fs" />
 
     <Compile Include="Program.fs" />

@@ -16,7 +16,6 @@
 
 ## Current Tasks
 
-- Move database row mappings to Data/ once they are shared across slices
 - Tags and rules page:
   - Implement backend for page
   - Add E2E tests
