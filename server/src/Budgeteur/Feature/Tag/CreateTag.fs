@@ -14,7 +14,6 @@ module CreateTag =
     open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Tag
-    open Budgeteur.Feature.Tag
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.Endpoint

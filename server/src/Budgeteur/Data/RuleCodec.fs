@@ -1,4 +1,4 @@
-namespace Budgeteur.Feature.Rule
+namespace Budgeteur.Data
 
 module RuleCodec =
     open Budgeteur.Data.Db

@@ -28,11 +28,12 @@
 
     <Compile Include="Data/Db.fs" />
     <Compile Include="Data/Constraints.fs" />
+    <Compile Include="Data/RuleCodec.fs" />
+    <Compile Include="Data/TagCodec.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 
-    <Compile Include="Feature/Tag/TagCodec.fs" />
     <Compile Include="Feature/Tag/TagResponse.fs" />
     <Compile Include="Feature/Tag/CreateTag.fs" />
     <Compile Include="Feature/Tag/ReadTag.fs" />
@@ -40,7 +41,6 @@
     <Compile Include="Feature/Tag/UpdateTag.fs" />
     <Compile Include="Feature/Tag/DeleteTag.fs" />
 
-    <Compile Include="Feature/Rule/RuleCodec.fs" />
     <Compile Include="Feature/Rule/RuleResponse.fs" />
     <Compile Include="Feature/Rule/CreateRule.fs" />
     <Compile Include="Feature/Rule/ReadRule.fs" />

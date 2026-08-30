@@ -1,4 +1,4 @@
-namespace Budgeteur.Feature.Tag
+namespace Budgeteur.Data
 
 module TagCodec =
     open Budgeteur.Data.Db
