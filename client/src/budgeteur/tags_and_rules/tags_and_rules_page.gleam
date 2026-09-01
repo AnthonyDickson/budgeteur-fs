@@ -1,5 +1,8 @@
+import budgeteur/shared/api_error.{type ApiError}
+import budgeteur/shared/api_route
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/out_msg.{type OutMsg}
+import budgeteur/shared/response
 import budgeteur/shared/toast
 import budgeteur/tags_and_rules/rule/rule.{type Rule, Rule}
 import budgeteur/tags_and_rules/rule/rule_delete_modal
@@ -15,6 +18,7 @@ import budgeteur/tags_and_rules/tags_and_rules_page_data.{
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/result
 import gleam/string
 import lustre/attribute
 import lustre/element.{type Element}
@@ -35,6 +39,7 @@ pub type Model {
 
 pub type Msg {
   ClientRestoredData(Option(TagsAndRulesPageData))
+  ClientFetchedData(Result(TagsAndRulesPageData, ApiError))
   // Tag modal messages
   UserRequestedTagCreation
   UserRequestedTagEdit(Uuid)
@@ -90,6 +95,20 @@ fn restore_data_from_store() -> Effect(Msg) {
   )
 }
 
+fn fetch_page_data() -> Effect(Msg) {
+  effect.get(api_route.GetTagsAndRules |> api_route.to_string, fn(result) {
+    case result {
+      Ok(body) ->
+        ClientFetchedData(response.decode_success(
+          body,
+          tags_and_rules_page_data.data_decoder(),
+        ))
+      Error(http_error) ->
+        ClientFetchedData(Error(response.http_error_to_api_error(http_error)))
+    }
+  })
+}
+
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
@@ -101,7 +120,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       rule_modal: rule_form.create_modal(uuid.nil),
       rule_delete_modal: rule_delete_modal.empty(),
     ),
-    restore_data_from_store(),
+    effect.batch([restore_data_from_store(), fetch_page_data()]),
   )
 }
 
@@ -146,6 +165,28 @@ fn update_inner(
     }
 
     ClientRestoredData(None) -> #(model, effect.none(), None)
+
+    ClientFetchedData(Ok(data)) -> {
+      let tags = sort_tags(data.tags)
+      let selected_tag =
+        list.first(tags)
+        |> result.map(fn(tag) { tag.id })
+        |> option.from_result
+
+      let model = Model(..model, tags:, rules: data.rules, selected_tag:)
+      #(model, effect.none(), None)
+    }
+
+    ClientFetchedData(Error(error)) -> #(
+      model,
+      effect.LogError(api_error.describe(error)),
+      Some(out_msg.PageRequestedToast(
+        title: "Could not sync tags and rules",
+        body: "Falling back to local data",
+        level: toast.Error,
+        dismiss_after_ms: Some(5000),
+      )),
+    )
 
     UserRequestedTagCreation -> #(
       Model(..model, tag_modal: tag_form.empty_modal()),

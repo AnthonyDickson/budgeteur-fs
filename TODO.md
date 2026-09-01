@@ -17,7 +17,9 @@
 ## Current Tasks
 
 - Tags and rules page:
-  - Implement backend for page
+  - Connect frontend to tags and rules endpoints
+    - CRUD for tags
+    - CRUD for rules
   - Add E2E tests
   - Consider breaking up `tags_and_rules_page.gleam`
   - Ensures docs are up-to-date and sufficient
