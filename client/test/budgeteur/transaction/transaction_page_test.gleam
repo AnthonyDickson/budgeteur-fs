@@ -9,6 +9,7 @@ import budgeteur/transaction/transaction_delete_modal.{
 }
 import budgeteur/transaction/transaction_form
 import budgeteur/transaction/transaction_page
+import budgeteur/transaction/transaction_page_data
 import gleam/json
 import gleam/option.{None, Some}
 import gleam/string
@@ -311,9 +312,9 @@ pub fn init_restores_from_store_test() {
 pub fn stored_transactions_round_trip_test() {
   let transaction = sample_transaction()
 
-  let stored = transaction_page.stored_transactions_encoder([transaction])
+  let stored = transaction_page_data.data_to_string([transaction])
   let assert Ok(restored) =
-    json.parse(stored, using: transaction_page.stored_transactions_decoder())
+    json.parse(stored, using: transaction_page_data.data_decoder())
   restored |> should.equal([transaction])
 }
 

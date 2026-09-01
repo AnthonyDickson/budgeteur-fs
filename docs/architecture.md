@@ -176,8 +176,8 @@ all I/O flows through a custom `Effect` type with a single interpreter so
 
 ### Layered MVU
 
-Two layers: `app.gleam` is the shell (routing, toasts, model persistence,
-session expiry) and each feature page (e.g. `transaction/transaction_page.gleam`)
+Two layers: `app.gleam` is the shell (routing, toasts, session expiry) and
+each feature page (e.g. `transaction/transaction_page.gleam`)
 owns its own model, update, and view. The shell delegates to the active page and
 maps the page's effects up to its own message type with `effect.map`.
 
@@ -234,8 +234,9 @@ Things the shell does that feature pages should not know about:
   internal links and back/forward navigation, delivering each path to `update`
   as a message. Routes are declared in `shared/route.gleam`; unrecognised paths render
   a 404 page.
-- **Model persistence** — after every update the whole model is serialised to
-  localStorage and restored on startup, so the UI survives page reloads.
+- **Model persistence** — each feature page serialises its own data to
+  localStorage after updates and restores it in `init`, so the UI survives page
+  reloads; the shell itself does not persist the model.
 - **Session expiry** — HTTP effects are rewritten so that a `401` response
   dispatches `SessionExpired` instead of reaching the page's callback, and the
   app redirects to the login route.

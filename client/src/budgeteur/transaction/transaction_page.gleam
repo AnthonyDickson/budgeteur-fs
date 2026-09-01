@@ -16,6 +16,7 @@ import budgeteur/transaction/transaction_delete_modal.{
 import budgeteur/transaction/transaction_form.{
   type ModalState, type TransactionType, Create, Edit, ModalState,
 }
+import budgeteur/transaction/transaction_page_data
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
@@ -29,8 +30,6 @@ import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
 
-const transactions_storage_key = "budgeteur.transactions"
-
 pub type Model {
   Model(
     transactions: List(Transaction),
@@ -39,35 +38,20 @@ pub type Model {
   )
 }
 
-pub fn stored_transactions_encoder(transactions: List(Transaction)) -> String {
-  json.object([
-    #("transactions", json.array(transactions, transaction.transaction_to_json)),
-  ])
-  |> json.to_string
-}
-
 fn persist_transactions(transactions: List(Transaction)) -> Effect(Msg) {
   effect.SaveToStore(
-    transactions_storage_key,
-    stored_transactions_encoder(transactions),
-  )
-}
-
-pub fn stored_transactions_decoder() -> decode.Decoder(List(Transaction)) {
-  decode.field(
-    "transactions",
-    decode.list(transaction.transaction_decoder()),
-    fn(transactions) { decode.success(transactions) },
+    transaction_page_data.storage_key,
+    transaction_page_data.data_to_string(transactions),
   )
 }
 
 fn restore_transactions_from_store() -> Effect(Msg) {
   effect.LoadFromStore(
-    key: transactions_storage_key,
+    key: transaction_page_data.storage_key,
     callback: fn(store_result) {
       case store_result {
         Ok(value) -> {
-          case json.parse(value, using: stored_transactions_decoder()) {
+          case json.parse(value, using: transaction_page_data.data_decoder()) {
             Ok(transactions) -> ClientRestoredTransactions(Some(transactions))
             Error(_) -> ClientRestoredTransactions(None)
           }
