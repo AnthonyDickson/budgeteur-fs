@@ -177,7 +177,7 @@ all I/O flows through a custom `Effect` type with a single interpreter so
 ### Layered MVU
 
 Two layers: `app.gleam` is the shell (routing, toasts, model persistence,
-session expiry) and each feature page (e.g. `transactions/transactions_page.gleam`)
+session expiry) and each feature page (e.g. `transaction/transaction_page.gleam`)
 owns its own model, update, and view. The shell delegates to the active page and
 maps the page's effects up to its own message type with `effect.map`.
 

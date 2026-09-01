@@ -1,5 +1,5 @@
-import budgeteur/transactions/transaction
-import budgeteur/transactions/transaction_form.{
+import budgeteur/transaction/transaction
+import budgeteur/transaction/transaction_form.{
   AmountRequired, Credit, DateRequired, Debit, DescriptionRequired, NotADate,
   NotANumber, NotPositive, TooLong,
 }

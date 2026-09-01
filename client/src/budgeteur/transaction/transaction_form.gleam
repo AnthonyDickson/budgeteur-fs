@@ -1,9 +1,9 @@
 import budgeteur/shared/date
 import budgeteur/shared/money
-import budgeteur/transactions/create_transaction_request.{
+import budgeteur/transaction/create_transaction_request.{
   type CreateTransactionRequest,
 }
-import budgeteur/transactions/transaction.{type Transaction, Transaction}
+import budgeteur/transaction/transaction.{type Transaction, Transaction}
 import gleam/float
 import gleam/int
 import gleam/option.{type Option, None, Some}

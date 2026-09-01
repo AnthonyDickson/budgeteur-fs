@@ -6,14 +6,14 @@ import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/toast
-import budgeteur/transactions/create_transaction_request.{
+import budgeteur/transaction/create_transaction_request.{
   type CreateTransactionRequest,
 }
-import budgeteur/transactions/transaction.{type Transaction}
-import budgeteur/transactions/transaction_delete_modal.{
+import budgeteur/transaction/transaction.{type Transaction}
+import budgeteur/transaction/transaction_delete_modal.{
   type DeleteModalState, Confirming, Deleting,
 }
-import budgeteur/transactions/transaction_form.{
+import budgeteur/transaction/transaction_form.{
   type ModalState, type TransactionType, Create, Edit, ModalState,
 }
 import gleam/dynamic/decode

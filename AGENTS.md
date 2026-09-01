@@ -115,7 +115,7 @@ The server uses a dual-layer logging system:
 
 ### Client (Gleam/Lustre SPA)
 
-Two-layer MVU: `app.gleam` is the shell (routing, toasts, model persistence, session expiry) and each feature page (e.g. `transactions/transactions_page.gleam`) owns its model, update, and view. The shell delegates to the active page and maps its effects up with `effect.map`.
+Two-layer MVU: `app.gleam` is the shell (routing, toasts, model persistence, session expiry) and each feature page (e.g. `transaction/transaction_page.gleam`) owns its model, update, and view. The shell delegates to the active page and maps its effects up with `effect.map`.
 
 - `shared/effect.gleam` — Custom `Effect` type (pure data) + interpreter (`run`) + `map`/`batch`/`none` helpers + thin per-method HTTP constructors (`get`, `post`, `put`, `patch`, `delete`). Feature modules only need to import `effect` for everyday effects.
 - `shared/http_effect.gleam` — HTTP transport: `HttpMethod`, `HttpError` (transport vs. status-code errors), and `send` with a `transform` hook for per-request customisation (auth headers).

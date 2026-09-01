@@ -1,5 +1,5 @@
 import budgeteur/shared/money
-import budgeteur/transactions/transaction.{type Transaction}
+import budgeteur/transaction/transaction.{type Transaction}
 import gleam/option.{None, Some}
 import lustre/attribute
 import lustre/element.{type Element}

@@ -525,7 +525,7 @@ entangled with the outside world, so testing it means mocking.
 
 This app does the opposite. Every page's `update` function returns **pure
 data**: the new model, plus a _description_ of what side effects should happen
-(`transactions/transactions_page.gleam`):
+(`transaction/transaction_page.gleam`):
 
 ```gleam
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -789,7 +789,7 @@ costs.
 - `docs/architecture.md`: the mechanical how-it-works counterpart to this tour.
 - `docs/database.md`, `docs/server-tests.md`, `docs/e2e-tests.md`: the details.
 - Start reading `Feature/Transaction/ReadTransaction.fs` (server) and
-  `transactions/transactions_page.gleam` (client): the two reference
+  `transaction/transaction_page.gleam` (client): the two reference
   implementations of everything above.
 
 ### Further reading

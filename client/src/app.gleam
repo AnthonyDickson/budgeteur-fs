@@ -7,7 +7,7 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/route
 import budgeteur/shared/toast.{type Toast}
 import budgeteur/tags_and_rules/tags_and_rules_page
-import budgeteur/transactions/transactions_page
+import budgeteur/transaction/transaction_page
 import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -23,7 +23,7 @@ import youid/uuid.{type Uuid}
 // ----------------
 
 pub type Page {
-  TransactionsPage(transactions_page.Model)
+  TransactionsPage(transaction_page.Model)
   TagsAndRulesPage(tags_and_rules_page.Model)
   NotFound
 }
@@ -34,7 +34,7 @@ pub type Model {
 
 pub type Msg {
   SessionExpired
-  TransactionsPageMsg(transactions_page.Msg)
+  TransactionsPageMsg(transaction_page.Msg)
   TagsAndRulesPageMsg(tags_and_rules_page.Msg)
   ToastDismissed(id: Uuid)
   UrlChanged(url: String)
@@ -89,7 +89,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     UrlChanged(url), _ -> {
       case route.from_string(url), model.page {
         route.Transactions, TransactionsPage(_) -> {
-          let #(_, page_effect) = transactions_page.init()
+          let #(_, page_effect) = transaction_page.init()
           #(model, effect.map(page_effect, TransactionsPageMsg))
         }
         route.TagsAndRules, TagsAndRulesPage(_) -> {
@@ -97,7 +97,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           #(model, effect.map(page_effect, TagsAndRulesPageMsg))
         }
         route.Transactions, _ -> {
-          let #(inner_model, inner_effect) = transactions_page.init()
+          let #(inner_model, inner_effect) = transaction_page.init()
 
           let model = Model(..model, page: TransactionsPage(inner_model))
           let effect = effect.map(inner_effect, TransactionsPageMsg)
@@ -120,7 +120,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       Model(page: TransactionsPage(inner_model), ..)
     -> {
       let #(inner_model, inner_effect, out_msg) =
-        transactions_page.update(inner_model, inner_msg)
+        transaction_page.update(inner_model, inner_msg)
 
       #(
         Model(..model, page: TransactionsPage(inner_model)),
@@ -198,7 +198,7 @@ fn update_with_effect(
 pub fn view(model: Model) -> Element(Msg) {
   let page = case model.page {
     TransactionsPage(inner_model) ->
-      transactions_page.view(inner_model)
+      transaction_page.view(inner_model)
       |> element.map(TransactionsPageMsg)
 
     TagsAndRulesPage(inner_model) ->

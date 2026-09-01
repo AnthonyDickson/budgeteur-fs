@@ -3,12 +3,12 @@ import budgeteur/shared/effect
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/toast
-import budgeteur/transactions/transaction
-import budgeteur/transactions/transaction_delete_modal.{
+import budgeteur/transaction/transaction
+import budgeteur/transaction/transaction_delete_modal.{
   Confirming, Deleting, Hidden,
 }
-import budgeteur/transactions/transaction_form
-import budgeteur/transactions/transactions_page
+import budgeteur/transaction/transaction_form
+import budgeteur/transaction/transaction_page
 import gleam/json
 import gleam/option.{None, Some}
 import gleam/string
@@ -39,16 +39,16 @@ fn valid_create_modal() -> transaction_form.ModalState {
 pub fn user_requested_edit_form_prefills_modal_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.empty(),
     )
 
   let #(new_model, _, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.UserRequestedEditForm(transaction.id),
+      transaction_page.UserRequestedEditForm(transaction.id),
     )
 
   let assert transaction_form.Edit(edit_id) = new_model.modal.mode
@@ -68,16 +68,16 @@ pub fn user_requested_edit_form_unknown_id_is_noop_test() {
   let assert Ok(missing_id) =
     uuid.from_string("00000000-0000-0000-0000-000000000099")
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [sample_transaction()],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.empty(),
     )
 
   let #(new_model, _, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.UserRequestedEditForm(missing_id),
+      transaction_page.UserRequestedEditForm(missing_id),
     )
 
   new_model.modal.mode |> should.equal(transaction_form.Create)
@@ -86,14 +86,14 @@ pub fn user_requested_edit_form_unknown_id_is_noop_test() {
 pub fn submitting_edit_issues_put_request_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.edit_modal(transaction),
       delete_modal: transaction_delete_modal.empty(),
     )
 
   let #(new_model, effect, _) =
-    transactions_page.update(model, transactions_page.UserSubmittedForm)
+    transaction_page.update(model, transaction_page.UserSubmittedForm)
 
   let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Put)
@@ -104,14 +104,14 @@ pub fn submitting_edit_issues_put_request_test() {
 
 pub fn submitting_create_issues_post_request_test() {
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [],
       modal: valid_create_modal(),
       delete_modal: transaction_delete_modal.empty(),
     )
 
   let #(new_model, effect, _) =
-    transactions_page.update(model, transactions_page.UserSubmittedForm)
+    transaction_page.update(model, transaction_page.UserSubmittedForm)
 
   let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Post)
@@ -128,16 +128,16 @@ pub fn server_updated_transaction_replaces_row_in_place_test() {
       description: "Flat White",
     )
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.empty(),
     )
 
   let #(new_model, _, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ServerUpdatedTransaction(Ok(updated)),
+      transaction_page.ServerUpdatedTransaction(Ok(updated)),
     )
 
   new_model.transactions |> should.equal([updated])
@@ -148,7 +148,7 @@ pub fn server_updated_transaction_replaces_row_in_place_test() {
 pub fn server_updated_transaction_error_keeps_modal_open_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.edit_modal(transaction)
         |> transaction_form.set_amount("20"),
@@ -156,9 +156,9 @@ pub fn server_updated_transaction_error_keeps_modal_open_test() {
     )
 
   let #(new_model, _, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ServerUpdatedTransaction(
+      transaction_page.ServerUpdatedTransaction(
         Error(ApiError(
           error: "boom",
           details: "boom",
@@ -175,16 +175,16 @@ pub fn server_updated_transaction_error_keeps_modal_open_test() {
 pub fn user_requested_delete_form_sets_target_and_opens_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.empty(),
     )
 
   let #(new_model, effect, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.UserRequestedDeleteForm(transaction),
+      transaction_page.UserRequestedDeleteForm(transaction),
     )
 
   let assert Confirming(target) = new_model.delete_modal
@@ -196,14 +196,14 @@ pub fn user_requested_delete_form_sets_target_and_opens_test() {
 pub fn confirming_delete_issues_delete_request_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.open(transaction),
     )
 
   let #(new_model, effect, _) =
-    transactions_page.update(model, transactions_page.UserConfirmedDelete)
+    transaction_page.update(model, transaction_page.UserConfirmedDelete)
 
   let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Delete)
@@ -215,16 +215,16 @@ pub fn confirming_delete_issues_delete_request_test() {
 pub fn server_deleted_transaction_removes_row_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.Deleting(transaction),
     )
 
   let #(new_model, _, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ServerDeletedTransaction(transaction, Ok(Nil)),
+      transaction_page.ServerDeletedTransaction(transaction, Ok(Nil)),
     )
 
   new_model.transactions |> should.equal([])
@@ -234,16 +234,16 @@ pub fn server_deleted_transaction_removes_row_test() {
 pub fn server_deleted_transaction_removes_row_even_if_modal_closed_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.empty(),
     )
 
   let #(new_model, _, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ServerDeletedTransaction(transaction, Ok(Nil)),
+      transaction_page.ServerDeletedTransaction(transaction, Ok(Nil)),
     )
 
   new_model.transactions |> should.equal([])
@@ -252,16 +252,16 @@ pub fn server_deleted_transaction_removes_row_even_if_modal_closed_test() {
 pub fn server_delete_error_returns_to_confirming_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.Deleting(transaction),
     )
 
   let #(new_model, _, out_msg) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ServerDeletedTransaction(
+      transaction_page.ServerDeletedTransaction(
         transaction,
         Error(ApiError(
           error: "boom",
@@ -282,14 +282,14 @@ pub fn server_delete_error_returns_to_confirming_test() {
 pub fn user_cancelled_delete_modal_closes_test() {
   let transaction = sample_transaction()
   let model =
-    transactions_page.Model(
+    transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
       delete_modal: transaction_delete_modal.open(transaction),
     )
 
   let #(new_model, effect, _) =
-    transactions_page.update(model, transactions_page.UserCancelledDeleteModal)
+    transaction_page.update(model, transaction_page.UserCancelledDeleteModal)
 
   let assert Hidden = new_model.delete_modal
   let assert effect.CloseDialog(selector: selector) = effect
@@ -299,7 +299,7 @@ pub fn user_cancelled_delete_modal_closes_test() {
 // ── Local backup ─────────────────────────────────────────────────────────────
 
 pub fn init_restores_from_store_test() {
-  let #(_, effect) = transactions_page.init()
+  let #(_, effect) = transaction_page.init()
 
   let assert effect.Batch([
     effect.LoadFromStore(key: key, ..),
@@ -311,9 +311,9 @@ pub fn init_restores_from_store_test() {
 pub fn stored_transactions_round_trip_test() {
   let transaction = sample_transaction()
 
-  let stored = transactions_page.stored_transactions_encoder([transaction])
+  let stored = transaction_page.stored_transactions_encoder([transaction])
   let assert Ok(restored) =
-    json.parse(stored, using: transactions_page.stored_transactions_decoder())
+    json.parse(stored, using: transaction_page.stored_transactions_decoder())
   restored |> should.equal([transaction])
 }
 
@@ -322,9 +322,9 @@ pub fn client_restored_transactions_sets_list_test() {
   let model = empty_model()
 
   let #(new_model, effect, out_msg) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ClientRestoredTransactions(Some([transaction])),
+      transaction_page.ClientRestoredTransactions(Some([transaction])),
     )
 
   new_model.transactions |> should.equal([transaction])
@@ -338,9 +338,9 @@ pub fn client_restored_transactions_none_is_noop_test() {
   let model = empty_model() |> with_transaction(transaction)
 
   let #(new_model, effect, out_msg) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ClientRestoredTransactions(None),
+      transaction_page.ClientRestoredTransactions(None),
     )
 
   new_model |> should.equal(model)
@@ -353,9 +353,9 @@ pub fn server_created_transaction_persists_to_store_test() {
   let model = empty_model()
 
   let #(new_model, effect, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ServerCreatedTransaction(Ok(transaction)),
+      transaction_page.ServerCreatedTransaction(Ok(transaction)),
     )
 
   new_model.transactions |> should.equal([transaction])
@@ -374,9 +374,9 @@ pub fn server_updated_transaction_persists_to_store_test() {
   let model = empty_model() |> with_transaction(transaction)
 
   let #(new_model, effect, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ServerUpdatedTransaction(Ok(updated)),
+      transaction_page.ServerUpdatedTransaction(Ok(updated)),
     )
 
   new_model.transactions |> should.equal([updated])
@@ -393,9 +393,9 @@ pub fn server_deleted_transaction_persists_to_store_test() {
   let model = empty_model() |> with_transaction(transaction)
 
   let #(new_model, effect, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ServerDeletedTransaction(transaction, Ok(Nil)),
+      transaction_page.ServerDeletedTransaction(transaction, Ok(Nil)),
     )
 
   new_model.transactions |> should.equal([])
@@ -412,9 +412,9 @@ pub fn server_fetched_transactions_persists_to_store_test() {
   let model = empty_model()
 
   let #(new_model, effect, _) =
-    transactions_page.update(
+    transaction_page.update(
       model,
-      transactions_page.ClientFetchedTransactions(Ok([transaction])),
+      transaction_page.ClientFetchedTransactions(Ok([transaction])),
     )
 
   new_model.transactions |> should.equal([transaction])
@@ -429,17 +429,14 @@ pub fn non_mutating_message_does_not_persist_test() {
   let model = empty_model() |> with_transaction(transaction)
 
   let #(new_model, effect, _) =
-    transactions_page.update(
-      model,
-      transactions_page.UserUpdatedFormAmount("5"),
-    )
+    transaction_page.update(model, transaction_page.UserUpdatedFormAmount("5"))
 
   new_model.transactions |> should.equal([transaction])
   effect |> should.equal(effect.none())
 }
 
-fn empty_model() -> transactions_page.Model {
-  transactions_page.Model(
+fn empty_model() -> transaction_page.Model {
+  transaction_page.Model(
     transactions: [],
     modal: transaction_form.empty_modal(),
     delete_modal: transaction_delete_modal.empty(),
@@ -447,8 +444,8 @@ fn empty_model() -> transactions_page.Model {
 }
 
 fn with_transaction(
-  model: transactions_page.Model,
+  model: transaction_page.Model,
   transaction: transaction.Transaction,
-) -> transactions_page.Model {
-  transactions_page.Model(..model, transactions: [transaction])
+) -> transaction_page.Model {
+  transaction_page.Model(..model, transactions: [transaction])
 }
