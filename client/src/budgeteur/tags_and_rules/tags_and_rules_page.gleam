@@ -1,12 +1,13 @@
 import budgeteur/effect.{type Effect}
-import budgeteur/guard
 import budgeteur/out_msg.{type OutMsg}
 import budgeteur/tags_and_rules/rule/rule.{type Rule, Rule}
 import budgeteur/tags_and_rules/rule/rule_delete_modal
 import budgeteur/tags_and_rules/rule/rule_form
+import budgeteur/tags_and_rules/rule/rule_view
 import budgeteur/tags_and_rules/tag/tag.{type Tag, Tag}
 import budgeteur/tags_and_rules/tag/tag_delete_modal
 import budgeteur/tags_and_rules/tag/tag_form
+import budgeteur/tags_and_rules/tag/tag_view
 import budgeteur/tags_and_rules/tags_and_rules_page_data.{
   type TagsAndRulesPageData, TagsAndRulesPageData,
 }
@@ -18,7 +19,6 @@ import gleam/string
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import lustre/event
 import youid/uuid.{type Uuid}
 
 pub type Model {
@@ -107,10 +107,6 @@ pub fn init() -> #(Model, Effect(Msg)) {
 
 fn sort_tags(tags: List(Tag)) -> List(Tag) {
   list.sort(tags, by: fn(a, b) { string.compare(a.name, b.name) })
-}
-
-fn rules_for_tag(tag_id: Uuid, rules: List(Rule)) -> List(Rule) {
-  list.filter(rules, fn(rule) { rule.tag_id == tag_id })
 }
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
@@ -252,7 +248,8 @@ fn update_inner(
     )
 
     UserRequestedTagDelete(tag) -> {
-      let rule_count = rules_for_tag(tag.id, model.rules) |> list.length
+      let rule_count =
+        rule_view.rules_for_tag(tag.id, model.rules) |> list.length
       #(
         Model(..model, tag_delete_modal: tag_delete_modal.open(tag, rule_count)),
         effect.ShowDialog(selector: tag_delete_modal.dom_id_selector),
@@ -450,7 +447,7 @@ pub fn view(model: Model) -> Element(Msg) {
       html.text("Tags & Rules"),
     ]),
     case list.is_empty(model.tags) {
-      True -> no_tags_empty_state()
+      True -> tag_view.no_tags_empty_state(on_create: UserRequestedTagCreation)
       False -> master_detail(model)
     },
     tag_form.view(
@@ -490,398 +487,23 @@ fn master_detail(model: Model) -> Element(Msg) {
     ],
     [
       html.div([attribute.class("flex h-full")], [
-        tags_panel(model),
-        rules_panel(model),
-      ]),
-    ],
-  )
-}
-
-fn tags_panel(model: Model) -> Element(Msg) {
-  html.div(
-    [
-      attribute.class("flex w-72 shrink-0 flex-col border-r border-gray-200"),
-      attribute.attribute("data-testid", "tags-panel"),
-    ],
-    [
-      html.h2(
-        [
-          attribute.class(
-            "flex h-12 items-center border-b border-gray-200 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500",
-          ),
-        ],
-        [html.text("Tags")],
-      ),
-      html.ul(
-        [attribute.class("flex-1 divide-y divide-gray-100 overflow-y-auto")],
-        list.map(model.tags, fn(tag) {
-          let is_selected = model.selected_tag == Some(tag.id)
-          html.li([], [
-            html.div(
-              [
-                attribute.class(
-                  "relative flex h-11 cursor-pointer items-center gap-3 px-4 "
-                  <> case is_selected {
-                    True -> "border-l-2 border-indigo-600 bg-indigo-50"
-                    False -> "border-l-2 border-transparent hover:bg-gray-50"
-                  },
-                ),
-                attribute.attribute(
-                  "data-testid",
-                  "tag-row-" <> uuid.to_string(tag.id),
-                ),
-                event.on_click(UserSelectedTag(tag.id)),
-              ],
-              [
-                color_swatch(tag.color),
-                html.span(
-                  [
-                    attribute.class(
-                      "flex-1 truncate text-sm "
-                      <> case is_selected {
-                        True -> "pr-24 font-medium text-gray-900"
-                        False -> "text-gray-700"
-                      },
-                    ),
-                  ],
-                  [html.text(tag.name)],
-                ),
-                case is_selected {
-                  True ->
-                    html.div(
-                      [
-                        attribute.class(
-                          "absolute inset-y-0 right-0 flex items-center gap-1 pr-2",
-                        ),
-                      ],
-                      [
-                        html.button(
-                          [
-                            attribute.class(
-                              "flex h-9 w-9 shrink-0 items-center justify-center "
-                              <> "rounded-md text-indigo-600 hover:bg-indigo-100 "
-                              <> "focus:outline-none focus:ring-2 focus:ring-inset "
-                              <> "focus:ring-indigo-500",
-                            ),
-                            attribute.attribute(
-                              "data-testid",
-                              "edit-tag-" <> uuid.to_string(tag.id),
-                            ),
-                            attribute.aria_label("Edit tag " <> tag.name),
-                            event.on_click(UserRequestedTagEdit(tag.id))
-                              |> event.stop_propagation,
-                          ],
-                          [pencil_icon()],
-                        ),
-                        html.button(
-                          [
-                            attribute.class(
-                              "flex h-9 w-9 shrink-0 items-center justify-center "
-                              <> "rounded-md text-red-600 hover:bg-red-100 "
-                              <> "focus:outline-none focus:ring-2 focus:ring-inset "
-                              <> "focus:ring-red-500",
-                            ),
-                            attribute.attribute(
-                              "data-testid",
-                              "delete-tag-" <> uuid.to_string(tag.id),
-                            ),
-                            attribute.aria_label("Delete tag " <> tag.name),
-                            event.on_click(UserRequestedTagDelete(tag))
-                              |> event.stop_propagation,
-                          ],
-                          [trash_icon()],
-                        ),
-                      ],
-                    )
-                  False -> element.none()
-                },
-              ],
-            ),
-          ])
-        }),
-      ),
-      html.div([attribute.class("mt-auto border-t border-gray-200 p-3")], [
-        html.button(
-          [
-            attribute.class(
-              "w-full rounded-md border border-dashed border-gray-300 px-3 py-2 "
-              <> "text-sm font-medium text-gray-600 hover:border-indigo-400 "
-              <> "hover:text-indigo-600 focus:outline-none focus:ring-2 "
-              <> "focus:ring-indigo-500 focus:ring-offset-2",
-            ),
-            attribute.attribute("data-testid", "new-tag-button"),
-            event.on_click(UserRequestedTagCreation),
-          ],
-          [html.text("+ New tag")],
+        tag_view.panel(
+          model.tags,
+          model.selected_tag,
+          on_select: UserSelectedTag,
+          on_edit: UserRequestedTagEdit,
+          on_delete: UserRequestedTagDelete,
+          on_create: UserRequestedTagCreation,
+        ),
+        rule_view.panel(
+          model.tags,
+          model.rules,
+          model.selected_tag,
+          on_create_rule: UserRequestedRuleCreation,
+          on_edit_rule: UserRequestedRuleEdit,
+          on_delete_rule: UserRequestedRuleDelete,
         ),
       ]),
     ],
-  )
-}
-
-fn rules_panel(model: Model) -> Element(Msg) {
-  use id <- guard.some_lazy(model.selected_tag, else_return: rules_prompt)
-  use selected_tag <- guard.ok_lazy(
-    list.find(model.tags, fn(tag) { tag.id == id }),
-    else_return: fn(_) { rules_prompt() },
-  )
-
-  let rules = rules_for_tag(id, model.rules)
-
-  html.div(
-    [
-      attribute.class("flex flex-1 flex-col"),
-      attribute.attribute("data-testid", "rules-panel"),
-    ],
-    [
-      html.div(
-        [
-          attribute.class(
-            "flex h-12 items-center justify-between gap-4 border-b border-gray-200 px-4",
-          ),
-        ],
-        [
-          html.div([attribute.class("flex items-center gap-2")], [
-            html.span(
-              [
-                attribute.class(
-                  "text-xs font-semibold uppercase tracking-wide text-gray-500",
-                ),
-              ],
-              [html.text("Rules")],
-            ),
-            color_swatch(selected_tag.color),
-            html.h2([attribute.class("text-sm font-semibold text-gray-900")], [
-              html.text(selected_tag.name),
-            ]),
-          ]),
-          html.button(
-            [
-              attribute.class(
-                "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium "
-                <> "text-white hover:bg-indigo-500 focus:outline-none "
-                <> "focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
-              ),
-              attribute.attribute("data-testid", "new-rule-button"),
-              event.on_click(UserRequestedRuleCreation),
-            ],
-            [html.text("New rule")],
-          ),
-        ],
-      ),
-      ..case list.is_empty(rules) {
-        True -> [rules_empty_state(selected_tag)]
-        False -> [
-          column_headers(),
-          rules_list(rules, selected_tag.name),
-        ]
-      }
-    ],
-  )
-}
-
-fn column_headers() -> Element(Msg) {
-  html.div(
-    [
-      attribute.class(
-        "flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2",
-      ),
-    ],
-    [
-      html.span(
-        [
-          attribute.class(
-            "text-xs font-medium uppercase tracking-wide text-gray-500",
-          ),
-        ],
-        [html.text("Pattern")],
-      ),
-      html.span(
-        [
-          attribute.class(
-            "ml-auto text-xs font-medium uppercase tracking-wide text-gray-500",
-          ),
-        ],
-        [html.text("Actions")],
-      ),
-    ],
-  )
-}
-
-fn rules_list(rules: List(Rule), tag_name: String) -> Element(Msg) {
-  html.ul(
-    [attribute.class("flex-1 divide-y divide-gray-100 overflow-y-auto")],
-    list.map(rules, fn(rule) {
-      html.li(
-        [
-          attribute.class("flex h-11 items-center gap-3 px-4 hover:bg-gray-50"),
-          attribute.attribute("data-testid", "rule-row"),
-        ],
-        [
-          html.code(
-            [
-              attribute.class(
-                "rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-800",
-              ),
-            ],
-            [html.text(rule.pattern)],
-          ),
-          html.div([attribute.class("ml-auto flex items-center gap-2")], [
-            html.button(
-              [
-                attribute.class(
-                  "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
-                  <> "hover:bg-indigo-50 hover:text-indigo-700 "
-                  <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-                  <> "focus:ring-offset-2",
-                ),
-                attribute.attribute(
-                  "data-testid",
-                  "edit-rule-" <> uuid.to_string(rule.id),
-                ),
-                event.on_click(UserRequestedRuleEdit(rule.id)),
-              ],
-              [html.text("Edit")],
-            ),
-            html.button(
-              [
-                attribute.class(
-                  "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
-                  <> "hover:bg-red-50 hover:text-red-700 "
-                  <> "focus:outline-none focus:ring-2 focus:ring-red-500 "
-                  <> "focus:ring-offset-2",
-                ),
-                attribute.attribute(
-                  "data-testid",
-                  "delete-rule-" <> uuid.to_string(rule.id),
-                ),
-                event.on_click(UserRequestedRuleDelete(rule, tag_name)),
-              ],
-              [html.text("Delete")],
-            ),
-          ]),
-        ],
-      )
-    }),
-  )
-}
-
-fn rules_prompt() -> Element(Msg) {
-  html.div([attribute.class("flex flex-1 flex-col")], [
-    html.div([attribute.class("h-12 border-b border-gray-200")], []),
-    html.div(
-      [
-        attribute.class(
-          "flex flex-1 items-center justify-center p-8 text-center",
-        ),
-      ],
-      [
-        html.p([attribute.class("text-sm text-gray-500")], [
-          html.text("Select a tag to see its rules"),
-        ]),
-      ],
-    ),
-  ])
-}
-
-fn rules_empty_state(tag: Tag) -> Element(Msg) {
-  html.div(
-    [
-      attribute.class(
-        "flex flex-1 flex-col items-center justify-center px-6 py-10 text-center",
-      ),
-    ],
-    [
-      html.h3([attribute.class("text-sm font-medium text-gray-900")], [
-        html.text("No rules for \"" <> tag.name <> "\" yet"),
-      ]),
-      html.p([attribute.class("mt-1 max-w-sm text-sm text-gray-500")], [
-        html.text(
-          "Rules auto-tag transactions whose description contains a pattern, "
-          <> "e.g. \"STARBUCKS\" > Coffee.",
-        ),
-      ]),
-    ],
-  )
-}
-
-fn no_tags_empty_state() -> Element(Msg) {
-  html.div(
-    [
-      attribute.class(
-        "mx-auto max-w-md rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
-      attribute.attribute("data-testid", "no-tags-empty-state"),
-    ],
-    [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
-        html.text("No tags yet"),
-      ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
-        html.text(
-          "Tags help you categorise transactions and power auto-tagging rules.",
-        ),
-      ]),
-      html.button(
-        [
-          attribute.class(
-            "mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-            <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
-            <> "focus:ring-indigo-500 focus:ring-offset-2",
-          ),
-          attribute.attribute("data-testid", "create-first-tag-button"),
-          event.on_click(UserRequestedTagCreation),
-        ],
-        [html.text("Create your first tag")],
-      ),
-    ],
-  )
-}
-
-fn color_swatch(color: String) -> Element(Msg) {
-  html.span(
-    [
-      attribute.class("inline-block h-3 w-3 shrink-0 rounded-full"),
-      attribute.style("background-color", color),
-      attribute.attribute("aria-hidden", "true"),
-    ],
-    [],
-  )
-}
-
-fn svg_icon(path_d: String) -> Element(msg) {
-  html.svg(
-    [
-      attribute.attribute("fill", "none"),
-      attribute.attribute("viewBox", "0 0 24 24"),
-      attribute.attribute("stroke-width", "1.5"),
-      attribute.attribute("stroke", "currentColor"),
-      attribute.class("h-4 w-4"),
-      attribute.attribute("aria-hidden", "true"),
-    ],
-    [
-      element.namespaced(
-        "http://www.w3.org/2000/svg",
-        "path",
-        [
-          attribute.attribute("stroke-linecap", "round"),
-          attribute.attribute("stroke-linejoin", "round"),
-          attribute.attribute("d", path_d),
-        ],
-        [],
-      ),
-    ],
-  )
-}
-
-fn pencil_icon() -> Element(Msg) {
-  svg_icon(
-    "m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10",
-  )
-}
-
-fn trash_icon() -> Element(Msg) {
-  svg_icon(
-    "m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0",
   )
 }
