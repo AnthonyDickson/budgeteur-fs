@@ -1,3 +1,4 @@
+import budgeteur/shared/uuid as uuid_codec
 import gleam/dynamic/decode
 import gleam/json
 import youid/uuid.{type Uuid}
@@ -13,18 +14,8 @@ pub type Tag {
   )
 }
 
-fn uuid_decoder() -> decode.Decoder(Uuid) {
-  decode.string
-  |> decode.then(fn(s) {
-    case uuid.from_string(s) {
-      Ok(uuid) -> decode.success(uuid)
-      Error(Nil) -> decode.failure(uuid.nil, "Uuid")
-    }
-  })
-}
-
 pub fn tag_decoder() -> decode.Decoder(Tag) {
-  use id <- decode.field("id", uuid_decoder())
+  use id <- decode.field("id", uuid_codec.decoder())
   use name <- decode.field("name", decode.string)
   use color <- decode.field("color", decode.string)
   decode.success(Tag(id:, name:, color:))

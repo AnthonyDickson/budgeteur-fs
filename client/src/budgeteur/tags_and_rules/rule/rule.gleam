@@ -1,3 +1,4 @@
+import budgeteur/shared/uuid as uuid_codec
 import gleam/dynamic/decode
 import gleam/json
 import youid/uuid.{type Uuid}
@@ -13,20 +14,10 @@ pub type Rule {
   )
 }
 
-fn uuid_decoder() -> decode.Decoder(Uuid) {
-  decode.string
-  |> decode.then(fn(s) {
-    case uuid.from_string(s) {
-      Ok(uuid) -> decode.success(uuid)
-      Error(Nil) -> decode.failure(uuid.nil, "Uuid")
-    }
-  })
-}
-
 pub fn rule_decoder() -> decode.Decoder(Rule) {
-  use id <- decode.field("id", uuid_decoder())
+  use id <- decode.field("id", uuid_codec.decoder())
   use pattern <- decode.field("pattern", decode.string)
-  use tag_id <- decode.field("tagId", uuid_decoder())
+  use tag_id <- decode.field("tagId", uuid_codec.decoder())
   decode.success(Rule(id:, pattern:, tag_id:))
 }
 

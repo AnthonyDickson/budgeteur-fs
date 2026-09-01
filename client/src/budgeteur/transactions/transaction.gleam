@@ -1,5 +1,6 @@
 import budgeteur/shared/date
 import budgeteur/shared/money
+import budgeteur/shared/uuid as uuid_codec
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option.{type Option, None}
@@ -22,18 +23,8 @@ pub type Transaction {
   )
 }
 
-fn uuid_decoder() -> decode.Decoder(Uuid) {
-  decode.string
-  |> decode.then(fn(s) {
-    case uuid.from_string(s) {
-      Ok(uuid) -> decode.success(uuid)
-      Error(Nil) -> decode.failure(uuid.nil, "Uuid")
-    }
-  })
-}
-
 pub fn transaction_decoder() -> decode.Decoder(Transaction) {
-  use id <- decode.field("id", uuid_decoder())
+  use id <- decode.field("id", uuid_codec.decoder())
   use amount <- decode.field("amount", money.decode_decimal())
   use description <- decode.field("description", decode.string)
   use date <- decode.field("date", date.decoder())
@@ -41,12 +32,12 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
   use account_id <- decode.optional_field(
     "accountId",
     None,
-    decode.optional(uuid_decoder()),
+    decode.optional(uuid_codec.decoder()),
   )
   use tag_id <- decode.optional_field(
     "tagId",
     None,
-    decode.optional(uuid_decoder()),
+    decode.optional(uuid_codec.decoder()),
   )
   decode.success(Transaction(
     id:,
