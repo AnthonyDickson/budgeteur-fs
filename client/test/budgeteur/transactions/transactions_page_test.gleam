@@ -1,8 +1,8 @@
-import budgeteur/api_error.{ApiError}
-import budgeteur/effect
-import budgeteur/http_effect
-import budgeteur/out_msg
-import budgeteur/toast
+import budgeteur/shared/api_error.{ApiError}
+import budgeteur/shared/effect
+import budgeteur/shared/http_effect
+import budgeteur/shared/out_msg
+import budgeteur/shared/toast
 import budgeteur/transactions/transaction
 import budgeteur/transactions/transaction_delete_modal.{
   Confirming, Deleting, Hidden,

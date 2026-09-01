@@ -117,18 +117,18 @@ The server uses a dual-layer logging system:
 
 Two-layer MVU: `app.gleam` is the shell (routing, toasts, model persistence, session expiry) and each feature page (e.g. `transactions/transactions_page.gleam`) owns its model, update, and view. The shell delegates to the active page and maps its effects up with `effect.map`.
 
-- `effect.gleam` — Custom `Effect` type (pure data) + interpreter (`run`) + `map`/`batch`/`none` helpers + thin per-method HTTP constructors (`get`, `post`, `put`, `patch`, `delete`). Feature modules only need to import `effect` for everyday effects.
-- `http_effect.gleam` — HTTP transport: `HttpMethod`, `HttpError` (transport vs. status-code errors), and `send` with a `transform` hook for per-request customisation (auth headers).
-- `effect_ffi.mjs` — Thin JS wrappers for `window.localStorage`, redirects, dialog controls, and client-side navigation.
-- `guard.gleam` — `use`-compatible early-return helpers for `Option`/`Result`.
-- `response.gleam` — 2xx body → typed `Result` and `HttpError` → `ApiError` helpers.
-- `out_msg.gleam` — child → parent channel; pages return an `OutMsg` alongside model and effect to request shell-level behaviours (currently toasts).
+- `shared/effect.gleam` — Custom `Effect` type (pure data) + interpreter (`run`) + `map`/`batch`/`none` helpers + thin per-method HTTP constructors (`get`, `post`, `put`, `patch`, `delete`). Feature modules only need to import `effect` for everyday effects.
+- `shared/http_effect.gleam` — HTTP transport: `HttpMethod`, `HttpError` (transport vs. status-code errors), and `send` with a `transform` hook for per-request customisation (auth headers).
+- `shared/effect_ffi.mjs` — Thin JS wrappers for `window.localStorage`, redirects, dialog controls, and client-side navigation.
+- `shared/guard.gleam` — `use`-compatible early-return helpers for `Option`/`Result`.
+- `shared/response.gleam` — 2xx body → typed `Result` and `HttpError` → `ApiError` helpers.
+- `shared/out_msg.gleam` — child → parent channel; pages return an `OutMsg` alongside model and effect to request shell-level behaviours (currently toasts).
 
 See [docs/architecture.md](docs/architecture.md) for the full design.
 
 ### Effect System Design
 
-`update` returns pure data — a description of side effects — and a single `effect.run` interpreter executes them against the real browser, keeping `update` functions testable without mocking. The `Effect` type in `effect.gleam` is the source of truth for the variants; broadly they cover HTTP, localStorage, navigation/history, browser chrome (title, dialogs), timers, message dispatch, batching, and no-ops. The shell adds two cross-cutting behaviours on top of every page's effects: serialising the whole model to localStorage after each update, and rewriting HTTP effects so a `401` response redirects to the login route.
+`update` returns pure data — a description of side effects — and a single `effect.run` interpreter executes them against the real browser, keeping `update` functions testable without mocking. The `Effect` type in `shared/effect.gleam` is the source of truth for the variants; broadly they cover HTTP, localStorage, navigation/history, browser chrome (title, dialogs), timers, message dispatch, batching, and no-ops. The shell adds two cross-cutting behaviours on top of every page's effects: serialising the whole model to localStorage after each update, and rewriting HTTP effects so a `401` response redirects to the login route.
 
 Bridging into Lustre: the shell wraps the custom `Effect` in Lustre's opaque `lustre_effect.Effect` via `lustre_effect.from(fn(dispatch) { effect.run(effect, dispatch) })`.
 

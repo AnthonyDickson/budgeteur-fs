@@ -1,5 +1,5 @@
-import budgeteur/date
-import budgeteur/money
+import budgeteur/shared/date
+import budgeteur/shared/money
 import budgeteur/transactions/create_transaction_request.{
   type CreateTransactionRequest,
 }

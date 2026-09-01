@@ -1,5 +1,6 @@
-import budgeteur/effect.{type Effect}
-import budgeteur/out_msg.{type OutMsg}
+import budgeteur/shared/effect.{type Effect}
+import budgeteur/shared/out_msg.{type OutMsg}
+import budgeteur/shared/toast
 import budgeteur/tags_and_rules/rule/rule.{type Rule, Rule}
 import budgeteur/tags_and_rules/rule/rule_delete_modal
 import budgeteur/tags_and_rules/rule/rule_form
@@ -11,7 +12,6 @@ import budgeteur/tags_and_rules/tag/tag_view
 import budgeteur/tags_and_rules/tags_and_rules_page_data.{
   type TagsAndRulesPageData, TagsAndRulesPageData,
 }
-import budgeteur/toast
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}

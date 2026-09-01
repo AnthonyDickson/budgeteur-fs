@@ -1,6 +1,6 @@
 import app
-import budgeteur/effect
-import budgeteur/http_effect
+import budgeteur/shared/effect
+import budgeteur/shared/http_effect
 import gleeunit/should
 
 // ── 401 interception ──────────────────────────────────────────────────────────

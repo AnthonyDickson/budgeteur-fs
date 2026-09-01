@@ -39,7 +39,7 @@ page is the natural moment to add a minimal header nav in the app shell
 ├───────────────────────────────────────────────────────────┤
 ```
 
-- New route: `/tags-and-rules`, added to `Route` in `route.gleam`.
+- New route: `/tags-and-rules`, added to `Route` in `shared/route.gleam`.
 - The header lives in `app.gleam`'s `view` so every page gets it.
 - Nav items: "Transactions" (`/transactions`), "Tags & Rules" (`/tags-and-rules`).
 - Active item is highlighted via the current route.
@@ -425,6 +425,6 @@ client/src/budgeteur/
       rule_delete_modal.gleam
 ```
 
-Plus wiring: new `Route` variant in `route.gleam`, `Page`/`Msg` variants and
+Plus wiring: new `Route` variant in `shared/route.gleam`, `Page`/`Msg` variants and
 header nav in `app.gleam`. No `ApiRoute` changes for the MVP — the future
 endpoint's shape is mirrored by `tags_and_rules_page_data`.

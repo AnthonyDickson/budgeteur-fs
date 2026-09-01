@@ -1,4 +1,4 @@
-import budgeteur/money
+import budgeteur/shared/money
 import gleeunit/should
 
 pub fn to_string_pads_single_decimal_place_test() {

@@ -1,11 +1,11 @@
-import budgeteur/api_error.{type ApiError}
-import budgeteur/api_route
-import budgeteur/date
-import budgeteur/effect.{type Effect}
-import budgeteur/money
-import budgeteur/out_msg.{type OutMsg}
-import budgeteur/response
-import budgeteur/toast
+import budgeteur/shared/api_error.{type ApiError}
+import budgeteur/shared/api_route
+import budgeteur/shared/date
+import budgeteur/shared/effect.{type Effect}
+import budgeteur/shared/money
+import budgeteur/shared/out_msg.{type OutMsg}
+import budgeteur/shared/response
+import budgeteur/shared/toast
 import budgeteur/transactions/create_transaction_request.{
   type CreateTransactionRequest,
 }

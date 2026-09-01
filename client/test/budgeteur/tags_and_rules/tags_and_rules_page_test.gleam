@@ -1,5 +1,5 @@
-import budgeteur/effect
-import budgeteur/out_msg.{type OutMsg}
+import budgeteur/shared/effect
+import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/tags_and_rules/rule/rule
 import budgeteur/tags_and_rules/rule/rule_delete_modal
 import budgeteur/tags_and_rules/rule/rule_form

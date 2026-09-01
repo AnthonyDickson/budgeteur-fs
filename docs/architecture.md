@@ -193,7 +193,7 @@ interpreter (`effect.run`) executes them against the real browser, wired into
 Lustre via `lustre_effect.from`. Because effects are plain values, unit tests
 can assert on them without a browser or HTTP mocking.
 
-The `Effect` type in `effect.gleam` is the source of truth for the full list of
+The `Effect` type in `shared/effect.gleam` is the source of truth for the full list of
 variants. Broadly they cover:
 
 - HTTP requests (via `http_effect.send`)
@@ -211,7 +211,7 @@ per-request customisation (e.g. auth headers).
 
 `http_effect.send` returns the raw response body as a string — 2xx as `Ok`,
 anything else as `Error(HttpError(status, body))`, and transport failures as
-`NetworkError`. Callers decode with the helpers in `response.gleam`.
+`NetworkError`. Callers decode with the helpers in `shared/response.gleam`.
 
 ### API routing (dev vs prod)
 
@@ -223,7 +223,7 @@ This is why no CORS is configured anywhere.
 
 ### Guard helpers
 
-`guard.gleam` provides `use`-compatible early-return helpers for `Option` and
+`shared/guard.gleam` provides `use`-compatible early-return helpers for `Option` and
 `Result`, mirroring `gleam/bool.lazy_guard` (both strict and lazy variants).
 
 ### Shell responsibilities
@@ -232,7 +232,7 @@ Things the shell does that feature pages should not know about:
 
 - **Routing** — no router library. `effect.init_routing` intercepts clicks on
   internal links and back/forward navigation, delivering each path to `update`
-  as a message. Routes are declared in `route.gleam`; unrecognised paths render
+  as a message. Routes are declared in `shared/route.gleam`; unrecognised paths render
   a 404 page.
 - **Model persistence** — after every update the whole model is serialised to
   localStorage and restored on startup, so the UI survives page reloads.

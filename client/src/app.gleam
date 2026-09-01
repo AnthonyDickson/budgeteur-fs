@@ -1,12 +1,12 @@
-import budgeteur/auth_route
-import budgeteur/effect.{type Effect}
-import budgeteur/guard
 import budgeteur/header
-import budgeteur/http_effect
-import budgeteur/out_msg.{type OutMsg}
-import budgeteur/route
+import budgeteur/shared/auth_route
+import budgeteur/shared/effect.{type Effect}
+import budgeteur/shared/guard
+import budgeteur/shared/http_effect
+import budgeteur/shared/out_msg.{type OutMsg}
+import budgeteur/shared/route
+import budgeteur/shared/toast.{type Toast}
 import budgeteur/tags_and_rules/tags_and_rules_page
-import budgeteur/toast.{type Toast}
 import budgeteur/transactions/transactions_page
 import gleam/io
 import gleam/list

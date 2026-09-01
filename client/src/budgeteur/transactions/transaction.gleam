@@ -1,5 +1,5 @@
-import budgeteur/date
-import budgeteur/money
+import budgeteur/shared/date
+import budgeteur/shared/money
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option.{type Option, None}

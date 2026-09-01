@@ -542,7 +542,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 ```
 
 No HTTP happens here, and no browser is touched. The function _describes_ the
-request as data; one interpreter (`effect.run` in `effect.gleam`) executes those
+request as data; one interpreter (`effect.run` in `shared/effect.gleam`) executes those
 descriptions against the real world. This is the Elm architecture's core move,
 and Gary Bernhardt's "functional core, imperative shell" is the same idea:
 
@@ -551,7 +551,7 @@ and Gary Bernhardt's "functional core, imperative shell" is the same idea:
   then asserts on the model. The test suite in `client/test/` does exactly this, in
   plain function calls.
 - **All the messy reality lives in one place.** The interpreter and a small
-  JS shim (`effect_ffi.mjs`) are the _only_ code that talks to the browser.
+  JS shim (`shared/effect_ffi.mjs`) are the _only_ code that talks to the browser.
 - **Effects compose.** `Batch` runs several; `map` renames the messages an
   effect produces so children can be embedded in parents.
 
@@ -619,7 +619,7 @@ state.
 
 In typical web apps, the URL is a string: parsed with regexes, compared with
 string literals scattered through components, and a typo silently renders a
-blank page. Here, routes are a type with a bidirectional mapping (`route.gleam`):
+blank page. Here, routes are a type with a bidirectional mapping (`shared/route.gleam`):
 
 ```gleam
 pub type Route { Transactions | NotFound }
@@ -727,9 +727,9 @@ tax is paid on every new pair of eyes, including your future self.
 **Gleam's bill is a young ecosystem.** Gleam is a small language with a small
 package registry, and only a fraction of its packages even target the browser.
 This repo doesn't use React Router, axios, Redux, or a toast library. It has
-`route.gleam`, `http_effect.gleam`, `effect.gleam`, and `toast.gleam` instead
+`shared/route.gleam`, `shared/http_effect.gleam`, `shared/effect.gleam`, and `shared/toast.gleam` instead
 (stops 9 and 12), each hand-rolled, plus hand-written JS glue
-(`effect_ffi.mjs`) where the language ends. In the mainstream ecosystem you'd
+(`shared/effect_ffi.mjs`) where the language ends. In the mainstream ecosystem you'd
 `npm install` your way out; here, infrastructure is a feature you maintain. The
 upside is full control and a tiny dependency tree; the cost is that any
 mainstream library you need, you write yourself.

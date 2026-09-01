@@ -1,4 +1,4 @@
-import budgeteur/toast.{type ToastLevel}
+import budgeteur/shared/toast.{type ToastLevel}
 import gleam/option.{type Option}
 
 /// Messages that are sent from child modules to the parent (root) module.

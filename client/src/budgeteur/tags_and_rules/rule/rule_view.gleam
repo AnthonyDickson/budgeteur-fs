@@ -1,4 +1,4 @@
-import budgeteur/guard
+import budgeteur/shared/guard
 import budgeteur/tags_and_rules/rule/rule.{type Rule}
 import budgeteur/tags_and_rules/tag/tag.{type Tag}
 import budgeteur/tags_and_rules/ui

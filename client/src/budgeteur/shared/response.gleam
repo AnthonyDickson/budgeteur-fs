@@ -1,5 +1,5 @@
-import budgeteur/api_error
-import budgeteur/http_effect.{type HttpError, HttpError, NetworkError}
+import budgeteur/shared/api_error
+import budgeteur/shared/http_effect.{type HttpError, HttpError, NetworkError}
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list

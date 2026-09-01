@@ -1,4 +1,4 @@
-import budgeteur/route
+import budgeteur/shared/route
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html

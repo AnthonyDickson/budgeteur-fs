@@ -1,5 +1,5 @@
-import budgeteur/date
-import budgeteur/money
+import budgeteur/shared/date
+import budgeteur/shared/money
 import gleam/json
 import gleam/time/calendar.{type Date}
 

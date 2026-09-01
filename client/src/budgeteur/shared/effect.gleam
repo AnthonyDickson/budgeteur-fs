@@ -1,4 +1,4 @@
-import budgeteur/http_effect.{
+import budgeteur/shared/http_effect.{
   type HttpError, type HttpMethod, Delete, Get, Patch, Post, Put, send,
 }
 import gleam/function
