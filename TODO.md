@@ -20,6 +20,18 @@
   - Connect frontend to tags and rules endpoints
     - CRUD for tags
     - CRUD for rules
+
+    UI flow should be:
+    request -> show loading spinner, disable buttons
+    ok -> hide modal, show success toast
+    error -> show error in form, hide loading spinner, enable buttons
+    error, modal was dismissed -> show error via toast
+    -> update model
+  - Refactor common
+  - Rename to just "tagging page"
+  - Clean up naming split between modal/form
+  - Move to Catppuccin Latte colour scheme
+    - Migrate tag colour swatch
   - Add E2E tests
   - Consider breaking up `tags_and_rules_page.gleam`
   - Ensures docs are up-to-date and sufficient
