@@ -1,6 +1,7 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/effect.{type Effect}
+import budgeteur/shared/guard
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/toast
@@ -15,6 +16,7 @@ import budgeteur/tags_and_rules/tag/tag_view
 import budgeteur/tags_and_rules/tags_and_rules_page_data.{
   type TagsAndRulesPageData, TagsAndRulesPageData,
 }
+import budgeteur/tags_and_rules/update_tag_request.{type UpdateTagRequest}
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -30,7 +32,7 @@ pub type Model {
     tags: List(Tag),
     rules: List(Rule),
     selected_tag: Option(Uuid),
-    tag_modal: tag_form.ModalState,
+    tag_modal: tag_form.Modal,
     tag_delete_modal: tag_delete_modal.DeleteModalState,
     rule_modal: rule_form.ModalState,
     rule_delete_modal: rule_delete_modal.DeleteModalState,
@@ -39,7 +41,10 @@ pub type Model {
 
 pub type Msg {
   ClientRestoredData(Option(TagsAndRulesPageData))
+  // API responses
   ClientFetchedData(Result(TagsAndRulesPageData, ApiError))
+  ServerUpdatedTag(Result(Tag, ApiError))
+
   // Tag modal messages
   UserRequestedTagCreation
   UserRequestedTagEdit(Uuid)
@@ -47,6 +52,8 @@ pub type Msg {
   UserUpdatedTagColor(String)
   UserSubmittedTagForm
   UserCancelledTagForm
+  /// The user closed the tag form without clicking any buttons
+  UserClosedTagForm
   // Tag delete modal messages
   UserRequestedTagDelete(Tag)
   UserConfirmedTagDelete
@@ -95,6 +102,7 @@ fn restore_data_from_store() -> Effect(Msg) {
   )
 }
 
+// TODO: See if there's a common pattern among the API request effect helpers and refactor
 fn fetch_page_data() -> Effect(Msg) {
   effect.get(api_route.GetTagsAndRules |> api_route.to_string, fn(result) {
     case result {
@@ -109,13 +117,30 @@ fn fetch_page_data() -> Effect(Msg) {
   })
 }
 
+fn put_update_tag(id: Uuid, request: UpdateTagRequest) -> Effect(Msg) {
+  effect.put(
+    api_route.UpdateTag(id) |> api_route.to_string,
+    update_tag_request.update_tag_request_to_json(request)
+      |> json.to_string,
+    fn(result) {
+      case result {
+        Ok(body) ->
+          response.decode_success(body, tag.tag_decoder())
+          |> ServerUpdatedTag
+        Error(http_error) ->
+          ServerUpdatedTag(Error(response.http_error_to_api_error(http_error)))
+      }
+    },
+  )
+}
+
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
       tags: [],
       rules: [],
       selected_tag: None,
-      tag_modal: tag_form.empty_modal(),
+      tag_modal: tag_form.hidden(),
       tag_delete_modal: tag_delete_modal.empty(),
       rule_modal: rule_form.create_modal(uuid.nil),
       rule_delete_modal: rule_delete_modal.empty(),
@@ -189,7 +214,7 @@ fn update_inner(
     )
 
     UserRequestedTagCreation -> #(
-      Model(..model, tag_modal: tag_form.empty_modal()),
+      Model(..model, tag_modal: tag_form.create_modal()),
       effect.ShowDialog(selector: tag_form.dom_id_selector),
       None,
     )
@@ -216,20 +241,24 @@ fn update_inner(
     }
 
     UserSubmittedTagForm -> {
+      let edit_tag_id = tag_form.get_id(model.tag_modal)
+
       let other_tag_names =
-        model.tags
-        |> list.filter(fn(tag) {
-          case model.tag_modal.mode {
-            tag_form.Edit(id) if tag.id == id -> False
-            _ -> True
-          }
-        })
+        case edit_tag_id {
+          Some(id) ->
+            model.tags
+            |> list.filter(fn(tag) { tag.id != id })
+          None -> model.tags
+        }
         |> list.map(fn(tag) { tag.name })
 
       case tag_form.validate(model.tag_modal, other_tag_names) {
-        Ok(#(name, color)) -> {
-          case model.tag_modal.mode {
-            tag_form.Create -> {
+        Ok(#(name, color)) ->
+          case edit_tag_id {
+            // Edit form
+            Some(id) -> request_update_tag(model, Tag(id:, name:, color:))
+            // Create form
+            None -> {
               let new_tag = Tag(id: uuid.v7(), name:, color:)
               let tags = sort_tags([new_tag, ..model.tags])
               #(
@@ -237,7 +266,7 @@ fn update_inner(
                   ..model,
                   tags:,
                   selected_tag: Some(new_tag.id),
-                  tag_modal: tag_form.empty_modal(),
+                  tag_modal: tag_form.hidden(),
                 ),
                 effect.CloseDialog(selector: tag_form.dom_id_selector),
                 Some(out_msg.PageRequestedToast(
@@ -248,43 +277,26 @@ fn update_inner(
                 )),
               )
             }
-            tag_form.Edit(id) -> {
-              let tags =
-                model.tags
-                |> list.map(fn(tag) {
-                  case tag.id == id {
-                    True -> Tag(..tag, name:, color:)
-                    False -> tag
-                  }
-                })
-                |> sort_tags
-              #(
-                Model(..model, tags:, tag_modal: tag_form.empty_modal()),
-                effect.CloseDialog(selector: tag_form.dom_id_selector),
-                Some(out_msg.PageRequestedToast(
-                  title: "Success",
-                  body: "Updated tag " <> name,
-                  level: toast.Success,
-                  dismiss_after_ms: Some(5000),
-                )),
-              )
-            }
           }
-        }
-        Error(form) -> #(
-          Model(
-            ..model,
-            tag_modal: tag_form.ModalState(..model.tag_modal, form: form),
-          ),
-          effect.none(),
-          None,
-        )
+
+        Error(tag_modal) -> #(Model(..model, tag_modal:), effect.none(), None)
       }
     }
+
+    ServerUpdatedTag(Ok(updated_tag)) ->
+      handle_update_tag_success(model, updated_tag)
+
+    ServerUpdatedTag(Error(error)) -> handle_update_tag_failure(model, error)
 
     UserCancelledTagForm -> #(
       model,
       effect.CloseDialog(selector: tag_form.dom_id_selector),
+      None,
+    )
+
+    UserClosedTagForm -> #(
+      Model(..model, tag_modal: tag_form.hidden()),
+      effect.none(),
       None,
     )
 
@@ -482,6 +494,96 @@ fn update_inner(
   }
 }
 
+fn request_update_tag(model: Model, tag_to_update: Tag) {
+  let Tag(id:, name:, color:) = tag_to_update
+
+  let updated_tag =
+    list.find(model.tags, fn(t) { t.id == id })
+    |> result.map(fn(tag) { Tag(..tag, name:, color:) })
+
+  use Tag(id:, name:, color:) <- guard.ok_lazy(updated_tag, else_return: fn(_) {
+    #(
+      model,
+      effect.LogError(string.join(
+        [
+          "Could not find tag for update request:",
+          "The tag: " <> string.inspect(tag_to_update),
+          "The state: " <> string.inspect(model),
+        ],
+        with: "\n",
+      )),
+      None,
+    )
+  })
+
+  use tag_modal <- guard.ok(
+    tag_form.submitting(model.tag_modal),
+    else_return: #(
+      model,
+      effect.LogError(
+        "Could not transition to submitting state for edit tag modal: "
+        <> string.inspect(model),
+      ),
+      None,
+    ),
+  )
+
+  let model = Model(..model, tag_modal:)
+  let effect =
+    put_update_tag(id, update_tag_request.UpdateTagRequest(name:, color:))
+
+  #(model, effect, None)
+}
+
+fn handle_update_tag_success(
+  model: Model,
+  updated_tag: Tag,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let tags =
+    list.map(model.tags, fn(tag) {
+      case tag.id == updated_tag.id {
+        True -> updated_tag
+        False -> tag
+      }
+    })
+    |> sort_tags
+
+  let model = Model(..model, tags:)
+  #(
+    model,
+    effect.CloseDialog(selector: tag_form.dom_id_selector),
+    Some(out_msg.PageRequestedToast(
+      title: "Success",
+      body: "Updated tag '" <> updated_tag.name <> "'",
+      level: toast.Success,
+      dismiss_after_ms: Some(5000),
+    )),
+  )
+}
+
+fn handle_update_tag_failure(
+  model: Model,
+  error: ApiError,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  case tag_form.errored(model.tag_modal, error.details) {
+    Ok(tag_modal) -> #(
+      Model(..model, tag_modal:),
+      effect.LogError(api_error.describe(error)),
+      None,
+    )
+    Error(Nil) -> #(
+      model,
+      effect.LogError(api_error.describe(error)),
+      Some(out_msg.PageRequestedToast(
+        title: "Could not update tag",
+        body: error.details,
+        level: toast.Error,
+        dismiss_after_ms: Some(5000),
+      )),
+    )
+  }
+}
+
 pub fn view(model: Model) -> Element(Msg) {
   html.div([attribute.class("mx-auto max-w-6xl px-4 py-8 sm:px-6")], [
     html.h1([attribute.class("mb-6 text-2xl font-semibold text-gray-900")], [
@@ -497,6 +599,7 @@ pub fn view(model: Model) -> Element(Msg) {
       on_color_click: UserUpdatedTagColor,
       on_submit: UserSubmittedTagForm,
       on_cancel: UserCancelledTagForm,
+      on_close: UserClosedTagForm,
     ),
     tag_delete_modal.view(
       model.tag_delete_modal,

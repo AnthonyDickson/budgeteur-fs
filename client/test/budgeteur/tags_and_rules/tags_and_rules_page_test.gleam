@@ -36,7 +36,7 @@ fn empty_model() -> tags_and_rules_page.Model {
     tags: [],
     rules: [],
     selected_tag: None,
-    tag_modal: tag_form.empty_modal(),
+    tag_modal: tag_form.hidden(),
     tag_delete_modal: tag_delete_modal.empty(),
     rule_modal: rule_form.create_modal(uuid.nil),
     rule_delete_modal: rule_delete_modal.empty(),
