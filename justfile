@@ -31,12 +31,16 @@ client-test:
 client-watch:
 	cd client && npx vite
 
-# Production client bundle
+# Development client bundle
 client-build:
+	cd client && npx vite build --mode development
+
+# Production client bundle
+client-build-prod:
 	cd client && npx vite build
 
 # Copy client dist into server wwwroot/
-copy-client-dist: client-build
+copy-client-dist: client-build-prod
 	mkdir -p server/src/Budgeteur/wwwroot
 	cp -r client/dist/* server/src/Budgeteur/wwwroot/
 
