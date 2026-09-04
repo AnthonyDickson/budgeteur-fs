@@ -9,13 +9,9 @@ The domain is a personal finance tracker: accounts, tags (categories), and trans
 ## Essential Commands
 
 ```bash
-just db-migration name=add_foo  # Scaffold a new migration file
-just db-update                  # db-migrate + db-generate (full schema update)
-just db-reset                   # Delete DB, re-apply all migrations, regenerate
 just server-build         # Build the server
 just server-watch         # Run the server (auto-applies DB migrations)
 just server-test          # Server Expecto tests
-just client-install-deps  # npm install
 just client-watch         # Start the client dev server (Vite + Gleam watch)
 just client-test          # Client gleeunit tests
 just e2e-test             # Playwright E2E tests in Docker
@@ -26,6 +22,48 @@ just lint                 # Lint F# with fsharplint
 The justfile is the source of truth for the full target list (`audit`, `outdated`, and the `db-*` family).
 
 Dev environment via Nix: `nix develop` (or `direnv allow`). Before client commands, run `just client-install-deps` to install npm packages.
+
+## Design Principles
+
+Broadly:
+
+- Make the right thing easy, code architecture and design should push developers towards correct, clear and concise code.
+- Prefer simple and direct code. Only add abstractions when there is a clear advantage and avoid over-engineering.
+- Prefer systemic fixes over work arounds. When there is a bug, unclear or convoluted code think: is the design correct?
+  What is the right level to fix (local fix vs archiceture/design level fix)? Code churn should reduce accidental complexity.
+
+More specifically:
+
+- Functional Programming
+  - Push I/O to the edges
+  - Make illegal states unrepresentable
+  - Functions as the default abstraction
+  - Programs as data, e.g. the effect system
+- Domain-Driven Design, e.g. Domain Modeling Made Functional by Scott Wlaschin
+  - Design should ideally start with the pure domain, everything else should follow.
+- Vertical Slice Architecture
+  - Group code by feature/workflow
+  - Some code duplication is acceptable, especially when establishing new features, code patterns or if the code changes
+    for different reasons
+  - Limit blast radius of changes by minimising coupling and maximising coherence within features
+- Client: MVU/TEA
+  - Two-tier, shell + page modules.
+  - Avoid stateful components (nested TEA)
+- Testing:
+  - Prefer tests where confidence is low: complex, multi-step, or stateful logic that's hard to verify by inspection (validation,
+    save/error/retry workflows), not simple single-arm mappings or trivially readable delegation.
+  - For a given feature, there should be at least one test that drives the intended usage's happy path end-to-end through
+    the real event flow, so regressions surface even when the failure is obvious only in combination.
+  - Only the E2E tests should exercise client-server interactions.
+  - The goal is to minimise maintenance while maximising the confidence gained from the tests.
+
+## Code Review
+
+Reviews should push the codebase towards the stated design principles.
+Code review should be an opportunity for simplifying and reducing code.
+
+Findings should be evidence based, reference the offending code, and for each finding clearly state the: severity,
+likelihood, confidence, recommended fix or fixes, and the trade offs of the recommendation(s).
 
 ## Architecture
 
@@ -171,7 +209,6 @@ Handlers return `Result<unit, DomainError>` and `Endpoint.handler` maps each cas
 
 ## Gotchas
 
-- **Lockfile enforced**: After adding/updating NuGet packages, run `dotnet restore --force-evaluate <project>`.
 - **Compilation order**: F# compiles server files in the order listed in `.fsproj` — insert new `.fs` files before files that depend on them.
 - **SqlHydra query parameters**: Function parameters can't be captured directly in query expressions. Bind them to local `let` values first (e.g. `let idStr = id.ToString()` before using in a `where` clause).
 - **Central Package Management**: Versions in `Directory.Packages.props`; project files use bare `<PackageReference Include="..." />`.
