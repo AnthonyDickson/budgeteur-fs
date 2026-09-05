@@ -100,7 +100,7 @@ pub fn fetched_data_sorts_and_selects_first_tag_test() {
 
   // Fetched data replaces the store so the next reload starts from it.
   let assert effect.Batch([
-    effect.None,
+    effect.NoEffect,
     effect.SaveToStore(key: key, value: value),
   ]) = effect
   key |> should.equal("budgeteur.tags")

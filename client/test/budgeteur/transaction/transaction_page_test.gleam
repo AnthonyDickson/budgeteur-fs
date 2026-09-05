@@ -419,7 +419,7 @@ pub fn server_fetched_transactions_persists_to_store_test() {
     )
 
   new_model.transactions |> should.equal([transaction])
-  let assert effect.Batch([effect.None, effect.SaveToStore(key:, value:)]) =
+  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
     effect
   key |> should.equal("budgeteur.transactions")
   value |> string.starts_with("{\"transactions\":[") |> should.be_true

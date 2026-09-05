@@ -6,6 +6,7 @@ import gleam/http/request
 import gleam/io
 import gleam/javascript/promise
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
 import gleam/time/timestamp
 
@@ -29,6 +30,10 @@ pub type Effect(msg) {
     content_type: String,
     callback: fn(Result(String, HttpError)) -> msg,
     transform: fn(request.Request(String)) -> request.Request(String),
+    /// Milliseconds after which the transport aborts the request and the
+    /// callback receives `Error(NetworkError(..))`. `None` (the default)
+    /// means no timeout.
+    timeout: Option(Int),
   )
   LoadFromStore(key: String, callback: fn(Result(String, String)) -> msg)
   SaveToStore(key: String, value: String)
@@ -51,7 +56,7 @@ pub type Effect(msg) {
   GetLocalDate(dispatch: fn(Date) -> msg)
   Message(msg)
   Batch(effects: List(Effect(msg)))
-  None
+  NoEffect
 }
 
 /// `GET` the given URL.
@@ -76,6 +81,7 @@ pub fn get(
     content_type: "",
     callback:,
     transform: function.identity,
+    timeout: None,
   )
 }
 
@@ -102,6 +108,7 @@ pub fn post(
     content_type: "application/json",
     callback:,
     transform: function.identity,
+    timeout: None,
   )
 }
 
@@ -128,6 +135,7 @@ pub fn put(
     content_type: "application/json",
     callback:,
     transform: function.identity,
+    timeout: None,
   )
 }
 
@@ -154,6 +162,7 @@ pub fn patch(
     content_type: "application/json",
     callback:,
     transform: function.identity,
+    timeout: None,
   )
 }
 
@@ -179,7 +188,26 @@ pub fn delete(
     content_type: "",
     callback:,
     transform: function.identity,
+    timeout: None,
   )
+}
+
+/// Bound an HTTP effect with a timeout (in milliseconds). When the request
+/// has not completed within `timeout`, the transport aborts it and the
+/// callback receives `Error(NetworkError(..))`.
+///
+/// ```gleam
+/// effect.post("/api/tags", body, callback)
+/// |> effect.with_timeout(tag_form.submit_timeout_ms)
+/// ```
+///
+/// Non-HTTP effects are returned unchanged.
+///
+pub fn with_timeout(effect: Effect(msg), timeout: Int) -> Effect(msg) {
+  case effect {
+    HttpRequest(..) as request -> HttpRequest(..request, timeout: Some(timeout))
+    other -> other
+  }
 }
 
 /// Set up client-side routing: intercept clicks on internal links, listen for
@@ -271,7 +299,15 @@ fn raw_close_dialog(selector: String) -> Nil
 ///
 pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
   case effect {
-    HttpRequest(method:, url:, body:, content_type:, callback:, transform:) ->
+    HttpRequest(
+      method:,
+      url:,
+      body:,
+      content_type:,
+      callback:,
+      transform:,
+      timeout:,
+    ) ->
       HttpRequest(
         method:,
         url:,
@@ -279,6 +315,7 @@ pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
         content_type:,
         callback: fn(result) { f(callback(result)) },
         transform:,
+        timeout:,
       )
     LoadFromStore(key:, callback:) ->
       LoadFromStore(key:, callback: fn(result) { f(callback(result)) })
@@ -295,7 +332,7 @@ pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
     GetLocalDate(message) -> GetLocalDate(fn(date) { f(message(date)) })
     Message(message) -> Message(f(message))
     Batch(effects:) -> Batch(list.map(effects, fn(e) { map(e, f) }))
-    None -> None
+    NoEffect -> NoEffect
   }
 }
 
@@ -312,7 +349,7 @@ pub fn batch(effects: List(Effect(msg))) -> Effect(msg) {
 /// A no-op effect — produces no messages.
 ///
 pub fn none() -> Effect(msg) {
-  None
+  NoEffect
 }
 
 /// Execute an `Effect` against the real world. This is the single point where
@@ -325,9 +362,17 @@ pub fn none() -> Effect(msg) {
 ///
 pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
   case effect {
-    HttpRequest(method:, url:, body:, content_type:, callback:, transform:) -> {
+    HttpRequest(
+      method:,
+      url:,
+      body:,
+      content_type:,
+      callback:,
+      transform:,
+      timeout:,
+    ) -> {
       let _ =
-        send(method, url, body, content_type, transform)
+        send(method, url, body, content_type, transform, timeout)
         |> promise.map(fn(result) { dispatch(callback(result)) })
       Nil
     }
@@ -382,6 +427,6 @@ pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
       Nil
     }
 
-    None -> Nil
+    NoEffect -> Nil
   }
 }
