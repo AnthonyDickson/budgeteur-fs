@@ -13,10 +13,10 @@ import budgeteur/tags_and_rules/tag/tag.{type Tag, Tag}
 import budgeteur/tags_and_rules/tag/tag_delete_modal
 import budgeteur/tags_and_rules/tag/tag_form
 import budgeteur/tags_and_rules/tag/tag_view
+import budgeteur/tags_and_rules/tag_write_request.{type TagWriteRequest}
 import budgeteur/tags_and_rules/tags_and_rules_page_data.{
   type TagsAndRulesPageData, TagsAndRulesPageData,
 }
-import budgeteur/tags_and_rules/update_tag_request.{type UpdateTagRequest}
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -117,10 +117,10 @@ fn fetch_page_data() -> Effect(Msg) {
   })
 }
 
-fn put_update_tag(id: Uuid, request: UpdateTagRequest) -> Effect(Msg) {
+fn put_update_tag(id: Uuid, request: TagWriteRequest) -> Effect(Msg) {
   effect.put(
     api_route.UpdateTag(id) |> api_route.to_string,
-    update_tag_request.update_tag_request_to_json(request)
+    tag_write_request.tag_write_request_to_json(request)
       |> json.to_string,
     fn(result) {
       case result {
@@ -530,7 +530,7 @@ fn request_update_tag(model: Model, tag_to_update: Tag) {
 
   let model = Model(..model, tag_modal:)
   let effect =
-    put_update_tag(id, update_tag_request.UpdateTagRequest(name:, color:))
+    put_update_tag(id, tag_write_request.TagWriteRequest(name:, color:))
 
   #(model, effect, None)
 }
