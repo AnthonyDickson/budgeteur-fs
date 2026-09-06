@@ -8,7 +8,7 @@ type RulePattern = private RulePattern of string
 
 module RulePattern =
     [<Literal>]
-    let private MaxPatternLength = 256
+    let private MaxPatternLength = 128
 
     let private nonEmpty (pattern : string) =
         if String.IsNullOrWhiteSpace pattern then
