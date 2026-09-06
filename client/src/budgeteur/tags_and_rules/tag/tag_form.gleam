@@ -315,8 +315,11 @@ fn set_form(state: Modal, form: Form) -> Modal {
 }
 
 fn update_name_field(name: String, form: Form) -> Form {
+  // Store the untrimmed input: the field is re-rendered from this value on
+  // every keystroke, so storing the trimmed name would eat a space the user
+  // just typed. Trimming happens on save, in `finalize`.
   let name = case validate_name(name) {
-    Ok(name) -> ValidName(input: name)
+    Ok(_) -> ValidName(input: name)
     Error(NameRequired) -> EmptyName(name)
     Error(error) -> InvalidName(input: name, error:)
   }

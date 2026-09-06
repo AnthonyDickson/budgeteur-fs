@@ -65,14 +65,20 @@ pub fn validate_does_not_count_self_as_duplicate_test() {
   name |> should.equal(existing_tag.name)
 }
 
-pub fn validate_trims_name_and_returns_color_test() {
+pub fn validate_trims_the_request_name_but_not_the_field_test() {
   let modal = make_create_modal() |> modal_with_tag_name("  Coffee  ")
 
-  let modal = try_validate(modal, [])
+  // The field keeps showing exactly what the user typed (trimming the field
+  // on submit would make the shown value jump around); the request carries
+  // the trimmed name.
+  let assert #(submitting, [request], NoChange) =
+    tag_form.update(modal, SaveRequested, [])
+  request
+  |> should.equal(CreateTag(TagWriteRequest("Coffee", tag_form.default_color)))
 
-  let assert Submitting(form: Form(name: ValidName(name), color:), ..) = modal
-    as "Expected the form to have a valid name and color"
-  name |> should.equal("Coffee")
+  let assert Submitting(form: Form(name: ValidName(input), color:), ..) =
+    submitting
+  input |> should.equal("  Coffee  ")
   color |> should.equal(tag_form.default_color)
 }
 
@@ -96,6 +102,21 @@ pub fn set_name_records_too_long_error_test() {
   let assert Active(form: Form(name: InvalidName(error: TooLong, ..), ..), ..) =
     modal
     as "Expected the name to be marked as too long"
+}
+
+pub fn typing_keeps_the_space_the_user_just_typed_test() {
+  // The field is re-rendered from this stored value on every keystroke, so a
+  // trailing space must survive NameChanged: trimming it here would eat the
+  // space while typing "Food & Drink" from scratch. Trim happens on save.
+  let #(state, _, _) =
+    tag_form.update(make_create_modal(), NameChanged("Food & "), [])
+
+  let assert Active(form: Form(name: ValidName(input), ..), ..) = state
+  input |> should.equal("Food & ")
+
+  let #(typed, _, _) = tag_form.update(state, NameChanged("Food & Drink"), [])
+  let assert Active(form: Form(name: ValidName(input), ..), ..) = typed
+  input |> should.equal("Food & Drink")
 }
 
 // ── Reducer transitions ───────────────────────────────────────────────────────
