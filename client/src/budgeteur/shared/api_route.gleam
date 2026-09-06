@@ -9,6 +9,8 @@ pub type ApiRoute {
   GetTagsAndRules
   CreateTag
   UpdateTag(id: Uuid)
+  CreateRule
+  UpdateRule(id: Uuid)
 }
 
 const api_prefix = "/api"
@@ -21,5 +23,7 @@ pub fn to_string(route: ApiRoute) -> String {
     GetTagsAndRules -> api_prefix <> "/tags-and-rules"
     CreateTag -> api_prefix <> "/tags"
     UpdateTag(id:) -> api_prefix <> "/tags/" <> uuid.to_string(id)
+    CreateRule -> api_prefix <> "/rules"
+    UpdateRule(id:) -> api_prefix <> "/rules/" <> uuid.to_string(id)
   }
 }

@@ -18,8 +18,8 @@
 
 - Tags and rules page:
   - Connect frontend to tags and rules endpoints
-    - CRUD for tags
-    - CRUD for rules
+    - delete tags
+    - delete rules
 
     UI flow should be:
     request -> show loading spinner, disable buttons
@@ -28,7 +28,6 @@
     error, modal was dismissed -> show error via toast
     -> update model
   - Refactor common code/patterns
-  - In tag form, disable colour picker while submitting
   - Rename to just "tagging page"
   - Clean up naming split between modal/form
   - Move to Catppuccin Latte colour scheme
@@ -38,7 +37,7 @@
   - Ensures docs are up-to-date and sufficient
   - Set transaction tag via create and update transaction dialogs
   - Display transaction tag in transactions table
-  - Update docs
+  - Update docs, e.g. architecture
 - Cut down AGENTS.md to around 150 lines
 
 ## Backlog

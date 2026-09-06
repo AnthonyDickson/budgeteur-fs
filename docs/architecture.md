@@ -186,6 +186,11 @@ a child-to-parent channel for requesting shell-level behaviours — currently us
 for toast notifications, but the mechanism is generic. A parent's `update` is
 therefore the single place where child requests are turned into shell effects.
 
+The same layering repeats inside a page: stateful modal forms (`tag_form`,
+`rule_form`) keep their modal state in the page model, raise their own `Msg`s
+(lifted with `element.map`), and return `Request`/`Outcome` pairs the page
+turns into effects and data changes.
+
 ### Effect system
 
 `update` returns pure data — a description of the side effects to perform. One

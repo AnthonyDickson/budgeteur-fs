@@ -38,7 +38,7 @@ fn empty_model() -> tags_and_rules_page.Model {
     selected_tag: None,
     tag_modal: tag_form.hidden(),
     tag_delete_modal: tag_delete_modal.empty(),
-    rule_modal: rule_form.create_modal(uuid.nil),
+    rule_modal: rule_form.hidden(),
     rule_delete_modal: rule_delete_modal.empty(),
   )
 }
@@ -181,7 +181,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
   new_model.selected_tag |> should.equal(Some(rent.id))
 }
 
-pub fn creating_rule_appends_to_existing_rules_test() {
+pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
   let coffee = tag_named(tag_id(1), "Coffee")
   let existing =
     rule.Rule(..make_rule_for(coffee.id), id: tag_id(7), pattern: "7-ELEVEN")
@@ -193,27 +193,38 @@ pub fn creating_rule_appends_to_existing_rules_test() {
       selected_tag: Some(coffee.id),
     )
 
-  let #(opened, _, _) =
-    tags_and_rules_page.update(
-      model,
-      tags_and_rules_page.UserRequestedRuleCreation,
+  // Opening the create form seeds the tag select with the selected tag.
+  let opened =
+    model
+    |> run(tags_and_rules_page.UserRequestedRuleCreation)
+    |> run(
+      tags_and_rules_page.RuleFormMsg(rule_form.PatternChanged("STARBUCKS")),
     )
-  let #(after_pattern, _, _) =
+  let #(submitting, submit_effect, _) =
     tags_and_rules_page.update(
       opened,
-      tags_and_rules_page.UserUpdatedRulePattern("STARBUCKS"),
+      tags_and_rules_page.RuleFormMsg(rule_form.SaveRequested),
     )
-  let #(new_model, _, _) =
+  let assert effect.Batch([
+    effect.HttpRequest(method: method, timeout: timeout, ..),
+  ]) = submit_effect
+  method |> should.equal(http_effect.Post)
+  timeout |> should.equal(Some(rule_form.submit_timeout_ms))
+
+  let created =
+    rule.Rule(id: tag_id(5), pattern: "STARBUCKS", tag_id: coffee.id)
+  let #(new_model, _, out_msg) =
     tags_and_rules_page.update(
-      after_pattern,
-      tags_and_rules_page.UserSubmittedRuleForm,
+      submitting,
+      tags_and_rules_page.RuleFormMsg(rule_form.SaveCompleted(Ok(created))),
     )
 
   // New rules append so insertion order equals rule evaluation order.
-  let assert [existing_kept, created] = new_model.rules
-  existing_kept |> should.equal(existing)
-  created.pattern |> should.equal("STARBUCKS")
-  created.tag_id |> should.equal(coffee.id)
+  new_model.rules |> should.equal([existing, created])
+  new_model.selected_tag |> should.equal(Some(coffee.id))
+  new_model.rule_modal |> should.equal(rule_form.hidden())
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
+    out_msg
 }
 
 pub fn editing_rule_can_move_it_to_another_tag_test() {
@@ -228,24 +239,105 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
       selected_tag: Some(coffee.id),
     )
 
-  let #(opened, _, _) =
-    tags_and_rules_page.update(
-      model,
-      tags_and_rules_page.UserRequestedRuleEdit(starbucks.id),
+  let opened =
+    run(model, tags_and_rules_page.UserRequestedRuleEdit(starbucks.id))
+    |> run(
+      tags_and_rules_page.RuleFormMsg(
+        rule_form.TagChanged(uuid.to_string(rent.id)),
+      ),
     )
-  let #(after_tag, _, _) =
+  let #(submitting, submit_effect, _) =
     tags_and_rules_page.update(
       opened,
-      tags_and_rules_page.UserUpdatedRuleTag(uuid.to_string(rent.id)),
+      tags_and_rules_page.RuleFormMsg(rule_form.SaveRequested),
     )
-  let #(new_model, _, _) =
+  let assert effect.Batch([
+    effect.HttpRequest(method: method, timeout: timeout, ..),
+  ]) = submit_effect
+  method |> should.equal(http_effect.Put)
+  timeout |> should.equal(Some(rule_form.submit_timeout_ms))
+
+  let moved = rule.Rule(..starbucks, tag_id: rent.id)
+  let #(new_model, _, out_msg) =
     tags_and_rules_page.update(
-      after_tag,
-      tags_and_rules_page.UserSubmittedRuleForm,
+      submitting,
+      tags_and_rules_page.RuleFormMsg(rule_form.SaveCompleted(Ok(moved))),
     )
 
-  let assert [moved] = new_model.rules
-  moved.tag_id |> should.equal(rent.id)
+  new_model.rules |> should.equal([moved])
+  new_model.rule_modal |> should.equal(rule_form.hidden())
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
+    out_msg
+}
+
+pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
+  let coffee = tag_named(tag_id(1), "Coffee")
+  let starbucks = make_rule_for(coffee.id)
+  let model =
+    tags_and_rules_page.Model(
+      ..empty_model(),
+      tags: [coffee],
+      rules: [starbucks],
+      selected_tag: Some(coffee.id),
+    )
+  let opened =
+    run(model, tags_and_rules_page.UserRequestedRuleEdit(starbucks.id))
+  let #(submitting, _, _) =
+    tags_and_rules_page.update(
+      opened,
+      tags_and_rules_page.RuleFormMsg(rule_form.SaveRequested),
+    )
+
+  let error =
+    ApiError(
+      error: "Conflict",
+      details: "boom",
+      status_code: Some(409),
+      request_id: None,
+    )
+  let #(failed, fail_effect, out_msg) =
+    tags_and_rules_page.update(
+      submitting,
+      tags_and_rules_page.RuleFormMsg(rule_form.SaveCompleted(Error(error))),
+    )
+
+  let assert rule_form.Errored(..) = failed.rule_modal
+  failed.rules |> should.equal(model.rules)
+  out_msg |> should.equal(None)
+  let assert effect.Batch([effect.LogError(_)]) = fail_effect
+}
+
+pub fn cancelling_the_rule_form_closes_it_without_changes_test() {
+  let coffee = tag_named(tag_id(1), "Coffee")
+  let model =
+    tags_and_rules_page.Model(
+      ..empty_model(),
+      tags: [coffee],
+      selected_tag: Some(coffee.id),
+    )
+  let opened = run(model, tags_and_rules_page.UserRequestedRuleCreation)
+  let #(closed, close_effect, _) =
+    tags_and_rules_page.update(
+      opened,
+      tags_and_rules_page.RuleFormMsg(rule_form.CancelRequested),
+    )
+
+  closed.rule_modal |> should.equal(rule_form.hidden())
+  closed.rules |> should.equal(model.rules)
+  let assert effect.Batch([effect.CloseDialog(_)]) = close_effect
+}
+
+pub fn editing_an_unknown_rule_is_a_noop_test() {
+  let model = model_with([tag_named(tag_id(1), "Coffee")])
+
+  let #(new_model, noop_effect, _) =
+    tags_and_rules_page.update(
+      model,
+      tags_and_rules_page.UserRequestedRuleEdit(tag_id(9)),
+    )
+
+  new_model |> should.equal(model)
+  let assert effect.NoEffect = noop_effect
 }
 
 // ── Tag form ──────────────────────────────────────────────────────────────────

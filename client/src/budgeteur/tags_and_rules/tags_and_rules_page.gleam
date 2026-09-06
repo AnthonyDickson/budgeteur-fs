@@ -4,10 +4,11 @@ import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/toast
-import budgeteur/tags_and_rules/rule/rule.{type Rule, Rule}
+import budgeteur/tags_and_rules/rule/rule.{type Rule}
 import budgeteur/tags_and_rules/rule/rule_delete_modal
 import budgeteur/tags_and_rules/rule/rule_form
 import budgeteur/tags_and_rules/rule/rule_view
+import budgeteur/tags_and_rules/rule_write_request
 import budgeteur/tags_and_rules/tag/tag.{type Tag}
 import budgeteur/tags_and_rules/tag/tag_delete_modal
 import budgeteur/tags_and_rules/tag/tag_form
@@ -33,7 +34,7 @@ pub type Model {
     selected_tag: Option(Uuid),
     tag_modal: tag_form.Modal,
     tag_delete_modal: tag_delete_modal.DeleteModalState,
-    rule_modal: rule_form.ModalState,
+    rule_modal: rule_form.Modal,
     rule_delete_modal: rule_delete_modal.DeleteModalState,
   )
 }
@@ -56,10 +57,7 @@ pub type Msg {
   // Rule modal messages
   UserRequestedRuleCreation
   UserRequestedRuleEdit(Uuid)
-  UserUpdatedRulePattern(String)
-  UserUpdatedRuleTag(String)
-  UserSubmittedRuleForm
-  UserCancelledRuleForm
+  RuleFormMsg(rule_form.Msg)
   // Rule delete modal messages
   UserRequestedRuleDelete(Rule, String)
   UserConfirmedRuleDelete
@@ -118,7 +116,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       selected_tag: None,
       tag_modal: tag_form.hidden(),
       tag_delete_modal: tag_delete_modal.empty(),
-      rule_modal: rule_form.create_modal(uuid.nil),
+      rule_modal: rule_form.hidden(),
       rule_delete_modal: rule_delete_modal.empty(),
     ),
     effect.batch([restore_data_from_store(), fetch_page_data()]),
@@ -259,108 +257,19 @@ fn update_inner(
 
     UserRequestedRuleCreation -> {
       case model.selected_tag {
-        Some(tag_id) -> #(
-          Model(..model, rule_modal: rule_form.create_modal(tag_id)),
-          effect.ShowDialog(selector: rule_form.dom_id_selector),
-          None,
-        )
+        Some(tag_id) -> run_rule_form(model, rule_form.CreateRequested(tag_id))
         None -> #(model, effect.none(), None)
       }
     }
 
     UserRequestedRuleEdit(id) -> {
       case list.find(model.rules, fn(rule) { rule.id == id }) {
-        Ok(rule) -> #(
-          Model(..model, rule_modal: rule_form.edit_modal(rule)),
-          effect.ShowDialog(selector: rule_form.dom_id_selector),
-          None,
-        )
+        Ok(rule) -> run_rule_form(model, rule_form.EditRequested(rule))
         Error(Nil) -> #(model, effect.none(), None)
       }
     }
 
-    UserUpdatedRulePattern(pattern) -> {
-      let rule_modal = rule_form.set_pattern(model.rule_modal, pattern)
-      #(Model(..model, rule_modal:), effect.none(), None)
-    }
-
-    UserUpdatedRuleTag(tag_id) -> {
-      let rule_modal = rule_form.set_tag(model.rule_modal, tag_id)
-      #(Model(..model, rule_modal:), effect.none(), None)
-    }
-
-    UserSubmittedRuleForm -> {
-      let other_patterns =
-        model.rules
-        |> list.filter(fn(rule) {
-          case model.rule_modal.mode {
-            rule_form.Edit(id) if rule.id == id -> False
-            _ -> True
-          }
-        })
-        |> list.map(fn(rule) { rule.pattern })
-
-      case rule_form.validate(model.rule_modal, other_patterns) {
-        Ok(#(pattern, tag_id)) -> {
-          case model.rule_modal.mode {
-            rule_form.Create -> {
-              let new_rule = Rule(id: uuid.v7(), pattern:, tag_id:)
-              #(
-                Model(
-                  ..model,
-                  rules: list.append(model.rules, [new_rule]),
-                  rule_modal: rule_form.create_modal(tag_id),
-                ),
-                effect.CloseDialog(selector: rule_form.dom_id_selector),
-                Some(out_msg.PageRequestedToast(
-                  title: "Success",
-                  body: "Created rule " <> pattern,
-                  level: toast.Success,
-                  dismiss_after_ms: Some(5000),
-                )),
-              )
-            }
-            rule_form.Edit(id) -> {
-              let rules =
-                list.map(model.rules, fn(rule) {
-                  case rule.id == id {
-                    True -> Rule(..rule, pattern:, tag_id:)
-                    False -> rule
-                  }
-                })
-              #(
-                Model(
-                  ..model,
-                  rules:,
-                  rule_modal: rule_form.create_modal(tag_id),
-                ),
-                effect.CloseDialog(selector: rule_form.dom_id_selector),
-                Some(out_msg.PageRequestedToast(
-                  title: "Success",
-                  body: "Updated rule " <> pattern,
-                  level: toast.Success,
-                  dismiss_after_ms: Some(5000),
-                )),
-              )
-            }
-          }
-        }
-        Error(form) -> #(
-          Model(
-            ..model,
-            rule_modal: rule_form.ModalState(..model.rule_modal, form: form),
-          ),
-          effect.none(),
-          None,
-        )
-      }
-    }
-
-    UserCancelledRuleForm -> #(
-      model,
-      effect.CloseDialog(selector: rule_form.dom_id_selector),
-      None,
-    )
+    RuleFormMsg(msg) -> run_rule_form(model, msg)
 
     UserRequestedRuleDelete(rule, tag_name) -> #(
       Model(..model, rule_delete_modal: rule_delete_modal.open(rule, tag_name)),
@@ -508,6 +417,119 @@ fn handle_tag_response(result) {
   }
 }
 
+fn run_rule_form(
+  model: Model,
+  msg: rule_form.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(rule_modal, requests, outcome) =
+    rule_form.update(model.rule_modal, msg, model.rules)
+  let model = Model(..model, rule_modal:)
+  apply_rule_form(model, requests, outcome, msg)
+}
+
+fn apply_rule_form(
+  model: Model,
+  requests: List(rule_form.Request),
+  outcome: rule_form.Outcome,
+  msg: rule_form.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let model = case outcome {
+    rule_form.NoChange -> model
+    rule_form.Created(rule:) -> {
+      // New rules append so insertion order equals rule evaluation order.
+      let rules = list.append(model.rules, [rule])
+      Model(..model, rules:)
+    }
+    rule_form.Updated(rule:) -> {
+      let rules =
+        list.map(model.rules, fn(r) {
+          case r.id == rule.id {
+            True -> rule
+            False -> r
+          }
+        })
+      Model(..model, rules:)
+    }
+  }
+
+  let effects = interpret_rule_form_requests(requests)
+  let effects = case msg {
+    rule_form.SaveCompleted(result: Error(error)) -> [
+      effect.LogError(api_error.describe(error)),
+      ..effects
+    ]
+    _ -> effects
+  }
+
+  let out_msg = case outcome {
+    rule_form.NoChange -> None
+    rule_form.Created(rule:) ->
+      Some(out_msg.PageRequestedToast(
+        title: "Success",
+        body: "Created rule " <> rule.pattern,
+        level: toast.Success,
+        dismiss_after_ms: Some(5000),
+      ))
+    rule_form.Updated(rule:) ->
+      Some(out_msg.PageRequestedToast(
+        title: "Success",
+        body: "Updated rule " <> rule.pattern,
+        level: toast.Success,
+        dismiss_after_ms: Some(5000),
+      ))
+  }
+
+  #(model, effect.batch(effects), out_msg)
+}
+
+fn interpret_rule_form_requests(requests: List(rule_form.Request)) {
+  case requests {
+    [] -> []
+    [request, ..others] -> [
+      interpret_rule_form_request(request),
+      ..interpret_rule_form_requests(others)
+    ]
+  }
+}
+
+fn interpret_rule_form_request(request: rule_form.Request) -> Effect(Msg) {
+  case request {
+    rule_form.ShowDialog -> effect.ShowDialog(rule_form.dom_id_selector)
+    rule_form.CloseDialog -> effect.CloseDialog(rule_form.dom_id_selector)
+    rule_form.CreateRule(request:) -> {
+      effect.post(
+        api_route.CreateRule |> api_route.to_string,
+        rule_write_request.to_json(request)
+          |> json.to_string,
+        handle_rule_response,
+      )
+      |> effect.with_timeout(rule_form.submit_timeout_ms)
+      |> effect.map(RuleFormMsg)
+    }
+    rule_form.PutRule(id:, request:) ->
+      effect.put(
+        api_route.UpdateRule(id) |> api_route.to_string,
+        rule_write_request.to_json(request)
+          |> json.to_string,
+        handle_rule_response,
+      )
+      |> effect.with_timeout(rule_form.submit_timeout_ms)
+      |> effect.map(RuleFormMsg)
+  }
+}
+
+fn handle_rule_response(result) {
+  case result {
+    Ok(body) ->
+      response.decode_success(body, rule.rule_decoder())
+      |> rule_form.SaveCompleted
+    Error(http_error) ->
+      rule_form.SaveCompleted(
+        Error(response.http_error_to_api_error(http_error)),
+      )
+  }
+}
+
 pub fn view(model: Model) -> Element(Msg) {
   html.div([attribute.class("mx-auto max-w-6xl px-4 py-8 sm:px-6")], [
     html.h1([attribute.class("mb-6 text-2xl font-semibold text-gray-900")], [
@@ -524,14 +546,8 @@ pub fn view(model: Model) -> Element(Msg) {
       on_cancel: UserCancelledTagDelete,
       on_confirm: UserConfirmedTagDelete,
     ),
-    rule_form.view(
-      model.rule_modal,
-      model.tags,
-      on_pattern_input: UserUpdatedRulePattern,
-      on_tag_change: UserUpdatedRuleTag,
-      on_submit: UserSubmittedRuleForm,
-      on_cancel: UserCancelledRuleForm,
-    ),
+    rule_form.view(model.rule_modal, model.tags)
+      |> element.map(RuleFormMsg),
     rule_delete_modal.view(
       model.rule_delete_modal,
       on_cancel: UserCancelledRuleDelete,
