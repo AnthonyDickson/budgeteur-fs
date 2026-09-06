@@ -4,18 +4,18 @@ import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/toast
-import budgeteur/tags_and_rules/rule/rule.{type Rule}
-import budgeteur/tags_and_rules/rule/rule_delete_modal
-import budgeteur/tags_and_rules/rule/rule_form
-import budgeteur/tags_and_rules/rule/rule_view
-import budgeteur/tags_and_rules/rule_write_request
-import budgeteur/tags_and_rules/tag/tag.{type Tag}
-import budgeteur/tags_and_rules/tag/tag_delete_modal
-import budgeteur/tags_and_rules/tag/tag_form
-import budgeteur/tags_and_rules/tag/tag_view
-import budgeteur/tags_and_rules/tag_write_request
-import budgeteur/tags_and_rules/tags_and_rules_page_data.{
-  type TagsAndRulesPageData, TagsAndRulesPageData,
+import budgeteur/tagging_page/rule/rule.{type Rule}
+import budgeteur/tagging_page/rule/rule_delete_modal
+import budgeteur/tagging_page/rule/rule_form
+import budgeteur/tagging_page/rule/rule_view
+import budgeteur/tagging_page/rule_write_request
+import budgeteur/tagging_page/tag/tag.{type Tag}
+import budgeteur/tagging_page/tag/tag_delete_modal
+import budgeteur/tagging_page/tag/tag_form
+import budgeteur/tagging_page/tag/tag_view
+import budgeteur/tagging_page/tag_write_request
+import budgeteur/tagging_page/tagging_page_data.{
+  type TaggingPageData, TaggingPageData,
 }
 import gleam/json
 import gleam/list
@@ -40,9 +40,9 @@ pub type Model {
 }
 
 pub type Msg {
-  ClientRestoredData(Option(TagsAndRulesPageData))
+  ClientRestoredData(Option(TaggingPageData))
   // API responses
-  ClientFetchedData(Result(TagsAndRulesPageData, ApiError))
+  ClientFetchedData(Result(TaggingPageData, ApiError))
 
   // Tag modal messages
   UserRequestedTagCreation
@@ -66,8 +66,8 @@ pub type Msg {
 
 fn persist_data(model: Model) -> Effect(Msg) {
   effect.SaveToStore(
-    tags_and_rules_page_data.storage_key,
-    tags_and_rules_page_data.data_to_string(TagsAndRulesPageData(
+    tagging_page_data.storage_key,
+    tagging_page_data.data_to_string(TaggingPageData(
       tags: model.tags,
       rules: model.rules,
     )),
@@ -76,13 +76,11 @@ fn persist_data(model: Model) -> Effect(Msg) {
 
 fn restore_data_from_store() -> Effect(Msg) {
   effect.LoadFromStore(
-    key: tags_and_rules_page_data.storage_key,
+    key: tagging_page_data.storage_key,
     callback: fn(store_result) {
       case store_result {
         Ok(value) -> {
-          case
-            json.parse(value, using: tags_and_rules_page_data.data_decoder())
-          {
+          case json.parse(value, using: tagging_page_data.data_decoder()) {
             Ok(data) -> ClientRestoredData(Some(data))
             Error(_) -> ClientRestoredData(None)
           }
@@ -95,12 +93,12 @@ fn restore_data_from_store() -> Effect(Msg) {
 
 // TODO: See if there's a common pattern among the API request effect helpers and refactor
 fn fetch_page_data() -> Effect(Msg) {
-  effect.get(api_route.GetTagsAndRules |> api_route.to_string, fn(result) {
+  effect.get(api_route.GetTaggingData |> api_route.to_string, fn(result) {
     case result {
       Ok(body) ->
         ClientFetchedData(response.decode_success(
           body,
-          tags_and_rules_page_data.data_decoder(),
+          tagging_page_data.data_decoder(),
         ))
       Error(http_error) ->
         ClientFetchedData(Error(response.http_error_to_api_error(http_error)))

@@ -32,12 +32,12 @@ module RuleDto =
         TagId = rule.TagId
     }
 
-type TagsAndRulesResponse = {
+type TaggingDataResponse = {
     Tags : TagDto list
     Rules : RuleDto list
 }
 
-module ReadTagsAndRules =
+module ReadTaggingData =
     open System.Collections.Generic
     open System.Threading.Tasks
 
@@ -56,7 +56,7 @@ module ReadTagsAndRules =
     open Budgeteur.Shared.RequestLogging
 
     [<Literal>]
-    let Path = "/api/tags-and-rules"
+    let Path = "/api/tagging"
 
     let private getTags (queryContext : QueryContextFactory) (userId : string) =
         task {
@@ -110,7 +110,7 @@ module ReadTagsAndRules =
         |> addOpenApi (
             OpenApiConfig (
                 responseBodies = [|
-                    ResponseBody typeof<TagsAndRulesResponse>
+                    ResponseBody typeof<TaggingDataResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                 |],
                 configureOperation =

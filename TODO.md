@@ -28,13 +28,11 @@
     error, modal was dismissed -> show error via toast
     -> update model
   - Refactor common code/patterns
-  - Rename to just "tagging page"
   - Clean up naming split between modal/form
   - Move to Catppuccin Latte colour scheme
     - Migrate tag colour swatch
   - Add E2E tests
-  - Consider breaking up `tags_and_rules_page.gleam`
-  - Ensures docs are up-to-date and sufficient
+  - Ensure docs are up-to-date and sufficient
   - Set transaction tag via create and update transaction dialogs
   - Display transaction tag in transactions table
   - Update docs, e.g. architecture

@@ -25,13 +25,13 @@ pub fn view(current_route: route.Route) -> Element(msg) {
           nav_link(
             route.Transactions,
             current_route,
-            "/transactions",
+            route.to_string(route.Transactions),
             "Transactions",
           ),
           nav_link(
-            route.TagsAndRules,
+            route.Tagging,
             current_route,
-            "/tags-and-rules",
+            route.to_string(route.Tagging),
             "Tags & Rules",
           ),
         ]),

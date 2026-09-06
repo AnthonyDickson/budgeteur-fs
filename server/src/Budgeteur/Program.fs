@@ -253,7 +253,7 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
         |> withAuth
 
     let taggingPageEndpoints =
-        [ GET [ ReadTagsAndRules.endpoint queryContext ] ] |> withAuth
+        [ GET [ ReadTaggingData.endpoint queryContext ] ] |> withAuth
 
     Seq.concat [
         authEndpoints

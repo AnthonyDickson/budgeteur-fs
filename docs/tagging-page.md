@@ -1,4 +1,4 @@
-# Tags & Rules Page — UX/UI Design
+# Tagging Page — UX/UI Design
 
 Status: **Design spec** — decisions locked, ready to implement; MVP fully
 local (client-only, no backend)
@@ -39,9 +39,9 @@ page is the natural moment to add a minimal header nav in the app shell
 ├───────────────────────────────────────────────────────────┤
 ```
 
-- New route: `/tags-and-rules`, added to `Route` in `shared/route.gleam`.
+- New route: `/tagging`, added to `Route` in `shared/route.gleam`.
 - The header lives in `app.gleam`'s `view` so every page gets it.
-- Nav items: "Transactions" (`/transactions`), "Tags & Rules" (`/tags-and-rules`).
+- Nav items: "Transactions" (`/transactions`), "Tags & Rules" (`/tagging`).
 - Active item is highlighted via the current route.
 
 ## Page Structure — Master-Detail
@@ -406,14 +406,14 @@ Follow the transactions slice layout:
 
 Tag and rule are distinct aggregates (each with its own type, form, and
 delete modal), so they get subfolders; page-level modules stay at the
-`tags_and_rules/` root:
+`tagging_page/` root:
 
 ```
 client/src/budgeteur/
-  tags_and_rules/
-    tags_and_rules_page.gleam        # page: Model, Msg, update, view, master-detail layout,
+  tagging_page/
+    tagging_page.gleam        # page: Model, Msg, update, view, master-detail layout,
                                      # localStorage load/persist
-    tags_and_rules_page_data.gleam   # TagsAndRulesPageData payload type + JSON codecs + storage key
+    tagging_page_data.gleam   # TaggingPageData payload type + JSON codecs + storage key
                                      # (the future GET /api/tags payload, defined now)
     tag/
       tag.gleam            # Tag type + JSON codec (id, name, color)
@@ -427,4 +427,4 @@ client/src/budgeteur/
 
 Plus wiring: new `Route` variant in `shared/route.gleam`, `Page`/`Msg` variants and
 header nav in `app.gleam`. No `ApiRoute` changes for the MVP — the future
-endpoint's shape is mirrored by `tags_and_rules_page_data`.
+endpoint's shape is mirrored by `tagging_page_data`.

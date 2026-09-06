@@ -1,7 +1,7 @@
 import budgeteur/shared/guard
-import budgeteur/tags_and_rules/rule/rule.{type Rule}
-import budgeteur/tags_and_rules/tag/tag.{type Tag}
-import budgeteur/tags_and_rules/ui
+import budgeteur/tagging_page/rule/rule.{type Rule}
+import budgeteur/tagging_page/tag/tag.{type Tag}
+import budgeteur/tagging_page/ui
 import gleam/list
 import gleam/option.{type Option}
 import lustre/attribute

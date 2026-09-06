@@ -1,5 +1,5 @@
-import budgeteur/tags_and_rules/tag/tag.{type Tag}
-import budgeteur/tags_and_rules/ui
+import budgeteur/tagging_page/tag/tag.{type Tag}
+import budgeteur/tagging_page/ui
 import gleam/list
 import gleam/option.{type Option, Some}
 import lustre/attribute

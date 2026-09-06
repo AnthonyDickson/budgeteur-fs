@@ -1,13 +1,13 @@
 import budgeteur/shared/api_error.{type ApiError, ApiError}
-import budgeteur/tags_and_rules/tag/tag.{type Tag, Tag}
-import budgeteur/tags_and_rules/tag/tag_form.{
+import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
+import budgeteur/tagging_page/tag/tag_form.{
   type Modal, Active, CancelRequested, CloseDialog, ColorChosen, Create,
   CreateRequested, CreateTag, Created, DialogDismissed, Duplicate, Edit,
   EditRequested, Errored, Form, Hidden, InvalidName, NameChanged, NameRequired,
   NoChange, PutTag, SaveCompleted, SaveRequested, Submitting, TooLong, Updated,
   ValidName,
 }
-import budgeteur/tags_and_rules/tag_write_request.{TagWriteRequest}
+import budgeteur/tagging_page/tag_write_request.{TagWriteRequest}
 import gleam/option.{None, Some}
 import gleam/string
 import gleeunit/should

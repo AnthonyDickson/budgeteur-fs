@@ -1,9 +1,9 @@
 import budgeteur/shared/api_error.{type ApiError}
-import budgeteur/tags_and_rules/rule/rule.{type Rule, Rule}
-import budgeteur/tags_and_rules/rule_write_request.{
+import budgeteur/tagging_page/rule/rule.{type Rule, Rule}
+import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
 }
-import budgeteur/tags_and_rules/tag/tag.{type Tag}
+import budgeteur/tagging_page/tag/tag.{type Tag}
 import gleam/dynamic/decode
 import gleam/int
 import gleam/list

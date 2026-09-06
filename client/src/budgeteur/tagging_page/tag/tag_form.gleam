@@ -1,6 +1,6 @@
 import budgeteur/shared/api_error.{type ApiError}
-import budgeteur/tags_and_rules/tag/tag.{type Tag, Tag}
-import budgeteur/tags_and_rules/tag_write_request.{
+import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
+import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
 }
 import gleam/dynamic/decode

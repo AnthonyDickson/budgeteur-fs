@@ -7,7 +7,7 @@
 > uniqueness/cascade move server-side, `submitting` states appear, and the
 > corrupt-storage test dies with localStorage). The domain logic the heavy
 > tests would check is already covered by `just client-test`
-> (`tags_and_rules_page_test.gleam`, `tag_form_test.gleam`,
+> (`tagging_page_test.gleam`, `tag_form_test.gleam`,
 > `rule_form_test.gleam`). See the "What to keep / defer" section at the end.
 
 Proposed Playwright coverage for the tags & rules page (MVP: fully local,
@@ -39,7 +39,7 @@ Context that shapes the suite:
 The single most valuable test: it exercises every mutation plus the entire
 localStorage round-trip in one flow.
 
-1. Clear storage, open `/tags-and-rules` → no-tags empty state.
+1. Clear storage, open `/tagging` → no-tags empty state.
 2. Create two tags ("Rent", "Coffee" — deliberately non-alphabetical) via
    `new-tag-button` → both rows appear, sorted alphabetically (Coffee first).
 3. **Reload the page** → both tags still there, "Coffee" auto-selected.
@@ -61,11 +61,11 @@ save; deletion updates both lists.
 
 Regression guard for the "page backup wiped on page change" class of bugs.
 
-1. Create a tag on `/tags-and-rules`.
+1. Create a tag on `/tagging`.
 2. Navigate to `/transactions` via the header nav, create a transaction.
-3. Navigate back to `/tags-and-rules` → tag still present and selected.
+3. Navigate back to `/tagging` → tag still present and selected.
 4. Reload `/transactions` → the transaction is still there.
-5. Reload `/tags-and-rules` → tag still there.
+5. Reload `/tagging` → tag still there.
 
 **Invariant**: each page persists and restores its own key
 (`budgeteur.tags` vs `budgeteur.transactions`); page changes never clobber
@@ -160,8 +160,8 @@ operation ("Created tag …", "Deleted rule …"). Also assert no toast on Cance
 
 1. Both nav links ("Transactions", "Tags & Rules") render; the active one is
    highlighted on each page.
-2. Direct load of `/tags-and-rules` works (not just client-side nav).
-3. `/tags-and-rules/` trailing-slash and unknown paths fall back gracefully
+2. Direct load of `/tagging` works (not just client-side nav).
+3. `/tagging/` trailing-slash and unknown paths fall back gracefully
    (404 page) without crashing.
 
 ### 12. Color picker round-trip
@@ -186,7 +186,7 @@ operation ("Created tag …", "Deleted rule …"). Also assert no toast on Cance
 
 ```
 tests/e2e/
-  tags-and-rules.spec.ts      # P0–P3 above, roughly one describe per tier
+  tagging.spec.ts      # P0–P3 above, roughly one describe per tier
 ```
 
 Follow `transactions.spec.ts` conventions: `test.describe('tags and rules')`,
@@ -202,7 +202,7 @@ timestamp-suffixed unique names, `screenshotPath` retry-aware screenshots,
 2. Create a tag then a rule under it: dialogs open/close, rows appear,
    master-detail wiring works, `new-rule-button` targets the selected tag.
 3. Header nav: both links render, active link highlighted, direct load of
-   `/tags-and-rules` works.
+   `/tagging` works.
 
 These pin down the DOM/`data-testid` contract, dialog behaviour, and
 client-side routing — the only things a real browser can catch that unit
