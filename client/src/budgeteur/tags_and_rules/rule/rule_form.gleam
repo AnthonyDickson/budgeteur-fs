@@ -470,6 +470,7 @@ fn view_form(
               attribute.classes([
                 #(error_border_style, option.is_some(pattern_error)),
               ]),
+              attribute.autofocus(True),
               attribute.value(field_pattern_input(pattern)),
               attribute.disabled(submitting),
               event.on_input(PatternChanged),

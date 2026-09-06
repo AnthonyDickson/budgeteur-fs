@@ -428,6 +428,7 @@ fn view_form(
               attribute.classes([
                 #(error_border_style, option.is_some(name_error)),
               ]),
+              attribute.autofocus(True),
               attribute.value(field_name_input(name)),
               attribute.disabled(submitting),
               event.on_input(NameChanged),
