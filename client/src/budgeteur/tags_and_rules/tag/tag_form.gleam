@@ -419,12 +419,14 @@ fn view_form(
               attribute.placeholder("e.g. Food & Drink"),
               attribute.class(
                 "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500",
+                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
+                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
               ),
               attribute.classes([
                 #(error_border_style, option.is_some(name_error)),
               ]),
               attribute.value(field_name_input(name)),
+              attribute.disabled(submitting),
               event.on_input(NameChanged),
             ]),
             view_name_error(name_error),
@@ -453,6 +455,7 @@ fn view_form(
                     attribute.class(
                       "flex h-8 w-8 items-center justify-center rounded-full "
                       <> "focus:outline-none focus:ring-2 focus:ring-offset-2 "
+                      <> "disabled:cursor-not-allowed disabled:opacity-60 "
                       <> case is_selected {
                         True ->
                           "ring-2 ring-gray-900 ring-offset-2 "
@@ -462,6 +465,7 @@ fn view_form(
                     ),
                     attribute.style("background-color", palette_color),
                     attribute.aria_label("Use color " <> palette_color),
+                    attribute.disabled(submitting),
                     event.on_click(ColorChosen(palette_color)),
                   ],
                   case is_selected {
