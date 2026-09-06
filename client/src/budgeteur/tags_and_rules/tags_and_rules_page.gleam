@@ -1,7 +1,6 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/effect.{type Effect}
-import budgeteur/shared/guard
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/toast
@@ -13,7 +12,7 @@ import budgeteur/tags_and_rules/tag/tag.{type Tag, Tag}
 import budgeteur/tags_and_rules/tag/tag_delete_modal
 import budgeteur/tags_and_rules/tag/tag_form
 import budgeteur/tags_and_rules/tag/tag_view
-import budgeteur/tags_and_rules/tag_write_request.{type TagWriteRequest}
+import budgeteur/tags_and_rules/tag_write_request
 import budgeteur/tags_and_rules/tags_and_rules_page_data.{
   type TagsAndRulesPageData, TagsAndRulesPageData,
 }
@@ -43,17 +42,12 @@ pub type Msg {
   ClientRestoredData(Option(TagsAndRulesPageData))
   // API responses
   ClientFetchedData(Result(TagsAndRulesPageData, ApiError))
-  ServerUpdatedTag(Result(Tag, ApiError))
 
   // Tag modal messages
   UserRequestedTagCreation
   UserRequestedTagEdit(Uuid)
-  UserUpdatedTagName(String)
-  UserUpdatedTagColor(String)
-  UserSubmittedTagForm
-  UserCancelledTagForm
-  /// The user closed the tag form without clicking any buttons
-  UserClosedTagForm
+  TagFormMsg(tag_form.Msg)
+  TEMPFormCreatedTag(Tag)
   // Tag delete modal messages
   UserRequestedTagDelete(Tag)
   UserConfirmedTagDelete
@@ -115,23 +109,6 @@ fn fetch_page_data() -> Effect(Msg) {
         ClientFetchedData(Error(response.http_error_to_api_error(http_error)))
     }
   })
-}
-
-fn put_update_tag(id: Uuid, request: TagWriteRequest) -> Effect(Msg) {
-  effect.put(
-    api_route.UpdateTag(id) |> api_route.to_string,
-    tag_write_request.tag_write_request_to_json(request)
-      |> json.to_string,
-    fn(result) {
-      case result {
-        Ok(body) ->
-          response.decode_success(body, tag.tag_decoder())
-          |> ServerUpdatedTag
-        Error(http_error) ->
-          ServerUpdatedTag(Error(response.http_error_to_api_error(http_error)))
-      }
-    },
-  )
 }
 
 pub fn init() -> #(Model, Effect(Msg)) {
@@ -213,92 +190,23 @@ fn update_inner(
       )),
     )
 
-    UserRequestedTagCreation -> #(
-      Model(..model, tag_modal: tag_form.create_modal()),
-      effect.ShowDialog(selector: tag_form.dom_id_selector),
-      None,
-    )
+    UserRequestedTagCreation -> run_tag_form(model, tag_form.CreateRequested)
 
     UserRequestedTagEdit(id) -> {
       case list.find(model.tags, fn(tag) { tag.id == id }) {
-        Ok(tag) -> #(
-          Model(..model, tag_modal: tag_form.edit_modal(tag)),
-          effect.ShowDialog(selector: tag_form.dom_id_selector),
-          None,
-        )
+        Ok(tag) -> run_tag_form(model, tag_form.EditRequested(tag))
+
         Error(Nil) -> #(model, effect.none(), None)
       }
     }
 
-    UserUpdatedTagName(name) -> {
-      let tag_modal = tag_form.set_name(model.tag_modal, name)
-      #(Model(..model, tag_modal:), effect.none(), None)
-    }
+    TagFormMsg(inner_msg) -> run_tag_form(model, inner_msg)
 
-    UserUpdatedTagColor(color) -> {
-      let tag_modal = tag_form.set_color(model.tag_modal, color)
-      #(Model(..model, tag_modal:), effect.none(), None)
-    }
-
-    UserSubmittedTagForm -> {
-      let edit_tag_id = tag_form.get_id(model.tag_modal)
-
-      let other_tag_names =
-        case edit_tag_id {
-          Some(id) ->
-            model.tags
-            |> list.filter(fn(tag) { tag.id != id })
-          None -> model.tags
-        }
-        |> list.map(fn(tag) { tag.name })
-
-      case tag_form.validate(model.tag_modal, other_tag_names) {
-        Ok(#(name, color)) ->
-          case edit_tag_id {
-            // Edit form
-            Some(id) -> request_update_tag(model, Tag(id:, name:, color:))
-            // Create form
-            None -> {
-              let new_tag = Tag(id: uuid.v7(), name:, color:)
-              let tags = sort_tags([new_tag, ..model.tags])
-              #(
-                Model(
-                  ..model,
-                  tags:,
-                  selected_tag: Some(new_tag.id),
-                  tag_modal: tag_form.hidden(),
-                ),
-                effect.CloseDialog(selector: tag_form.dom_id_selector),
-                Some(out_msg.PageRequestedToast(
-                  title: "Success",
-                  body: "Created tag " <> name,
-                  level: toast.Success,
-                  dismiss_after_ms: Some(5000),
-                )),
-              )
-            }
-          }
-
-        Error(tag_modal) -> #(Model(..model, tag_modal:), effect.none(), None)
-      }
-    }
-
-    ServerUpdatedTag(Ok(updated_tag)) ->
-      handle_update_tag_success(model, updated_tag)
-
-    ServerUpdatedTag(Error(error)) -> handle_update_tag_failure(model, error)
-
-    UserCancelledTagForm -> #(
-      model,
-      effect.CloseDialog(selector: tag_form.dom_id_selector),
-      None,
-    )
-
-    UserClosedTagForm -> #(
-      Model(..model, tag_modal: tag_form.hidden()),
-      effect.none(),
-      None,
-    )
+    // TODO: Remove this arm once the tag form interpreter starts using an API call for creating a tag
+    // This arm is temporary until tag creation is moved over to the API.
+    // It simulates a successful response from the API.
+    TEMPFormCreatedTag(tag) ->
+      run_tag_form(model, tag_form.SaveCompleted(Ok(tag)))
 
     UserRequestedTagDelete(tag) -> {
       let rule_count =
@@ -494,93 +402,109 @@ fn update_inner(
   }
 }
 
-fn request_update_tag(model: Model, tag_to_update: Tag) {
-  let Tag(id:, name:, color:) = tag_to_update
-
-  let updated_tag =
-    list.find(model.tags, fn(t) { t.id == id })
-    |> result.map(fn(tag) { Tag(..tag, name:, color:) })
-
-  use Tag(id:, name:, color:) <- guard.ok_lazy(updated_tag, else_return: fn(_) {
-    #(
-      model,
-      effect.LogError(string.join(
-        [
-          "Could not find tag for update request:",
-          "The tag: " <> string.inspect(tag_to_update),
-          "The state: " <> string.inspect(model),
-        ],
-        with: "\n",
-      )),
-      None,
-    )
-  })
-
-  use tag_modal <- guard.ok(
-    tag_form.submitting(model.tag_modal),
-    else_return: #(
-      model,
-      effect.LogError(
-        "Could not transition to submitting state for edit tag modal: "
-        <> string.inspect(model),
-      ),
-      None,
-    ),
-  )
-
+fn run_tag_form(
+  model: Model,
+  msg: tag_form.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(tag_modal, requests, outcome) =
+    tag_form.update(model.tag_modal, msg, model.tags)
   let model = Model(..model, tag_modal:)
-  let effect =
-    put_update_tag(id, tag_write_request.TagWriteRequest(name:, color:))
-
-  #(model, effect, None)
+  apply_tag_form(model, requests, outcome, msg)
 }
 
-fn handle_update_tag_success(
+fn apply_tag_form(
   model: Model,
-  updated_tag: Tag,
+  requests: List(tag_form.Request),
+  outcome: tag_form.Outcome,
+  msg: tag_form.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let tags =
-    list.map(model.tags, fn(tag) {
-      case tag.id == updated_tag.id {
-        True -> updated_tag
-        False -> tag
-      }
-    })
-    |> sort_tags
+  let model = case outcome {
+    tag_form.NoChange -> model
+    tag_form.Created(tag:) -> {
+      let tags = [tag, ..model.tags] |> sort_tags
+      Model(..model, tags:, selected_tag: Some(tag.id))
+    }
+    tag_form.Updated(tag:) -> {
+      let tags =
+        list.map(model.tags, fn(t) {
+          case t.id == tag.id {
+            True -> tag
+            False -> t
+          }
+        })
+        |> sort_tags
+      Model(..model, tags:)
+    }
+  }
 
-  let model = Model(..model, tags:)
-  #(
-    model,
-    effect.CloseDialog(selector: tag_form.dom_id_selector),
-    Some(out_msg.PageRequestedToast(
-      title: "Success",
-      body: "Updated tag '" <> updated_tag.name <> "'",
-      level: toast.Success,
-      dismiss_after_ms: Some(5000),
-    )),
-  )
-}
+  let effects = interpret_tag_form_requests(requests)
+  let effects = case msg {
+    tag_form.SaveCompleted(result: Error(error)) -> [
+      effect.LogError(api_error.describe(error)),
+      ..effects
+    ]
+    _ -> effects
+  }
 
-fn handle_update_tag_failure(
-  model: Model,
-  error: ApiError,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case tag_form.errored(model.tag_modal, error.details) {
-    Ok(tag_modal) -> #(
-      Model(..model, tag_modal:),
-      effect.LogError(api_error.describe(error)),
-      None,
-    )
-    Error(Nil) -> #(
-      model,
-      effect.LogError(api_error.describe(error)),
+  let out_msg = case outcome {
+    tag_form.NoChange -> None
+    tag_form.Created(tag:) ->
       Some(out_msg.PageRequestedToast(
-        title: "Could not update tag",
-        body: error.details,
-        level: toast.Error,
+        title: "Success",
+        body: "Created tag '" <> tag.name <> "'",
+        level: toast.Success,
         dismiss_after_ms: Some(5000),
-      )),
-    )
+      ))
+    tag_form.Updated(tag:) ->
+      Some(out_msg.PageRequestedToast(
+        title: "Success",
+        body: "Updated tag '" <> tag.name <> "'",
+        level: toast.Success,
+        dismiss_after_ms: Some(5000),
+      ))
+  }
+
+  #(model, effect.batch(effects), out_msg)
+}
+
+fn interpret_tag_form_requests(requests: List(tag_form.Request)) {
+  case requests {
+    [] -> []
+    [request, ..others] -> [
+      interpret_tag_form_request(request),
+      ..interpret_tag_form_requests(others)
+    ]
+  }
+}
+
+fn interpret_tag_form_request(request: tag_form.Request) -> Effect(Msg) {
+  case request {
+    tag_form.ShowDialog -> effect.ShowDialog(tag_form.dom_id_selector)
+    tag_form.CloseDialog -> effect.CloseDialog(tag_form.dom_id_selector)
+    tag_form.CreateTag(request:) -> {
+      // TODO: Replace the local tag creation with an API call
+      let tag = Tag(id: uuid.v7(), name: request.name, color: request.color)
+      effect.Message(TEMPFormCreatedTag(tag))
+    }
+    tag_form.PutTag(id:, request:) ->
+      effect.put(
+        api_route.UpdateTag(id) |> api_route.to_string,
+        tag_write_request.to_json(request)
+          |> json.to_string,
+        fn(result) {
+          case result {
+            Ok(body) ->
+              response.decode_success(body, tag.tag_decoder())
+              |> tag_form.SaveCompleted
+            Error(http_error) ->
+              tag_form.SaveCompleted(
+                Error(response.http_error_to_api_error(http_error)),
+              )
+          }
+        },
+      )
+      |> effect.with_timeout(tag_form.submit_timeout_ms)
+      |> effect.map(TagFormMsg)
   }
 }
 
@@ -593,14 +517,8 @@ pub fn view(model: Model) -> Element(Msg) {
       True -> tag_view.no_tags_empty_state(on_create: UserRequestedTagCreation)
       False -> master_detail(model)
     },
-    tag_form.view(
-      model.tag_modal,
-      on_name_input: UserUpdatedTagName,
-      on_color_click: UserUpdatedTagColor,
-      on_submit: UserSubmittedTagForm,
-      on_cancel: UserCancelledTagForm,
-      on_close: UserClosedTagForm,
-    ),
+    tag_form.view(model.tag_modal)
+      |> element.map(TagFormMsg),
     tag_delete_modal.view(
       model.tag_delete_modal,
       on_cancel: UserCancelledTagDelete,

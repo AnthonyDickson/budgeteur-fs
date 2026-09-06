@@ -85,42 +85,6 @@ pub fn hidden() -> Modal {
   Hidden
 }
 
-/// Transition to the submitting state from the Active or Errored state. Returns an error when called in other states.
-pub fn submitting(state: Modal) -> Result(Modal, Nil) {
-  case state {
-    Active(form:, mode:) | Errored(form:, mode:, ..) ->
-      Ok(Submitting(form:, mode:))
-    _ -> Error(Nil)
-  }
-}
-
-pub fn errored(state: Modal, api_error: String) -> Result(Modal, Nil) {
-  case state {
-    Submitting(form:, mode:) -> Ok(Errored(form:, mode:, error: api_error))
-    _ -> Error(Nil)
-  }
-}
-
-/// Get the ID of the tag being edited or None if the modal is in create mode.
-pub fn get_id(state: Modal) -> Option(Uuid) {
-  case state {
-    Hidden -> None
-    Active(mode:, ..) | Submitting(mode:, ..) | Errored(mode:, ..) ->
-      case mode {
-        Create -> None
-        Edit(id:) -> Some(id)
-      }
-  }
-}
-
-pub fn get_name(state: Modal) -> Option(NameField) {
-  case state {
-    Active(form:, ..) | Submitting(form:, ..) | Errored(form:, ..) ->
-      Some(form.name)
-    Hidden -> None
-  }
-}
-
 fn field_name_input(field: NameField) -> String {
   case field {
     EmptyName(input) -> input
@@ -196,12 +160,12 @@ pub fn update(
 }
 
 /// An empty modal for creating a new tag.
-pub fn create_modal() -> Modal {
+fn create_modal() -> Modal {
   Active(form: Form(name: EmptyName(""), color: default_color), mode: Create)
 }
 
 /// A modal pre-filled with an existing tag, ready for renaming.
-pub fn edit_modal(tag: Tag) -> Modal {
+fn edit_modal(tag: Tag) -> Modal {
   let Tag(id:, ..) = tag
   Active(
     form: Form(name: ValidName(input: tag.name), color: tag.color),
@@ -210,7 +174,7 @@ pub fn edit_modal(tag: Tag) -> Modal {
 }
 
 /// Validate and set the name field. No op for Hidden and Submitting states.
-pub fn set_name(state: Modal, name: String) -> Modal {
+fn set_name(state: Modal, name: String) -> Modal {
   case state {
     Active(form:, ..) -> Active(..state, form: update_name_field(name, form))
     Errored(form:, ..) -> Errored(..state, form: update_name_field(name, form))
@@ -219,7 +183,7 @@ pub fn set_name(state: Modal, name: String) -> Modal {
 }
 
 /// Validate and set the color field. No op for Hidden and Submitting states.
-pub fn set_color(state: Modal, color: String) -> Modal {
+fn set_color(state: Modal, color: String) -> Modal {
   case state {
     Active(form:, ..) -> Active(..state, form: Form(..form, color:))
     Errored(form:, ..) -> Errored(..state, form: Form(..form, color:))
@@ -304,7 +268,7 @@ fn dismiss(state: Modal) -> #(Modal, List(Request), Outcome) {
 
 /// Validate the form. On success returns the trimmed name and color; on
 /// failure returns the modal with the form with inline errors set.
-pub fn validate(
+fn validate(
   state: Modal,
   other_tag_names: List(String),
 ) -> Result(#(String, String), Modal) {
@@ -375,43 +339,15 @@ fn validate_name(name: String) -> Result(String, NameError) {
 
 // View
 
-type ViewContext(msg) {
-  ViewContext(
-    state: Modal,
-    on_name_input: fn(String) -> msg,
-    on_color_click: fn(String) -> msg,
-    on_submit: msg,
-    on_cancel: msg,
-    on_close: msg,
-  )
-}
-
-pub fn view(
-  state: Modal,
-  on_name_input on_name_input: fn(String) -> msg,
-  on_color_click on_color_click: fn(String) -> msg,
-  on_submit on_submit: msg,
-  on_cancel on_cancel: msg,
-  on_close on_close: msg,
-) -> Element(msg) {
-  let context =
-    ViewContext(
-      state,
-      on_name_input:,
-      on_color_click:,
-      on_submit:,
-      on_cancel:,
-      on_close:,
-    )
-
+pub fn view(state: Modal) -> Element(Msg) {
   case state {
     Hidden -> view_hidden()
     Active(form:, mode:) ->
-      view_form(form, mode, api_error: None, submitting: False, context:)
+      view_form(form, mode, api_error: None, submitting: False)
     Submitting(form:, mode:) ->
-      view_form(form, mode, api_error: None, submitting: True, context:)
+      view_form(form, mode, api_error: None, submitting: True)
     Errored(form:, mode:, error:) ->
-      view_form(form, mode, api_error: Some(error), submitting: False, context:)
+      view_form(form, mode, api_error: Some(error), submitting: False)
   }
 }
 
@@ -420,8 +356,7 @@ fn view_form(
   mode: FormMode,
   api_error api_error: Option(String),
   submitting submitting: Bool,
-  context context: ViewContext(msg),
-) -> Element(msg) {
+) -> Element(Msg) {
   let Form(name:, color:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
@@ -432,6 +367,13 @@ fn view_form(
   let name_error = field_name_error(name)
   let has_error = option.is_some(name_error)
 
+  // "closedby" = "any" is needed to allow the dialog to be closed by
+  // clicking outside the dialog.
+  let closedby_mode = case submitting {
+    True -> "none"
+    False -> "any"
+  }
+
   html.dialog(
     [
       attribute.id(dom_id),
@@ -439,10 +381,8 @@ fn view_form(
       attribute.class(
         "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
       ),
-      // "closedby" = "any" is needed to allow the dialog to be closed by
-      // clicking outside the dialog.
-      attribute.attribute("closedby", "any"),
-      event.on("close", decode.success(context.on_close)),
+      attribute.attribute("closedby", closedby_mode),
+      event.on("close", decode.success(DialogDismissed)),
     ],
     [
       html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
@@ -450,7 +390,7 @@ fn view_form(
       ]),
       html.form(
         [
-          event.on_submit(fn(_) { context.on_submit }),
+          event.on_submit(fn(_) { SaveRequested }),
           attribute.class("space-y-4"),
         ],
         [
@@ -485,7 +425,7 @@ fn view_form(
                 #(error_border_style, option.is_some(name_error)),
               ]),
               attribute.value(field_name_input(name)),
-              event.on_input(context.on_name_input),
+              event.on_input(NameChanged),
             ]),
             view_name_error(name_error),
             html.p([attribute.class("mt-1 text-xs text-gray-500")], [
@@ -522,7 +462,7 @@ fn view_form(
                     ),
                     attribute.style("background-color", palette_color),
                     attribute.aria_label("Use color " <> palette_color),
-                    event.on_click(context.on_color_click(palette_color)),
+                    event.on_click(ColorChosen(palette_color)),
                   ],
                   case is_selected {
                     True -> [check_icon()]
@@ -543,7 +483,7 @@ fn view_form(
                   <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-gray-100",
                 ),
                 attribute.disabled(submitting),
-                event.on_click(context.on_cancel),
+                event.on_click(CancelRequested),
               ],
               [html.text("Cancel")],
             ),
@@ -581,7 +521,7 @@ fn view_form(
   )
 }
 
-fn view_name_error(name_error: Option(NameError)) -> Element(msg) {
+fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
   case name_error {
     Some(NameRequired) -> form_error_message("Name cannot be empty")
     Some(TooLong) ->
@@ -595,7 +535,7 @@ fn view_name_error(name_error: Option(NameError)) -> Element(msg) {
   }
 }
 
-fn view_hidden() -> Element(msg) {
+fn view_hidden() -> Element(Msg) {
   html.dialog(
     [
       attribute.id(dom_id),
@@ -611,7 +551,7 @@ fn view_hidden() -> Element(msg) {
   )
 }
 
-fn check_icon() -> Element(msg) {
+fn check_icon() -> Element(Msg) {
   html.svg(
     [
       attribute.attribute("fill", "none"),
@@ -636,6 +576,6 @@ fn check_icon() -> Element(msg) {
   )
 }
 
-fn form_error_message(text: String) -> Element(msg) {
+fn form_error_message(text: String) -> Element(Msg) {
   html.p([attribute.class("mt-1 text-sm text-red-600")], [html.text(text)])
 }

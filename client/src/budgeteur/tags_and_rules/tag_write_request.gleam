@@ -7,9 +7,7 @@ pub type TagWriteRequest {
   TagWriteRequest(name: String, color: String)
 }
 
-pub fn tag_write_request_to_json(
-  tag_write_request: TagWriteRequest,
-) -> json.Json {
+pub fn to_json(tag_write_request: TagWriteRequest) -> json.Json {
   let TagWriteRequest(name:, color:) = tag_write_request
   json.object([
     #("name", json.string(name)),
@@ -17,7 +15,7 @@ pub fn tag_write_request_to_json(
   ])
 }
 
-pub fn tag_write_request_decoder() -> decode.Decoder(TagWriteRequest) {
+pub fn decoder() -> decode.Decoder(TagWriteRequest) {
   use name <- decode.field("name", decode.string)
   use color <- decode.field("color", decode.string)
   decode.success(TagWriteRequest(name:, color:))
