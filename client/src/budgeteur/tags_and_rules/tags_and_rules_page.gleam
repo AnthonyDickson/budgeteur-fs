@@ -8,7 +8,7 @@ import budgeteur/tags_and_rules/rule/rule.{type Rule, Rule}
 import budgeteur/tags_and_rules/rule/rule_delete_modal
 import budgeteur/tags_and_rules/rule/rule_form
 import budgeteur/tags_and_rules/rule/rule_view
-import budgeteur/tags_and_rules/tag/tag.{type Tag, Tag}
+import budgeteur/tags_and_rules/tag/tag.{type Tag}
 import budgeteur/tags_and_rules/tag/tag_delete_modal
 import budgeteur/tags_and_rules/tag/tag_form
 import budgeteur/tags_and_rules/tag/tag_view
@@ -47,7 +47,6 @@ pub type Msg {
   UserRequestedTagCreation
   UserRequestedTagEdit(Uuid)
   TagFormMsg(tag_form.Msg)
-  TEMPFormCreatedTag(Tag)
   // Tag delete modal messages
   UserRequestedTagDelete(Tag)
   UserConfirmedTagDelete
@@ -201,12 +200,6 @@ fn update_inner(
     }
 
     TagFormMsg(inner_msg) -> run_tag_form(model, inner_msg)
-
-    // TODO: Remove this arm once the tag form interpreter starts using an API call for creating a tag
-    // This arm is temporary until tag creation is moved over to the API.
-    // It simulates a successful response from the API.
-    TEMPFormCreatedTag(tag) ->
-      run_tag_form(model, tag_form.SaveCompleted(Ok(tag)))
 
     UserRequestedTagDelete(tag) -> {
       let rule_count =
@@ -482,29 +475,36 @@ fn interpret_tag_form_request(request: tag_form.Request) -> Effect(Msg) {
     tag_form.ShowDialog -> effect.ShowDialog(tag_form.dom_id_selector)
     tag_form.CloseDialog -> effect.CloseDialog(tag_form.dom_id_selector)
     tag_form.CreateTag(request:) -> {
-      // TODO: Replace the local tag creation with an API call
-      let tag = Tag(id: uuid.v7(), name: request.name, color: request.color)
-      effect.Message(TEMPFormCreatedTag(tag))
+      effect.post(
+        api_route.CreateTag |> api_route.to_string,
+        tag_write_request.to_json(request)
+          |> json.to_string,
+        handle_tag_response,
+      )
+      |> effect.with_timeout(tag_form.submit_timeout_ms)
+      |> effect.map(TagFormMsg)
     }
     tag_form.PutTag(id:, request:) ->
       effect.put(
         api_route.UpdateTag(id) |> api_route.to_string,
         tag_write_request.to_json(request)
           |> json.to_string,
-        fn(result) {
-          case result {
-            Ok(body) ->
-              response.decode_success(body, tag.tag_decoder())
-              |> tag_form.SaveCompleted
-            Error(http_error) ->
-              tag_form.SaveCompleted(
-                Error(response.http_error_to_api_error(http_error)),
-              )
-          }
-        },
+        handle_tag_response,
       )
       |> effect.with_timeout(tag_form.submit_timeout_ms)
       |> effect.map(TagFormMsg)
+  }
+}
+
+fn handle_tag_response(result) {
+  case result {
+    Ok(body) ->
+      response.decode_success(body, tag.tag_decoder())
+      |> tag_form.SaveCompleted
+    Error(http_error) ->
+      tag_form.SaveCompleted(
+        Error(response.http_error_to_api_error(http_error)),
+      )
   }
 }
 

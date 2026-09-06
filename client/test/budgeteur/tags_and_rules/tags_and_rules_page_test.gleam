@@ -263,17 +263,17 @@ pub fn creating_tag_inserts_sorts_and_selects_it_test() {
       named,
       tags_and_rules_page.TagFormMsg(tag_form.SaveRequested),
     )
-
-  // TODO: Replace the local fulfilment with a server API call.
   let assert effect.Batch([
-    effect.Message(tags_and_rules_page.TEMPFormCreatedTag(created)),
+    effect.HttpRequest(method: method, timeout: timeout, ..),
   ]) = submit_effect
-  created.name |> should.equal("NewTag")
+  method |> should.equal(http_effect.Post)
+  timeout |> should.equal(Some(tag_form.submit_timeout_ms))
 
+  let created = tag_named(tag_id(3), "NewTag")
   let #(new_model, _, out_msg) =
     tags_and_rules_page.update(
       submitting,
-      tags_and_rules_page.TEMPFormCreatedTag(created),
+      tags_and_rules_page.TagFormMsg(tag_form.SaveCompleted(Ok(created))),
     )
 
   new_model.tags |> should.equal([coffee, created, rent])
@@ -281,6 +281,43 @@ pub fn creating_tag_inserts_sorts_and_selects_it_test() {
   new_model.tag_modal |> should.equal(tag_form.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
+}
+
+pub fn creating_duplicate_name_surfaces_server_error_inline_test() {
+  // The name is new to the client, so validation passes and the POST goes
+  // out; the server still rejects it (stale list or lost response retry).
+  let model = model_with([tag_named(tag_id(1), "Coffee")])
+  let named =
+    model
+    |> run(tags_and_rules_page.UserRequestedTagCreation)
+    |> run(tags_and_rules_page.TagFormMsg(tag_form.NameChanged("Tea")))
+  let #(submitting, submit_effect, _) =
+    tags_and_rules_page.update(
+      named,
+      tags_and_rules_page.TagFormMsg(tag_form.SaveRequested),
+    )
+  let assert effect.Batch([effect.HttpRequest(method: http_effect.Post, ..)]) =
+    submit_effect
+
+  let error =
+    ApiError(
+      error: "Conflict",
+      details: "A tag with the name 'Tea' already exists",
+      status_code: Some(409),
+      request_id: None,
+    )
+  let #(failed, fail_effect, out_msg) =
+    tags_and_rules_page.update(
+      submitting,
+      tags_and_rules_page.TagFormMsg(tag_form.SaveCompleted(Error(error))),
+    )
+
+  let assert tag_form.Errored(mode: tag_form.Create, error: details, ..) =
+    failed.tag_modal
+  details |> should.equal("A tag with the name 'Tea' already exists")
+  failed.tags |> should.equal(model.tags)
+  out_msg |> should.equal(None)
+  let assert effect.Batch([effect.LogError(_)]) = fail_effect
 }
 
 pub fn editing_tag_replaces_and_resorts_it_test() {
