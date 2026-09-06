@@ -8,7 +8,7 @@ type TagName = private TagName of string
 
 module TagName =
     [<Literal>]
-    let private MaxNameLength = 256
+    let private MaxNameLength = 64
 
     let private nonEmpty name =
         if String.IsNullOrWhiteSpace name then
