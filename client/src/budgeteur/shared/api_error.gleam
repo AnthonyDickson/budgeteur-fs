@@ -21,6 +21,11 @@ pub fn describe(error: ApiError) -> String {
   }
 }
 
+/// Whether the error is a 404 "not found" response.
+pub fn is_not_found(error: ApiError) -> Bool {
+  error.status_code == Some(404)
+}
+
 pub fn decoder() -> decode.Decoder(ApiError) {
   use error <- decode.field("error", decode.string)
   use details <- decode.field("details", decode.string)

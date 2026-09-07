@@ -1,10 +1,9 @@
+import budgeteur/shared/delete_modal
 import budgeteur/tagging_page/tag/tag.{type Tag}
 import gleam/int
-import gleam/option.{None, Some}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import lustre/event
 
 const dom_id = "tag_delete_modal"
 
@@ -13,36 +12,17 @@ const dom_id = "tag_delete_modal"
 /// remember it.
 pub const dom_id_selector = "#" <> dom_id
 
-/// How long a delete request may stay in flight before the transport aborts
-/// it. This should be applied by the page via `effect.with_timeout`.
-pub const delete_timeout_ms = 10_000
-
-/// State of the tag delete confirmation dialog.
-///
-/// The dialog element is always rendered by `view` so the show/close dialog
-/// effects can find it; visibility is driven by effects rather than by adding
-/// or removing the element from the DOM (which would reset its state).
-pub type DeleteModalState {
-  /// Dialog is closed. The dialog element is still rendered, just inert.
-  Hidden
-  /// Dialog is open, awaiting the user's confirmation. `rule_count` is the
-  /// number of rules that belong to the tag and will be deleted with it.
-  Confirming(tag: Tag, rule_count: Int)
-  /// A delete request is in flight. The dialog cannot be dismissed (see D2 in
-  /// the delete migration plan) and both buttons are disabled.
-  Deleting(tag: Tag, rule_count: Int)
-  /// The delete request failed. The dialog stays open so the user can retry
-  /// in place; the error is shown inline.
-  Errored(tag: Tag, rule_count: Int, error: String)
-}
+pub type DeleteModalState =
+  delete_modal.State(Tag, Int)
 
 pub fn empty() -> DeleteModalState {
-  Hidden
+  delete_modal.empty()
 }
 
-/// Open the dialog pre-targeted at an existing tag.
+/// Open the dialog pre-targeted at an existing tag. `rule_count` is the number
+/// of rules that belong to the tag and will be deleted with it.
 pub fn open(tag: Tag, rule_count: Int) -> DeleteModalState {
-  Confirming(tag, rule_count)
+  delete_modal.open(tag, rule_count)
 }
 
 pub fn view(
@@ -50,132 +30,52 @@ pub fn view(
   on_cancel on_cancel: msg,
   on_confirm on_confirm: msg,
 ) -> Element(msg) {
-  let #(tag, rule_count, deleting, error) = case state {
-    Hidden -> #(None, 0, False, None)
-    Confirming(tag:, rule_count:) -> #(Some(tag), rule_count, False, None)
-    Deleting(tag:, rule_count:) -> #(Some(tag), rule_count, True, None)
-    Errored(tag:, rule_count:, error:) -> #(
-      Some(tag),
-      rule_count,
-      False,
-      Some(error),
-    )
-  }
-
-  // "closedby" = "any" is needed to allow the dialog to be closed by
-  // clicking outside the dialog. While a delete is in flight it is "none"
-  // so the dialog cannot be dismissed mid-request (dismissing would orphan
-  // the in-flight request).
-  let closedby_mode = case deleting {
-    True -> "none"
-    False -> "any"
-  }
-
-  html.dialog(
-    [
-      attribute.id(dom_id),
-      attribute.attribute("data-testid", "delete-tag-modal"),
-      attribute.class(
-        "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
-      ),
-      attribute.attribute("closedby", closedby_mode),
-    ],
-    case tag {
-      None -> []
-      Some(tag) -> [
-        html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
-          html.text("Delete Tag"),
-        ]),
-        html.p([attribute.class("mb-4 text-sm text-gray-700")], [
-          html.text(
-            "Are you sure you want to delete "
-            <> tag.name
-            <> "? This cannot be undone.",
-          ),
-        ]),
-        html.ul(
-          [
-            attribute.class(
-              "mb-4 list-disc space-y-1 pl-5 text-sm text-gray-700",
+  delete_modal.view(
+    state,
+    delete_modal.Options(
+      dialog_id: dom_id,
+      title: "Delete Tag",
+      modal_testid: "delete-tag-modal",
+      error_testid: "tag-delete-error",
+      error_prefix: "Could not delete tag",
+      cancel_testid: "tag-delete-cancel-button",
+      confirm_testid: "tag-delete-confirm-button",
+      body: fn(tag: Tag, rule_count: Int) {
+        html.div([], [
+          html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+            html.text(
+              "Are you sure you want to delete "
+              <> tag.name
+              <> "? This cannot be undone.",
             ),
-          ],
-          [
-            html.li([], [
-              html.text("Transactions tagged with it lose their tag"),
-            ]),
-            html.li([], [
-              html.text(
-                "Its "
-                <> int.to_string(rule_count)
-                <> case rule_count {
-                  1 -> " matching rule is"
-                  _ -> " matching rules are"
-                }
-                <> " deleted too",
-              ),
-            ]),
-          ],
-        ),
-        case error {
-          Some(message) ->
-            html.p(
-              [
-                attribute.attribute("role", "alert"),
-                attribute.attribute("data-testid", "tag-delete-error"),
-                attribute.class(
-                  "mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700",
-                ),
-              ],
-              [html.text("Could not delete tag: " <> message)],
-            )
-          None -> element.none()
-        },
-        html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-          html.button(
+          ]),
+          html.ul(
             [
-              attribute.type_("button"),
-              attribute.attribute("data-testid", "tag-delete-cancel-button"),
               attribute.class(
-                "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-                <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 "
-                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-gray-100",
+                "mb-4 list-disc space-y-1 pl-5 text-sm text-gray-700",
               ),
-              attribute.disabled(deleting),
-              event.on_click(on_cancel),
             ],
-            [html.text("Cancel")],
-          ),
-          html.button(
             [
-              attribute.type_("button"),
-              attribute.attribute("data-testid", "tag-delete-confirm-button"),
-              attribute.class(
-                "rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white "
-                <> "hover:bg-red-500 focus:outline-none focus:ring-2 "
-                <> "focus:ring-red-500 focus:ring-offset-2 "
-                <> "disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400",
-              ),
-              attribute.disabled(deleting),
-              event.on_click(on_confirm),
-            ],
-            case deleting {
-              True -> [
-                html.span(
-                  [
-                    attribute.attribute("aria-hidden", "true"),
-                    attribute.class(
-                      "h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white",
-                    ),
-                  ],
-                  [],
+              html.li([], [
+                html.text("Transactions tagged with it lose their tag"),
+              ]),
+              html.li([], [
+                html.text(
+                  "Its "
+                  <> int.to_string(rule_count)
+                  <> case rule_count {
+                    1 -> " matching rule is"
+                    _ -> " matching rules are"
+                  }
+                  <> " deleted too",
                 ),
-                html.text("Deleting..."),
-              ]
-              False -> [html.text("Delete")]
-            },
+              ]),
+            ],
           ),
-        ]),
-      ]
-    },
+        ])
+      },
+    ),
+    on_cancel:,
+    on_confirm:,
   )
 }

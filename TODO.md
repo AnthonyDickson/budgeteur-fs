@@ -30,6 +30,8 @@
   - Display transaction tag in transactions table
   - Update docs, e.g. architecture
 - Cut down AGENTS.md to around 150 lines
+- Make action buttons in tagging page tag list always rendered in the DOM so I can select them with vimium. Can keep the
+  buttons hidden in non-selected rows to match the existing design.
 
 ## Backlog
 

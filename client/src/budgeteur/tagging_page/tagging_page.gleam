@@ -1,5 +1,6 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
+import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
@@ -219,7 +220,7 @@ fn update_inner(
       case result {
         Ok(_) -> on_tag_delete_succeeded(model, tag)
         Error(error) ->
-          case is_not_found(error) {
+          case api_error.is_not_found(error) {
             True -> on_tag_delete_succeeded(model, tag)
             False -> on_tag_delete_failed(model, tag, error)
           }
@@ -266,7 +267,7 @@ fn update_inner(
       case result {
         Ok(_) -> on_rule_delete_succeeded(model, rule)
         Error(error) ->
-          case is_not_found(error) {
+          case api_error.is_not_found(error) {
             True -> on_rule_delete_succeeded(model, rule)
             False -> on_rule_delete_failed(model, rule, error)
           }
@@ -281,24 +282,14 @@ fn update_inner(
   }
 }
 
-// ── Tag delete ────────────────────────────────────────────────────────────────
-
-fn is_not_found(error: ApiError) -> Bool {
-  error.status_code == Some(404)
-}
-
 fn confirm_tag_delete(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case model.tag_delete_modal {
-    tag_delete_modal.Confirming(tag:, rule_count:)
-    | tag_delete_modal.Errored(tag:, rule_count:, ..) -> #(
-      Model(
-        ..model,
-        tag_delete_modal: tag_delete_modal.Deleting(tag:, rule_count:),
-      ),
+  case delete_modal.confirm(model.tag_delete_modal) {
+    Ok(#(state, tag)) -> #(
+      Model(..model, tag_delete_modal: state),
       delete_tag(tag),
       None,
     )
-    _ -> #(model, effect.none(), None)
+    Error(Nil) -> #(model, effect.none(), None)
   }
 }
 
@@ -315,7 +306,7 @@ fn delete_tag(tag: Tag) -> Effect(Msg) {
         )
     }
   })
-  |> effect.with_timeout(tag_delete_modal.delete_timeout_ms)
+  |> effect.with_timeout(delete_modal.delete_timeout_ms)
 }
 
 fn on_tag_delete_succeeded(
@@ -341,12 +332,7 @@ fn on_tag_delete_succeeded(
       tag_delete_modal: tag_delete_modal.empty(),
     ),
     effect.CloseDialog(selector: tag_delete_modal.dom_id_selector),
-    Some(out_msg.PageRequestedToast(
-      title: "Success",
-      body: "Deleted tag " <> tag.name,
-      level: toast.Success,
-      dismiss_after_ms: Some(5000),
-    )),
+    Some(out_msg.success_toast("Deleted tag " <> tag.name)),
   )
 }
 
@@ -355,40 +341,35 @@ fn on_tag_delete_failed(
   tag: Tag,
   error: ApiError,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case model.tag_delete_modal {
-    // The modal is always `Deleting` when a response arrives (the dialog is
-    // locked while the request is in flight), so this branch is the only
-    // reachable one; the no-op keeps `update` total for stale completions.
-    tag_delete_modal.Deleting(tag: target, rule_count:) if target == tag -> #(
-      Model(
-        ..model,
-        tag_delete_modal: tag_delete_modal.Errored(
-          tag: target,
-          rule_count:,
-          error: error.details,
-        ),
-      ),
+  // A response can only arrive while the modal is `Deleting` (the dialog is
+  // locked while the request is in flight), so `fail` normally moves it to
+  // `Errored` for an inline retry. The unchanged-state check covers a stale
+  // response (the modal was reset, e.g. closed and re-opened for another
+  // tag), which must not touch the newer session.
+  let updated =
+    delete_modal.fail(
+      model.tag_delete_modal,
+      fn(target) { target == tag },
+      error,
+    )
+  case updated == model.tag_delete_modal {
+    True -> #(model, effect.none(), None)
+    False -> #(
+      Model(..model, tag_delete_modal: updated),
       effect.LogError(api_error.describe(error)),
       None,
     )
-    _ -> #(model, effect.none(), None)
   }
 }
 
-// ── Rule delete ───────────────────────────────────────────────────────────────
-
 fn confirm_rule_delete(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case model.rule_delete_modal {
-    rule_delete_modal.Confirming(rule:, tag_name:)
-    | rule_delete_modal.Errored(rule:, tag_name:, ..) -> #(
-      Model(
-        ..model,
-        rule_delete_modal: rule_delete_modal.Deleting(rule:, tag_name:),
-      ),
+  case delete_modal.confirm(model.rule_delete_modal) {
+    Ok(#(state, rule)) -> #(
+      Model(..model, rule_delete_modal: state),
       delete_rule(rule),
       None,
     )
-    _ -> #(model, effect.none(), None)
+    Error(Nil) -> #(model, effect.none(), None)
   }
 }
 
@@ -408,7 +389,7 @@ fn delete_rule(rule: Rule) -> Effect(Msg) {
       }
     },
   )
-  |> effect.with_timeout(rule_delete_modal.delete_timeout_ms)
+  |> effect.with_timeout(delete_modal.delete_timeout_ms)
 }
 
 fn on_rule_delete_succeeded(
@@ -419,12 +400,7 @@ fn on_rule_delete_succeeded(
   #(
     Model(..model, rules:, rule_delete_modal: rule_delete_modal.empty()),
     effect.CloseDialog(selector: rule_delete_modal.dom_id_selector),
-    Some(out_msg.PageRequestedToast(
-      title: "Success",
-      body: "Deleted rule " <> rule.pattern,
-      level: toast.Success,
-      dismiss_after_ms: Some(5000),
-    )),
+    Some(out_msg.success_toast("Deleted rule " <> rule.pattern)),
   )
 }
 
@@ -433,20 +409,20 @@ fn on_rule_delete_failed(
   rule: Rule,
   error: ApiError,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case model.rule_delete_modal {
-    rule_delete_modal.Deleting(rule: target, tag_name:) if target == rule -> #(
-      Model(
-        ..model,
-        rule_delete_modal: rule_delete_modal.Errored(
-          rule: target,
-          tag_name:,
-          error: error.details,
-        ),
-      ),
+  // See `on_tag_delete_failed`; the same reasoning applies to rules.
+  let updated =
+    delete_modal.fail(
+      model.rule_delete_modal,
+      fn(target) { target == rule },
+      error,
+    )
+  case updated == model.rule_delete_modal {
+    True -> #(model, effect.none(), None)
+    False -> #(
+      Model(..model, rule_delete_modal: updated),
       effect.LogError(api_error.describe(error)),
       None,
     )
-    _ -> #(model, effect.none(), None)
   }
 }
 

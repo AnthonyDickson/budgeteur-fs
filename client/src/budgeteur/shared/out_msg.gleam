@@ -1,5 +1,5 @@
-import budgeteur/shared/toast.{type ToastLevel}
-import gleam/option.{type Option}
+import budgeteur/shared/toast.{type ToastLevel, Error, Success}
+import gleam/option.{type Option, Some}
 
 /// Messages that are sent from child modules to the parent (root) module.
 pub type OutMsg {
@@ -12,5 +12,25 @@ pub type OutMsg {
     body: String,
     level: ToastLevel,
     dismiss_after_ms: Option(Int),
+  )
+}
+
+/// Ask the root app to show an auto-dismissing success toast.
+pub fn success_toast(body: String) -> OutMsg {
+  PageRequestedToast(
+    title: "Success",
+    body: body,
+    level: Success,
+    dismiss_after_ms: Some(5000),
+  )
+}
+
+/// Ask the root app to show an auto-dismissing error toast.
+pub fn error_toast(title: String, body: String) -> OutMsg {
+  PageRequestedToast(
+    title: title,
+    body: body,
+    level: Error,
+    dismiss_after_ms: Some(5000),
   )
 }

@@ -1,6 +1,7 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
+import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
@@ -10,9 +11,7 @@ import budgeteur/transaction/create_transaction_request.{
   type CreateTransactionRequest,
 }
 import budgeteur/transaction/transaction.{type Transaction}
-import budgeteur/transaction/transaction_delete_modal.{
-  type DeleteModalState, Confirming, Deleting,
-}
+import budgeteur/transaction/transaction_delete_modal.{type DeleteModalState}
 import budgeteur/transaction/transaction_form.{
   type ModalState, type TransactionType, Create, Edit, ModalState,
 }
@@ -158,6 +157,7 @@ fn delete_transaction(transaction: Transaction) -> Effect(Msg) {
       }
     },
   )
+  |> effect.with_timeout(delete_modal.delete_timeout_ms)
 }
 
 fn sort_transactions(transactions: List(Transaction)) -> List(Transaction) {
@@ -375,61 +375,69 @@ fn update_inner(
     )
 
     UserConfirmedDelete -> {
-      case model.delete_modal {
-        Confirming(transaction) -> #(
-          Model(..model, delete_modal: Deleting(transaction)),
+      case delete_modal.confirm(model.delete_modal) {
+        Ok(#(state, transaction)) -> #(
+          Model(..model, delete_modal: state),
           delete_transaction(transaction),
           None,
         )
-        _ -> #(model, effect.none(), None)
+        Error(Nil) -> #(model, effect.none(), None)
       }
     }
 
-    // The message carries the full transaction so the list is updated
-    // regardless of the modal state (keeping the view consistent with the
-    // server even if the dialog was closed while the request was in flight)
-    // and the toast can name the deleted transaction.
-    ServerDeletedTransaction(transaction, Ok(_)) -> #(
-      Model(
-        ..model,
-        transactions: list.filter(model.transactions, fn(t) {
-          t.id != transaction.id
-        }),
-        delete_modal: transaction_delete_modal.empty(),
-      ),
-      effect.CloseDialog(selector: transaction_delete_modal.dom_id_selector),
-      Some(out_msg.PageRequestedToast(
-        title: "Success",
-        body: "Deleted transaction " <> transaction.description,
-        level: toast.Success,
-        dismiss_after_ms: Some(5000),
-      )),
-    )
+    ServerDeletedTransaction(transaction, Ok(_)) ->
+      on_delete_succeeded(model, transaction)
 
-    // Revert to Confirming so the user can retry in place when the dialog is
-    // still open (the common failure case). When the dialog was dismissed
-    // (Escape/outside-click) while the request was in flight, the state here
-    // goes stale but that is harmless: the dialog stays hidden and the next
-    // Delete click resets it via `open`. See the `DeleteModalState` docs for
-    // the full tradeoff.
-    ServerDeletedTransaction(transaction, Error(error)) -> #(
-      Model(..model, delete_modal: case model.delete_modal {
-        Deleting(transaction) ->
-          transaction_delete_modal.Confirming(transaction)
-        other -> other
-      }),
-      effect.LogError(api_error.describe(error)),
-      Some(out_msg.PageRequestedToast(
-        title: "Error",
-        body: "Could not delete " <> transaction.description,
-        level: toast.Error,
-        dismiss_after_ms: Some(5000),
-      )),
-    )
+    ServerDeletedTransaction(transaction, Error(error)) -> {
+      case api_error.is_not_found(error) {
+        True -> on_delete_succeeded(model, transaction)
+        False -> on_delete_failed(model, transaction, error)
+      }
+    }
 
     UserCancelledDeleteModal -> #(
       Model(..model, delete_modal: transaction_delete_modal.empty()),
       effect.CloseDialog(selector: transaction_delete_modal.dom_id_selector),
+      None,
+    )
+  }
+}
+
+fn on_delete_succeeded(
+  model: Model,
+  transaction: Transaction,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  #(
+    Model(
+      ..model,
+      transactions: list.filter(model.transactions, fn(t) {
+        t.id != transaction.id
+      }),
+      delete_modal: transaction_delete_modal.empty(),
+    ),
+    effect.CloseDialog(selector: transaction_delete_modal.dom_id_selector),
+    Some(out_msg.success_toast(
+      "Deleted transaction " <> transaction.description,
+    )),
+  )
+}
+
+fn on_delete_failed(
+  model: Model,
+  transaction: Transaction,
+  error: ApiError,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let updated =
+    delete_modal.fail(
+      model.delete_modal,
+      fn(target) { target == transaction },
+      error,
+    )
+  case updated == model.delete_modal {
+    True -> #(model, effect.none(), None)
+    False -> #(
+      Model(..model, delete_modal: updated),
+      effect.LogError(api_error.describe(error)),
       None,
     )
   }

@@ -1,12 +1,11 @@
 import budgeteur/shared/api_error.{ApiError}
+import budgeteur/shared/delete_modal
 import budgeteur/shared/effect
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/toast
 import budgeteur/transaction/transaction
-import budgeteur/transaction/transaction_delete_modal.{
-  Confirming, Deleting, Hidden,
-}
+import budgeteur/transaction/transaction_delete_modal
 import budgeteur/transaction/transaction_form
 import budgeteur/transaction/transaction_page
 import budgeteur/transaction/transaction_page_data
@@ -188,7 +187,7 @@ pub fn user_requested_delete_form_sets_target_and_opens_test() {
       transaction_page.UserRequestedDeleteForm(transaction),
     )
 
-  let assert Confirming(target) = new_model.delete_modal
+  let assert delete_modal.Confirming(target:, ..) = new_model.delete_modal
   target |> should.equal(transaction)
   let assert effect.ShowDialog(selector: selector) = effect
   selector |> should.equal(transaction_delete_modal.dom_id_selector)
@@ -210,7 +209,7 @@ pub fn confirming_delete_issues_delete_request_test() {
   method |> should.equal(http_effect.Delete)
   url
   |> should.equal("/api/transactions/" <> uuid.to_string(transaction.id))
-  let assert Deleting(_) = new_model.delete_modal
+  let assert delete_modal.Deleting(..) = new_model.delete_modal
 }
 
 pub fn server_deleted_transaction_removes_row_test() {
@@ -219,7 +218,7 @@ pub fn server_deleted_transaction_removes_row_test() {
     transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
-      delete_modal: transaction_delete_modal.Deleting(transaction),
+      delete_modal: delete_modal.Deleting(target: transaction, context: Nil),
     )
 
   let #(new_model, _, _) =
@@ -229,7 +228,7 @@ pub fn server_deleted_transaction_removes_row_test() {
     )
 
   new_model.transactions |> should.equal([])
-  let assert Hidden = new_model.delete_modal
+  let assert delete_modal.Hidden = new_model.delete_modal
 }
 
 pub fn server_deleted_transaction_removes_row_even_if_modal_closed_test() {
@@ -250,16 +249,16 @@ pub fn server_deleted_transaction_removes_row_even_if_modal_closed_test() {
   new_model.transactions |> should.equal([])
 }
 
-pub fn server_delete_error_returns_to_confirming_test() {
+pub fn server_delete_error_shows_inline_error_test() {
   let transaction = sample_transaction()
   let model =
     transaction_page.Model(
       transactions: [transaction],
       modal: transaction_form.empty_modal(),
-      delete_modal: transaction_delete_modal.Deleting(transaction),
+      delete_modal: delete_modal.Deleting(target: transaction, context: Nil),
     )
 
-  let #(new_model, _, out_msg) =
+  let #(new_model, effect, out_msg) =
     transaction_page.update(
       model,
       transaction_page.ServerDeletedTransaction(
@@ -273,11 +272,40 @@ pub fn server_delete_error_returns_to_confirming_test() {
       ),
     )
 
-  let assert Confirming(target) = new_model.delete_modal
-  target |> should.equal(transaction)
+  let assert delete_modal.Errored(error: details, ..) = new_model.delete_modal
+  details |> should.equal("boom")
   new_model.transactions |> should.equal([transaction])
-  let assert Some(out_msg.PageRequestedToast(level: level, ..)) = out_msg
-  level |> should.equal(toast.Error)
+  out_msg |> should.equal(None)
+  let assert effect.LogError(_) = effect
+}
+
+pub fn server_delete_error_404_is_treated_as_success_test() {
+  let transaction = sample_transaction()
+  let model =
+    transaction_page.Model(
+      transactions: [transaction],
+      modal: transaction_form.empty_modal(),
+      delete_modal: delete_modal.Deleting(target: transaction, context: Nil),
+    )
+
+  let #(new_model, _, out_msg) =
+    transaction_page.update(
+      model,
+      transaction_page.ServerDeletedTransaction(
+        transaction,
+        Error(ApiError(
+          error: "Not Found",
+          details: "No such transaction",
+          status_code: Some(404),
+          request_id: None,
+        )),
+      ),
+    )
+
+  new_model.transactions |> should.equal([])
+  let assert delete_modal.Hidden = new_model.delete_modal
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
+    out_msg
 }
 
 pub fn user_cancelled_delete_modal_closes_test() {
@@ -292,7 +320,7 @@ pub fn user_cancelled_delete_modal_closes_test() {
   let #(new_model, effect, _) =
     transaction_page.update(model, transaction_page.UserCancelledDeleteModal)
 
-  let assert Hidden = new_model.delete_modal
+  let assert delete_modal.Hidden = new_model.delete_modal
   let assert effect.CloseDialog(selector: selector) = effect
   selector |> should.equal(transaction_delete_modal.dom_id_selector)
 }

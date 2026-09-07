@@ -1,5 +1,6 @@
 import budgeteur/shared/api_error.{ApiError}
 import budgeteur/shared/api_route
+import budgeteur/shared/delete_modal
 import budgeteur/shared/effect
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg.{type OutMsg}
@@ -169,13 +170,13 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
     tagging_page.update(model, tagging_page.UserRequestedTagDelete(coffee))
     |> then_confirm
 
-  let assert tag_delete_modal.Deleting(..) = deleting.tag_delete_modal
+  let assert delete_modal.Deleting(..) = deleting.tag_delete_modal
   deleting.tags |> should.equal([coffee, rent])
   let assert effect.HttpRequest(method: method, url: url, timeout: timeout, ..) =
     effect
   method |> should.equal(http_effect.Delete)
   url |> should.equal("/api/tags/" <> uuid.to_string(coffee.id))
-  timeout |> should.equal(Some(tag_delete_modal.delete_timeout_ms))
+  timeout |> should.equal(Some(delete_modal.delete_timeout_ms))
 
   // Server success cascades the tag's rules, reselects the next tag, closes
   // the modal and toasts.
@@ -188,7 +189,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
   new_model.tags |> should.equal([rent])
   new_model.rules |> should.equal([])
   new_model.selected_tag |> should.equal(Some(rent.id))
-  let assert tag_delete_modal.Hidden = new_model.tag_delete_modal
+  let assert delete_modal.Hidden = new_model.tag_delete_modal
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
   // The lists changed, so the page persists them to the store.
@@ -214,7 +215,7 @@ pub fn deleting_rule_arms_request_then_removes_it_test() {
     )
     |> then_confirm_rule
 
-  let assert rule_delete_modal.Deleting(..) = deleting.rule_delete_modal
+  let assert delete_modal.Deleting(..) = deleting.rule_delete_modal
   deleting.rules |> should.equal([starbucks])
   let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Delete)
@@ -227,7 +228,7 @@ pub fn deleting_rule_arms_request_then_removes_it_test() {
     )
 
   new_model.rules |> should.equal([])
-  let assert rule_delete_modal.Hidden = new_model.rule_delete_modal
+  let assert delete_modal.Hidden = new_model.rule_delete_modal
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
 }
@@ -239,7 +240,7 @@ pub fn failed_tag_delete_shows_inline_error_and_allows_retry_test() {
       ..empty_model(),
       tags: [coffee],
       selected_tag: Some(coffee.id),
-      tag_delete_modal: tag_delete_modal.Deleting(coffee, 0),
+      tag_delete_modal: delete_modal.Deleting(target: coffee, context: 0),
     )
 
   let error =
@@ -257,8 +258,7 @@ pub fn failed_tag_delete_shows_inline_error_and_allows_retry_test() {
 
   // Lists are untouched, the modal shows the error inline, and no toast is
   // emitted (the dialog is still open).
-  let assert tag_delete_modal.Errored(error: details, ..) =
-    failed.tag_delete_modal
+  let assert delete_modal.Errored(error: details, ..) = failed.tag_delete_modal
   details |> should.equal("boom")
   failed.tags |> should.equal([coffee])
   out_msg |> should.equal(None)
@@ -267,7 +267,7 @@ pub fn failed_tag_delete_shows_inline_error_and_allows_retry_test() {
   // Retrying in place arms a fresh request.
   let #(retrying, retry_effect, _) =
     tagging_page.update(failed, tagging_page.UserConfirmedTagDelete)
-  let assert tag_delete_modal.Deleting(..) = retrying.tag_delete_modal
+  let assert delete_modal.Deleting(..) = retrying.tag_delete_modal
   let assert effect.HttpRequest(method: http_effect.Delete, ..) = retry_effect
 }
 
@@ -278,7 +278,7 @@ pub fn tag_delete_404_is_treated_as_success_test() {
       ..empty_model(),
       tags: [coffee],
       selected_tag: Some(coffee.id),
-      tag_delete_modal: tag_delete_modal.Deleting(coffee, 0),
+      tag_delete_modal: delete_modal.Deleting(target: coffee, context: 0),
     )
 
   let not_found =
@@ -295,7 +295,7 @@ pub fn tag_delete_404_is_treated_as_success_test() {
     )
 
   new_model.tags |> should.equal([])
-  let assert tag_delete_modal.Hidden = new_model.tag_delete_modal
+  let assert delete_modal.Hidden = new_model.tag_delete_modal
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
 }
