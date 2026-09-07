@@ -9,8 +9,10 @@ pub type ApiRoute {
   GetTaggingData
   CreateTag
   UpdateTag(id: Uuid)
+  DeleteTag(id: Uuid)
   CreateRule
   UpdateRule(id: Uuid)
+  DeleteRule(id: Uuid)
 }
 
 const api_prefix = "/api"
@@ -22,8 +24,10 @@ pub fn to_string(route: ApiRoute) -> String {
       api_prefix <> "/transactions/" <> uuid.to_string(id)
     GetTaggingData -> api_prefix <> "/tagging"
     CreateTag -> api_prefix <> "/tags"
-    UpdateTag(id:) -> api_prefix <> "/tags/" <> uuid.to_string(id)
+    UpdateTag(id:) | DeleteTag(id:) ->
+      api_prefix <> "/tags/" <> uuid.to_string(id)
     CreateRule -> api_prefix <> "/rules"
-    UpdateRule(id:) -> api_prefix <> "/rules/" <> uuid.to_string(id)
+    UpdateRule(id:) | DeleteRule(id:) ->
+      api_prefix <> "/rules/" <> uuid.to_string(id)
   }
 }

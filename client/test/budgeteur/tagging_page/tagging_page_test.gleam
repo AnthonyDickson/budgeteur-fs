@@ -164,13 +164,176 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
       selected_tag: Some(coffee.id),
     )
 
-  let #(new_model, _, _) =
+  // Confirming leaves the lists intact and arms a DELETE request.
+  let #(deleting, effect, _) =
     tagging_page.update(model, tagging_page.UserRequestedTagDelete(coffee))
     |> then_confirm
+
+  let assert tag_delete_modal.Deleting(..) = deleting.tag_delete_modal
+  deleting.tags |> should.equal([coffee, rent])
+  let assert effect.HttpRequest(method: method, url: url, timeout: timeout, ..) =
+    effect
+  method |> should.equal(http_effect.Delete)
+  url |> should.equal("/api/tags/" <> uuid.to_string(coffee.id))
+  timeout |> should.equal(Some(tag_delete_modal.delete_timeout_ms))
+
+  // Server success cascades the tag's rules, reselects the next tag, closes
+  // the modal and toasts.
+  let #(new_model, delete_effect, out_msg) =
+    tagging_page.update(
+      deleting,
+      tagging_page.ServerDeletedTag(coffee, Ok(Nil)),
+    )
 
   new_model.tags |> should.equal([rent])
   new_model.rules |> should.equal([])
   new_model.selected_tag |> should.equal(Some(rent.id))
+  let assert tag_delete_modal.Hidden = new_model.tag_delete_modal
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
+    out_msg
+  // The lists changed, so the page persists them to the store.
+  let assert effect.Batch([effect.CloseDialog(..), effect.SaveToStore(..)]) =
+    delete_effect
+}
+
+pub fn deleting_rule_arms_request_then_removes_it_test() {
+  let coffee = tag_named(tag_id(1), "Coffee")
+  let starbucks = make_rule_for(coffee.id)
+  let model =
+    tagging_page.Model(
+      ..empty_model(),
+      tags: [coffee],
+      rules: [starbucks],
+      selected_tag: Some(coffee.id),
+    )
+
+  let #(deleting, effect, _) =
+    tagging_page.update(
+      model,
+      tagging_page.UserRequestedRuleDelete(starbucks, "Coffee"),
+    )
+    |> then_confirm_rule
+
+  let assert rule_delete_modal.Deleting(..) = deleting.rule_delete_modal
+  deleting.rules |> should.equal([starbucks])
+  let assert effect.HttpRequest(method: method, url: url, ..) = effect
+  method |> should.equal(http_effect.Delete)
+  url |> should.equal("/api/rules/" <> uuid.to_string(starbucks.id))
+
+  let #(new_model, _, out_msg) =
+    tagging_page.update(
+      deleting,
+      tagging_page.ServerDeletedRule(starbucks, Ok(Nil)),
+    )
+
+  new_model.rules |> should.equal([])
+  let assert rule_delete_modal.Hidden = new_model.rule_delete_modal
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
+    out_msg
+}
+
+pub fn failed_tag_delete_shows_inline_error_and_allows_retry_test() {
+  let coffee = tag_named(tag_id(1), "Coffee")
+  let model =
+    tagging_page.Model(
+      ..empty_model(),
+      tags: [coffee],
+      selected_tag: Some(coffee.id),
+      tag_delete_modal: tag_delete_modal.Deleting(coffee, 0),
+    )
+
+  let error =
+    ApiError(
+      error: "Internal Server Error",
+      details: "boom",
+      status_code: Some(500),
+      request_id: None,
+    )
+  let #(failed, effect, out_msg) =
+    tagging_page.update(
+      model,
+      tagging_page.ServerDeletedTag(coffee, Error(error)),
+    )
+
+  // Lists are untouched, the modal shows the error inline, and no toast is
+  // emitted (the dialog is still open).
+  let assert tag_delete_modal.Errored(error: details, ..) =
+    failed.tag_delete_modal
+  details |> should.equal("boom")
+  failed.tags |> should.equal([coffee])
+  out_msg |> should.equal(None)
+  let assert effect.LogError(_) = effect
+
+  // Retrying in place arms a fresh request.
+  let #(retrying, retry_effect, _) =
+    tagging_page.update(failed, tagging_page.UserConfirmedTagDelete)
+  let assert tag_delete_modal.Deleting(..) = retrying.tag_delete_modal
+  let assert effect.HttpRequest(method: http_effect.Delete, ..) = retry_effect
+}
+
+pub fn tag_delete_404_is_treated_as_success_test() {
+  let coffee = tag_named(tag_id(1), "Coffee")
+  let model =
+    tagging_page.Model(
+      ..empty_model(),
+      tags: [coffee],
+      selected_tag: Some(coffee.id),
+      tag_delete_modal: tag_delete_modal.Deleting(coffee, 0),
+    )
+
+  let not_found =
+    ApiError(
+      error: "Not Found",
+      details: "No such tag",
+      status_code: Some(404),
+      request_id: None,
+    )
+  let #(new_model, _, out_msg) =
+    tagging_page.update(
+      model,
+      tagging_page.ServerDeletedTag(coffee, Error(not_found)),
+    )
+
+  new_model.tags |> should.equal([])
+  let assert tag_delete_modal.Hidden = new_model.tag_delete_modal
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
+    out_msg
+}
+
+pub fn confirming_delete_while_hidden_is_a_noop_test() {
+  let #(new_model, effect, _) =
+    tagging_page.update(empty_model(), tagging_page.UserConfirmedTagDelete)
+
+  new_model |> should.equal(empty_model())
+  let assert effect.NoEffect = effect
+}
+
+pub fn stale_delete_error_when_not_deleting_is_a_noop_test() {
+  let coffee = tag_named(tag_id(1), "Coffee")
+  let model =
+    tagging_page.Model(
+      ..empty_model(),
+      tags: [coffee],
+      selected_tag: Some(coffee.id),
+    )
+
+  // The modal is not `Deleting` (the dialog was cancelled or never armed), so
+  // a late failure is ignored and the lists are untouched.
+  let error =
+    ApiError(
+      error: "Internal Server Error",
+      details: "boom",
+      status_code: Some(500),
+      request_id: None,
+    )
+  let #(new_model, effect, _) =
+    tagging_page.update(
+      model,
+      tagging_page.ServerDeletedTag(coffee, Error(error)),
+    )
+
+  new_model |> should.equal(model)
+  let assert effect.NoEffect = effect
 }
 
 pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
@@ -474,4 +637,11 @@ fn then_confirm(
 ) -> #(tagging_page.Model, effect.Effect(tagging_page.Msg), Option(OutMsg)) {
   let #(model, _, _) = result
   tagging_page.update(model, tagging_page.UserConfirmedTagDelete)
+}
+
+fn then_confirm_rule(
+  result: #(tagging_page.Model, effect.Effect(tagging_page.Msg), Option(OutMsg)),
+) -> #(tagging_page.Model, effect.Effect(tagging_page.Msg), Option(OutMsg)) {
+  let #(model, _, _) = result
+  tagging_page.update(model, tagging_page.UserConfirmedRuleDelete)
 }

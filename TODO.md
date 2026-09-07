@@ -17,17 +17,10 @@
 ## Current Tasks
 
 - Tags and rules page:
-  - Connect frontend to tags and rules endpoints
-    - delete tags
-    - delete rules
-
-    UI flow should be:
-    request -> show loading spinner, disable buttons
-    ok -> hide modal, show success toast
-    error -> show error in form, hide loading spinner, enable buttons
-    error, modal was dismissed -> show error via toast
-    -> update model
   - Refactor common code/patterns
+  - Consider refactoring the transactions modals to match the tags and rules modals.
+  - Consider unifying delete modals on tag/rule delete modal and dedup shared code, they only differ by payload, title/copy, testid, extra body (rule count)
+  - Consider unifying docs on modals/forms
   - Clean up naming split between modal/form
   - Move to Catppuccin Latte colour scheme
     - Migrate tag colour swatch

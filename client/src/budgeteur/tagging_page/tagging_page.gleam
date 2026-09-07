@@ -52,6 +52,10 @@ pub type Msg {
   UserRequestedTagDelete(Tag)
   UserConfirmedTagDelete
   UserCancelledTagDelete
+  // Server response to a tag delete request. 404 is folded into Ok by the
+  // page (the end state matches the user's intent), so this only carries
+  // genuine failures.
+  ServerDeletedTag(tag: Tag, result: Result(Nil, ApiError))
   // Selection
   UserSelectedTag(Uuid)
   // Rule modal messages
@@ -62,6 +66,8 @@ pub type Msg {
   UserRequestedRuleDelete(Rule, String)
   UserConfirmedRuleDelete
   UserCancelledRuleDelete
+  // Server response to a rule delete request (see ServerDeletedTag).
+  ServerDeletedRule(rule: Rule, result: Result(Nil, ApiError))
 }
 
 fn persist_data(model: Model) -> Effect(Msg) {
@@ -207,37 +213,16 @@ fn update_inner(
       )
     }
 
-    UserConfirmedTagDelete -> {
-      case model.tag_delete_modal {
-        tag_delete_modal.Confirming(tag:, ..) -> {
-          let tags = list.filter(model.tags, fn(t) { t.id != tag.id })
-          let rules = list.filter(model.rules, fn(r) { r.tag_id != tag.id })
-          let selected_tag = case model.selected_tag {
-            Some(id) if id == tag.id ->
-              case list.first(tags) {
-                Ok(t) -> Some(t.id)
-                Error(Nil) -> None
-              }
-            other -> other
+    UserConfirmedTagDelete -> confirm_tag_delete(model)
+
+    ServerDeletedTag(tag, result) -> {
+      case result {
+        Ok(_) -> on_tag_delete_succeeded(model, tag)
+        Error(error) ->
+          case is_not_found(error) {
+            True -> on_tag_delete_succeeded(model, tag)
+            False -> on_tag_delete_failed(model, tag, error)
           }
-          #(
-            Model(
-              ..model,
-              tags:,
-              rules:,
-              selected_tag:,
-              tag_delete_modal: tag_delete_modal.empty(),
-            ),
-            effect.CloseDialog(selector: tag_delete_modal.dom_id_selector),
-            Some(out_msg.PageRequestedToast(
-              title: "Success",
-              body: "Deleted tag " <> tag.name,
-              level: toast.Success,
-              dismiss_after_ms: Some(5000),
-            )),
-          )
-        }
-        _ -> #(model, effect.none(), None)
       }
     }
 
@@ -275,22 +260,16 @@ fn update_inner(
       None,
     )
 
-    UserConfirmedRuleDelete -> {
-      case model.rule_delete_modal {
-        rule_delete_modal.Confirming(rule, _tag_name) -> {
-          let rules = list.filter(model.rules, fn(r) { r.id != rule.id })
-          #(
-            Model(..model, rules:, rule_delete_modal: rule_delete_modal.empty()),
-            effect.CloseDialog(selector: rule_delete_modal.dom_id_selector),
-            Some(out_msg.PageRequestedToast(
-              title: "Success",
-              body: "Deleted rule " <> rule.pattern,
-              level: toast.Success,
-              dismiss_after_ms: Some(5000),
-            )),
-          )
-        }
-        _ -> #(model, effect.none(), None)
+    UserConfirmedRuleDelete -> confirm_rule_delete(model)
+
+    ServerDeletedRule(rule, result) -> {
+      case result {
+        Ok(_) -> on_rule_delete_succeeded(model, rule)
+        Error(error) ->
+          case is_not_found(error) {
+            True -> on_rule_delete_succeeded(model, rule)
+            False -> on_rule_delete_failed(model, rule, error)
+          }
       }
     }
 
@@ -299,6 +278,175 @@ fn update_inner(
       effect.CloseDialog(selector: rule_delete_modal.dom_id_selector),
       None,
     )
+  }
+}
+
+// ── Tag delete ────────────────────────────────────────────────────────────────
+
+fn is_not_found(error: ApiError) -> Bool {
+  error.status_code == Some(404)
+}
+
+fn confirm_tag_delete(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  case model.tag_delete_modal {
+    tag_delete_modal.Confirming(tag:, rule_count:)
+    | tag_delete_modal.Errored(tag:, rule_count:, ..) -> #(
+      Model(
+        ..model,
+        tag_delete_modal: tag_delete_modal.Deleting(tag:, rule_count:),
+      ),
+      delete_tag(tag),
+      None,
+    )
+    _ -> #(model, effect.none(), None)
+  }
+}
+
+fn delete_tag(tag: Tag) -> Effect(Msg) {
+  effect.delete(api_route.DeleteTag(tag.id) |> api_route.to_string, fn(result) {
+    case result {
+      // A successful delete returns 204 with no body, so there is nothing
+      // to decode.
+      Ok(_) -> ServerDeletedTag(tag, Ok(Nil))
+      Error(http_error) ->
+        ServerDeletedTag(
+          tag,
+          Error(response.http_error_to_api_error(http_error)),
+        )
+    }
+  })
+  |> effect.with_timeout(tag_delete_modal.delete_timeout_ms)
+}
+
+fn on_tag_delete_succeeded(
+  model: Model,
+  tag: Tag,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let tags = list.filter(model.tags, fn(t) { t.id != tag.id })
+  let rules = list.filter(model.rules, fn(r) { r.tag_id != tag.id })
+  let selected_tag = case model.selected_tag {
+    Some(id) if id == tag.id ->
+      case list.first(tags) {
+        Ok(t) -> Some(t.id)
+        Error(Nil) -> None
+      }
+    other -> other
+  }
+  #(
+    Model(
+      ..model,
+      tags:,
+      rules:,
+      selected_tag:,
+      tag_delete_modal: tag_delete_modal.empty(),
+    ),
+    effect.CloseDialog(selector: tag_delete_modal.dom_id_selector),
+    Some(out_msg.PageRequestedToast(
+      title: "Success",
+      body: "Deleted tag " <> tag.name,
+      level: toast.Success,
+      dismiss_after_ms: Some(5000),
+    )),
+  )
+}
+
+fn on_tag_delete_failed(
+  model: Model,
+  tag: Tag,
+  error: ApiError,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  case model.tag_delete_modal {
+    // The modal is always `Deleting` when a response arrives (the dialog is
+    // locked while the request is in flight), so this branch is the only
+    // reachable one; the no-op keeps `update` total for stale completions.
+    tag_delete_modal.Deleting(tag: target, rule_count:) if target == tag -> #(
+      Model(
+        ..model,
+        tag_delete_modal: tag_delete_modal.Errored(
+          tag: target,
+          rule_count:,
+          error: error.details,
+        ),
+      ),
+      effect.LogError(api_error.describe(error)),
+      None,
+    )
+    _ -> #(model, effect.none(), None)
+  }
+}
+
+// ── Rule delete ───────────────────────────────────────────────────────────────
+
+fn confirm_rule_delete(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  case model.rule_delete_modal {
+    rule_delete_modal.Confirming(rule:, tag_name:)
+    | rule_delete_modal.Errored(rule:, tag_name:, ..) -> #(
+      Model(
+        ..model,
+        rule_delete_modal: rule_delete_modal.Deleting(rule:, tag_name:),
+      ),
+      delete_rule(rule),
+      None,
+    )
+    _ -> #(model, effect.none(), None)
+  }
+}
+
+fn delete_rule(rule: Rule) -> Effect(Msg) {
+  effect.delete(
+    api_route.DeleteRule(rule.id) |> api_route.to_string,
+    fn(result) {
+      case result {
+        // A successful delete returns 204 with no body, so there is nothing
+        // to decode.
+        Ok(_) -> ServerDeletedRule(rule, Ok(Nil))
+        Error(http_error) ->
+          ServerDeletedRule(
+            rule,
+            Error(response.http_error_to_api_error(http_error)),
+          )
+      }
+    },
+  )
+  |> effect.with_timeout(rule_delete_modal.delete_timeout_ms)
+}
+
+fn on_rule_delete_succeeded(
+  model: Model,
+  rule: Rule,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let rules = list.filter(model.rules, fn(r) { r.id != rule.id })
+  #(
+    Model(..model, rules:, rule_delete_modal: rule_delete_modal.empty()),
+    effect.CloseDialog(selector: rule_delete_modal.dom_id_selector),
+    Some(out_msg.PageRequestedToast(
+      title: "Success",
+      body: "Deleted rule " <> rule.pattern,
+      level: toast.Success,
+      dismiss_after_ms: Some(5000),
+    )),
+  )
+}
+
+fn on_rule_delete_failed(
+  model: Model,
+  rule: Rule,
+  error: ApiError,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  case model.rule_delete_modal {
+    rule_delete_modal.Deleting(rule: target, tag_name:) if target == rule -> #(
+      Model(
+        ..model,
+        rule_delete_modal: rule_delete_modal.Errored(
+          rule: target,
+          tag_name:,
+          error: error.details,
+        ),
+      ),
+      effect.LogError(api_error.describe(error)),
+      None,
+    )
+    _ -> #(model, effect.none(), None)
   }
 }
 

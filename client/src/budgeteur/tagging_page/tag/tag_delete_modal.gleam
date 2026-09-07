@@ -13,6 +13,10 @@ const dom_id = "tag_delete_modal"
 /// remember it.
 pub const dom_id_selector = "#" <> dom_id
 
+/// How long a delete request may stay in flight before the transport aborts
+/// it. This should be applied by the page via `effect.with_timeout`.
+pub const delete_timeout_ms = 10_000
+
 /// State of the tag delete confirmation dialog.
 ///
 /// The dialog element is always rendered by `view` so the show/close dialog
@@ -24,6 +28,12 @@ pub type DeleteModalState {
   /// Dialog is open, awaiting the user's confirmation. `rule_count` is the
   /// number of rules that belong to the tag and will be deleted with it.
   Confirming(tag: Tag, rule_count: Int)
+  /// A delete request is in flight. The dialog cannot be dismissed (see D2 in
+  /// the delete migration plan) and both buttons are disabled.
+  Deleting(tag: Tag, rule_count: Int)
+  /// The delete request failed. The dialog stays open so the user can retry
+  /// in place; the error is shown inline.
+  Errored(tag: Tag, rule_count: Int, error: String)
 }
 
 pub fn empty() -> DeleteModalState {
@@ -40,9 +50,25 @@ pub fn view(
   on_cancel on_cancel: msg,
   on_confirm on_confirm: msg,
 ) -> Element(msg) {
-  let #(tag, rule_count) = case state {
-    Hidden -> #(None, 0)
-    Confirming(tag:, rule_count:) -> #(Some(tag), rule_count)
+  let #(tag, rule_count, deleting, error) = case state {
+    Hidden -> #(None, 0, False, None)
+    Confirming(tag:, rule_count:) -> #(Some(tag), rule_count, False, None)
+    Deleting(tag:, rule_count:) -> #(Some(tag), rule_count, True, None)
+    Errored(tag:, rule_count:, error:) -> #(
+      Some(tag),
+      rule_count,
+      False,
+      Some(error),
+    )
+  }
+
+  // "closedby" = "any" is needed to allow the dialog to be closed by
+  // clicking outside the dialog. While a delete is in flight it is "none"
+  // so the dialog cannot be dismissed mid-request (dismissing would orphan
+  // the in-flight request).
+  let closedby_mode = case deleting {
+    True -> "none"
+    False -> "any"
   }
 
   html.dialog(
@@ -52,9 +78,7 @@ pub fn view(
       attribute.class(
         "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
       ),
-      // "closedby" = "any" is needed to allow the dialog to be closed by
-      // clicking outside the dialog.
-      attribute.attribute("closedby", "any"),
+      attribute.attribute("closedby", closedby_mode),
     ],
     case tag {
       None -> []
@@ -92,6 +116,20 @@ pub fn view(
             ]),
           ],
         ),
+        case error {
+          Some(message) ->
+            html.p(
+              [
+                attribute.attribute("role", "alert"),
+                attribute.attribute("data-testid", "tag-delete-error"),
+                attribute.class(
+                  "mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700",
+                ),
+              ],
+              [html.text("Could not delete tag: " <> message)],
+            )
+          None -> element.none()
+        },
         html.div([attribute.class("flex justify-end gap-3 pt-2")], [
           html.button(
             [
@@ -99,8 +137,10 @@ pub fn view(
               attribute.attribute("data-testid", "tag-delete-cancel-button"),
               attribute.class(
                 "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-                <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2",
+                <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 "
+                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-gray-100",
               ),
+              attribute.disabled(deleting),
               event.on_click(on_cancel),
             ],
             [html.text("Cancel")],
@@ -112,11 +152,27 @@ pub fn view(
               attribute.class(
                 "rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white "
                 <> "hover:bg-red-500 focus:outline-none focus:ring-2 "
-                <> "focus:ring-red-500 focus:ring-offset-2",
+                <> "focus:ring-red-500 focus:ring-offset-2 "
+                <> "disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400",
               ),
+              attribute.disabled(deleting),
               event.on_click(on_confirm),
             ],
-            [html.text("Delete")],
+            case deleting {
+              True -> [
+                html.span(
+                  [
+                    attribute.attribute("aria-hidden", "true"),
+                    attribute.class(
+                      "h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white",
+                    ),
+                  ],
+                  [],
+                ),
+                html.text("Deleting..."),
+              ]
+              False -> [html.text("Delete")]
+            },
           ),
         ]),
       ]
