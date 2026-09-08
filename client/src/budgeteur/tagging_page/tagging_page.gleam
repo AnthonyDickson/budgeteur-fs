@@ -603,7 +603,14 @@ fn fold_form(
     Some(error_effect) -> [error_effect, ..effects]
     None -> effects
   }
-  #(model, effect.batch(effects), out_msg)
+  // A single effect stays unwrapped so the caller's persist batching does not
+  // nest one-element batches; several effects are batched.
+  let effect = case effects {
+    [] -> effect.none()
+    [effect] -> effect
+    _ -> effect.batch(effects)
+  }
+  #(model, effect, out_msg)
 }
 
 pub fn view(model: Model) -> Element(Msg) {

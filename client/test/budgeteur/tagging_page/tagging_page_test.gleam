@@ -359,9 +359,8 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
       opened,
       tagging_page.RuleFormMsg(rule_form.SaveRequested),
     )
-  let assert effect.Batch([
-    effect.HttpRequest(method: method, timeout: timeout, ..),
-  ]) = submit_effect
+  let assert effect.HttpRequest(method: method, timeout: timeout, ..) =
+    submit_effect
   method |> should.equal(http_effect.Post)
   timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
@@ -403,9 +402,8 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
       opened,
       tagging_page.RuleFormMsg(rule_form.SaveRequested),
     )
-  let assert effect.Batch([
-    effect.HttpRequest(method: method, timeout: timeout, ..),
-  ]) = submit_effect
+  let assert effect.HttpRequest(method: method, timeout: timeout, ..) =
+    submit_effect
   method |> should.equal(http_effect.Put)
   timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
@@ -455,7 +453,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
   let assert form_modal.Errored(..) = failed.rule_modal
   failed.rules |> should.equal(model.rules)
   out_msg |> should.equal(None)
-  let assert effect.Batch([effect.LogError(_)]) = fail_effect
+  let assert effect.LogError(_) = fail_effect
 }
 
 pub fn cancelling_the_rule_form_closes_it_without_changes_test() {
@@ -475,7 +473,7 @@ pub fn cancelling_the_rule_form_closes_it_without_changes_test() {
 
   closed.rule_modal |> should.equal(rule_form.hidden())
   closed.rules |> should.equal(model.rules)
-  let assert effect.Batch([effect.CloseDialog(_)]) = close_effect
+  let assert effect.CloseDialog(_) = close_effect
 }
 
 pub fn editing_an_unknown_rule_is_a_noop_test() {
@@ -500,9 +498,8 @@ pub fn creating_tag_inserts_sorts_and_selects_it_test() {
     |> run(tagging_page.TagFormMsg(tag_form.NameChanged("NewTag")))
   let #(submitting, submit_effect, _) =
     tagging_page.update(named, tagging_page.TagFormMsg(tag_form.SaveRequested))
-  let assert effect.Batch([
-    effect.HttpRequest(method: method, timeout: timeout, ..),
-  ]) = submit_effect
+  let assert effect.HttpRequest(method: method, timeout: timeout, ..) =
+    submit_effect
   method |> should.equal(http_effect.Post)
   timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
@@ -530,8 +527,7 @@ pub fn creating_duplicate_name_surfaces_server_error_inline_test() {
     |> run(tagging_page.TagFormMsg(tag_form.NameChanged("Tea")))
   let #(submitting, submit_effect, _) =
     tagging_page.update(named, tagging_page.TagFormMsg(tag_form.SaveRequested))
-  let assert effect.Batch([effect.HttpRequest(method: http_effect.Post, ..)]) =
-    submit_effect
+  let assert effect.HttpRequest(method: http_effect.Post, ..) = submit_effect
 
   let error =
     ApiError(
@@ -551,7 +547,7 @@ pub fn creating_duplicate_name_surfaces_server_error_inline_test() {
   details |> should.equal("A tag with the name 'Tea' already exists")
   failed.tags |> should.equal(model.tags)
   out_msg |> should.equal(None)
-  let assert effect.Batch([effect.LogError(_)]) = fail_effect
+  let assert effect.LogError(_) = fail_effect
 }
 
 pub fn editing_tag_replaces_and_resorts_it_test() {
@@ -564,9 +560,8 @@ pub fn editing_tag_replaces_and_resorts_it_test() {
     |> run(tagging_page.UserRequestedTagEdit(tag_id(2)))
   let #(submitting, submit_effect, _) =
     tagging_page.update(opened, tagging_page.TagFormMsg(tag_form.SaveRequested))
-  let assert effect.Batch([
-    effect.HttpRequest(method: method, timeout: timeout, ..),
-  ]) = submit_effect
+  let assert effect.HttpRequest(method: method, timeout: timeout, ..) =
+    submit_effect
   method |> should.equal(http_effect.Put)
   timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
@@ -606,7 +601,7 @@ pub fn failed_save_logs_error_and_keeps_the_form_open_test() {
   let assert form_modal.Errored(..) = failed.tag_modal
   failed.tags |> should.equal(model.tags)
   out_msg |> should.equal(None)
-  let assert effect.Batch([effect.LogError(_)]) = fail_effect
+  let assert effect.LogError(_) = fail_effect
 }
 
 pub fn editing_an_unknown_tag_is_a_noop_test() {
@@ -630,7 +625,7 @@ pub fn cancelling_the_tag_form_closes_it_without_changes_test() {
 
   closed.tag_modal |> should.equal(tag_form.hidden())
   closed.tags |> should.equal(model.tags)
-  let assert effect.Batch([effect.CloseDialog(_)]) = close_effect
+  let assert effect.CloseDialog(_) = close_effect
 }
 
 fn then_confirm(
