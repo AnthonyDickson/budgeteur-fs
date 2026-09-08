@@ -5,7 +5,6 @@ import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
-import budgeteur/shared/toast
 import budgeteur/tagging_page/rule/rule.{type Rule}
 import budgeteur/tagging_page/rule/rule_delete_modal
 import budgeteur/tagging_page/rule/rule_form
@@ -185,11 +184,9 @@ fn update_inner(
     ClientFetchedData(Error(error)) -> #(
       model,
       effect.LogError(api_error.describe(error)),
-      Some(out_msg.PageRequestedToast(
-        title: "Could not sync tags and rules",
-        body: "Falling back to local data",
-        level: toast.Error,
-        dismiss_after_ms: Some(5000),
+      Some(out_msg.error_toast(
+        "Could not sync tags and rules",
+        "Falling back to local data",
       )),
     )
 

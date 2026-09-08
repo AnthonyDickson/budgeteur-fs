@@ -152,3 +152,9 @@ pub fn error_banner(
 pub fn form_error_message(text: String) -> Element(msg) {
   html.p([attribute.class("mt-1 text-sm text-red-600")], [html.text(text)])
 }
+
+/// Extra classes applied to a text input or select that currently holds an
+/// error, turning its border red. Combined with the field's base classes via
+/// `attribute.classes`, e.g.
+/// `[attribute.classes([#(modal_ui.error_border_style, field.has_error(f))])]`.
+pub const error_border_style = "border-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"

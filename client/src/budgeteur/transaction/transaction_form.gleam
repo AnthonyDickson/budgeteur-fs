@@ -2,6 +2,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
+import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/transaction/create_transaction_request.{
   type CreateTransactionRequest,
@@ -26,8 +27,6 @@ const dom_id = "transaction_modal"
 /// composed here so callers (e.g. the show/close dialog effects) never have to
 /// remember it.
 pub const dom_id_selector = "#" <> dom_id
-
-const error_border_style = "border-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
 
 pub type TransactionType {
   Debit
@@ -425,22 +424,10 @@ pub fn view(state: Modal) -> Element(Msg) {
     _ -> False
   }
 
-  // "closedby" = "any" is needed to allow the dialog to be closed by
-  // clicking outside the dialog; it is locked while a request is in flight.
-  let closedby_mode = case submitting {
-    True -> "none"
-    False -> "any"
-  }
-
   html.dialog(
     [
-      attribute.id(dom_id),
-      attribute.attribute("data-testid", "transaction-modal"),
-      attribute.class(
-        "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
-      ),
-      attribute.attribute("closedby", closedby_mode),
       event.on("close", decode.success(DialogDismissed)),
+      ..modal_ui.dialog_attributes(dom_id, "transaction-modal", submitting)
     ],
     case state {
       form_modal.Hidden -> []
@@ -490,15 +477,10 @@ fn view_form(
     ]),
     case api_error {
       Some(message) ->
-        html.p(
-          [
-            attribute.attribute("role", "alert"),
-            attribute.attribute("data-testid", "transaction-api-error"),
-            attribute.class(
-              "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700",
-            ),
-          ],
-          [html.text("Could not save transaction: " <> message)],
+        modal_ui.error_banner(
+          testid: "transaction-api-error",
+          message: "Could not save transaction: " <> message,
+          extra_class: "",
         )
       None -> element.none()
     },
@@ -527,15 +509,18 @@ fn view_form(
               <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
             ),
             attribute.classes([
-              #(error_border_style, field.has_error(amount)),
+              #(modal_ui.error_border_style, field.has_error(amount)),
             ]),
             attribute.disabled(submitting),
             event.on_input(AmountChanged),
           ]),
           case amount_error {
-            Some(NotANumber) -> form_error_message("Not a valid number")
-            Some(NotPositive) -> form_error_message("Amount must be positive")
-            Some(AmountRequired) -> form_error_message("Amount cannot be empty")
+            Some(NotANumber) ->
+              modal_ui.form_error_message("Not a valid number")
+            Some(NotPositive) ->
+              modal_ui.form_error_message("Amount must be positive")
+            Some(AmountRequired) ->
+              modal_ui.form_error_message("Amount cannot be empty")
             None -> element.none()
           },
         ]),
@@ -624,7 +609,7 @@ fn view_form(
               <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
             ),
             attribute.classes([
-              #(error_border_style, field.has_error(description)),
+              #(modal_ui.error_border_style, field.has_error(description)),
             ]),
             attribute.minlength(1),
             attribute.value(field.input(description)),
@@ -633,9 +618,9 @@ fn view_form(
           ]),
           case description_error {
             Some(DescriptionRequired) ->
-              form_error_message("Description cannot be empty")
+              modal_ui.form_error_message("Description cannot be empty")
             Some(TooLong) ->
-              form_error_message(
+              modal_ui.form_error_message(
                 "Description cannot be longer than "
                 <> int.to_string(max_description_length)
                 <> " characters",
@@ -657,66 +642,34 @@ fn view_form(
               <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
             ),
             attribute.classes([
-              #(error_border_style, field.has_error(date)),
+              #(modal_ui.error_border_style, field.has_error(date)),
             ]),
             attribute.value(field.input(date)),
             attribute.disabled(submitting),
             event.on_input(DateChanged),
           ]),
           case date_error {
-            Some(NotADate) -> form_error_message("Not a valid date")
-            Some(DateRequired) -> form_error_message("Date cannot be empty")
+            Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
+            Some(DateRequired) ->
+              modal_ui.form_error_message("Date cannot be empty")
             None -> element.none()
           },
         ]),
         html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-          html.button(
-            [
-              attribute.type_("button"),
-              attribute.attribute("data-testid", "transaction-cancel-button"),
-              attribute.class(
-                "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-                <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 "
-                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-gray-100",
-              ),
-              attribute.disabled(submitting),
-              event.on_click(CancelRequested),
-            ],
-            [html.text("Cancel")],
+          modal_ui.cancel_button(
+            testid: "transaction-cancel-button",
+            disabled: submitting,
+            on_click: CancelRequested,
           ),
-          html.button(
-            [
-              attribute.type_("submit"),
-              attribute.attribute("data-testid", "transaction-submit-button"),
-              attribute.class(
-                "inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium "
-                <> "text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-                <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400",
-              ),
-              attribute.disabled(has_error || submitting),
-            ],
-            case submitting {
-              True -> [
-                html.span(
-                  [
-                    attribute.attribute("aria-hidden", "true"),
-                    attribute.class(
-                      "h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white",
-                    ),
-                  ],
-                  [],
-                ),
-                html.text(submitting_label),
-              ]
-              False -> [html.text(submit_label)]
-            },
+          modal_ui.submit_button(
+            testid: "transaction-submit-button",
+            idle_label: submit_label,
+            busy_label: submitting_label,
+            busy: submitting,
+            disabled: has_error,
           ),
         ]),
       ],
     ),
   ]
-}
-
-fn form_error_message(text: String) -> Element(msg) {
-  html.p([attribute.class("mt-1 text-sm text-red-600")], [html.text(text)])
 }

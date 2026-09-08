@@ -1,6 +1,7 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
+import budgeteur/shared/modal_ui
 import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
@@ -39,8 +40,6 @@ const dom_id = "tag_modal"
 /// composed here so callers (e.g. the show/close dialog effects) never have to
 /// remember it.
 pub const dom_id_selector = "#" <> dom_id
-
-const error_border_style = "border-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
 
 pub type NameError {
   NameRequired
@@ -249,16 +248,33 @@ fn is_required(error: NameError) -> Bool {
 
 // View
 
+/// Always renders the `<dialog>` element so the show/close dialog effects can
+/// find it. The dialog is `closedby="none"` while a request is in flight,
+/// locking it so it cannot be dismissed mid-request. The `on("close")` handler
+/// covers browser-initiated dismissals (Esc / backdrop click) while open; a
+/// close event can only fire when the dialog was open, so a stale one cannot
+/// arrive while `Hidden` is shown.
 pub fn view(state: Modal) -> Element(Msg) {
-  case state {
-    form_modal.Hidden -> view_hidden()
-    form_modal.Active(form:, mode:) ->
-      view_form(form, mode, api_error: None, submitting: False)
-    form_modal.Submitting(form:, mode:) ->
-      view_form(form, mode, api_error: None, submitting: True)
-    form_modal.Errored(form:, mode:, error:) ->
-      view_form(form, mode, api_error: Some(error), submitting: False)
+  let submitting = case state {
+    form_modal.Submitting(..) -> True
+    _ -> False
   }
+
+  html.dialog(
+    [
+      event.on("close", decode.success(DialogDismissed)),
+      ..modal_ui.dialog_attributes(dom_id, "tag-modal", submitting)
+    ],
+    case state {
+      form_modal.Hidden -> []
+      form_modal.Active(form:, mode:) ->
+        view_form(form, mode, api_error: None, submitting: False)
+      form_modal.Submitting(form:, mode:) ->
+        view_form(form, mode, api_error: None, submitting: True)
+      form_modal.Errored(form:, mode:, error:) ->
+        view_form(form, mode, api_error: Some(error), submitting: False)
+    },
+  )
 }
 
 fn view_form(
@@ -266,7 +282,7 @@ fn view_form(
   mode: form_modal.Mode,
   api_error api_error: Option(String),
   submitting submitting: Bool,
-) -> Element(Msg) {
+) -> List(Element(Msg)) {
   let Form(name:, color:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
@@ -277,193 +293,124 @@ fn view_form(
   let name_error = field.error(name)
   let has_error = field.has_error(name)
 
-  // "closedby" = "any" is needed to allow the dialog to be closed by
-  // clicking outside the dialog.
-  let closedby_mode = case submitting {
-    True -> "none"
-    False -> "any"
-  }
-
-  html.dialog(
-    [
-      attribute.id(dom_id),
-      attribute.attribute("data-testid", "tag-modal"),
-      attribute.class(
-        "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
-      ),
-      attribute.attribute("closedby", closedby_mode),
-      event.on("close", decode.success(DialogDismissed)),
-    ],
-    [
-      html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
-        html.text(title),
-      ]),
-      html.form(
-        [
-          event.on_submit(fn(_) { SaveRequested }),
-          attribute.class("space-y-4"),
-        ],
-        [
-          case api_error {
-            Some(message) ->
-              html.p(
+  [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+      html.text(title),
+    ]),
+    html.form(
+      [
+        event.on_submit(fn(_) { SaveRequested }),
+        attribute.class("space-y-4"),
+      ],
+      [
+        case api_error {
+          Some(message) ->
+            modal_ui.error_banner(
+              testid: "tag-api-error",
+              message: "Could not save tag: " <> message,
+              extra_class: "",
+            )
+          None -> element.none()
+        },
+        html.label([attribute.class("block")], [
+          html.span(
+            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
+            [html.text("Name")],
+          ),
+          html.input([
+            attribute.type_("text"),
+            attribute.attribute("data-testid", "tag-name-input"),
+            attribute.placeholder("e.g. Food & Drink"),
+            attribute.class(
+              "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
+              <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
+              <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
+            ),
+            attribute.classes([
+              #(modal_ui.error_border_style, has_error),
+            ]),
+            attribute.autofocus(True),
+            attribute.value(field.input(name)),
+            attribute.disabled(submitting),
+            event.on_input(NameChanged),
+          ]),
+          view_name_error(name_error),
+          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+            html.text("Prefer broad categories, e.g. Food & Drink over Coffee."),
+          ]),
+        ]),
+        html.fieldset([attribute.class("block")], [
+          html.legend(
+            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
+            [html.text("Color")],
+          ),
+          html.div(
+            [attribute.class("flex flex-wrap gap-3")],
+            list.map(color_palette, fn(palette_color) {
+              let is_selected = palette_color == color
+              html.button(
                 [
-                  attribute.attribute("role", "alert"),
-                  attribute.attribute("data-testid", "tag-api-error"),
+                  attribute.type_("button"),
+                  attribute.attribute(
+                    "data-testid",
+                    "tag-color-" <> string.replace(palette_color, "#", "hex"),
+                  ),
                   attribute.class(
-                    "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700",
+                    "flex h-8 w-8 items-center justify-center rounded-full "
+                    <> "focus:outline-none focus:ring-2 focus:ring-offset-2 "
+                    <> "disabled:cursor-not-allowed disabled:opacity-60 "
+                    <> case is_selected {
+                      True ->
+                        "ring-2 ring-gray-900 ring-offset-2 "
+                        <> "border-2 border-white"
+                      False -> "hover:scale-105"
+                    },
                   ),
+                  attribute.style("background-color", palette_color),
+                  attribute.aria_label("Use color " <> palette_color),
+                  attribute.disabled(submitting),
+                  event.on_click(ColorChosen(palette_color)),
                 ],
-                [html.text("Could not save tag: " <> message)],
+                case is_selected {
+                  True -> [check_icon()]
+                  False -> []
+                },
               )
-            None -> element.none()
-          },
-          html.label([attribute.class("block")], [
-            html.span(
-              [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-              [html.text("Name")],
-            ),
-            html.input([
-              attribute.type_("text"),
-              attribute.attribute("data-testid", "tag-name-input"),
-              attribute.placeholder("e.g. Food & Drink"),
-              attribute.class(
-                "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-              ),
-              attribute.classes([
-                #(error_border_style, has_error),
-              ]),
-              attribute.autofocus(True),
-              attribute.value(field.input(name)),
-              attribute.disabled(submitting),
-              event.on_input(NameChanged),
-            ]),
-            view_name_error(name_error),
-            html.p([attribute.class("mt-1 text-xs text-gray-500")], [
-              html.text(
-                "Prefer broad categories, e.g. Food & Drink over Coffee.",
-              ),
-            ]),
-          ]),
-          html.fieldset([attribute.class("block")], [
-            html.legend(
-              [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-              [html.text("Color")],
-            ),
-            html.div(
-              [attribute.class("flex flex-wrap gap-3")],
-              list.map(color_palette, fn(palette_color) {
-                let is_selected = palette_color == color
-                html.button(
-                  [
-                    attribute.type_("button"),
-                    attribute.attribute(
-                      "data-testid",
-                      "tag-color-" <> string.replace(palette_color, "#", "hex"),
-                    ),
-                    attribute.class(
-                      "flex h-8 w-8 items-center justify-center rounded-full "
-                      <> "focus:outline-none focus:ring-2 focus:ring-offset-2 "
-                      <> "disabled:cursor-not-allowed disabled:opacity-60 "
-                      <> case is_selected {
-                        True ->
-                          "ring-2 ring-gray-900 ring-offset-2 "
-                          <> "border-2 border-white"
-                        False -> "hover:scale-105"
-                      },
-                    ),
-                    attribute.style("background-color", palette_color),
-                    attribute.aria_label("Use color " <> palette_color),
-                    attribute.disabled(submitting),
-                    event.on_click(ColorChosen(palette_color)),
-                  ],
-                  case is_selected {
-                    True -> [check_icon()]
-                    False -> []
-                  },
-                )
-              }),
-            ),
-          ]),
-          html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-            html.button(
-              [
-                attribute.type_("button"),
-                attribute.attribute("data-testid", "tag-cancel-button"),
-                attribute.class(
-                  "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-                  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 "
-                  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-gray-100",
-                ),
-                attribute.disabled(submitting),
-                event.on_click(CancelRequested),
-              ],
-              [html.text("Cancel")],
-            ),
-            html.button(
-              [
-                attribute.type_("submit"),
-                attribute.attribute("data-testid", "tag-submit-button"),
-                attribute.class(
-                  "inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium "
-                  <> "text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-                  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400",
-                ),
-                attribute.disabled(has_error || submitting),
-              ],
-              case submitting {
-                True -> [
-                  html.span(
-                    [
-                      attribute.attribute("aria-hidden", "true"),
-                      attribute.class(
-                        "h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white",
-                      ),
-                    ],
-                    [],
-                  ),
-                  html.text(submitting_label),
-                ]
-                False -> [html.text(submit_label)]
-              },
-            ),
-          ]),
-        ],
-      ),
-    ],
-  )
+            }),
+          ),
+        ]),
+        html.div([attribute.class("flex justify-end gap-3 pt-2")], [
+          modal_ui.cancel_button(
+            testid: "tag-cancel-button",
+            disabled: submitting,
+            on_click: CancelRequested,
+          ),
+          modal_ui.submit_button(
+            testid: "tag-submit-button",
+            idle_label: submit_label,
+            busy_label: submitting_label,
+            busy: submitting,
+            disabled: has_error,
+          ),
+        ]),
+      ],
+    ),
+  ]
 }
 
 fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
   case name_error {
-    Some(NameRequired) -> form_error_message("Name cannot be empty")
+    Some(NameRequired) -> modal_ui.form_error_message("Name cannot be empty")
     Some(TooLong) ->
-      form_error_message(
+      modal_ui.form_error_message(
         "Name cannot be longer than "
         <> int.to_string(max_name_length)
         <> " characters",
       )
-    Some(Duplicate) -> form_error_message("A tag with this name already exists")
+    Some(Duplicate) ->
+      modal_ui.form_error_message("A tag with this name already exists")
     None -> element.none()
   }
-}
-
-fn view_hidden() -> Element(Msg) {
-  html.dialog(
-    [
-      attribute.id(dom_id),
-      attribute.attribute("data-testid", "tag-modal"),
-      attribute.class(
-        "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
-      ),
-      // "closedby" = "any" is needed to allow the dialog to be closed by
-      // clicking outside the dialog.
-      attribute.attribute("closedby", "any"),
-    ],
-    [],
-  )
 }
 
 fn check_icon() -> Element(Msg) {
@@ -489,8 +436,4 @@ fn check_icon() -> Element(Msg) {
       ),
     ],
   )
-}
-
-fn form_error_message(text: String) -> Element(Msg) {
-  html.p([attribute.class("mt-1 text-sm text-red-600")], [html.text(text)])
 }

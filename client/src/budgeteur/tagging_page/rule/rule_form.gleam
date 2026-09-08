@@ -1,6 +1,7 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
+import budgeteur/shared/modal_ui
 import budgeteur/tagging_page/rule/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
@@ -26,8 +27,6 @@ const dom_id = "rule_modal"
 /// composed here so callers (e.g. the show/close dialog effects) never have to
 /// remember it.
 pub const dom_id_selector = "#" <> dom_id
-
-const error_border_style = "border-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
 
 pub type PatternError {
   PatternRequired
@@ -303,16 +302,33 @@ fn is_required(error: PatternError) -> Bool {
 
 // View
 
+/// Always renders the `<dialog>` element so the show/close dialog effects can
+/// find it. The dialog is `closedby="none"` while a request is in flight,
+/// locking it so it cannot be dismissed mid-request. The `on("close")` handler
+/// covers browser-initiated dismissals (Esc / backdrop click) while open; a
+/// close event can only fire when the dialog was open, so a stale one cannot
+/// arrive while `Hidden` is shown.
 pub fn view(state: Modal, tags: List(Tag)) -> Element(Msg) {
-  case state {
-    form_modal.Hidden -> view_hidden()
-    form_modal.Active(form:, mode:) ->
-      view_form(form, mode, tags, api_error: None, submitting: False)
-    form_modal.Submitting(form:, mode:) ->
-      view_form(form, mode, tags, api_error: None, submitting: True)
-    form_modal.Errored(form:, mode:, error:) ->
-      view_form(form, mode, tags, api_error: Some(error), submitting: False)
+  let submitting = case state {
+    form_modal.Submitting(..) -> True
+    _ -> False
   }
+
+  html.dialog(
+    [
+      event.on("close", decode.success(DialogDismissed)),
+      ..modal_ui.dialog_attributes(dom_id, "rule-modal", submitting)
+    ],
+    case state {
+      form_modal.Hidden -> []
+      form_modal.Active(form:, mode:) ->
+        view_form(form, mode, tags, api_error: None, submitting: False)
+      form_modal.Submitting(form:, mode:) ->
+        view_form(form, mode, tags, api_error: None, submitting: True)
+      form_modal.Errored(form:, mode:, error:) ->
+        view_form(form, mode, tags, api_error: Some(error), submitting: False)
+    },
+  )
 }
 
 fn view_form(
@@ -321,7 +337,7 @@ fn view_form(
   tags: List(Tag),
   api_error api_error: Option(String),
   submitting submitting: Bool,
-) -> Element(Msg) {
+) -> List(Element(Msg)) {
   let Form(pattern:, tag_id:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
@@ -333,179 +349,108 @@ fn view_form(
   let tag_error = field_tag_error(tag_id)
   let has_error = field.has_error(pattern) || tag_error
 
-  // "closedby" = "any" is needed to allow the dialog to be closed by
-  // clicking outside the dialog.
-  let closedby_mode = case submitting {
-    True -> "none"
-    False -> "any"
-  }
-
-  html.dialog(
-    [
-      attribute.id(dom_id),
-      attribute.attribute("data-testid", "rule-modal"),
-      attribute.class(
-        "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
-      ),
-      attribute.attribute("closedby", closedby_mode),
-      event.on("close", decode.success(DialogDismissed)),
-    ],
-    [
-      html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
-        html.text(title),
-      ]),
-      case api_error {
-        Some(message) ->
-          html.p(
-            [
-              attribute.attribute("role", "alert"),
-              attribute.attribute("data-testid", "rule-api-error"),
-              attribute.class(
-                "rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700",
-              ),
-            ],
-            [html.text("Could not save rule: " <> message)],
-          )
-        None -> element.none()
-      },
-      html.form(
-        [
-          event.on_submit(fn(_) { SaveRequested }),
-          attribute.class("space-y-4"),
-        ],
-        [
-          html.label([attribute.class("block")], [
-            html.span(
-              [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-              [html.text("Pattern")],
+  [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+      html.text(title),
+    ]),
+    case api_error {
+      Some(message) ->
+        modal_ui.error_banner(
+          testid: "rule-api-error",
+          message: "Could not save rule: " <> message,
+          extra_class: "",
+        )
+      None -> element.none()
+    },
+    html.form(
+      [
+        event.on_submit(fn(_) { SaveRequested }),
+        attribute.class("space-y-4"),
+      ],
+      [
+        html.label([attribute.class("block")], [
+          html.span(
+            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
+            [html.text("Pattern")],
+          ),
+          html.input([
+            attribute.type_("text"),
+            attribute.attribute("data-testid", "rule-pattern-input"),
+            attribute.placeholder("e.g. STARBUCKS"),
+            attribute.class(
+              "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
+              <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
+              <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
             ),
-            html.input([
-              attribute.type_("text"),
-              attribute.attribute("data-testid", "rule-pattern-input"),
-              attribute.placeholder("e.g. STARBUCKS"),
+            attribute.classes([
+              #(modal_ui.error_border_style, field.has_error(pattern)),
+            ]),
+            attribute.autofocus(True),
+            attribute.value(field.input(pattern)),
+            attribute.disabled(submitting),
+            event.on_input(PatternChanged),
+          ]),
+          case pattern_error {
+            Some(PatternRequired) ->
+              modal_ui.form_error_message("Pattern cannot be empty")
+            Some(TooLong) ->
+              modal_ui.form_error_message(
+                "Pattern cannot be longer than "
+                <> int.to_string(max_pattern_length)
+                <> " characters",
+              )
+            Some(Duplicate) ->
+              modal_ui.form_error_message("This rule already exists")
+            None -> element.none()
+          },
+        ]),
+        html.label([attribute.class("block")], [
+          html.span(
+            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
+            [html.text("Tag")],
+          ),
+          html.select(
+            [
+              attribute.attribute("data-testid", "rule-tag-select"),
               attribute.class(
-                "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
+                "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
                 <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
                 <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
               ),
               attribute.classes([
-                #(error_border_style, field.has_error(pattern)),
+                #(modal_ui.error_border_style, tag_error),
               ]),
-              attribute.autofocus(True),
-              attribute.value(field.input(pattern)),
+              attribute.value(field_tag_id(tag_id)),
               attribute.disabled(submitting),
-              event.on_input(PatternChanged),
-            ]),
-            case pattern_error {
-              Some(PatternRequired) ->
-                form_error_message("Pattern cannot be empty")
-              Some(TooLong) ->
-                form_error_message(
-                  "Pattern cannot be longer than "
-                  <> int.to_string(max_pattern_length)
-                  <> " characters",
-                )
-              Some(Duplicate) -> form_error_message("This rule already exists")
-              None -> element.none()
-            },
+              event.on_change(TagChanged),
+            ],
+            list.map(tags, fn(tag) {
+              html.option([attribute.value(uuid.to_string(tag.id))], tag.name)
+            }),
+          ),
+          case tag_error {
+            True -> modal_ui.form_error_message("Select a tag")
+            False -> element.none()
+          },
+          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+            html.text("Changing the tag moves this rule to that tag."),
           ]),
-          html.label([attribute.class("block")], [
-            html.span(
-              [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-              [html.text("Tag")],
-            ),
-            html.select(
-              [
-                attribute.attribute("data-testid", "rule-tag-select"),
-                attribute.class(
-                  "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
-                  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-                  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-                ),
-                attribute.classes([
-                  #(error_border_style, tag_error),
-                ]),
-                attribute.value(field_tag_id(tag_id)),
-                attribute.disabled(submitting),
-                event.on_change(TagChanged),
-              ],
-              list.map(tags, fn(tag) {
-                html.option([attribute.value(uuid.to_string(tag.id))], tag.name)
-              }),
-            ),
-            case tag_error {
-              True -> form_error_message("Select a tag")
-              False -> element.none()
-            },
-            html.p([attribute.class("mt-1 text-xs text-gray-500")], [
-              html.text("Changing the tag moves this rule to that tag."),
-            ]),
-          ]),
-          html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-            html.button(
-              [
-                attribute.type_("button"),
-                attribute.attribute("data-testid", "rule-cancel-button"),
-                attribute.class(
-                  "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-                  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 "
-                  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-gray-100",
-                ),
-                attribute.disabled(submitting),
-                event.on_click(CancelRequested),
-              ],
-              [html.text("Cancel")],
-            ),
-            html.button(
-              [
-                attribute.type_("submit"),
-                attribute.attribute("data-testid", "rule-submit-button"),
-                attribute.class(
-                  "inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium "
-                  <> "text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-                  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400",
-                ),
-                attribute.disabled(has_error || submitting),
-              ],
-              case submitting {
-                True -> [
-                  html.span(
-                    [
-                      attribute.attribute("aria-hidden", "true"),
-                      attribute.class(
-                        "h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white",
-                      ),
-                    ],
-                    [],
-                  ),
-                  html.text(submitting_label),
-                ]
-                False -> [html.text(submit_label)]
-              },
-            ),
-          ]),
-        ],
-      ),
-    ],
-  )
-}
-
-fn view_hidden() -> Element(Msg) {
-  html.dialog(
-    [
-      attribute.id(dom_id),
-      attribute.attribute("data-testid", "rule-modal"),
-      attribute.class(
-        "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50",
-      ),
-      // "closedby" = "any" is needed to allow the dialog to be closed by
-      // clicking outside the dialog.
-      attribute.attribute("closedby", "any"),
-    ],
-    [],
-  )
-}
-
-fn form_error_message(text: String) -> Element(Msg) {
-  html.p([attribute.class("mt-1 text-sm text-red-600")], [html.text(text)])
+        ]),
+        html.div([attribute.class("flex justify-end gap-3 pt-2")], [
+          modal_ui.cancel_button(
+            testid: "rule-cancel-button",
+            disabled: submitting,
+            on_click: CancelRequested,
+          ),
+          modal_ui.submit_button(
+            testid: "rule-submit-button",
+            idle_label: submit_label,
+            busy_label: submitting_label,
+            busy: submitting,
+            disabled: has_error,
+          ),
+        ]),
+      ],
+    ),
+  ]
 }

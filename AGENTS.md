@@ -161,6 +161,7 @@ Two-layer MVU: `app.gleam` is the shell (routing, toasts, session expiry) and ea
 - `shared/guard.gleam` — `use`-compatible early-return helpers for `Option`/`Result`.
 - `shared/response.gleam` — 2xx body → typed `Result` and `HttpError` → `ApiError` helpers.
 - `shared/out_msg.gleam` — child → parent channel; pages return an `OutMsg` alongside model and effect to request shell-level behaviours (currently toasts).
+- `shared/field.gleam`, `shared/form_modal.gleam`, `shared/delete_modal.gleam`, `shared/modal_ui.gleam` — generic modal machinery: tri-state `Field`, the create/update modal reducer, the delete-confirmation state machine, and the shared `<dialog>` chrome (buttons, banners, error styling). Feature modules alias the shared types and keep their own entities, forms, and list mutations.
 
 See [docs/architecture.md](docs/architecture.md) for the full design.
 

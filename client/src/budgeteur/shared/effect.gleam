@@ -198,7 +198,7 @@ pub fn delete(
 ///
 /// ```gleam
 /// effect.post("/api/tags", body, callback)
-/// |> effect.with_timeout(tag_form.submit_timeout_ms)
+/// |> effect.with_timeout(form_modal.submit_timeout_ms)
 /// ```
 ///
 /// Non-HTTP effects are returned unchanged.

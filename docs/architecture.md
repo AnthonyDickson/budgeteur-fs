@@ -186,10 +186,14 @@ a child-to-parent channel for requesting shell-level behaviours — currently us
 for toast notifications, but the mechanism is generic. A parent's `update` is
 therefore the single place where child requests are turned into shell effects.
 
-The same layering repeats inside a page: stateful modal forms (`tag_form`,
-`rule_form`) keep their modal state in the page model, raise their own `Msg`s
-(lifted with `element.map`), and return `Request`/`Outcome` pairs the page
-turns into effects and data changes.
+The same layering repeats inside a page: stateful modals (`transaction_form`,
+`tag_form`, `rule_form`, plus the delete confirmations) keep their modal state
+in the page model, raise their own `Msg`s (lifted with `element.map`), and
+return `Request`/`Outcome` pairs the page turns into effects and data changes.
+The underlying state machines are generic (`shared/form_modal.gleam`,
+`shared/delete_modal.gleam`); feature modules alias their `Modal`/`Request`/
+`Outcome` types, and `shared/modal_ui.gleam` owns the dialog chrome (dialog
+element, buttons, banners, field error styling).
 
 ### Effect system
 
