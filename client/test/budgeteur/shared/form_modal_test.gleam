@@ -186,17 +186,13 @@ pub fn submit_validation_failure_keeps_the_modal_open_with_errors_test() {
   request |> should.equal(None)
 }
 
-pub fn submit_validation_failure_keeps_the_errored_banner_test() {
+pub fn submit_validation_failure_from_errored_drops_the_banner_test() {
   let errored =
     form_modal.Errored(form: form("  "), mode: form_modal.Create, error: "boom")
   let #(modal, request) = form_modal.submit(errored, valid_validate)
 
   modal
-  |> should.equal(form_modal.Errored(
-    form: form("  "),
-    mode: form_modal.Create,
-    error: "boom",
-  ))
+  |> should.equal(form_modal.Active(form: form("  "), mode: form_modal.Create))
   request |> should.equal(None)
 }
 

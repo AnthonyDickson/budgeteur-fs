@@ -112,11 +112,13 @@ pub fn mode(modal: Modal(a)) -> Option(Mode) {
 
 /// Validate and submit. `Active` and `Errored` modals run `validate`, which
 /// returns the payload and corrected form on success (e.g. trimmed values) or
-/// the form with inline errors on failure. On success the modal moves to
-/// `Submitting` and the returned request is `Post` or `Put` according to the
-/// mode; on failure the corrected form is stored (keeping the `Errored` banner
-/// if present). No-op when `Hidden` or `Submitting`, which also guards against
-/// double submits.
+/// the form with inline errors on failure. A submit attempt on an `Errored`
+/// modal clears its banner first: the retry supersedes the stale server
+/// message, so a validation failure shows only the fresh field errors. On
+/// success the modal moves to `Submitting` and the returned request is `Post`
+/// or `Put` according to the mode; on failure the modal returns to `Active`
+/// with the corrected form. No-op when `Hidden` or `Submitting`, which also
+/// guards against double submits.
 pub fn submit(
   modal: Modal(a),
   validate: fn(a) -> Result(#(payload, a), a),
@@ -131,7 +133,7 @@ pub fn submit(
           }
           #(Submitting(corrected, mode), Some(request))
         }
-        Error(corrected) -> #(set_form(modal, fn(_) { corrected }), None)
+        Error(corrected) -> #(Active(corrected, mode), None)
       }
     }
     Hidden | Submitting(..) -> #(modal, None)

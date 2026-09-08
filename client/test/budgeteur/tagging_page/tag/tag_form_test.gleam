@@ -225,7 +225,7 @@ pub fn save_failure_then_fix_then_retry_test() {
   let assert Errored(mode: Create, error:, ..) = errored
   error |> should.equal("A tag named Coffee already exists")
 
-  // Editing the name keeps the banner until the next successful submit.
+  // Editing keeps the banner; the next submit attempt clears it.
   let assert #(still_errored, _, NoChange) =
     tag_form.update(errored, NameChanged("Tea"), [])
   let assert Errored(form:, error:, ..) = still_errored

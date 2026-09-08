@@ -230,7 +230,7 @@ pub fn save_failure_then_fix_then_retry_test() {
   let assert Errored(mode: Create, error:, ..) = errored
   error |> should.equal(message)
 
-  // Changing the pattern keeps the banner until the next successful submit.
+  // Editing keeps the banner; the next submit attempt clears it.
   let assert #(still_errored, _, NoChange) =
     rule_form.update(errored, PatternChanged("7-ELEVEN"), [])
   let assert Errored(form:, error:, ..) = still_errored
