@@ -183,16 +183,42 @@ fn parse_tag_id(tag_id: String) -> TagField {
   }
 }
 
+/// The id of the tag the form currently selects, if any. Used to scope the
+/// duplicate-pattern check to the tag being saved to.
+fn selected_tag_id(state: Modal) -> Option(Uuid) {
+  case state {
+    form_modal.Active(form: Form(tag_id:, ..), ..)
+    | form_modal.Errored(form: Form(tag_id:, ..), ..) ->
+      case tag_id {
+        ValidTag(id) -> Some(id)
+        NoTag | InvalidTag -> None
+      }
+    _ -> None
+  }
+}
+
 fn save(state: Modal, rules: List(Rule)) -> #(Modal, List(Request), Outcome) {
   case form_modal.mode(state) {
     None -> #(state, [], form_modal.NoChange)
     Some(mode) -> {
-      let other_patterns =
-        case mode {
-          form_modal.Create -> rules
-          form_modal.Edit(id:) -> list.filter(rules, fn(rule) { rule.id != id })
-        }
-        |> list.map(fn(rule) { rule.pattern })
+      let other_patterns = case selected_tag_id(state) {
+        // Patterns are unique per tag, mirroring the server's
+        // UNIQUE(UserId, Pattern, TagId) constraint: only the rules under the
+        // tag this form saves to can collide, so the same pattern may be
+        // reused across tags. With no valid tag selected there are no rules to
+        // collide with; the missing tag fails validation anyway.
+        None -> []
+        Some(tag_id) ->
+          rules
+          |> list.filter(fn(rule) { rule.tag_id == tag_id })
+          |> list.filter(fn(rule) {
+            case mode {
+              form_modal.Create -> True
+              form_modal.Edit(id:) -> rule.id != id
+            }
+          })
+          |> list.map(fn(rule) { rule.pattern })
+      }
 
       case
         form_modal.submit(state, fn(form) {
@@ -232,9 +258,10 @@ fn cancel(state: Modal) -> #(Modal, List(Request), Outcome) {
 
 // Validation
 
-/// Validate the form against the other rules' patterns. On success returns the
-/// write request and the (finalized) form to keep while submitting; on failure
-/// returns the form with inline errors set. `other_patterns` excludes the rule
+/// Validate the form against the sibling rules' patterns. On success returns
+/// the write request and the (finalized) form to keep while submitting; on
+/// failure returns the form with inline errors set. `other_patterns` holds the
+/// patterns of the rules under the form's selected tag, excluding the rule
 /// being edited, if any.
 fn validate_form(
   form: Form,
@@ -253,8 +280,8 @@ fn validate_form(
 }
 
 /// Finalize the form after a submit attempt: blank fields become errors, and
-/// the pattern is checked against the other rules' patterns. The comparison is
-/// case-insensitive to mirror the matching semantics.
+/// the pattern is checked against the sibling rules' patterns for the same
+/// tag. The comparison is case-insensitive to mirror the matching semantics.
 fn finalize(form: Form, other_patterns: List(String)) -> Form {
   let Form(pattern:, tag_id:) = form
   let pattern = field.finalize(pattern, fn() { PatternRequired })
@@ -400,7 +427,9 @@ fn view_form(
                 <> " characters",
               )
             Some(Duplicate) ->
-              modal_ui.form_error_message("This rule already exists")
+              modal_ui.form_error_message(
+                "A rule with this pattern already exists for this tag",
+              )
             None -> element.none()
           },
         ]),

@@ -19,8 +19,6 @@
 - Tags and rules page:
   - Have new rule form default to selecting the selected tag
   - Clean up naming split between modal/form
-  - Move to Catppuccin Latte colour scheme
-    - Migrate tag colour swatch
   - Cull unit tests
   - Add E2E tests
   - Ensure docs are up-to-date and sufficient
@@ -45,6 +43,7 @@
   - Paging is expected to used infrequently
 - Consider how to manage styling across pages/source code files for consistent styling.
   - Consider Catppuccin Latte and Mocha
+    - Migrate tag colour swatch
 - Reconsider toasts for error handling in modal forms, the toasts are behind the backdrop layer so they are dimmed and
   not clickable.
 - Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then replacing

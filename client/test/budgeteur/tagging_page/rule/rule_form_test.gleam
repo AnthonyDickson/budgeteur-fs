@@ -201,11 +201,11 @@ pub fn edit_rule_workflow_keeps_own_pattern_test() {
   outcome |> should.equal(Updated(saved))
 }
 
-pub fn duplicate_pattern_submit_marks_form_and_emits_no_request_test() {
-  // The duplicate check is case-insensitive and global (across tags), so a
-  // lowercase "starbucks" collides with an existing "STARBUCKS" under another
-  // tag.
-  let existing = make_rule(make_id(4), "STARBUCKS", make_id(2))
+pub fn duplicate_pattern_in_same_tag_marks_form_and_emits_no_request_test() {
+  // The duplicate check is case-insensitive within the selected tag, so a
+  // lowercase "starbucks" collides with an existing "STARBUCKS" under the same
+  // tag: rules differing only in case would match the same transactions.
+  let existing = make_rule(make_id(4), "STARBUCKS", make_id(1))
   let modal = make_create_modal() |> modal_with_pattern("starbucks")
 
   let assert #(state, requests, NoChange) =
@@ -215,6 +215,54 @@ pub fn duplicate_pattern_submit_marks_form_and_emits_no_request_test() {
     form: Form(pattern: field.Invalid(error: Duplicate, ..), ..),
     ..,
   ) = state
+}
+
+pub fn same_pattern_under_another_tag_is_allowed_test() {
+  // Uniqueness is per tag, not per user (mirroring the server's
+  // UNIQUE(UserId, Pattern, TagId) constraint): the same pattern may exist
+  // under a different tag.
+  let other = make_rule(make_id(4), "STARBUCKS", make_id(2))
+  let modal = make_create_modal() |> modal_with_pattern("STARBUCKS")
+
+  let assert #(submitting, [request], NoChange) =
+    rule_form.update(modal, SaveRequested, [other])
+  let assert Submitting(mode: Create, ..) = submitting
+  request |> should.equal(Post(RuleWriteRequest("STARBUCKS", make_id(1))))
+}
+
+pub fn moving_a_rule_to_a_tag_with_the_same_pattern_is_rejected_test() {
+  // Changing the tag select moves the rule, so the duplicate check runs
+  // against the destination tag's rules. Moving onto a tag that already has a
+  // matching pattern (case-insensitively) is rejected; the rule itself is
+  // excluded from the check.
+  let starbucks = make_rule(make_id(3), "STARBUCKS", make_id(1))
+  let in_destination = make_rule(make_id(4), "starbucks", make_id(2))
+  let modal = make_edit_modal(starbucks)
+  let #(moved, _, _) =
+    rule_form.update(modal, TagChanged(uuid.to_string(make_id(2))), [])
+
+  let assert #(state, requests, NoChange) =
+    rule_form.update(moved, SaveRequested, [starbucks, in_destination])
+  requests |> should.equal([])
+  let assert Active(
+    form: Form(pattern: field.Invalid(error: Duplicate, ..), ..),
+    ..,
+  ) = state
+}
+
+pub fn moving_a_rule_to_a_tag_without_the_pattern_is_allowed_test() {
+  let starbucks = make_rule(make_id(3), "STARBUCKS", make_id(1))
+  let in_destination = make_rule(make_id(4), "7-ELEVEN", make_id(2))
+  let modal = make_edit_modal(starbucks)
+  let #(moved, _, _) =
+    rule_form.update(modal, TagChanged(uuid.to_string(make_id(2))), [])
+
+  let assert #(submitting, [request], NoChange) =
+    rule_form.update(moved, SaveRequested, [in_destination, starbucks])
+  let assert Submitting(mode: Edit(id), ..) = submitting
+  id |> should.equal(starbucks.id)
+  request
+  |> should.equal(Put(starbucks.id, RuleWriteRequest("STARBUCKS", make_id(2))))
 }
 
 pub fn save_failure_then_fix_then_retry_test() {
