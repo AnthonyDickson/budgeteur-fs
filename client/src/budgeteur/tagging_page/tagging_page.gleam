@@ -2,6 +2,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
+import budgeteur/shared/form_modal
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/toast
@@ -433,22 +434,33 @@ fn run_tag_form(
   let #(tag_modal, requests, outcome) =
     tag_form.update(model.tag_modal, msg, model.tags)
   let model = Model(..model, tag_modal:)
-  apply_tag_form(model, requests, outcome, msg)
+  let error_effect = case msg {
+    tag_form.SaveCompleted(result: Error(error)) ->
+      Some(effect.LogError(api_error.describe(error)))
+    _ -> None
+  }
+  fold_form(
+    model,
+    requests,
+    outcome,
+    error_effect,
+    apply_tag_outcome,
+    interpret_tag_form_request,
+  )
 }
 
-fn apply_tag_form(
+fn apply_tag_outcome(
   model: Model,
-  requests: List(tag_form.Request),
   outcome: tag_form.Outcome,
-  msg: tag_form.Msg,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let model = case outcome {
-    tag_form.NoChange -> model
-    tag_form.Created(tag:) -> {
+) -> #(Model, Option(OutMsg)) {
+  case outcome {
+    form_modal.NoChange -> #(model, None)
+    form_modal.Created(entity: tag) -> {
       let tags = [tag, ..model.tags] |> sort_tags
-      Model(..model, tags:, selected_tag: Some(tag.id))
+      let model = Model(..model, tags:, selected_tag: Some(tag.id))
+      #(model, Some(out_msg.success_toast("Created tag '" <> tag.name <> "'")))
     }
-    tag_form.Updated(tag:) -> {
+    form_modal.Updated(entity: tag) -> {
       let tags =
         list.map(model.tags, fn(t) {
           case t.id == tag.id {
@@ -457,72 +469,35 @@ fn apply_tag_form(
           }
         })
         |> sort_tags
-      Model(..model, tags:)
+      let model = Model(..model, tags:)
+      #(model, Some(out_msg.success_toast("Updated tag '" <> tag.name <> "'")))
     }
-  }
-
-  let effects = interpret_tag_form_requests(requests)
-  let effects = case msg {
-    tag_form.SaveCompleted(result: Error(error)) -> [
-      effect.LogError(api_error.describe(error)),
-      ..effects
-    ]
-    _ -> effects
-  }
-
-  let out_msg = case outcome {
-    tag_form.NoChange -> None
-    tag_form.Created(tag:) ->
-      Some(out_msg.PageRequestedToast(
-        title: "Success",
-        body: "Created tag '" <> tag.name <> "'",
-        level: toast.Success,
-        dismiss_after_ms: Some(5000),
-      ))
-    tag_form.Updated(tag:) ->
-      Some(out_msg.PageRequestedToast(
-        title: "Success",
-        body: "Updated tag '" <> tag.name <> "'",
-        level: toast.Success,
-        dismiss_after_ms: Some(5000),
-      ))
-  }
-
-  #(model, effect.batch(effects), out_msg)
-}
-
-fn interpret_tag_form_requests(requests: List(tag_form.Request)) {
-  case requests {
-    [] -> []
-    [request, ..others] -> [
-      interpret_tag_form_request(request),
-      ..interpret_tag_form_requests(others)
-    ]
   }
 }
 
 fn interpret_tag_form_request(request: tag_form.Request) -> Effect(Msg) {
   case request {
-    tag_form.ShowDialog -> effect.ShowDialog(tag_form.dom_id_selector)
-    tag_form.CloseDialog -> effect.CloseDialog(tag_form.dom_id_selector)
-    tag_form.CreateTag(request:) -> {
+    form_modal.ShowDialog ->
+      effect.ShowDialog(selector: tag_form.dom_id_selector)
+    form_modal.CloseDialog ->
+      effect.CloseDialog(selector: tag_form.dom_id_selector)
+    form_modal.Post(payload) ->
       effect.post(
         api_route.CreateTag |> api_route.to_string,
-        tag_write_request.to_json(request)
+        tag_write_request.to_json(payload)
           |> json.to_string,
         handle_tag_response,
       )
-      |> effect.with_timeout(tag_form.submit_timeout_ms)
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
       |> effect.map(TagFormMsg)
-    }
-    tag_form.PutTag(id:, request:) ->
+    form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateTag(id) |> api_route.to_string,
-        tag_write_request.to_json(request)
+        tag_write_request.to_json(payload)
           |> json.to_string,
         handle_tag_response,
       )
-      |> effect.with_timeout(tag_form.submit_timeout_ms)
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
       |> effect.map(TagFormMsg)
   }
 }
@@ -546,23 +521,33 @@ fn run_rule_form(
   let #(rule_modal, requests, outcome) =
     rule_form.update(model.rule_modal, msg, model.rules)
   let model = Model(..model, rule_modal:)
-  apply_rule_form(model, requests, outcome, msg)
+  let error_effect = case msg {
+    rule_form.SaveCompleted(result: Error(error)) ->
+      Some(effect.LogError(api_error.describe(error)))
+    _ -> None
+  }
+  fold_form(
+    model,
+    requests,
+    outcome,
+    error_effect,
+    apply_rule_outcome,
+    interpret_rule_form_request,
+  )
 }
 
-fn apply_rule_form(
+fn apply_rule_outcome(
   model: Model,
-  requests: List(rule_form.Request),
   outcome: rule_form.Outcome,
-  msg: rule_form.Msg,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let model = case outcome {
-    rule_form.NoChange -> model
-    rule_form.Created(rule:) -> {
+) -> #(Model, Option(OutMsg)) {
+  case outcome {
+    form_modal.NoChange -> #(model, None)
+    form_modal.Created(entity: rule) -> {
       // New rules append so insertion order equals rule evaluation order.
-      let rules = list.append(model.rules, [rule])
-      Model(..model, rules:)
+      let model = Model(..model, rules: list.append(model.rules, [rule]))
+      #(model, Some(out_msg.success_toast("Created rule " <> rule.pattern)))
     }
-    rule_form.Updated(rule:) -> {
+    form_modal.Updated(entity: rule) -> {
       let rules =
         list.map(model.rules, fn(r) {
           case r.id == rule.id {
@@ -570,72 +555,35 @@ fn apply_rule_form(
             False -> r
           }
         })
-      Model(..model, rules:)
+      let model = Model(..model, rules:)
+      #(model, Some(out_msg.success_toast("Updated rule " <> rule.pattern)))
     }
-  }
-
-  let effects = interpret_rule_form_requests(requests)
-  let effects = case msg {
-    rule_form.SaveCompleted(result: Error(error)) -> [
-      effect.LogError(api_error.describe(error)),
-      ..effects
-    ]
-    _ -> effects
-  }
-
-  let out_msg = case outcome {
-    rule_form.NoChange -> None
-    rule_form.Created(rule:) ->
-      Some(out_msg.PageRequestedToast(
-        title: "Success",
-        body: "Created rule " <> rule.pattern,
-        level: toast.Success,
-        dismiss_after_ms: Some(5000),
-      ))
-    rule_form.Updated(rule:) ->
-      Some(out_msg.PageRequestedToast(
-        title: "Success",
-        body: "Updated rule " <> rule.pattern,
-        level: toast.Success,
-        dismiss_after_ms: Some(5000),
-      ))
-  }
-
-  #(model, effect.batch(effects), out_msg)
-}
-
-fn interpret_rule_form_requests(requests: List(rule_form.Request)) {
-  case requests {
-    [] -> []
-    [request, ..others] -> [
-      interpret_rule_form_request(request),
-      ..interpret_rule_form_requests(others)
-    ]
   }
 }
 
 fn interpret_rule_form_request(request: rule_form.Request) -> Effect(Msg) {
   case request {
-    rule_form.ShowDialog -> effect.ShowDialog(rule_form.dom_id_selector)
-    rule_form.CloseDialog -> effect.CloseDialog(rule_form.dom_id_selector)
-    rule_form.CreateRule(request:) -> {
+    form_modal.ShowDialog ->
+      effect.ShowDialog(selector: rule_form.dom_id_selector)
+    form_modal.CloseDialog ->
+      effect.CloseDialog(selector: rule_form.dom_id_selector)
+    form_modal.Post(payload) ->
       effect.post(
         api_route.CreateRule |> api_route.to_string,
-        rule_write_request.to_json(request)
+        rule_write_request.to_json(payload)
           |> json.to_string,
         handle_rule_response,
       )
-      |> effect.with_timeout(rule_form.submit_timeout_ms)
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
       |> effect.map(RuleFormMsg)
-    }
-    rule_form.PutRule(id:, request:) ->
+    form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateRule(id) |> api_route.to_string,
-        rule_write_request.to_json(request)
+        rule_write_request.to_json(payload)
           |> json.to_string,
         handle_rule_response,
       )
-      |> effect.with_timeout(rule_form.submit_timeout_ms)
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
       |> effect.map(RuleFormMsg)
   }
 }
@@ -650,6 +598,27 @@ fn handle_rule_response(result) {
         Error(response.http_error_to_api_error(http_error)),
       )
   }
+}
+
+/// Fold a form's `#(modal, requests, outcome)` triple into page state: store
+/// the modal, apply the outcome to the lists (with a toast), turn the requests
+/// into effects, and log the API error when the triggering message was a save
+/// failure. Shared by the tag and rule slices; the differences are passed in.
+fn fold_form(
+  model: Model,
+  requests: List(request),
+  outcome: outcome,
+  error_effect: Option(Effect(Msg)),
+  apply_outcome: fn(Model, outcome) -> #(Model, Option(OutMsg)),
+  interpret: fn(request) -> Effect(Msg),
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(model, out_msg) = apply_outcome(model, outcome)
+  let effects = list.map(requests, interpret)
+  let effects = case error_effect {
+    Some(error_effect) -> [error_effect, ..effects]
+    None -> effects
+  }
+  #(model, effect.batch(effects), out_msg)
 }
 
 pub fn view(model: Model) -> Element(Msg) {

@@ -2,6 +2,7 @@ import budgeteur/shared/api_error.{ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect
+import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/toast
@@ -362,7 +363,7 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
     effect.HttpRequest(method: method, timeout: timeout, ..),
   ]) = submit_effect
   method |> should.equal(http_effect.Post)
-  timeout |> should.equal(Some(rule_form.submit_timeout_ms))
+  timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
   let created =
     rule.Rule(id: tag_id(5), pattern: "STARBUCKS", tag_id: coffee.id)
@@ -406,7 +407,7 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
     effect.HttpRequest(method: method, timeout: timeout, ..),
   ]) = submit_effect
   method |> should.equal(http_effect.Put)
-  timeout |> should.equal(Some(rule_form.submit_timeout_ms))
+  timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
   let moved = rule.Rule(..starbucks, tag_id: rent.id)
   let #(new_model, _, out_msg) =
@@ -451,7 +452,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
       tagging_page.RuleFormMsg(rule_form.SaveCompleted(Error(error))),
     )
 
-  let assert rule_form.Errored(..) = failed.rule_modal
+  let assert form_modal.Errored(..) = failed.rule_modal
   failed.rules |> should.equal(model.rules)
   out_msg |> should.equal(None)
   let assert effect.Batch([effect.LogError(_)]) = fail_effect
@@ -503,7 +504,7 @@ pub fn creating_tag_inserts_sorts_and_selects_it_test() {
     effect.HttpRequest(method: method, timeout: timeout, ..),
   ]) = submit_effect
   method |> should.equal(http_effect.Post)
-  timeout |> should.equal(Some(tag_form.submit_timeout_ms))
+  timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
   let created = tag_named(tag_id(3), "NewTag")
   let #(new_model, _, out_msg) =
@@ -545,7 +546,7 @@ pub fn creating_duplicate_name_surfaces_server_error_inline_test() {
       tagging_page.TagFormMsg(tag_form.SaveCompleted(Error(error))),
     )
 
-  let assert tag_form.Errored(mode: tag_form.Create, error: details, ..) =
+  let assert form_modal.Errored(mode: form_modal.Create, error: details, ..) =
     failed.tag_modal
   details |> should.equal("A tag with the name 'Tea' already exists")
   failed.tags |> should.equal(model.tags)
@@ -567,7 +568,7 @@ pub fn editing_tag_replaces_and_resorts_it_test() {
     effect.HttpRequest(method: method, timeout: timeout, ..),
   ]) = submit_effect
   method |> should.equal(http_effect.Put)
-  timeout |> should.equal(Some(tag_form.submit_timeout_ms))
+  timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
   let updated = tag_named(tag_id(2), "AAA")
   let #(new_model, _, out_msg) =
@@ -602,7 +603,7 @@ pub fn failed_save_logs_error_and_keeps_the_form_open_test() {
       tagging_page.TagFormMsg(tag_form.SaveCompleted(Error(error))),
     )
 
-  let assert tag_form.Errored(..) = failed.tag_modal
+  let assert form_modal.Errored(..) = failed.tag_modal
   failed.tags |> should.equal(model.tags)
   out_msg |> should.equal(None)
   let assert effect.Batch([effect.LogError(_)]) = fail_effect

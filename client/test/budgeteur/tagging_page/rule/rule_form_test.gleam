@@ -1,12 +1,14 @@
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/field
+import budgeteur/shared/form_modal.{
+  Active, CloseDialog, Create, Created, Edit, Errored, Hidden, NoChange, Post,
+  Put, ShowDialog, Submitting, Updated,
+}
 import budgeteur/tagging_page/rule/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule/rule_form.{
-  type Modal, Active, CancelRequested, CloseDialog, Create, CreateRequested,
-  CreateRule, Created, DialogDismissed, Duplicate, Edit, EditRequested, Errored,
-  Form, Hidden, InvalidTag, NoChange, PatternChanged, PatternRequired, PutRule,
-  SaveCompleted, SaveRequested, ShowDialog, Submitting, TagChanged, TooLong,
-  Updated, ValidTag,
+  type Modal, CancelRequested, CreateRequested, DialogDismissed, Duplicate,
+  EditRequested, Form, InvalidTag, PatternChanged, PatternRequired,
+  SaveCompleted, SaveRequested, TagChanged, TooLong, ValidTag,
 }
 import budgeteur/tagging_page/rule_write_request.{RuleWriteRequest}
 import gleam/int
@@ -105,7 +107,7 @@ pub fn validate_trims_the_request_pattern_but_not_the_field_test() {
   // the trimmed pattern.
   let assert #(submitting, [request], NoChange) =
     rule_form.update(modal, SaveRequested, [])
-  request |> should.equal(CreateRule(RuleWriteRequest("STARBUCKS", make_id(1))))
+  request |> should.equal(Post(RuleWriteRequest("STARBUCKS", make_id(1))))
 
   let assert Submitting(
     form: Form(pattern: field.Valid(value: _, input:), tag_id:),
@@ -168,7 +170,7 @@ pub fn create_rule_workflow_test() {
   let assert #(submitting, [request], NoChange) =
     rule_form.update(modal, SaveRequested, [])
   let assert Submitting(mode: Create, ..) = submitting
-  request |> should.equal(CreateRule(RuleWriteRequest("STARBUCKS", make_id(1))))
+  request |> should.equal(Post(RuleWriteRequest("STARBUCKS", make_id(1))))
 
   let saved = make_rule(make_id(3), "STARBUCKS", make_id(1))
   let #(final_state, requests, outcome) =
@@ -189,10 +191,7 @@ pub fn edit_rule_workflow_keeps_own_pattern_test() {
   let assert Submitting(mode: Edit(id), ..) = submitting
   id |> should.equal(existing.id)
   request
-  |> should.equal(PutRule(
-    existing.id,
-    RuleWriteRequest("STARBUCKS", make_id(1)),
-  ))
+  |> should.equal(Put(existing.id, RuleWriteRequest("STARBUCKS", make_id(1))))
 
   let saved = make_rule(make_id(3), "7-ELEVEN", make_id(2))
   let #(final_state, requests, outcome) =
@@ -220,7 +219,7 @@ pub fn duplicate_pattern_submit_marks_form_and_emits_no_request_test() {
 
 pub fn save_failure_then_fix_then_retry_test() {
   let modal = make_create_modal() |> modal_with_pattern("STARBUCKS")
-  let assert #(submitting, [CreateRule(_)], NoChange) =
+  let assert #(submitting, [Post(_)], NoChange) =
     rule_form.update(modal, SaveRequested, [])
 
   // The failure surfaces the API error as the banner message.
@@ -240,7 +239,7 @@ pub fn save_failure_then_fix_then_retry_test() {
   error |> should.equal(message)
 
   // Retry is legal from the errored state.
-  let assert #(submitting_again, [CreateRule(_)], NoChange) =
+  let assert #(submitting_again, [Post(_)], NoChange) =
     rule_form.update(still_errored, SaveRequested, [])
   let assert Submitting(..) = submitting_again
 }

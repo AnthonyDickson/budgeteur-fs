@@ -1,14 +1,45 @@
+import budgeteur/shared/api_error.{ApiError}
 import budgeteur/shared/field
+import budgeteur/shared/form_modal.{
+  Active, CloseDialog, Create, Edit, Errored, Hidden, NoChange, Post, Put,
+  Submitting,
+}
 import budgeteur/transaction/transaction
 import budgeteur/transaction/transaction_form.{
-  AmountRequired, Credit, DateRequired, Debit, DescriptionRequired, NotADate,
-  NotANumber, NotPositive, TooLong,
+  AmountChanged, AmountRequired, CancelRequested, CreateRequested, Credit,
+  DateChanged, DateRequired, Debit, DescriptionChanged, DescriptionRequired,
+  DialogDismissed, EditRequested, IsTransferChanged, NotADate, NotANumber,
+  NotPositive, SaveCompleted, SaveRequested, TooLong, TypeChanged,
 }
-import gleam/option.{None}
+import gleam/option.{None, Some}
 import gleam/string
 import gleam/time/calendar
 import gleeunit/should
 import youid/uuid
+
+/// Open the create modal (the page sends `CreateRequested` to `update`).
+fn opened() -> transaction_form.Modal {
+  let #(modal, _, _) =
+    transaction_form.update(transaction_form.hidden(), CreateRequested)
+  modal
+}
+
+/// Apply a form message, keeping only the resulting modal.
+fn send(
+  state: transaction_form.Modal,
+  msg: transaction_form.Msg,
+) -> transaction_form.Modal {
+  let #(modal, _, _) = transaction_form.update(state, msg)
+  modal
+}
+
+fn form_of(modal: transaction_form.Modal) -> transaction_form.Form {
+  case modal {
+    Active(form:, ..) -> form
+    Errored(form:, ..) -> form
+    _ -> panic as "expected an open form modal"
+  }
+}
 
 pub fn clip_amount_allows_up_to_two_decimal_places_test() {
   transaction_form.clip_amount_to_two_dp("12.3")
@@ -36,54 +67,39 @@ pub fn clip_amount_leaves_whole_numbers_untouched_test() {
 }
 
 pub fn set_amount_clips_to_two_decimal_places_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("12.345")
-  let assert field.Valid(value: amount, input: "12.34") = state.form.amount
+  let form = opened() |> send(AmountChanged("12.345")) |> form_of
+  let assert field.Valid(value: amount, input: "12.34") = form.amount
   amount |> should.equal(12.34)
 }
 
 pub fn set_amount_records_not_a_number_error_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("abc")
-  let assert field.Invalid(input: "abc", error: NotANumber) = state.form.amount
+  let form = opened() |> send(AmountChanged("abc")) |> form_of
+  let assert field.Invalid(input: "abc", error: NotANumber) = form.amount
 }
 
 pub fn set_amount_records_not_positive_error_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("-5")
-  let assert field.Invalid(input: "-5", error: NotPositive) = state.form.amount
+  let form = opened() |> send(AmountChanged("-5")) |> form_of
+  let assert field.Invalid(input: "-5", error: NotPositive) = form.amount
 }
 
 pub fn set_amount_accepts_zero_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("0")
-  let assert field.Valid(value: 0.0, ..) = state.form.amount
+  let form = opened() |> send(AmountChanged("0")) |> form_of
+  let assert field.Valid(value: 0.0, ..) = form.amount
 }
 
 pub fn set_amount_blank_field_is_empty_state_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("")
-  let assert field.Empty("") = state.form.amount
+  let form = opened() |> send(AmountChanged("")) |> form_of
+  let assert field.Empty("") = form.amount
 }
 
 pub fn set_amount_double_dot_is_not_a_number_error_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("12..")
-  let assert field.Invalid(input: "12..", error: NotANumber) = state.form.amount
+  let form = opened() |> send(AmountChanged("12..")) |> form_of
+  let assert field.Invalid(input: "12..", error: NotANumber) = form.amount
 }
 
 pub fn set_amount_digit_between_dots_is_not_a_number_error_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("1.2.3")
-  let assert field.Invalid(input: "1.2.3", error: NotANumber) =
-    state.form.amount
+  let form = opened() |> send(AmountChanged("1.2.3")) |> form_of
+  let assert field.Invalid(input: "1.2.3", error: NotANumber) = form.amount
 }
 
 pub fn clip_amount_leaves_malformed_dot_input_untouched_test() {
@@ -93,89 +109,95 @@ pub fn clip_amount_leaves_malformed_dot_input_untouched_test() {
 }
 
 pub fn set_description_blank_field_is_empty_state_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_description("  ")
-  let assert field.Empty(_) = state.form.description
+  let form = opened() |> send(DescriptionChanged("  ")) |> form_of
+  let assert field.Empty(_) = form.description
 }
 
 pub fn set_description_records_too_long_error_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_description(string.repeat(
-      "a",
-      transaction_form.max_description_length + 1,
-    ))
-  let assert field.Invalid(error: TooLong, ..) = state.form.description
+  let form =
+    opened()
+    |> send(
+      DescriptionChanged(string.repeat(
+        "a",
+        transaction_form.max_description_length + 1,
+      )),
+    )
+    |> form_of
+  let assert field.Invalid(error: TooLong, ..) = form.description
 }
 
 pub fn set_date_blank_field_is_empty_state_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_date("")
-  let assert field.Empty("") = state.form.date
+  let form = opened() |> send(DateChanged("")) |> form_of
+  let assert field.Empty("") = form.date
 }
 
 pub fn set_date_records_not_a_date_error_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_date("not a date")
-  let assert field.Invalid(input: "not a date", error: NotADate) =
-    state.form.date
+  let form = opened() |> send(DateChanged("not a date")) |> form_of
+  let assert field.Invalid(input: "not a date", error: NotADate) = form.date
 }
 
 pub fn validate_includes_is_transfer_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("12.5")
-    |> transaction_form.set_description("Coffee")
-    |> transaction_form.set_date("2026-01-02")
-    |> transaction_form.set_is_transfer(True)
-  let request = transaction_form.validate(state) |> should.be_ok
+  let assert #(submitting, [Post(request)], NoChange) =
+    transaction_form.update(
+      opened()
+        |> send(AmountChanged("12.5"))
+        |> send(DescriptionChanged("Coffee"))
+        |> send(DateChanged("2026-01-02"))
+        |> send(IsTransferChanged(True)),
+      SaveRequested,
+    )
+  let assert Submitting(mode: Create, ..) = submitting
   request.is_transfer |> should.be_true
 }
 
 pub fn validate_negates_debit_amounts_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("12.5")
-    |> transaction_form.set_description("Coffee")
-    |> transaction_form.set_date("2026-01-02")
-  let request = transaction_form.validate(state) |> should.be_ok
+  let assert #(_, [Post(request)], NoChange) =
+    transaction_form.update(
+      opened()
+        |> send(AmountChanged("12.5"))
+        |> send(DescriptionChanged("Coffee"))
+        |> send(DateChanged("2026-01-02")),
+      SaveRequested,
+    )
   request.amount |> should.equal(-12.5)
 }
 
 pub fn validate_keeps_credit_amounts_positive_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_type_(Credit)
-    |> transaction_form.set_amount("12.5")
-    |> transaction_form.set_description("Salary")
-    |> transaction_form.set_date("2026-01-02")
-  let request = transaction_form.validate(state) |> should.be_ok
+  let assert #(_, [Post(request)], NoChange) =
+    transaction_form.update(
+      opened()
+        |> send(TypeChanged(Credit))
+        |> send(AmountChanged("12.5"))
+        |> send(DescriptionChanged("Salary"))
+        |> send(DateChanged("2026-01-02")),
+      SaveRequested,
+    )
   request.amount |> should.equal(12.5)
 }
 
 pub fn validate_returns_all_errors_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_amount("abc")
-    |> transaction_form.set_date("")
-  let error_form = transaction_form.validate(state) |> should.be_error
-  let assert field.Invalid(error: NotANumber, ..) = error_form.amount
-  let assert field.Invalid(error: DescriptionRequired, ..) =
-    error_form.description
-  let assert field.Invalid(error: DateRequired, ..) = error_form.date
+  let assert #(modal, requests, NoChange) =
+    transaction_form.update(
+      opened() |> send(AmountChanged("abc")) |> send(DateChanged("")),
+      SaveRequested,
+    )
+  requests |> should.equal([])
+  let form = form_of(modal)
+  let assert field.Invalid(error: NotANumber, ..) = form.amount
+  let assert field.Invalid(error: DescriptionRequired, ..) = form.description
+  let assert field.Invalid(error: DateRequired, ..) = form.date
 }
 
 pub fn validate_reports_required_errors_for_blank_fields_test() {
-  let state =
-    transaction_form.empty_modal()
-    |> transaction_form.set_date("2026-01-02")
-  let error_form = transaction_form.validate(state) |> should.be_error
-  let assert field.Invalid(error: AmountRequired, ..) = error_form.amount
-  let assert field.Invalid(error: DescriptionRequired, ..) =
-    error_form.description
+  let assert #(modal, requests, NoChange) =
+    transaction_form.update(
+      opened() |> send(DateChanged("2026-01-02")),
+      SaveRequested,
+    )
+  requests |> should.equal([])
+  let form = form_of(modal)
+  let assert field.Invalid(error: AmountRequired, ..) = form.amount
+  let assert field.Invalid(error: DescriptionRequired, ..) = form.description
 }
 
 pub fn edit_modal_prefills_transaction_test() {
@@ -190,16 +212,18 @@ pub fn edit_modal_prefills_transaction_test() {
       account_id: None,
       tag_id: None,
     )
-  let state = transaction_form.edit_modal(transaction)
-  let assert transaction_form.Edit(state_id) = state.mode
-  state_id |> should.equal(id)
-  state.submitting |> should.be_false
-  let assert field.Valid(value: amount, input: "12.50") = state.form.amount
+  let #(modal, _, _) =
+    transaction_form.update(
+      transaction_form.hidden(),
+      EditRequested(transaction),
+    )
+  let assert Active(form:, mode: Edit(edit_id)) = modal
+  edit_id |> should.equal(id)
+  let assert field.Valid(value: amount, input: "12.50") = form.amount
   amount |> should.equal(12.5)
-  state.form.type_ |> should.equal(Debit)
-  let assert field.Valid(value: "Coffee", input: "Coffee") =
-    state.form.description
-  let assert field.Valid(value: date, ..) = state.form.date
+  form.type_ |> should.equal(Debit)
+  let assert field.Valid(value: "Coffee", input: "Coffee") = form.description
+  let assert field.Valid(value: date, ..) = form.date
   date |> should.equal(calendar.Date(2026, calendar.January, 2))
 }
 
@@ -215,15 +239,95 @@ pub fn edit_modal_maps_credit_transaction_test() {
       account_id: None,
       tag_id: None,
     )
-  let state = transaction_form.edit_modal(transaction)
-  let assert transaction_form.Edit(state_id) = state.mode
-  state_id |> should.equal(id)
-  state.submitting |> should.be_false
-  let assert field.Valid(value: amount, input: "2500.00") = state.form.amount
+  let #(modal, _, _) =
+    transaction_form.update(
+      transaction_form.hidden(),
+      EditRequested(transaction),
+    )
+  let assert Active(form:, mode: Edit(edit_id)) = modal
+  edit_id |> should.equal(id)
+  let assert field.Valid(value: amount, input: "2500.00") = form.amount
   amount |> should.equal(2500.0)
-  state.form.type_ |> should.equal(Credit)
-  let assert field.Valid(value: "Salary", input: "Salary") =
-    state.form.description
-  let assert field.Valid(value: date, ..) = state.form.date
+  form.type_ |> should.equal(Credit)
+  let assert field.Valid(value: "Salary", input: "Salary") = form.description
+  let assert field.Valid(value: date, ..) = form.date
   date |> should.equal(calendar.Date(2026, calendar.March, 15))
+}
+
+pub fn editing_negates_debit_amounts_in_the_update_request_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000001")
+  let transaction =
+    transaction.Transaction(
+      id: id,
+      amount: -12.5,
+      description: "Coffee",
+      date: calendar.Date(2026, calendar.January, 2),
+      is_transfer: False,
+      account_id: None,
+      tag_id: None,
+    )
+  let assert #(_, [Put(put_id, request)], NoChange) =
+    transaction_form.update(
+      send(opened(), EditRequested(transaction))
+        |> send(AmountChanged("20")),
+      SaveRequested,
+    )
+  put_id |> should.equal(id)
+  request.amount |> should.equal(-20.0)
+}
+
+pub fn save_failure_moves_the_modal_to_errored_test() {
+  let submitting =
+    send(
+      send(
+        send(send(opened(), AmountChanged("5")), DescriptionChanged("Snack")),
+        DateChanged("2026-01-03"),
+      ),
+      SaveRequested,
+    )
+  let assert Submitting(..) = submitting
+
+  let error =
+    ApiError(
+      error: "Conflict",
+      details: "boom",
+      status_code: Some(409),
+      request_id: None,
+    )
+  let assert #(modal, requests, NoChange) =
+    transaction_form.update(submitting, SaveCompleted(Error(error)))
+  requests |> should.equal([])
+  let assert Errored(mode: Create, error: message, ..) = modal
+  message |> should.equal("boom")
+}
+
+pub fn cancel_requests_dialog_close_but_dismiss_does_not_test() {
+  let assert #(modal, requests, NoChange) =
+    transaction_form.update(opened(), CancelRequested)
+  modal |> should.equal(Hidden)
+  requests |> should.equal([CloseDialog])
+
+  let assert #(modal, requests, NoChange) =
+    transaction_form.update(opened(), DialogDismissed)
+  modal |> should.equal(Hidden)
+  requests |> should.equal([])
+}
+
+pub fn double_submit_while_submitting_is_a_no_op_test() {
+  let submitting =
+    send(
+      send(
+        send(send(opened(), AmountChanged("5")), DescriptionChanged("Snack")),
+        DateChanged("2026-01-03"),
+      ),
+      SaveRequested,
+    )
+  let assert Submitting(..) = submitting
+
+  // A second SaveRequested while the first is in flight emits nothing.
+  let #(still, requests, outcome) =
+    transaction_form.update(submitting, SaveRequested)
+  still |> should.equal(submitting)
+  requests |> should.equal([])
+  outcome |> should.equal(NoChange)
 }

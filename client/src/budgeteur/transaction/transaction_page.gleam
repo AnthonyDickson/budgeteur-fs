@@ -3,18 +3,14 @@ import budgeteur/shared/api_route
 import budgeteur/shared/date
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
+import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
-import budgeteur/shared/toast
-import budgeteur/transaction/create_transaction_request.{
-  type CreateTransactionRequest,
-}
+import budgeteur/transaction/create_transaction_request
 import budgeteur/transaction/transaction.{type Transaction}
 import budgeteur/transaction/transaction_delete_modal.{type DeleteModalState}
-import budgeteur/transaction/transaction_form.{
-  type ModalState, type TransactionType, Create, Edit, ModalState,
-}
+import budgeteur/transaction/transaction_form
 import budgeteur/transaction/transaction_page_data
 import gleam/dynamic/decode
 import gleam/json
@@ -32,7 +28,7 @@ import youid/uuid.{type Uuid}
 pub type Model {
   Model(
     transactions: List(Transaction),
-    modal: ModalState,
+    modal: transaction_form.Modal,
     delete_modal: DeleteModalState,
   )
 }
@@ -67,15 +63,7 @@ pub type Msg {
   // Modal messages
   UserRequestedCreationForm
   UserRequestedEditForm(Uuid)
-  UserUpdatedFormAmount(String)
-  UserUpdatedFormType(TransactionType)
-  UserUpdatedFormIsTransfer(Bool)
-  UserUpdatedFormDescription(String)
-  UserUpdatedFormDate(String)
-  UserSubmittedForm
-  ServerCreatedTransaction(Result(Transaction, ApiError))
-  ServerUpdatedTransaction(Result(Transaction, ApiError))
-  UserCancelledFormModal
+  TransactionFormMsg(transaction_form.Msg)
   // Delete modal messages
   UserRequestedDeleteForm(Transaction)
   UserConfirmedDelete
@@ -98,47 +86,6 @@ fn fetch_transactions() -> Effect(Msg) {
         )
     }
   })
-}
-
-fn post_create_transaction(request: CreateTransactionRequest) -> Effect(Msg) {
-  effect.post(
-    api_route.CreateTransaction |> api_route.to_string,
-    create_transaction_request.create_transaction_request_to_json(request)
-      |> json.to_string,
-    fn(result) {
-      case result {
-        Ok(body) ->
-          response.decode_success(body, transaction.transaction_decoder())
-          |> ServerCreatedTransaction
-        Error(http_error) ->
-          ServerCreatedTransaction(
-            Error(response.http_error_to_api_error(http_error)),
-          )
-      }
-    },
-  )
-}
-
-fn put_update_transaction(
-  id: Uuid,
-  request: CreateTransactionRequest,
-) -> Effect(Msg) {
-  effect.put(
-    api_route.UpdateTransaction(id) |> api_route.to_string,
-    create_transaction_request.create_transaction_request_to_json(request)
-      |> json.to_string,
-    fn(result) {
-      case result {
-        Ok(body) ->
-          response.decode_success(body, transaction.transaction_decoder())
-          |> ServerUpdatedTransaction
-        Error(http_error) ->
-          ServerUpdatedTransaction(
-            Error(response.http_error_to_api_error(http_error)),
-          )
-      }
-    },
-  )
 }
 
 fn delete_transaction(transaction: Transaction) -> Effect(Msg) {
@@ -174,7 +121,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
       transactions: [],
-      modal: transaction_form.empty_modal(),
+      modal: transaction_form.hidden(),
       delete_modal: transaction_delete_modal.empty(),
     ),
     effect.batch([
@@ -225,148 +172,28 @@ fn update_inner(
       #(
         model,
         effect.LogError(api_error.describe(error)),
-        Some(out_msg.PageRequestedToast(
-          title: "Could not sync transactions",
-          body: "Falling back to local data",
-          level: toast.Error,
-          dismiss_after_ms: Some(5000),
+        Some(out_msg.error_toast(
+          "Could not sync transactions",
+          "Falling back to local data",
         )),
       )
     }
 
-    UserRequestedCreationForm -> {
-      #(
-        Model(..model, modal: transaction_form.empty_modal()),
-        effect.ShowDialog(selector: transaction_form.dom_id_selector),
-        None,
-      )
-    }
+    UserRequestedCreationForm ->
+      run_transaction_form(model, transaction_form.CreateRequested)
 
     UserRequestedEditForm(id) -> {
       case list.find(model.transactions, fn(t) { t.id == id }) {
-        Ok(transaction) -> #(
-          Model(..model, modal: transaction_form.edit_modal(transaction)),
-          effect.ShowDialog(selector: transaction_form.dom_id_selector),
-          None,
-        )
+        Ok(transaction) ->
+          run_transaction_form(
+            model,
+            transaction_form.EditRequested(transaction),
+          )
         Error(Nil) -> #(model, effect.none(), None)
       }
     }
 
-    UserUpdatedFormAmount(amount) -> {
-      let modal = transaction_form.set_amount(model.modal, amount)
-      #(Model(..model, modal:), effect.none(), None)
-    }
-
-    UserUpdatedFormType(type_) -> {
-      let modal = transaction_form.set_type_(model.modal, type_)
-      #(Model(..model, modal:), effect.none(), None)
-    }
-
-    UserUpdatedFormIsTransfer(is_transfer) -> {
-      let modal = transaction_form.set_is_transfer(model.modal, is_transfer)
-      #(Model(..model, modal:), effect.none(), None)
-    }
-
-    UserUpdatedFormDescription(description) -> {
-      let modal = transaction_form.set_description(model.modal, description)
-      #(Model(..model, modal:), effect.none(), None)
-    }
-
-    UserUpdatedFormDate(date) -> {
-      let modal = transaction_form.set_date(model.modal, date)
-      #(Model(..model, modal:), effect.none(), None)
-    }
-
-    UserSubmittedForm -> {
-      case transaction_form.validate(model.modal) {
-        Ok(request) -> {
-          let effect = case model.modal.mode {
-            Edit(id) -> put_update_transaction(id, request)
-            Create -> post_create_transaction(request)
-          }
-          #(
-            Model(..model, modal: ModalState(..model.modal, submitting: True)),
-            effect,
-            None,
-          )
-        }
-        Error(form) -> #(
-          Model(..model, modal: ModalState(..model.modal, form: form)),
-          effect.none(),
-          None,
-        )
-      }
-    }
-
-    ServerCreatedTransaction(Ok(transaction)) -> {
-      #(
-        Model(
-          transactions: [transaction, ..model.transactions] |> sort_transactions,
-          modal: ModalState(..model.modal, mode: Create, submitting: False),
-          delete_modal: model.delete_modal,
-        ),
-        effect.CloseDialog(selector: transaction_form.dom_id_selector),
-        Some(out_msg.PageRequestedToast(
-          title: "Success",
-          body: "Transaction created",
-          level: toast.Success,
-          dismiss_after_ms: Some(5000),
-        )),
-      )
-    }
-
-    ServerCreatedTransaction(Error(error)) -> #(
-      Model(..model, modal: ModalState(..model.modal, submitting: False)),
-      effect.LogError(api_error.describe(error)),
-      Some(out_msg.PageRequestedToast(
-        title: "Error",
-        body: "Could not create transaction",
-        level: toast.Error,
-        dismiss_after_ms: Some(5000),
-      )),
-    )
-
-    ServerUpdatedTransaction(Ok(updated)) -> {
-      #(
-        Model(
-          transactions: model.transactions
-            |> list.map(fn(t) {
-              case t.id == updated.id {
-                True -> updated
-                False -> t
-              }
-            })
-            |> sort_transactions,
-          modal: ModalState(..model.modal, mode: Create, submitting: False),
-          delete_modal: model.delete_modal,
-        ),
-        effect.CloseDialog(selector: transaction_form.dom_id_selector),
-        Some(out_msg.PageRequestedToast(
-          title: "Success",
-          body: "Transaction updated",
-          level: toast.Success,
-          dismiss_after_ms: Some(5000),
-        )),
-      )
-    }
-
-    ServerUpdatedTransaction(Error(error)) -> #(
-      Model(..model, modal: ModalState(..model.modal, submitting: False)),
-      effect.LogError(api_error.describe(error)),
-      Some(out_msg.PageRequestedToast(
-        title: "Error",
-        body: "Could not update transaction",
-        level: toast.Error,
-        dismiss_after_ms: Some(5000),
-      )),
-    )
-
-    UserCancelledFormModal -> #(
-      model,
-      effect.CloseDialog(selector: transaction_form.dom_id_selector),
-      None,
-    )
+    TransactionFormMsg(msg) -> run_transaction_form(model, msg)
 
     UserRequestedDeleteForm(transaction) -> #(
       Model(..model, delete_modal: transaction_delete_modal.open(transaction)),
@@ -401,6 +228,123 @@ fn update_inner(
       None,
     )
   }
+}
+
+fn run_transaction_form(
+  model: Model,
+  msg: transaction_form.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(modal, requests, outcome) = transaction_form.update(model.modal, msg)
+  let model = Model(..model, modal:)
+  let error_effect = case msg {
+    transaction_form.SaveCompleted(result: Error(error)) ->
+      Some(effect.LogError(api_error.describe(error)))
+    _ -> None
+  }
+  fold_form(
+    model,
+    requests,
+    outcome,
+    error_effect,
+    apply_outcome,
+    interpret_transaction_request,
+  )
+}
+
+fn apply_outcome(
+  model: Model,
+  outcome: transaction_form.Outcome,
+) -> #(Model, Option(OutMsg)) {
+  case outcome {
+    form_modal.NoChange -> #(model, None)
+    form_modal.Created(entity: transaction) -> {
+      let transactions =
+        [transaction, ..model.transactions] |> sort_transactions
+      let model = Model(..model, transactions:)
+      #(model, Some(out_msg.success_toast("Transaction created")))
+    }
+    form_modal.Updated(entity: updated) -> {
+      let transactions =
+        list.map(model.transactions, fn(t) {
+          case t.id == updated.id {
+            True -> updated
+            False -> t
+          }
+        })
+        |> sort_transactions
+      let model = Model(..model, transactions:)
+      #(model, Some(out_msg.success_toast("Transaction updated")))
+    }
+  }
+}
+
+fn interpret_transaction_request(
+  request: transaction_form.Request,
+) -> Effect(Msg) {
+  case request {
+    form_modal.ShowDialog ->
+      effect.ShowDialog(selector: transaction_form.dom_id_selector)
+    form_modal.CloseDialog ->
+      effect.CloseDialog(selector: transaction_form.dom_id_selector)
+    form_modal.Post(payload) ->
+      effect.post(
+        api_route.CreateTransaction |> api_route.to_string,
+        create_transaction_request.create_transaction_request_to_json(payload)
+          |> json.to_string,
+        handle_save_response,
+      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(TransactionFormMsg)
+    form_modal.Put(id:, payload:) ->
+      effect.put(
+        api_route.UpdateTransaction(id) |> api_route.to_string,
+        create_transaction_request.create_transaction_request_to_json(payload)
+          |> json.to_string,
+        handle_save_response,
+      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(TransactionFormMsg)
+  }
+}
+
+fn handle_save_response(result) {
+  case result {
+    Ok(body) ->
+      response.decode_success(body, transaction.transaction_decoder())
+      |> transaction_form.SaveCompleted
+    Error(http_error) ->
+      transaction_form.SaveCompleted(
+        Error(response.http_error_to_api_error(http_error)),
+      )
+  }
+}
+
+/// Fold a form's `#(modal, requests, outcome)` triple into page state: store
+/// the modal, apply the outcome to the transactions list (with a toast), turn
+/// the requests into effects, and log the API error when the triggering
+/// message was a save failure.
+fn fold_form(
+  model: Model,
+  requests: List(request),
+  outcome: outcome,
+  error_effect: Option(Effect(Msg)),
+  apply_outcome: fn(Model, outcome) -> #(Model, Option(OutMsg)),
+  interpret: fn(request) -> Effect(Msg),
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(model, out_msg) = apply_outcome(model, outcome)
+  let effects = list.map(requests, interpret)
+  let effects = case error_effect {
+    Some(error_effect) -> [error_effect, ..effects]
+    None -> effects
+  }
+  // A single effect stays unwrapped so the caller's persist batching does not
+  // nest one-element batches; several effects are batched.
+  let effect = case effects {
+    [] -> effect.none()
+    [effect] -> effect
+    _ -> effect.batch(effects)
+  }
+  #(model, effect, out_msg)
 }
 
 fn on_delete_succeeded(
@@ -463,16 +407,8 @@ pub fn view(model: Model) -> Element(Msg) {
       ),
     ]),
     transactions_table(model.transactions),
-    transaction_form.view(
-      model.modal,
-      on_amount_input: UserUpdatedFormAmount,
-      on_type_click: UserUpdatedFormType,
-      on_is_transfer_input: UserUpdatedFormIsTransfer,
-      on_description_input: UserUpdatedFormDescription,
-      on_date_input: UserUpdatedFormDate,
-      on_submit: UserSubmittedForm,
-      on_cancel: UserCancelledFormModal,
-    ),
+    transaction_form.view(model.modal)
+      |> element.map(TransactionFormMsg),
     transaction_delete_modal.view(
       model.delete_modal,
       on_cancel: UserCancelledDeleteModal,

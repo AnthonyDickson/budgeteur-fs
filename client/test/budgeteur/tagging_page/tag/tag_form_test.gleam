@@ -1,11 +1,14 @@
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/field
+import budgeteur/shared/form_modal.{
+  Active, CloseDialog, Create, Created, Edit, Errored, Hidden, NoChange, Post,
+  Put, Submitting, Updated,
+}
 import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag/tag_form.{
-  type Modal, Active, CancelRequested, CloseDialog, ColorChosen, Create,
-  CreateRequested, CreateTag, Created, DialogDismissed, Duplicate, Edit,
-  EditRequested, Errored, Form, Hidden, NameChanged, NameRequired, NoChange,
-  PutTag, SaveCompleted, SaveRequested, Submitting, TooLong, Updated,
+  type Modal, CancelRequested, ColorChosen, CreateRequested, DialogDismissed,
+  Duplicate, EditRequested, Form, NameChanged, NameRequired, SaveCompleted,
+  SaveRequested, TooLong,
 }
 import budgeteur/tagging_page/tag_write_request.{TagWriteRequest}
 import gleam/option.{None, Some}
@@ -77,7 +80,7 @@ pub fn validate_trims_the_request_name_but_not_the_field_test() {
   let assert #(submitting, [request], NoChange) =
     tag_form.update(modal, SaveRequested, [])
   request
-  |> should.equal(CreateTag(TagWriteRequest("Coffee", tag_form.default_color)))
+  |> should.equal(Post(TagWriteRequest("Coffee", tag_form.default_color)))
 
   let assert Submitting(
     form: Form(name: field.Valid(value: _, input:), color:),
@@ -158,8 +161,7 @@ pub fn create_tag_workflow_test() {
   let assert #(submitting, [request], NoChange) =
     tag_form.update(colored, SaveRequested, [])
   let assert Submitting(mode: Create, ..) = submitting
-  request
-  |> should.equal(CreateTag(TagWriteRequest("Coffee", "#EF4444")))
+  request |> should.equal(Post(TagWriteRequest("Coffee", "#EF4444")))
 
   let new_tag = tag_named(id, "Coffee")
   let #(final_state, requests, outcome) =
@@ -180,8 +182,7 @@ pub fn edit_tag_workflow_keeps_own_name_test() {
     ])
   let assert Submitting(mode: Edit(id), ..) = submitting
   id |> should.equal(existing.id)
-  request
-  |> should.equal(PutTag(id, TagWriteRequest("Coffee", "#6366F1")))
+  request |> should.equal(Put(id, TagWriteRequest("Coffee", "#6366F1")))
 
   let saved = tag_named(make_id(), "Coffee & Drink")
   let #(final_state, requests, outcome) =
@@ -208,7 +209,7 @@ pub fn submit_duplicate_name_marks_invalid_and_emits_no_request_test() {
 pub fn save_failure_then_fix_then_retry_test() {
   let #(named, _, _) =
     tag_form.update(make_create_modal(), NameChanged("Coffee"), [])
-  let assert #(submitting, [CreateTag(_)], NoChange) =
+  let assert #(submitting, [Post(_)], NoChange) =
     tag_form.update(named, SaveRequested, [])
 
   // The failure surfaces the API error as the banner message.
@@ -232,7 +233,7 @@ pub fn save_failure_then_fix_then_retry_test() {
   error |> should.equal("A tag named Coffee already exists")
 
   // Retry is legal from the errored state.
-  let assert #(submitting_again, [CreateTag(_)], NoChange) =
+  let assert #(submitting_again, [Post(_)], NoChange) =
     tag_form.update(still_errored, SaveRequested, [])
   let assert Submitting(..) = submitting_again
 }

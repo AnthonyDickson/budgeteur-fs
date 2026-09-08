@@ -1,5 +1,6 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
+import budgeteur/shared/form_modal
 import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
@@ -13,7 +14,6 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-import youid/uuid.{type Uuid}
 
 pub const max_name_length = 64
 
@@ -42,10 +42,6 @@ pub const dom_id_selector = "#" <> dom_id
 
 const error_border_style = "border-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
 
-/// How long a save request (create or update) may stay in flight before the
-/// transport aborts it. This should be applied by the page via `effect.with_timeout`.
-pub const submit_timeout_ms = 10_000
-
 pub type NameError {
   NameRequired
   TooLong
@@ -59,28 +55,17 @@ pub type Form {
   Form(name: NameField, color: String)
 }
 
-/// The mode the tag form modal is in.
-pub type FormMode {
-  /// Open an empty form
-  Create
-  /// Pre-fill the form with an existing tag
-  Edit(id: Uuid)
-}
+pub type Modal =
+  form_modal.Modal(Form)
 
-/// State of the tag form modal: the form fields and the mode. 
-pub type Modal {
-  /// The modal is not visible
-  Hidden
-  /// The user is editing the form, it may have client-side validation errors
-  Active(form: Form, mode: FormMode)
-  /// The API request is in-flight
-  Submitting(form: Form, mode: FormMode)
-  /// The API request failed
-  Errored(form: Form, mode: FormMode, error: String)
-}
+pub type Request =
+  form_modal.Request(TagWriteRequest)
+
+pub type Outcome =
+  form_modal.Outcome(Tag)
 
 pub fn hidden() -> Modal {
-  Hidden
+  form_modal.hidden()
 }
 
 // Update
@@ -101,21 +86,6 @@ pub type Msg {
   DialogDismissed
 }
 
-pub type Request {
-  ShowDialog
-  CloseDialog
-  /// POST /api/tags. Same payload shape as the update request.
-  CreateTag(request: TagWriteRequest)
-  /// PUT /api/tags/{id}.
-  PutTag(id: Uuid, request: TagWriteRequest)
-}
-
-pub type Outcome {
-  NoChange
-  Created(tag: Tag)
-  Updated(tag: Tag)
-}
-
 pub fn update(
   state: Modal,
   msg: Msg,
@@ -124,87 +94,74 @@ pub fn update(
   case msg {
     CreateRequested ->
       case state {
-        Submitting(..) -> #(state, [], NoChange)
-        _ -> #(create_modal(), [ShowDialog], NoChange)
+        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
+        _ -> #(create_modal(), [form_modal.ShowDialog], form_modal.NoChange)
       }
     EditRequested(tag:) ->
       case state {
-        Submitting(..) -> #(state, [], NoChange)
-        _ -> #(edit_modal(tag), [ShowDialog], NoChange)
+        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
+        _ -> #(edit_modal(tag), [form_modal.ShowDialog], form_modal.NoChange)
       }
-    NameChanged(value:) -> #(set_name(state, value), [], NoChange)
-    ColorChosen(value:) -> #(set_color(state, value), [], NoChange)
+    NameChanged(value:) -> #(set_name(state, value), [], form_modal.NoChange)
+    ColorChosen(value:) -> #(set_color(state, value), [], form_modal.NoChange)
     SaveRequested -> save(state, tags)
     SaveCompleted(result: Ok(tag)) -> on_save_succeeded(state, tag)
-    SaveCompleted(result: Error(error)) -> on_save_failed(state, error)
+    SaveCompleted(result: Error(error)) -> #(
+      form_modal.failed(state, error),
+      [],
+      form_modal.NoChange,
+    )
     CancelRequested -> cancel(state)
-    DialogDismissed -> dismiss(state)
+    DialogDismissed -> #(form_modal.dismissed(state), [], form_modal.NoChange)
   }
 }
 
 /// An empty modal for creating a new tag.
 fn create_modal() -> Modal {
-  Active(form: Form(name: field.Empty(""), color: default_color), mode: Create)
+  form_modal.create(Form(name: field.Empty(""), color: default_color))
 }
 
 /// A modal pre-filled with an existing tag, ready for renaming.
 fn edit_modal(tag: Tag) -> Modal {
   let Tag(id:, ..) = tag
-  Active(
-    form: Form(
-      name: field.Valid(value: tag.name, input: tag.name),
-      color: tag.color,
-    ),
-    mode: Edit(id),
+  form_modal.edit(
+    id,
+    Form(name: field.Valid(value: tag.name, input: tag.name), color: tag.color),
   )
 }
 
 /// Validate and set the name field. No op for Hidden and Submitting states.
 fn set_name(state: Modal, name: String) -> Modal {
-  case state {
-    Active(form:, ..) -> Active(..state, form: update_name_field(name, form))
-    Errored(form:, ..) -> Errored(..state, form: update_name_field(name, form))
-    Hidden | Submitting(..) -> state
-  }
+  form_modal.set_form(state, fn(form) {
+    Form(..form, name: field.validate(name, validate_name, is_required))
+  })
 }
 
 /// Validate and set the color field. No op for Hidden and Submitting states.
 fn set_color(state: Modal, color: String) -> Modal {
-  case state {
-    Active(form:, ..) -> Active(..state, form: Form(..form, color:))
-    Errored(form:, ..) -> Errored(..state, form: Form(..form, color:))
-    Hidden | Submitting(..) -> state
-  }
+  form_modal.set_form(state, fn(form) { Form(..form, color:) })
 }
 
 fn save(state: Modal, tags: List(Tag)) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Active(form:, mode:) | Errored(form:, mode:, ..) -> {
-      let other_tags =
+  case form_modal.mode(state) {
+    None -> #(state, [], form_modal.NoChange)
+    Some(mode) -> {
+      let other_tag_names =
         case mode {
-          Create -> tags
-          Edit(id:) -> list.filter(tags, fn(tag) { tag.id != id })
+          form_modal.Create -> tags
+          form_modal.Edit(id:) -> list.filter(tags, fn(tag) { tag.id != id })
         }
         |> list.map(fn(tag) { tag.name })
 
-      case validate(state, other_tags) {
-        Ok(#(name, color)) -> {
-          let request = case mode {
-            Create -> CreateTag(TagWriteRequest(name, color))
-            Edit(id:) -> PutTag(id, TagWriteRequest(name, color))
-          }
-
-          #(Submitting(form, mode), [request], NoChange)
-        }
-        Error(updated_state_with_errors) -> #(
-          updated_state_with_errors,
-          [],
-          NoChange,
-        )
+      case
+        form_modal.submit(state, fn(form) {
+          validate_form(form, other_tag_names)
+        })
+      {
+        #(modal, Some(request)) -> #(modal, [request], form_modal.NoChange)
+        #(modal, None) -> #(modal, [], form_modal.NoChange)
       }
     }
-
-    Submitting(..) | Hidden -> #(state, [], NoChange)
   }
 }
 
@@ -212,69 +169,48 @@ fn on_save_succeeded(
   state: Modal,
   tag: Tag,
 ) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Submitting(mode:, ..) ->
-      case mode {
-        Create -> #(Hidden, [CloseDialog], Created(tag))
-        Edit(..) -> #(Hidden, [CloseDialog], Updated(tag))
+  case form_modal.succeeded(state, tag) {
+    #(modal, outcome) ->
+      case outcome {
+        form_modal.NoChange -> #(modal, [], form_modal.NoChange)
+        form_modal.Created(_) | form_modal.Updated(_) -> #(
+          modal,
+          [form_modal.CloseDialog],
+          outcome,
+        )
       }
-    _ -> #(state, [], NoChange)
-  }
-}
-
-fn on_save_failed(
-  state: Modal,
-  api_error: ApiError,
-) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Submitting(form:, mode:) -> #(
-      Errored(form:, mode:, error: api_error.details),
-      [],
-      NoChange,
-    )
-    _ -> #(state, [], NoChange)
   }
 }
 
 fn cancel(state: Modal) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Submitting(..) | Hidden -> #(state, [], NoChange)
-    Active(..) | Errored(..) -> #(Hidden, [CloseDialog], NoChange)
-  }
-}
-
-fn dismiss(state: Modal) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Submitting(..) | Hidden -> #(state, [], NoChange)
-    Active(..) | Errored(..) -> #(Hidden, [], NoChange)
+  case form_modal.cancel(state) {
+    #(modal, True) -> #(modal, [form_modal.CloseDialog], form_modal.NoChange)
+    #(modal, False) -> #(modal, [], form_modal.NoChange)
   }
 }
 
 // Validation
 
-/// Validate the form. On success returns the trimmed name and color; on
-/// failure returns the modal with the form with inline errors set.
-fn validate(
-  state: Modal,
+/// Validate the form against the other tags' names. On success returns the
+/// write request and the (finalized) form to keep while submitting; on
+/// failure returns the form with inline errors set. `other_tag_names`
+/// excludes the tag being edited, if any.
+fn validate_form(
+  form: Form,
   other_tag_names: List(String),
-) -> Result(#(String, String), Modal) {
-  case state {
-    Hidden | Submitting(..) -> Error(state)
-    Active(form:, ..) | Errored(form:, ..) -> {
-      let form = finalize(form, other_tag_names)
+) -> Result(#(TagWriteRequest, Form), Form) {
+  let form = finalize(form, other_tag_names)
 
-      case field.value(form.name) {
-        Some(name) -> Ok(#(name, form.color))
-        None -> Error(set_form(state, form))
-      }
-    }
+  case field.value(form.name) {
+    Some(name) -> Ok(#(TagWriteRequest(name, form.color), form))
+    None -> Error(form)
   }
 }
 
 /// Finalize the form after a submit attempt: blank fields become errors, and
-/// the name is checked against the names of the other tags. `other_tag_names`
-/// excludes the tag being edited, if any. Duplicate checks are case-sensitive
-/// to mirror the future `UNIQUE(UserId, Name)` DB constraint.
+/// the name is checked against the names of the other tags. Duplicate checks
+/// are case-sensitive to mirror the future `UNIQUE(UserId, Name)` DB
+/// constraint.
 fn finalize(form: Form, other_tag_names: List(String)) -> Form {
   let Form(name:, ..) = form
   let name = field.finalize(name, fn() { NameRequired })
@@ -287,18 +223,6 @@ fn finalize(form: Form, other_tag_names: List(String)) -> Form {
     field.Empty(..) | field.Invalid(..) -> name
   }
   Form(..form, name:)
-}
-
-fn set_form(state: Modal, form: Form) -> Modal {
-  case state {
-    Hidden | Submitting(..) -> state
-    Active(..) -> Active(..state, form:)
-    Errored(..) -> Errored(..state, form:)
-  }
-}
-
-fn update_name_field(name: String, form: Form) -> Form {
-  Form(..form, name: field.validate(name, validate_name, is_required))
 }
 
 fn validate_name(name: String) -> Result(String, NameError) {
@@ -327,27 +251,27 @@ fn is_required(error: NameError) -> Bool {
 
 pub fn view(state: Modal) -> Element(Msg) {
   case state {
-    Hidden -> view_hidden()
-    Active(form:, mode:) ->
+    form_modal.Hidden -> view_hidden()
+    form_modal.Active(form:, mode:) ->
       view_form(form, mode, api_error: None, submitting: False)
-    Submitting(form:, mode:) ->
+    form_modal.Submitting(form:, mode:) ->
       view_form(form, mode, api_error: None, submitting: True)
-    Errored(form:, mode:, error:) ->
+    form_modal.Errored(form:, mode:, error:) ->
       view_form(form, mode, api_error: Some(error), submitting: False)
   }
 }
 
 fn view_form(
   form: Form,
-  mode: FormMode,
+  mode: form_modal.Mode,
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> Element(Msg) {
   let Form(name:, color:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
-    Create -> #("Create Tag", "Create tag", "Creating tag...")
-    Edit(_) -> #("Edit Tag", "Save", "Saving...")
+    form_modal.Create -> #("Create Tag", "Create tag", "Creating tag...")
+    form_modal.Edit(_) -> #("Edit Tag", "Save", "Saving...")
   }
 
   let name_error = field.error(name)

@@ -1,5 +1,6 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
+import budgeteur/shared/form_modal
 import budgeteur/tagging_page/rule/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
@@ -18,10 +19,6 @@ import youid/uuid.{type Uuid}
 
 /// Max length of a rule pattern. Mirrored by the server.
 pub const max_pattern_length = 128
-
-/// How long a save request (create or update) may stay in flight before the
-/// transport aborts it. This should be applied by the page via `effect.with_timeout`.
-pub const submit_timeout_ms = 10_000
 
 const dom_id = "rule_modal"
 
@@ -51,28 +48,17 @@ pub type Form {
   Form(pattern: PatternField, tag_id: TagField)
 }
 
-/// The mode the rule form modal is in.
-pub type FormMode {
-  /// Open an empty form
-  Create
-  /// Pre-fill the form with an existing rule
-  Edit(id: Uuid)
-}
+pub type Modal =
+  form_modal.Modal(Form)
 
-/// State of the rule form modal: the form fields and the mode.
-pub type Modal {
-  /// The modal is not visible
-  Hidden
-  /// The user is editing the form, it may have client-side validation errors
-  Active(form: Form, mode: FormMode)
-  /// The API request is in-flight
-  Submitting(form: Form, mode: FormMode)
-  /// The API request failed
-  Errored(form: Form, mode: FormMode, error: String)
-}
+pub type Request =
+  form_modal.Request(RuleWriteRequest)
+
+pub type Outcome =
+  form_modal.Outcome(Rule)
 
 pub fn hidden() -> Modal {
-  Hidden
+  form_modal.hidden()
 }
 
 fn field_tag_error(field: TagField) -> Bool {
@@ -112,21 +98,6 @@ pub type Msg {
   DialogDismissed
 }
 
-pub type Request {
-  ShowDialog
-  CloseDialog
-  /// POST /api/rules. Same payload shape as the update request.
-  CreateRule(request: RuleWriteRequest)
-  /// PUT /api/rules/{id}.
-  PutRule(id: Uuid, request: RuleWriteRequest)
-}
-
-pub type Outcome {
-  NoChange
-  Created(rule: Rule)
-  Updated(rule: Rule)
-}
-
 pub fn update(
   state: Modal,
   msg: Msg,
@@ -135,93 +106,104 @@ pub fn update(
   case msg {
     CreateRequested(default_tag_id:) ->
       case state {
-        Submitting(..) -> #(state, [], NoChange)
-        _ -> #(create_modal(default_tag_id), [ShowDialog], NoChange)
+        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
+        _ -> #(
+          create_modal(default_tag_id),
+          [form_modal.ShowDialog],
+          form_modal.NoChange,
+        )
       }
     EditRequested(rule:) ->
       case state {
-        Submitting(..) -> #(state, [], NoChange)
-        _ -> #(edit_modal(rule), [ShowDialog], NoChange)
+        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
+        _ -> #(edit_modal(rule), [form_modal.ShowDialog], form_modal.NoChange)
       }
-    PatternChanged(value:) -> #(set_pattern(state, value), [], NoChange)
-    TagChanged(value:) -> #(set_tag(state, value), [], NoChange)
+    PatternChanged(value:) -> #(
+      set_pattern(state, value),
+      [],
+      form_modal.NoChange,
+    )
+    TagChanged(value:) -> #(set_tag(state, value), [], form_modal.NoChange)
     SaveRequested -> save(state, rules)
     SaveCompleted(result: Ok(rule)) -> on_save_succeeded(state, rule)
-    SaveCompleted(result: Error(error)) -> on_save_failed(state, error)
+    SaveCompleted(result: Error(error)) -> #(
+      form_modal.failed(state, error),
+      [],
+      form_modal.NoChange,
+    )
     CancelRequested -> cancel(state)
-    DialogDismissed -> dismiss(state)
+    DialogDismissed -> #(form_modal.dismissed(state), [], form_modal.NoChange)
   }
 }
 
 /// An empty modal for creating a new rule under `default_tag_id`.
 fn create_modal(default_tag_id: Uuid) -> Modal {
-  Active(
-    form: Form(pattern: field.Empty(""), tag_id: ValidTag(default_tag_id)),
-    mode: Create,
-  )
+  form_modal.create(Form(
+    pattern: field.Empty(""),
+    tag_id: ValidTag(default_tag_id),
+  ))
 }
 
 /// A modal pre-filled with an existing rule, ready for editing.
 fn edit_modal(rule: Rule) -> Modal {
   let Rule(id:, ..) = rule
-  Active(
-    form: Form(
+  form_modal.edit(
+    id,
+    Form(
       pattern: field.Valid(value: rule.pattern, input: rule.pattern),
       tag_id: ValidTag(rule.tag_id),
     ),
-    mode: Edit(id),
   )
 }
 
 /// Validate and set the pattern field. No op for Hidden and Submitting states.
 fn set_pattern(state: Modal, pattern: String) -> Modal {
-  case state {
-    Active(form:, ..) ->
-      Active(..state, form: update_pattern_field(pattern, form))
-    Errored(form:, ..) ->
-      Errored(..state, form: update_pattern_field(pattern, form))
-    Hidden | Submitting(..) -> state
-  }
+  form_modal.set_form(state, fn(form) {
+    Form(
+      ..form,
+      pattern: field.validate(pattern, validate_pattern, is_required),
+    )
+  })
 }
 
 /// Validate and set the tag field. No op for Hidden and Submitting states.
 fn set_tag(state: Modal, tag_id: String) -> Modal {
-  case state {
-    Active(form:, ..) -> Active(..state, form: update_tag_field(tag_id, form))
-    Errored(form:, ..) -> Errored(..state, form: update_tag_field(tag_id, form))
-    Hidden | Submitting(..) -> state
+  form_modal.set_form(state, fn(form) {
+    Form(..form, tag_id: parse_tag_id(tag_id))
+  })
+}
+
+fn parse_tag_id(tag_id: String) -> TagField {
+  case tag_id {
+    "" -> NoTag
+    _ ->
+      case uuid.from_string(tag_id) {
+        Ok(id) -> ValidTag(id)
+        Error(Nil) -> InvalidTag
+      }
   }
 }
 
 fn save(state: Modal, rules: List(Rule)) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Active(form:, mode:) | Errored(form:, mode:, ..) -> {
-      let other_patterns = case mode {
-        Create -> list.map(rules, fn(rule) { rule.pattern })
-        Edit(id:) ->
-          rules
-          |> list.filter(fn(rule) { rule.id != id })
-          |> list.map(fn(rule) { rule.pattern })
-      }
-
-      case validate(state, other_patterns) {
-        Ok(#(pattern, tag_id)) -> {
-          let request = case mode {
-            Create -> CreateRule(RuleWriteRequest(pattern, tag_id))
-            Edit(id:) -> PutRule(id, RuleWriteRequest(pattern, tag_id))
-          }
-
-          #(Submitting(form, mode), [request], NoChange)
+  case form_modal.mode(state) {
+    None -> #(state, [], form_modal.NoChange)
+    Some(mode) -> {
+      let other_patterns =
+        case mode {
+          form_modal.Create -> rules
+          form_modal.Edit(id:) -> list.filter(rules, fn(rule) { rule.id != id })
         }
-        Error(updated_state_with_errors) -> #(
-          updated_state_with_errors,
-          [],
-          NoChange,
-        )
+        |> list.map(fn(rule) { rule.pattern })
+
+      case
+        form_modal.submit(state, fn(form) {
+          validate_form(form, other_patterns)
+        })
+      {
+        #(modal, Some(request)) -> #(modal, [request], form_modal.NoChange)
+        #(modal, None) -> #(modal, [], form_modal.NoChange)
       }
     }
-
-    Submitting(..) | Hidden -> #(state, [], NoChange)
   }
 }
 
@@ -229,73 +211,51 @@ fn on_save_succeeded(
   state: Modal,
   rule: Rule,
 ) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Submitting(mode:, ..) ->
-      case mode {
-        Create -> #(Hidden, [CloseDialog], Created(rule))
-        Edit(..) -> #(Hidden, [CloseDialog], Updated(rule))
+  case form_modal.succeeded(state, rule) {
+    #(modal, outcome) ->
+      case outcome {
+        form_modal.NoChange -> #(modal, [], form_modal.NoChange)
+        form_modal.Created(_) | form_modal.Updated(_) -> #(
+          modal,
+          [form_modal.CloseDialog],
+          outcome,
+        )
       }
-    _ -> #(state, [], NoChange)
-  }
-}
-
-fn on_save_failed(
-  state: Modal,
-  api_error: ApiError,
-) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Submitting(form:, mode:) -> #(
-      Errored(form:, mode:, error: api_error.details),
-      [],
-      NoChange,
-    )
-    _ -> #(state, [], NoChange)
   }
 }
 
 fn cancel(state: Modal) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Submitting(..) | Hidden -> #(state, [], NoChange)
-    Active(..) | Errored(..) -> #(Hidden, [CloseDialog], NoChange)
-  }
-}
-
-fn dismiss(state: Modal) -> #(Modal, List(Request), Outcome) {
-  case state {
-    Submitting(..) | Hidden -> #(state, [], NoChange)
-    Active(..) | Errored(..) -> #(Hidden, [], NoChange)
+  case form_modal.cancel(state) {
+    #(modal, True) -> #(modal, [form_modal.CloseDialog], form_modal.NoChange)
+    #(modal, False) -> #(modal, [], form_modal.NoChange)
   }
 }
 
 // Validation
 
-/// Validate the form. On success returns the trimmed pattern and tag id; on
-/// failure returns the modal with inline errors set.
-fn validate(
-  state: Modal,
+/// Validate the form against the other rules' patterns. On success returns the
+/// write request and the (finalized) form to keep while submitting; on failure
+/// returns the form with inline errors set. `other_patterns` excludes the rule
+/// being edited, if any.
+fn validate_form(
+  form: Form,
   other_patterns: List(String),
-) -> Result(#(String, Uuid), Modal) {
-  case state {
-    Hidden | Submitting(..) -> Error(state)
-    Active(form:, ..) | Errored(form:, ..) -> {
-      let form = finalize(form, other_patterns)
+) -> Result(#(RuleWriteRequest, Form), Form) {
+  let form = finalize(form, other_patterns)
 
-      case form {
-        Form(pattern:, tag_id: ValidTag(id)) ->
-          case field.value(pattern) {
-            Some(value) -> Ok(#(value, id))
-            None -> Error(set_form(state, form))
-          }
-        _ -> Error(set_form(state, form))
+  case form {
+    Form(pattern:, tag_id: ValidTag(id)) ->
+      case field.value(pattern) {
+        Some(value) -> Ok(#(RuleWriteRequest(value, id), form))
+        None -> Error(form)
       }
-    }
+    _ -> Error(form)
   }
 }
 
 /// Finalize the form after a submit attempt: blank fields become errors, and
-/// the pattern is checked against the other rules' patterns. `other_patterns`
-/// excludes the rule being edited, if any. The comparison is case-insensitive
-/// to mirror the matching semantics.
+/// the pattern is checked against the other rules' patterns. The comparison is
+/// case-insensitive to mirror the matching semantics.
 fn finalize(form: Form, other_patterns: List(String)) -> Form {
   let Form(pattern:, tag_id:) = form
   let pattern = field.finalize(pattern, fn() { PatternRequired })
@@ -316,18 +276,6 @@ fn finalize(form: Form, other_patterns: List(String)) -> Form {
     other -> other
   }
   Form(pattern:, tag_id:)
-}
-
-fn set_form(state: Modal, form: Form) -> Modal {
-  case state {
-    Hidden | Submitting(..) -> state
-    Active(..) -> Active(..state, form:)
-    Errored(..) -> Errored(..state, form:)
-  }
-}
-
-fn update_pattern_field(pattern: String, form: Form) -> Form {
-  Form(..form, pattern: field.validate(pattern, validate_pattern, is_required))
 }
 
 fn validate_pattern(pattern: String) -> Result(String, PatternError) {
@@ -353,36 +301,23 @@ fn is_required(error: PatternError) -> Bool {
   }
 }
 
-fn update_tag_field(tag_id: String, form: Form) -> Form {
-  let tag_id = case tag_id {
-    "" -> NoTag
-    _ ->
-      case uuid.from_string(tag_id) {
-        Ok(id) -> ValidTag(id)
-        Error(Nil) -> InvalidTag
-      }
-  }
-
-  Form(..form, tag_id:)
-}
-
 // View
 
 pub fn view(state: Modal, tags: List(Tag)) -> Element(Msg) {
   case state {
-    Hidden -> view_hidden()
-    Active(form:, mode:) ->
+    form_modal.Hidden -> view_hidden()
+    form_modal.Active(form:, mode:) ->
       view_form(form, mode, tags, api_error: None, submitting: False)
-    Submitting(form:, mode:) ->
+    form_modal.Submitting(form:, mode:) ->
       view_form(form, mode, tags, api_error: None, submitting: True)
-    Errored(form:, mode:, error:) ->
+    form_modal.Errored(form:, mode:, error:) ->
       view_form(form, mode, tags, api_error: Some(error), submitting: False)
   }
 }
 
 fn view_form(
   form: Form,
-  mode: FormMode,
+  mode: form_modal.Mode,
   tags: List(Tag),
   api_error api_error: Option(String),
   submitting submitting: Bool,
@@ -390,8 +325,8 @@ fn view_form(
   let Form(pattern:, tag_id:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
-    Create -> #("Create Rule", "Create rule", "Creating rule...")
-    Edit(_) -> #("Edit Rule", "Save", "Saving...")
+    form_modal.Create -> #("Create Rule", "Create rule", "Creating rule...")
+    form_modal.Edit(_) -> #("Edit Rule", "Save", "Saving...")
   }
 
   let pattern_error = field.error(pattern)
