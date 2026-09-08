@@ -1,4 +1,5 @@
 import budgeteur/shared/api_error.{type ApiError}
+import budgeteur/shared/field
 import budgeteur/tagging_page/rule/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
@@ -37,11 +38,8 @@ pub type PatternError {
   Duplicate
 }
 
-pub type PatternField {
-  EmptyPattern(input: String)
-  ValidPattern(input: String)
-  InvalidPattern(input: String, error: PatternError)
-}
+pub type PatternField =
+  field.Field(String, PatternError)
 
 pub type TagField {
   NoTag
@@ -75,21 +73,6 @@ pub type Modal {
 
 pub fn hidden() -> Modal {
   Hidden
-}
-
-fn field_pattern_input(field: PatternField) -> String {
-  case field {
-    EmptyPattern(input) -> input
-    ValidPattern(input) -> input
-    InvalidPattern(input:, ..) -> input
-  }
-}
-
-fn field_pattern_error(field: PatternField) -> Option(PatternError) {
-  case field {
-    InvalidPattern(error:, ..) -> Some(error)
-    _ -> None
-  }
 }
 
 fn field_tag_error(field: TagField) -> Bool {
@@ -173,7 +156,7 @@ pub fn update(
 /// An empty modal for creating a new rule under `default_tag_id`.
 fn create_modal(default_tag_id: Uuid) -> Modal {
   Active(
-    form: Form(pattern: EmptyPattern(""), tag_id: ValidTag(default_tag_id)),
+    form: Form(pattern: field.Empty(""), tag_id: ValidTag(default_tag_id)),
     mode: Create,
   )
 }
@@ -183,7 +166,7 @@ fn edit_modal(rule: Rule) -> Modal {
   let Rule(id:, ..) = rule
   Active(
     form: Form(
-      pattern: ValidPattern(input: rule.pattern),
+      pattern: field.Valid(value: rule.pattern, input: rule.pattern),
       tag_id: ValidTag(rule.tag_id),
     ),
     mode: Edit(id),
@@ -298,8 +281,11 @@ fn validate(
       let form = finalize(form, other_patterns)
 
       case form {
-        Form(pattern: ValidPattern(input: pattern), tag_id: ValidTag(id)) ->
-          Ok(#(string.trim(pattern), id))
+        Form(pattern:, tag_id: ValidTag(id)) ->
+          case field.value(pattern) {
+            Some(value) -> Ok(#(value, id))
+            None -> Error(set_form(state, form))
+          }
         _ -> Error(set_form(state, form))
       }
     }
@@ -312,19 +298,18 @@ fn validate(
 /// to mirror the matching semantics.
 fn finalize(form: Form, other_patterns: List(String)) -> Form {
   let Form(pattern:, tag_id:) = form
+  let pattern = field.finalize(pattern, fn() { PatternRequired })
   let pattern = case pattern {
-    EmptyPattern(input) -> InvalidPattern(input:, error: PatternRequired)
-    ValidPattern(input) -> {
-      let trimmed = string.trim(input)
-      let lowercased = string.lowercase(trimmed)
+    field.Valid(value:, ..) ->
       case
-        list.any(other_patterns, fn(p) { string.lowercase(p) == lowercased })
+        list.any(other_patterns, fn(p) {
+          string.lowercase(p) == string.lowercase(value)
+        })
       {
-        True -> InvalidPattern(input:, error: Duplicate)
-        False -> ValidPattern(input: trimmed)
+        True -> field.mark_invalid(pattern, Duplicate)
+        False -> pattern
       }
-    }
-    other -> other
+    field.Empty(..) | field.Invalid(..) -> pattern
   }
   let tag_id = case tag_id {
     NoTag -> InvalidTag
@@ -342,16 +327,7 @@ fn set_form(state: Modal, form: Form) -> Modal {
 }
 
 fn update_pattern_field(pattern: String, form: Form) -> Form {
-  // Store the untrimmed input: the field is re-rendered from this value on
-  // every keystroke, so storing the trimmed pattern would eat a space the
-  // user just typed. Trimming happens on save, in `finalize`.
-  let pattern = case validate_pattern(pattern) {
-    Ok(_) -> ValidPattern(input: pattern)
-    Error(PatternRequired) -> EmptyPattern(pattern)
-    Error(error) -> InvalidPattern(input: pattern, error:)
-  }
-
-  Form(..form, pattern:)
+  Form(..form, pattern: field.validate(pattern, validate_pattern, is_required))
 }
 
 fn validate_pattern(pattern: String) -> Result(String, PatternError) {
@@ -364,6 +340,16 @@ fn validate_pattern(pattern: String) -> Result(String, PatternError) {
         True -> Error(TooLong)
         False -> Ok(trimmed)
       }
+  }
+}
+
+/// A parse error is demoted to a blank `Empty` field (no inline error while
+/// typing) only when it is the required error, e.g. a whitespace-only
+/// pattern.
+fn is_required(error: PatternError) -> Bool {
+  case error {
+    PatternRequired -> True
+    TooLong | Duplicate -> False
   }
 }
 
@@ -408,9 +394,9 @@ fn view_form(
     Edit(_) -> #("Edit Rule", "Save", "Saving...")
   }
 
-  let pattern_error = field_pattern_error(pattern)
+  let pattern_error = field.error(pattern)
   let tag_error = field_tag_error(tag_id)
-  let has_error = option.is_some(pattern_error) || tag_error
+  let has_error = field.has_error(pattern) || tag_error
 
   // "closedby" = "any" is needed to allow the dialog to be closed by
   // clicking outside the dialog.
@@ -468,10 +454,10 @@ fn view_form(
                 <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
               ),
               attribute.classes([
-                #(error_border_style, option.is_some(pattern_error)),
+                #(error_border_style, field.has_error(pattern)),
               ]),
               attribute.autofocus(True),
-              attribute.value(field_pattern_input(pattern)),
+              attribute.value(field.input(pattern)),
               attribute.disabled(submitting),
               event.on_input(PatternChanged),
             ]),

@@ -1,4 +1,5 @@
 import budgeteur/shared/api_error.{type ApiError}
+import budgeteur/shared/field
 import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
@@ -51,11 +52,8 @@ pub type NameError {
   Duplicate
 }
 
-pub type NameField {
-  EmptyName(input: String)
-  ValidName(input: String)
-  InvalidName(input: String, error: NameError)
-}
+pub type NameField =
+  field.Field(String, NameError)
 
 pub type Form {
   Form(name: NameField, color: String)
@@ -83,21 +81,6 @@ pub type Modal {
 
 pub fn hidden() -> Modal {
   Hidden
-}
-
-fn field_name_input(field: NameField) -> String {
-  case field {
-    EmptyName(input) -> input
-    ValidName(input) -> input
-    InvalidName(input:, ..) -> input
-  }
-}
-
-fn field_name_error(field: NameField) -> Option(NameError) {
-  case field {
-    InvalidName(error:, ..) -> Some(error)
-    _ -> None
-  }
 }
 
 // Update
@@ -161,14 +144,17 @@ pub fn update(
 
 /// An empty modal for creating a new tag.
 fn create_modal() -> Modal {
-  Active(form: Form(name: EmptyName(""), color: default_color), mode: Create)
+  Active(form: Form(name: field.Empty(""), color: default_color), mode: Create)
 }
 
 /// A modal pre-filled with an existing tag, ready for renaming.
 fn edit_modal(tag: Tag) -> Modal {
   let Tag(id:, ..) = tag
   Active(
-    form: Form(name: ValidName(input: tag.name), color: tag.color),
+    form: Form(
+      name: field.Valid(value: tag.name, input: tag.name),
+      color: tag.color,
+    ),
     mode: Edit(id),
   )
 }
@@ -277,10 +263,9 @@ fn validate(
     Active(form:, ..) | Errored(form:, ..) -> {
       let form = finalize(form, other_tag_names)
 
-      case form {
-        Form(name: ValidName(input: name), color:) ->
-          Ok(#(string.trim(name), color))
-        _ -> Error(set_form(state, form))
+      case field.value(form.name) {
+        Some(name) -> Ok(#(name, form.color))
+        None -> Error(set_form(state, form))
       }
     }
   }
@@ -292,16 +277,14 @@ fn validate(
 /// to mirror the future `UNIQUE(UserId, Name)` DB constraint.
 fn finalize(form: Form, other_tag_names: List(String)) -> Form {
   let Form(name:, ..) = form
+  let name = field.finalize(name, fn() { NameRequired })
   let name = case name {
-    EmptyName(input) -> InvalidName(input:, error: NameRequired)
-    ValidName(input) -> {
-      let trimmed = string.trim(input)
-      case list.contains(other_tag_names, trimmed) {
-        True -> InvalidName(input:, error: Duplicate)
-        False -> ValidName(input: trimmed)
+    field.Valid(value:, ..) ->
+      case list.contains(other_tag_names, value) {
+        True -> field.mark_invalid(name, Duplicate)
+        False -> name
       }
-    }
-    other -> other
+    field.Empty(..) | field.Invalid(..) -> name
   }
   Form(..form, name:)
 }
@@ -315,16 +298,7 @@ fn set_form(state: Modal, form: Form) -> Modal {
 }
 
 fn update_name_field(name: String, form: Form) -> Form {
-  // Store the untrimmed input: the field is re-rendered from this value on
-  // every keystroke, so storing the trimmed name would eat a space the user
-  // just typed. Trimming happens on save, in `finalize`.
-  let name = case validate_name(name) {
-    Ok(_) -> ValidName(input: name)
-    Error(NameRequired) -> EmptyName(name)
-    Error(error) -> InvalidName(input: name, error:)
-  }
-
-  Form(..form, name:)
+  Form(..form, name: field.validate(name, validate_name, is_required))
 }
 
 fn validate_name(name: String) -> Result(String, NameError) {
@@ -337,6 +311,15 @@ fn validate_name(name: String) -> Result(String, NameError) {
         True -> Error(TooLong)
         False -> Ok(trimmed)
       }
+  }
+}
+
+/// A parse error is demoted to a blank `Empty` field (no inline error while
+/// typing) only when it is the required error, e.g. a whitespace-only name.
+fn is_required(error: NameError) -> Bool {
+  case error {
+    NameRequired -> True
+    TooLong | Duplicate -> False
   }
 }
 
@@ -367,8 +350,8 @@ fn view_form(
     Edit(_) -> #("Edit Tag", "Save", "Saving...")
   }
 
-  let name_error = field_name_error(name)
-  let has_error = option.is_some(name_error)
+  let name_error = field.error(name)
+  let has_error = field.has_error(name)
 
   // "closedby" = "any" is needed to allow the dialog to be closed by
   // clicking outside the dialog.
@@ -426,10 +409,10 @@ fn view_form(
                 <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
               ),
               attribute.classes([
-                #(error_border_style, option.is_some(name_error)),
+                #(error_border_style, has_error),
               ]),
               attribute.autofocus(True),
-              attribute.value(field_name_input(name)),
+              attribute.value(field.input(name)),
               attribute.disabled(submitting),
               event.on_input(NameChanged),
             ]),

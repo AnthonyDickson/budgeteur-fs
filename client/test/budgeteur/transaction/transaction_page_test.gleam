@@ -1,6 +1,7 @@
 import budgeteur/shared/api_error.{ApiError}
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect
+import budgeteur/shared/field
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/toast
@@ -53,14 +54,13 @@ pub fn user_requested_edit_form_prefills_modal_test() {
 
   let assert transaction_form.Edit(edit_id) = new_model.modal.mode
   edit_id |> should.equal(transaction.id)
-  let assert transaction_form.ValidAmount(value: amount, input: "12.50") =
+  let assert field.Valid(value: amount, input: "12.50") =
     new_model.modal.form.amount
   amount |> should.equal(12.5)
   new_model.modal.form.type_ |> should.equal(transaction_form.Debit)
-  let assert transaction_form.ValidDescription(input: "Coffee") =
+  let assert field.Valid(value: "Coffee", input: "Coffee") =
     new_model.modal.form.description
-  let assert transaction_form.ValidDate(value: date, ..) =
-    new_model.modal.form.date
+  let assert field.Valid(value: date, ..) = new_model.modal.form.date
   date |> should.equal(calendar.Date(2026, calendar.January, 2))
 }
 

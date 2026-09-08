@@ -1,11 +1,11 @@
 import budgeteur/shared/api_error.{type ApiError, ApiError}
+import budgeteur/shared/field
 import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag/tag_form.{
   type Modal, Active, CancelRequested, CloseDialog, ColorChosen, Create,
   CreateRequested, CreateTag, Created, DialogDismissed, Duplicate, Edit,
-  EditRequested, Errored, Form, Hidden, InvalidName, NameChanged, NameRequired,
-  NoChange, PutTag, SaveCompleted, SaveRequested, Submitting, TooLong, Updated,
-  ValidName,
+  EditRequested, Errored, Form, Hidden, NameChanged, NameRequired, NoChange,
+  PutTag, SaveCompleted, SaveRequested, Submitting, TooLong, Updated,
 }
 import budgeteur/tagging_page/tag_write_request.{TagWriteRequest}
 import gleam/option.{None, Some}
@@ -46,8 +46,10 @@ pub fn validate_rejects_duplicate_name_test() {
 
   let error_state = try_validate(modal, [tag])
 
-  let assert Active(form: Form(name: InvalidName(error: Duplicate, ..), ..), ..) =
-    error_state
+  let assert Active(
+    form: Form(name: field.Invalid(error: Duplicate, ..), ..),
+    ..,
+  ) = error_state
     as "Expected the name to be marked as duplicate"
 }
 
@@ -60,7 +62,8 @@ pub fn validate_does_not_count_self_as_duplicate_test() {
 
   let modal = try_validate(modal, [existing_tag])
 
-  let assert Submitting(form: Form(name: ValidName(name), ..), ..) = modal
+  let assert Submitting(form: Form(name: field.Valid(value: name, ..), ..), ..) =
+    modal
 
   name |> should.equal(existing_tag.name)
 }
@@ -76,8 +79,10 @@ pub fn validate_trims_the_request_name_but_not_the_field_test() {
   request
   |> should.equal(CreateTag(TagWriteRequest("Coffee", tag_form.default_color)))
 
-  let assert Submitting(form: Form(name: ValidName(input), color:), ..) =
-    submitting
+  let assert Submitting(
+    form: Form(name: field.Valid(value: _, input:), color:),
+    ..,
+  ) = submitting
   input |> should.equal("  Coffee  ")
   color |> should.equal(tag_form.default_color)
 }
@@ -88,7 +93,7 @@ pub fn validate_reports_required_error_for_blank_name_test() {
   let error_state = try_validate(modal, [])
 
   let assert Active(
-    form: Form(name: InvalidName(error: NameRequired, ..), ..),
+    form: Form(name: field.Invalid(error: NameRequired, ..), ..),
     ..,
   ) = error_state
     as "Expected the name to be marked as missing (name required)"
@@ -99,7 +104,7 @@ pub fn set_name_records_too_long_error_test() {
     make_create_modal()
     |> modal_with_tag_name(string.repeat("a", tag_form.max_name_length + 1))
 
-  let assert Active(form: Form(name: InvalidName(error: TooLong, ..), ..), ..) =
+  let assert Active(form: Form(name: field.Invalid(error: TooLong, ..), ..), ..) =
     modal
     as "Expected the name to be marked as too long"
 }
@@ -111,11 +116,13 @@ pub fn typing_keeps_the_space_the_user_just_typed_test() {
   let #(state, _, _) =
     tag_form.update(make_create_modal(), NameChanged("Food & "), [])
 
-  let assert Active(form: Form(name: ValidName(input), ..), ..) = state
+  let assert Active(form: Form(name: field.Valid(value: _, input:), ..), ..) =
+    state
   input |> should.equal("Food & ")
 
   let #(typed, _, _) = tag_form.update(state, NameChanged("Food & Drink"), [])
-  let assert Active(form: Form(name: ValidName(input), ..), ..) = typed
+  let assert Active(form: Form(name: field.Valid(value: _, input:), ..), ..) =
+    typed
   input |> should.equal("Food & Drink")
 }
 
@@ -192,8 +199,10 @@ pub fn submit_duplicate_name_marks_invalid_and_emits_no_request_test() {
   let assert #(new_state, requests, NoChange) =
     tag_form.update(named, SaveRequested, [existing])
   requests |> should.equal([])
-  let assert Active(form: Form(name: InvalidName(error: Duplicate, ..), ..), ..) =
-    new_state
+  let assert Active(
+    form: Form(name: field.Invalid(error: Duplicate, ..), ..),
+    ..,
+  ) = new_state
 }
 
 pub fn save_failure_then_fix_then_retry_test() {
@@ -219,7 +228,7 @@ pub fn save_failure_then_fix_then_retry_test() {
   let assert #(still_errored, _, NoChange) =
     tag_form.update(errored, NameChanged("Tea"), [])
   let assert Errored(form:, error:, ..) = still_errored
-  form.name |> should.equal(ValidName(input: "Tea"))
+  form.name |> should.equal(field.Valid(value: "Tea", input: "Tea"))
   error |> should.equal("A tag named Coffee already exists")
 
   // Retry is legal from the errored state.

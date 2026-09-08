@@ -1,11 +1,12 @@
 import budgeteur/shared/api_error.{type ApiError, ApiError}
+import budgeteur/shared/field
 import budgeteur/tagging_page/rule/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule/rule_form.{
   type Modal, Active, CancelRequested, CloseDialog, Create, CreateRequested,
-  CreateRule, Created, DialogDismissed, Duplicate, Edit, EditRequested,
-  EmptyPattern, Errored, Form, Hidden, InvalidPattern, InvalidTag, NoChange,
-  PatternChanged, PatternRequired, PutRule, SaveCompleted, SaveRequested,
-  ShowDialog, Submitting, TagChanged, TooLong, Updated, ValidPattern, ValidTag,
+  CreateRule, Created, DialogDismissed, Duplicate, Edit, EditRequested, Errored,
+  Form, Hidden, InvalidTag, NoChange, PatternChanged, PatternRequired, PutRule,
+  SaveCompleted, SaveRequested, ShowDialog, Submitting, TagChanged, TooLong,
+  Updated, ValidTag,
 }
 import budgeteur/tagging_page/rule_write_request.{RuleWriteRequest}
 import gleam/int
@@ -55,7 +56,7 @@ pub fn opening_create_seeds_empty_pattern_and_selected_tag_test() {
     rule_form.update(rule_form.hidden(), CreateRequested(make_id(1)), [])
   state
   |> should.equal(Active(
-    form: Form(pattern: EmptyPattern(""), tag_id: ValidTag(make_id(1))),
+    form: Form(pattern: field.Empty(""), tag_id: ValidTag(make_id(1))),
     mode: Create,
   ))
   requests |> should.equal([ShowDialog])
@@ -69,7 +70,7 @@ pub fn opening_edit_prefills_pattern_and_tag_test() {
   state
   |> should.equal(Active(
     form: Form(
-      pattern: ValidPattern(input: "STARBUCKS"),
+      pattern: field.Valid(value: "STARBUCKS", input: "STARBUCKS"),
       tag_id: ValidTag(make_id(1)),
     ),
     mode: Edit(existing.id),
@@ -85,12 +86,14 @@ pub fn typing_keeps_the_space_the_user_just_typed_test() {
   let #(state, _, _) =
     rule_form.update(make_create_modal(), PatternChanged("Food & "), [])
 
-  let assert Active(form: Form(pattern: ValidPattern(input), ..), ..) = state
+  let assert Active(form: Form(pattern: field.Valid(value: _, input:), ..), ..) =
+    state
   input |> should.equal("Food & ")
 
   let #(typed, _, _) =
     rule_form.update(state, PatternChanged("Food & Drink"), [])
-  let assert Active(form: Form(pattern: ValidPattern(input), ..), ..) = typed
+  let assert Active(form: Form(pattern: field.Valid(value: _, input:), ..), ..) =
+    typed
   input |> should.equal("Food & Drink")
 }
 
@@ -104,8 +107,10 @@ pub fn validate_trims_the_request_pattern_but_not_the_field_test() {
     rule_form.update(modal, SaveRequested, [])
   request |> should.equal(CreateRule(RuleWriteRequest("STARBUCKS", make_id(1))))
 
-  let assert Submitting(form: Form(pattern: ValidPattern(input), tag_id:), ..) =
-    submitting
+  let assert Submitting(
+    form: Form(pattern: field.Valid(value: _, input:), tag_id:),
+    ..,
+  ) = submitting
   input |> should.equal("  STARBUCKS  ")
   tag_id |> should.equal(ValidTag(make_id(1)))
 }
@@ -115,7 +120,7 @@ pub fn submitting_a_blank_pattern_marks_it_required_test() {
     rule_form.update(make_create_modal(), SaveRequested, [])
   requests |> should.equal([])
   let assert Active(
-    form: Form(pattern: InvalidPattern(error: PatternRequired, ..), ..),
+    form: Form(pattern: field.Invalid(error: PatternRequired, ..), ..),
     ..,
   ) = state
     as "Expected the pattern to be marked as missing (pattern required)"
@@ -127,7 +132,7 @@ pub fn pattern_records_too_long_error_test() {
     |> modal_with_pattern(string.repeat("a", rule_form.max_pattern_length + 1))
 
   let assert Active(
-    form: Form(pattern: InvalidPattern(error: TooLong, ..), ..),
+    form: Form(pattern: field.Invalid(error: TooLong, ..), ..),
     ..,
   ) = modal
     as "Expected the pattern to be marked as too long"
@@ -208,7 +213,7 @@ pub fn duplicate_pattern_submit_marks_form_and_emits_no_request_test() {
     rule_form.update(modal, SaveRequested, [existing])
   requests |> should.equal([])
   let assert Active(
-    form: Form(pattern: InvalidPattern(error: Duplicate, ..), ..),
+    form: Form(pattern: field.Invalid(error: Duplicate, ..), ..),
     ..,
   ) = state
 }
@@ -230,7 +235,8 @@ pub fn save_failure_then_fix_then_retry_test() {
   let assert #(still_errored, _, NoChange) =
     rule_form.update(errored, PatternChanged("7-ELEVEN"), [])
   let assert Errored(form:, error:, ..) = still_errored
-  form.pattern |> should.equal(ValidPattern(input: "7-ELEVEN"))
+  form.pattern
+  |> should.equal(field.Valid(value: "7-ELEVEN", input: "7-ELEVEN"))
   error |> should.equal(message)
 
   // Retry is legal from the errored state.
