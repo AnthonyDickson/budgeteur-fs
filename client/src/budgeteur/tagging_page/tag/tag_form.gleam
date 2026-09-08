@@ -208,8 +208,9 @@ fn validate_form(
 
 /// Finalize the form after a submit attempt: blank fields become errors, and
 /// the name is checked against the names of the other tags. Duplicate checks
-/// are case-sensitive to mirror the future `UNIQUE(UserId, Name)` DB
-/// constraint.
+/// are case-sensitive, mirroring the server's `UNIQUE(UserId, Name)`
+/// constraint so a duplicate is caught inline before the round trip; the
+/// server check remains authoritative when the client's tag list is stale.
 fn finalize(form: Form, other_tag_names: List(String)) -> Form {
   let Form(name:, ..) = form
   let name = field.finalize(name, fn() { NameRequired })

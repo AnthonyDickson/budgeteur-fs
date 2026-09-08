@@ -17,17 +17,15 @@
 ## Current Tasks
 
 - Tags and rules page:
-  - Have new rule form default to selecting the selected tag
   - Clean up naming split between modal/form
+  - Make action buttons in tagging page tag list always rendered in the DOM so I can select them with vimium. Can keep the
+    buttons hidden in non-selected rows to match the existing design.
   - Cull unit tests
   - Add E2E tests
   - Ensure docs are up-to-date and sufficient
-  - Set transaction tag via create and update transaction dialogs
-  - Display transaction tag in transactions table
-  - Update docs, e.g. architecture
+- Set transaction tag via create and update transaction dialogs
+- Display transaction tag in transactions table
 - Cut down AGENTS.md to around 150 lines
-- Make action buttons in tagging page tag list always rendered in the DOM so I can select them with vimium. Can keep the
-  buttons hidden in non-selected rows to match the existing design.
 
 ## Backlog
 
@@ -48,6 +46,8 @@
   not clickable.
 - Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then replacing
   it with the server data.
+- Tags and rules page:
+  - Have new rule form default to selecting the selected tag
 
 ## CSV Parsing
 

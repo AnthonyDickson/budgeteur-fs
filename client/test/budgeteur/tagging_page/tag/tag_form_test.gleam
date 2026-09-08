@@ -57,8 +57,8 @@ pub fn validate_rejects_duplicate_name_test() {
 }
 
 pub fn validate_does_not_count_self_as_duplicate_test() {
-  // The page builds `other_tag_names` excluding the tag being edited, so the
-  // form sees no duplicate when renaming keeps the same name.
+  // The form's `save` excludes the tag being edited from `other_tag_names`,
+  // so the form sees no duplicate when renaming keeps the same name.
   let existing_tag = make_tag("Coffee")
   let modal =
     make_edit_modal(existing_tag) |> modal_with_tag_name(existing_tag.name)
