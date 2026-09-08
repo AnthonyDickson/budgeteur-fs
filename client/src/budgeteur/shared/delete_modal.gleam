@@ -64,20 +64,15 @@ pub fn confirm(
   }
 }
 
-/// `Deleting` -> `Errored` with the API error details, but only when the
-/// state's target satisfies `is_target`, so a stale response cannot corrupt a
-/// newer modal session. Every other state is returned unchanged.
+/// `Deleting` -> `Errored` with the API error details. Any other state is
+/// returned unchanged, so a late failure cannot disturb a newer modal session.
 pub fn fail(
   state: State(target, context),
-  is_target: fn(target) -> Bool,
   error: ApiError,
 ) -> State(target, context) {
   case state {
     Deleting(target:, context:) ->
-      case is_target(target) {
-        True -> Errored(target:, context:, error: error.details)
-        False -> state
-      }
+      Errored(target:, context:, error: error.details)
     other -> other
   }
 }

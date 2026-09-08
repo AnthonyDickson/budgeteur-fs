@@ -218,7 +218,7 @@ fn update_inner(
     ServerDeletedTransaction(transaction, Error(error)) -> {
       case api_error.is_not_found(error) {
         True -> on_delete_succeeded(model, transaction)
-        False -> on_delete_failed(model, transaction, error)
+        False -> on_delete_failed(model, error)
       }
     }
 
@@ -368,15 +368,9 @@ fn on_delete_succeeded(
 
 fn on_delete_failed(
   model: Model,
-  transaction: Transaction,
   error: ApiError,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let updated =
-    delete_modal.fail(
-      model.delete_modal,
-      fn(target) { target == transaction },
-      error,
-    )
+  let updated = delete_modal.fail(model.delete_modal, error)
   case updated == model.delete_modal {
     True -> #(model, effect.none(), None)
     False -> #(

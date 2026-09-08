@@ -220,7 +220,7 @@ fn update_inner(
         Error(error) ->
           case api_error.is_not_found(error) {
             True -> on_tag_delete_succeeded(model, tag)
-            False -> on_tag_delete_failed(model, tag, error)
+            False -> on_tag_delete_failed(model, error)
           }
       }
     }
@@ -267,7 +267,7 @@ fn update_inner(
         Error(error) ->
           case api_error.is_not_found(error) {
             True -> on_rule_delete_succeeded(model, rule)
-            False -> on_rule_delete_failed(model, rule, error)
+            False -> on_rule_delete_failed(model, error)
           }
       }
     }
@@ -336,7 +336,6 @@ fn on_tag_delete_succeeded(
 
 fn on_tag_delete_failed(
   model: Model,
-  tag: Tag,
   error: ApiError,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   // A response can only arrive while the modal is `Deleting` (the dialog is
@@ -344,12 +343,7 @@ fn on_tag_delete_failed(
   // `Errored` for an inline retry. The unchanged-state check covers a stale
   // response (the modal was reset, e.g. closed and re-opened for another
   // tag), which must not touch the newer session.
-  let updated =
-    delete_modal.fail(
-      model.tag_delete_modal,
-      fn(target) { target == tag },
-      error,
-    )
+  let updated = delete_modal.fail(model.tag_delete_modal, error)
   case updated == model.tag_delete_modal {
     True -> #(model, effect.none(), None)
     False -> #(
@@ -404,16 +398,10 @@ fn on_rule_delete_succeeded(
 
 fn on_rule_delete_failed(
   model: Model,
-  rule: Rule,
   error: ApiError,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   // See `on_tag_delete_failed`; the same reasoning applies to rules.
-  let updated =
-    delete_modal.fail(
-      model.rule_delete_modal,
-      fn(target) { target == rule },
-      error,
-    )
+  let updated = delete_modal.fail(model.rule_delete_modal, error)
   case updated == model.rule_delete_modal {
     True -> #(model, effect.none(), None)
     False -> #(

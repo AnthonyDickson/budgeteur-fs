@@ -55,11 +55,10 @@ pub fn confirm_is_a_no_op_while_deleting_test() {
   result |> should.equal(Error(Nil))
 }
 
-pub fn fail_moves_a_matching_deleting_state_to_errored_test() {
+pub fn fail_moves_a_deleting_state_to_errored_test() {
   let state = delete_modal.Deleting(target: 1, context: "context")
 
-  let state =
-    delete_modal.fail(state, fn(target) { target == 1 }, failing("boom"))
+  let state = delete_modal.fail(state, failing("boom"))
 
   state
   |> should.equal(delete_modal.Errored(
@@ -67,23 +66,4 @@ pub fn fail_moves_a_matching_deleting_state_to_errored_test() {
     context: "context",
     error: "boom",
   ))
-}
-
-pub fn fail_ignores_a_stale_response_for_a_different_target_test() {
-  let state = delete_modal.Deleting(target: 1, context: "context")
-
-  let state =
-    delete_modal.fail(state, fn(target) { target == 2 }, failing("boom"))
-
-  state |> should.equal(delete_modal.Deleting(target: 1, context: "context"))
-}
-
-pub fn fail_is_a_no_op_outside_deleting_test() {
-  let confirming = delete_modal.Confirming(target: 1, context: "context")
-  delete_modal.fail(confirming, fn(target) { target == 1 }, failing("boom"))
-  |> should.equal(delete_modal.Confirming(target: 1, context: "context"))
-
-  let hidden: delete_modal.State(Int, String) = delete_modal.empty()
-  delete_modal.fail(hidden, fn(target) { target == 1 }, failing("boom"))
-  |> should.equal(delete_modal.Hidden)
 }
