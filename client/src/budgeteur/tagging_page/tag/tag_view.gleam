@@ -8,8 +8,8 @@ import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
 
-/// The tag sidebar: a selectable list of tags with edit/delete actions for the
-/// selected tag, plus a "New tag" button.
+/// The tag sidebar: a selectable list of tags with edit/delete actions on each
+/// row, plus a "New tag" button.
 pub fn panel(
   tags: List(Tag),
   selected_tag: Option(Uuid),
@@ -36,11 +36,13 @@ pub fn panel(
         [attribute.class("flex-1 divide-y divide-gray-100 overflow-y-auto")],
         list.map(tags, fn(tag) {
           let is_selected = selected_tag == Some(tag.id)
-          html.li([], [
-            html.div(
+          html.li([attribute.class("group relative")], [
+            html.button(
               [
                 attribute.class(
-                  "relative flex h-11 cursor-pointer items-center gap-3 px-4 "
+                  "flex h-11 w-full cursor-pointer items-center gap-3 px-4 text-left "
+                  <> "focus:outline-none focus:ring-2 focus:ring-inset "
+                  <> "focus:ring-indigo-500 "
                   <> case is_selected {
                     True -> "border-l-2 border-indigo-600 bg-indigo-50"
                     False -> "border-l-2 border-transparent hover:bg-gray-50"
@@ -50,6 +52,10 @@ pub fn panel(
                   "data-testid",
                   "tag-row-" <> uuid.to_string(tag.id),
                 ),
+                attribute.attribute("aria-current", case is_selected {
+                  True -> "true"
+                  False -> "false"
+                }),
                 event.on_click(on_select(tag.id)),
               ],
               [
@@ -57,64 +63,66 @@ pub fn panel(
                 html.span(
                   [
                     attribute.class(
-                      "flex-1 truncate text-sm "
+                      "flex-1 truncate pr-24 text-sm "
                       <> case is_selected {
-                        True -> "pr-24 font-medium text-gray-900"
+                        True -> "font-medium text-gray-900"
                         False -> "text-gray-700"
                       },
                     ),
                   ],
                   [html.text(tag.name)],
                 ),
-                case is_selected {
-                  True ->
-                    html.div(
-                      [
-                        attribute.class(
-                          "absolute inset-y-0 right-0 flex items-center gap-1 pr-2",
-                        ),
-                      ],
-                      [
-                        html.button(
-                          [
-                            attribute.class(
-                              "flex h-9 w-9 shrink-0 items-center justify-center "
-                              <> "rounded-md text-indigo-600 hover:bg-indigo-100 "
-                              <> "focus:outline-none focus:ring-2 focus:ring-inset "
-                              <> "focus:ring-indigo-500",
-                            ),
-                            attribute.attribute(
-                              "data-testid",
-                              "edit-tag-" <> uuid.to_string(tag.id),
-                            ),
-                            attribute.aria_label("Edit tag " <> tag.name),
-                            event.on_click(on_edit(tag.id))
-                              |> event.stop_propagation,
-                          ],
-                          [ui.pencil_icon()],
-                        ),
-                        html.button(
-                          [
-                            attribute.class(
-                              "flex h-9 w-9 shrink-0 items-center justify-center "
-                              <> "rounded-md text-red-600 hover:bg-red-100 "
-                              <> "focus:outline-none focus:ring-2 focus:ring-inset "
-                              <> "focus:ring-red-500",
-                            ),
-                            attribute.attribute(
-                              "data-testid",
-                              "delete-tag-" <> uuid.to_string(tag.id),
-                            ),
-                            attribute.aria_label("Delete tag " <> tag.name),
-                            event.on_click(on_delete(tag))
-                              |> event.stop_propagation,
-                          ],
-                          [ui.trash_icon()],
-                        ),
-                      ],
-                    )
-                  False -> element.none()
-                },
+              ],
+            ),
+            html.div(
+              [
+                attribute.class(
+                  "absolute inset-y-0 right-0 flex items-center gap-1 pr-2 "
+                  <> "transition-opacity "
+                  <> case is_selected {
+                    True -> "opacity-100"
+                    False ->
+                      "opacity-0 focus-within:opacity-100 group-hover:opacity-100"
+                  },
+                ),
+              ],
+              [
+                html.button(
+                  [
+                    attribute.class(
+                      "flex h-9 w-9 shrink-0 items-center justify-center "
+                      <> "rounded-md text-indigo-600 hover:bg-indigo-100 "
+                      <> "focus:outline-none focus:ring-2 focus:ring-inset "
+                      <> "focus:ring-indigo-500",
+                    ),
+                    attribute.attribute(
+                      "data-testid",
+                      "edit-tag-" <> uuid.to_string(tag.id),
+                    ),
+                    attribute.aria_label("Edit tag " <> tag.name),
+                    event.on_click(on_edit(tag.id))
+                      |> event.stop_propagation,
+                  ],
+                  [ui.pencil_icon()],
+                ),
+                html.button(
+                  [
+                    attribute.class(
+                      "flex h-9 w-9 shrink-0 items-center justify-center "
+                      <> "rounded-md text-red-600 hover:bg-red-100 "
+                      <> "focus:outline-none focus:ring-2 focus:ring-inset "
+                      <> "focus:ring-red-500",
+                    ),
+                    attribute.attribute(
+                      "data-testid",
+                      "delete-tag-" <> uuid.to_string(tag.id),
+                    ),
+                    attribute.aria_label("Delete tag " <> tag.name),
+                    event.on_click(on_delete(tag))
+                      |> event.stop_propagation,
+                  ],
+                  [ui.trash_icon()],
+                ),
               ],
             ),
           ])
