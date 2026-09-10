@@ -35,6 +35,7 @@ open Budgeteur.Feature.Rule
 open Budgeteur.Feature.Status
 open Budgeteur.Feature.Tag
 open Budgeteur.Feature.TaggingPage
+open Budgeteur.Feature.TestSupport
 open Budgeteur.Feature.Transaction
 
 
@@ -255,6 +256,14 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
     let taggingPageEndpoints =
         [ GET [ ReadTaggingData.endpoint queryContext ] ] |> withAuth
 
+    // Test-only helpers, available in Development only (mirrors the Scalar
+    // docs gating below) so they can never be reached against real data.
+    let testEndpoints =
+        if app.Environment.IsDevelopment () then
+            [ DELETE [ ResetTagging.endpoint queryContext ] ] |> withAuth
+        else
+            Seq.empty
+
     Seq.concat [
         authEndpoints
         ruleEndpoints
@@ -262,6 +271,7 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
         transactionEndpoints
         tagEndpoints
         taggingPageEndpoints
+        testEndpoints
     ]
 
 
