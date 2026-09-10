@@ -7,12 +7,12 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/tagging_page/rule/rule.{type Rule}
 import budgeteur/tagging_page/rule/rule_delete_modal
-import budgeteur/tagging_page/rule/rule_form
+import budgeteur/tagging_page/rule/rule_modal
 import budgeteur/tagging_page/rule/rule_view
 import budgeteur/tagging_page/rule_write_request
 import budgeteur/tagging_page/tag/tag.{type Tag}
 import budgeteur/tagging_page/tag/tag_delete_modal
-import budgeteur/tagging_page/tag/tag_form
+import budgeteur/tagging_page/tag/tag_modal
 import budgeteur/tagging_page/tag/tag_view
 import budgeteur/tagging_page/tag_write_request
 import budgeteur/tagging_page/tagging_page_data.{
@@ -33,9 +33,9 @@ pub type Model {
     tags: List(Tag),
     rules: List(Rule),
     selected_tag: Option(Uuid),
-    tag_modal: tag_form.Modal,
+    tag_modal: tag_modal.Modal,
     tag_delete_modal: tag_delete_modal.DeleteModalState,
-    rule_modal: rule_form.Modal,
+    rule_modal: rule_modal.Modal,
     rule_delete_modal: rule_delete_modal.DeleteModalState,
   )
 }
@@ -48,7 +48,7 @@ pub type Msg {
   // Tag modal messages
   UserRequestedTagCreation
   UserRequestedTagEdit(Uuid)
-  TagFormMsg(tag_form.Msg)
+  TagModalMsg(tag_modal.Msg)
   // Tag delete modal messages
   UserRequestedTagDelete(Tag)
   UserConfirmedTagDelete
@@ -62,7 +62,7 @@ pub type Msg {
   // Rule modal messages
   UserRequestedRuleCreation
   UserRequestedRuleEdit(Uuid)
-  RuleFormMsg(rule_form.Msg)
+  RuleModalMsg(rule_modal.Msg)
   // Rule delete modal messages
   UserRequestedRuleDelete(Rule, String)
   UserConfirmedRuleDelete
@@ -119,9 +119,9 @@ pub fn init() -> #(Model, Effect(Msg)) {
       tags: [],
       rules: [],
       selected_tag: None,
-      tag_modal: tag_form.hidden(),
+      tag_modal: tag_modal.hidden(),
       tag_delete_modal: tag_delete_modal.empty(),
-      rule_modal: rule_form.hidden(),
+      rule_modal: rule_modal.hidden(),
       rule_delete_modal: rule_delete_modal.empty(),
     ),
     effect.batch([restore_data_from_store(), fetch_page_data()]),
@@ -190,17 +190,17 @@ fn update_inner(
       )),
     )
 
-    UserRequestedTagCreation -> run_tag_form(model, tag_form.CreateRequested)
+    UserRequestedTagCreation -> run_tag_modal(model, tag_modal.CreateRequested)
 
     UserRequestedTagEdit(id) -> {
       case list.find(model.tags, fn(tag) { tag.id == id }) {
-        Ok(tag) -> run_tag_form(model, tag_form.EditRequested(tag))
+        Ok(tag) -> run_tag_modal(model, tag_modal.EditRequested(tag))
 
         Error(Nil) -> #(model, effect.none(), None)
       }
     }
 
-    TagFormMsg(inner_msg) -> run_tag_form(model, inner_msg)
+    TagModalMsg(inner_msg) -> run_tag_modal(model, inner_msg)
 
     UserRequestedTagDelete(tag) -> {
       let rule_count =
@@ -239,19 +239,20 @@ fn update_inner(
 
     UserRequestedRuleCreation -> {
       case model.selected_tag {
-        Some(tag_id) -> run_rule_form(model, rule_form.CreateRequested(tag_id))
+        Some(tag_id) ->
+          run_rule_modal(model, rule_modal.CreateRequested(tag_id))
         None -> #(model, effect.none(), None)
       }
     }
 
     UserRequestedRuleEdit(id) -> {
       case list.find(model.rules, fn(rule) { rule.id == id }) {
-        Ok(rule) -> run_rule_form(model, rule_form.EditRequested(rule))
+        Ok(rule) -> run_rule_modal(model, rule_modal.EditRequested(rule))
         Error(Nil) -> #(model, effect.none(), None)
       }
     }
 
-    RuleFormMsg(msg) -> run_rule_form(model, msg)
+    RuleModalMsg(msg) -> run_rule_modal(model, msg)
 
     UserRequestedRuleDelete(rule, tag_name) -> #(
       Model(..model, rule_delete_modal: rule_delete_modal.open(rule, tag_name)),
@@ -412,15 +413,15 @@ fn on_rule_delete_failed(
   }
 }
 
-fn run_tag_form(
+fn run_tag_modal(
   model: Model,
-  msg: tag_form.Msg,
+  msg: tag_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let #(tag_modal, requests, outcome) =
-    tag_form.update(model.tag_modal, msg, model.tags)
+    tag_modal.update(model.tag_modal, msg, model.tags)
   let model = Model(..model, tag_modal:)
   let error_effect = case msg {
-    tag_form.SaveCompleted(result: Error(error)) ->
+    tag_modal.SaveCompleted(result: Error(error)) ->
       Some(effect.LogError(api_error.describe(error)))
     _ -> None
   }
@@ -430,13 +431,13 @@ fn run_tag_form(
     outcome,
     error_effect,
     apply_tag_outcome,
-    interpret_tag_form_request,
+    interpret_tag_modal_request,
   )
 }
 
 fn apply_tag_outcome(
   model: Model,
-  outcome: tag_form.Outcome,
+  outcome: tag_modal.Outcome,
 ) -> #(Model, Option(OutMsg)) {
   case outcome {
     form_modal.NoChange -> #(model, None)
@@ -460,12 +461,12 @@ fn apply_tag_outcome(
   }
 }
 
-fn interpret_tag_form_request(request: tag_form.Request) -> Effect(Msg) {
+fn interpret_tag_modal_request(request: tag_modal.Request) -> Effect(Msg) {
   case request {
     form_modal.ShowDialog ->
-      effect.ShowDialog(selector: tag_form.dom_id_selector)
+      effect.ShowDialog(selector: tag_modal.dom_id_selector)
     form_modal.CloseDialog ->
-      effect.CloseDialog(selector: tag_form.dom_id_selector)
+      effect.CloseDialog(selector: tag_modal.dom_id_selector)
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateTag |> api_route.to_string,
@@ -474,7 +475,7 @@ fn interpret_tag_form_request(request: tag_form.Request) -> Effect(Msg) {
         handle_tag_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
-      |> effect.map(TagFormMsg)
+      |> effect.map(TagModalMsg)
     form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateTag(id) |> api_route.to_string,
@@ -483,7 +484,7 @@ fn interpret_tag_form_request(request: tag_form.Request) -> Effect(Msg) {
         handle_tag_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
-      |> effect.map(TagFormMsg)
+      |> effect.map(TagModalMsg)
   }
 }
 
@@ -491,23 +492,23 @@ fn handle_tag_response(result) {
   case result {
     Ok(body) ->
       response.decode_success(body, tag.tag_decoder())
-      |> tag_form.SaveCompleted
+      |> tag_modal.SaveCompleted
     Error(http_error) ->
-      tag_form.SaveCompleted(
+      tag_modal.SaveCompleted(
         Error(response.http_error_to_api_error(http_error)),
       )
   }
 }
 
-fn run_rule_form(
+fn run_rule_modal(
   model: Model,
-  msg: rule_form.Msg,
+  msg: rule_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let #(rule_modal, requests, outcome) =
-    rule_form.update(model.rule_modal, msg, model.rules)
+    rule_modal.update(model.rule_modal, msg, model.rules)
   let model = Model(..model, rule_modal:)
   let error_effect = case msg {
-    rule_form.SaveCompleted(result: Error(error)) ->
+    rule_modal.SaveCompleted(result: Error(error)) ->
       Some(effect.LogError(api_error.describe(error)))
     _ -> None
   }
@@ -517,13 +518,13 @@ fn run_rule_form(
     outcome,
     error_effect,
     apply_rule_outcome,
-    interpret_rule_form_request,
+    interpret_rule_modal_request,
   )
 }
 
 fn apply_rule_outcome(
   model: Model,
-  outcome: rule_form.Outcome,
+  outcome: rule_modal.Outcome,
 ) -> #(Model, Option(OutMsg)) {
   case outcome {
     form_modal.NoChange -> #(model, None)
@@ -546,12 +547,12 @@ fn apply_rule_outcome(
   }
 }
 
-fn interpret_rule_form_request(request: rule_form.Request) -> Effect(Msg) {
+fn interpret_rule_modal_request(request: rule_modal.Request) -> Effect(Msg) {
   case request {
     form_modal.ShowDialog ->
-      effect.ShowDialog(selector: rule_form.dom_id_selector)
+      effect.ShowDialog(selector: rule_modal.dom_id_selector)
     form_modal.CloseDialog ->
-      effect.CloseDialog(selector: rule_form.dom_id_selector)
+      effect.CloseDialog(selector: rule_modal.dom_id_selector)
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateRule |> api_route.to_string,
@@ -560,7 +561,7 @@ fn interpret_rule_form_request(request: rule_form.Request) -> Effect(Msg) {
         handle_rule_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
-      |> effect.map(RuleFormMsg)
+      |> effect.map(RuleModalMsg)
     form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateRule(id) |> api_route.to_string,
@@ -569,7 +570,7 @@ fn interpret_rule_form_request(request: rule_form.Request) -> Effect(Msg) {
         handle_rule_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
-      |> effect.map(RuleFormMsg)
+      |> effect.map(RuleModalMsg)
   }
 }
 
@@ -577,9 +578,9 @@ fn handle_rule_response(result) {
   case result {
     Ok(body) ->
       response.decode_success(body, rule.rule_decoder())
-      |> rule_form.SaveCompleted
+      |> rule_modal.SaveCompleted
     Error(http_error) ->
-      rule_form.SaveCompleted(
+      rule_modal.SaveCompleted(
         Error(response.http_error_to_api_error(http_error)),
       )
   }
@@ -622,15 +623,15 @@ pub fn view(model: Model) -> Element(Msg) {
       True -> tag_view.no_tags_empty_state(on_create: UserRequestedTagCreation)
       False -> master_detail(model)
     },
-    tag_form.view(model.tag_modal)
-      |> element.map(TagFormMsg),
+    tag_modal.view(model.tag_modal)
+      |> element.map(TagModalMsg),
     tag_delete_modal.view(
       model.tag_delete_modal,
       on_cancel: UserCancelledTagDelete,
       on_confirm: UserConfirmedTagDelete,
     ),
-    rule_form.view(model.rule_modal, model.tags)
-      |> element.map(RuleFormMsg),
+    rule_modal.view(model.rule_modal, model.tags)
+      |> element.map(RuleModalMsg),
     rule_delete_modal.view(
       model.rule_delete_modal,
       on_cancel: UserCancelledRuleDelete,

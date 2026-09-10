@@ -17,7 +17,6 @@
 ## Current Tasks
 
 - Tags and rules page:
-  - Clean up naming split between modal/form
   - Make action buttons in tagging page tag list always rendered in the DOM so I can select them with vimium. Can keep the
     buttons hidden in non-selected rows to match the existing design.
   - Cull unit tests

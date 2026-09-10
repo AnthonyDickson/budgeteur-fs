@@ -5,7 +5,7 @@ import budgeteur/shared/form_modal.{
   Submitting,
 }
 import budgeteur/transaction/transaction
-import budgeteur/transaction/transaction_form.{
+import budgeteur/transaction/transaction_modal.{
   AmountChanged, AmountRequired, CancelRequested, CreateRequested, Credit,
   DateChanged, DateRequired, Debit, DescriptionChanged, DescriptionRequired,
   DialogDismissed, EditRequested, IsTransferChanged, NotADate, NotANumber,
@@ -18,22 +18,22 @@ import gleeunit/should
 import youid/uuid
 
 /// Open the create modal (the page sends `CreateRequested` to `update`).
-fn opened() -> transaction_form.Modal {
+fn opened() -> transaction_modal.Modal {
   let #(modal, _, _) =
-    transaction_form.update(transaction_form.hidden(), CreateRequested)
+    transaction_modal.update(transaction_modal.hidden(), CreateRequested)
   modal
 }
 
 /// Apply a form message, keeping only the resulting modal.
 fn send(
-  state: transaction_form.Modal,
-  msg: transaction_form.Msg,
-) -> transaction_form.Modal {
-  let #(modal, _, _) = transaction_form.update(state, msg)
+  state: transaction_modal.Modal,
+  msg: transaction_modal.Msg,
+) -> transaction_modal.Modal {
+  let #(modal, _, _) = transaction_modal.update(state, msg)
   modal
 }
 
-fn form_of(modal: transaction_form.Modal) -> transaction_form.Form {
+fn form_of(modal: transaction_modal.Modal) -> transaction_modal.Form {
   case modal {
     Active(form:, ..) -> form
     Errored(form:, ..) -> form
@@ -42,27 +42,27 @@ fn form_of(modal: transaction_form.Modal) -> transaction_form.Form {
 }
 
 pub fn clip_amount_allows_up_to_two_decimal_places_test() {
-  transaction_form.clip_amount_to_two_dp("12.3")
+  transaction_modal.clip_amount_to_two_dp("12.3")
   |> should.equal("12.3")
 }
 
 pub fn clip_amount_truncates_extra_decimal_places_test() {
-  transaction_form.clip_amount_to_two_dp("12.345")
+  transaction_modal.clip_amount_to_two_dp("12.345")
   |> should.equal("12.34")
 }
 
 pub fn clip_amount_preserves_trailing_decimal_point_test() {
-  transaction_form.clip_amount_to_two_dp("12.")
+  transaction_modal.clip_amount_to_two_dp("12.")
   |> should.equal("12.")
 }
 
 pub fn clip_amount_leaves_multiple_decimal_points_untouched_test() {
-  transaction_form.clip_amount_to_two_dp("12.34.56")
+  transaction_modal.clip_amount_to_two_dp("12.34.56")
   |> should.equal("12.34.56")
 }
 
 pub fn clip_amount_leaves_whole_numbers_untouched_test() {
-  transaction_form.clip_amount_to_two_dp("123")
+  transaction_modal.clip_amount_to_two_dp("123")
   |> should.equal("123")
 }
 
@@ -103,9 +103,9 @@ pub fn set_amount_digit_between_dots_is_not_a_number_error_test() {
 }
 
 pub fn clip_amount_leaves_malformed_dot_input_untouched_test() {
-  "12.." |> transaction_form.clip_amount_to_two_dp() |> should.equal("12..")
-  "1.2.3" |> transaction_form.clip_amount_to_two_dp() |> should.equal("1.2.3")
-  "12." |> transaction_form.clip_amount_to_two_dp() |> should.equal("12.")
+  "12.." |> transaction_modal.clip_amount_to_two_dp() |> should.equal("12..")
+  "1.2.3" |> transaction_modal.clip_amount_to_two_dp() |> should.equal("1.2.3")
+  "12." |> transaction_modal.clip_amount_to_two_dp() |> should.equal("12.")
 }
 
 pub fn set_description_blank_field_is_empty_state_test() {
@@ -119,7 +119,7 @@ pub fn set_description_records_too_long_error_test() {
     |> send(
       DescriptionChanged(string.repeat(
         "a",
-        transaction_form.max_description_length + 1,
+        transaction_modal.max_description_length + 1,
       )),
     )
     |> form_of
@@ -138,7 +138,7 @@ pub fn set_date_records_not_a_date_error_test() {
 
 pub fn validate_includes_is_transfer_test() {
   let assert #(submitting, [Post(request)], NoChange) =
-    transaction_form.update(
+    transaction_modal.update(
       opened()
         |> send(AmountChanged("12.5"))
         |> send(DescriptionChanged("Coffee"))
@@ -152,7 +152,7 @@ pub fn validate_includes_is_transfer_test() {
 
 pub fn validate_negates_debit_amounts_test() {
   let assert #(_, [Post(request)], NoChange) =
-    transaction_form.update(
+    transaction_modal.update(
       opened()
         |> send(AmountChanged("12.5"))
         |> send(DescriptionChanged("Coffee"))
@@ -164,7 +164,7 @@ pub fn validate_negates_debit_amounts_test() {
 
 pub fn validate_keeps_credit_amounts_positive_test() {
   let assert #(_, [Post(request)], NoChange) =
-    transaction_form.update(
+    transaction_modal.update(
       opened()
         |> send(TypeChanged(Credit))
         |> send(AmountChanged("12.5"))
@@ -177,7 +177,7 @@ pub fn validate_keeps_credit_amounts_positive_test() {
 
 pub fn validate_returns_all_errors_test() {
   let assert #(modal, requests, NoChange) =
-    transaction_form.update(
+    transaction_modal.update(
       opened() |> send(AmountChanged("abc")) |> send(DateChanged("")),
       SaveRequested,
     )
@@ -190,7 +190,7 @@ pub fn validate_returns_all_errors_test() {
 
 pub fn validate_reports_required_errors_for_blank_fields_test() {
   let assert #(modal, requests, NoChange) =
-    transaction_form.update(
+    transaction_modal.update(
       opened() |> send(DateChanged("2026-01-02")),
       SaveRequested,
     )
@@ -213,8 +213,8 @@ pub fn edit_modal_prefills_transaction_test() {
       tag_id: None,
     )
   let #(modal, _, _) =
-    transaction_form.update(
-      transaction_form.hidden(),
+    transaction_modal.update(
+      transaction_modal.hidden(),
       EditRequested(transaction),
     )
   let assert Active(form:, mode: Edit(edit_id)) = modal
@@ -240,8 +240,8 @@ pub fn edit_modal_maps_credit_transaction_test() {
       tag_id: None,
     )
   let #(modal, _, _) =
-    transaction_form.update(
-      transaction_form.hidden(),
+    transaction_modal.update(
+      transaction_modal.hidden(),
       EditRequested(transaction),
     )
   let assert Active(form:, mode: Edit(edit_id)) = modal
@@ -267,7 +267,7 @@ pub fn editing_negates_debit_amounts_in_the_update_request_test() {
       tag_id: None,
     )
   let assert #(_, [Put(put_id, request)], NoChange) =
-    transaction_form.update(
+    transaction_modal.update(
       send(opened(), EditRequested(transaction))
         |> send(AmountChanged("20")),
       SaveRequested,
@@ -295,7 +295,7 @@ pub fn save_failure_moves_the_modal_to_errored_test() {
       request_id: None,
     )
   let assert #(modal, requests, NoChange) =
-    transaction_form.update(submitting, SaveCompleted(Error(error)))
+    transaction_modal.update(submitting, SaveCompleted(Error(error)))
   requests |> should.equal([])
   let assert Errored(mode: Create, error: message, ..) = modal
   message |> should.equal("boom")
@@ -303,12 +303,12 @@ pub fn save_failure_moves_the_modal_to_errored_test() {
 
 pub fn cancel_requests_dialog_close_but_dismiss_does_not_test() {
   let assert #(modal, requests, NoChange) =
-    transaction_form.update(opened(), CancelRequested)
+    transaction_modal.update(opened(), CancelRequested)
   modal |> should.equal(Hidden)
   requests |> should.equal([CloseDialog])
 
   let assert #(modal, requests, NoChange) =
-    transaction_form.update(opened(), DialogDismissed)
+    transaction_modal.update(opened(), DialogDismissed)
   modal |> should.equal(Hidden)
   requests |> should.equal([])
 }
@@ -326,7 +326,7 @@ pub fn double_submit_while_submitting_is_a_no_op_test() {
 
   // A second SaveRequested while the first is in flight emits nothing.
   let #(still, requests, outcome) =
-    transaction_form.update(submitting, SaveRequested)
+    transaction_modal.update(submitting, SaveRequested)
   still |> should.equal(submitting)
   requests |> should.equal([])
   outcome |> should.equal(NoChange)

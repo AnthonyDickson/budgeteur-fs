@@ -186,8 +186,8 @@ a child-to-parent channel for requesting shell-level behaviours — currently us
 for toast notifications, but the mechanism is generic. A parent's `update` is
 therefore the single place where child requests are turned into shell effects.
 
-The same layering repeats inside a page: stateful modals (`transaction_form`,
-`tag_form`, `rule_form`, plus the delete confirmations) keep their modal state
+The same layering repeats inside a page: stateful modals (`transaction_modal`,
+`tag_modal`, `rule_modal`, plus the delete confirmations) keep their modal state
 in the page model, raise their own `Msg`s (lifted with `element.map`), and
 return `Request`/`Outcome` pairs the page turns into effects and data changes.
 The underlying state machines are generic (`shared/form_modal.gleam`,

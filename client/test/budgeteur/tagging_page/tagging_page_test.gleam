@@ -8,10 +8,10 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/toast
 import budgeteur/tagging_page/rule/rule
 import budgeteur/tagging_page/rule/rule_delete_modal
-import budgeteur/tagging_page/rule/rule_form
+import budgeteur/tagging_page/rule/rule_modal
 import budgeteur/tagging_page/tag/tag
 import budgeteur/tagging_page/tag/tag_delete_modal
-import budgeteur/tagging_page/tag/tag_form
+import budgeteur/tagging_page/tag/tag_modal
 import budgeteur/tagging_page/tagging_page
 import budgeteur/tagging_page/tagging_page_data.{TaggingPageData}
 import gleam/int
@@ -39,9 +39,9 @@ fn empty_model() -> tagging_page.Model {
     tags: [],
     rules: [],
     selected_tag: None,
-    tag_modal: tag_form.hidden(),
+    tag_modal: tag_modal.hidden(),
     tag_delete_modal: tag_delete_modal.empty(),
-    rule_modal: rule_form.hidden(),
+    rule_modal: rule_modal.hidden(),
     rule_delete_modal: rule_delete_modal.empty(),
   )
 }
@@ -353,11 +353,11 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
   let opened =
     model
     |> run(tagging_page.UserRequestedRuleCreation)
-    |> run(tagging_page.RuleFormMsg(rule_form.PatternChanged("STARBUCKS")))
+    |> run(tagging_page.RuleModalMsg(rule_modal.PatternChanged("STARBUCKS")))
   let #(submitting, submit_effect, _) =
     tagging_page.update(
       opened,
-      tagging_page.RuleFormMsg(rule_form.SaveRequested),
+      tagging_page.RuleModalMsg(rule_modal.SaveRequested),
     )
   let assert effect.HttpRequest(method: method, timeout: timeout, ..) =
     submit_effect
@@ -369,13 +369,13 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
   let #(new_model, _, out_msg) =
     tagging_page.update(
       submitting,
-      tagging_page.RuleFormMsg(rule_form.SaveCompleted(Ok(created))),
+      tagging_page.RuleModalMsg(rule_modal.SaveCompleted(Ok(created))),
     )
 
   // New rules append so insertion order equals rule evaluation order.
   new_model.rules |> should.equal([existing, created])
   new_model.selected_tag |> should.equal(Some(coffee.id))
-  new_model.rule_modal |> should.equal(rule_form.hidden())
+  new_model.rule_modal |> should.equal(rule_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
 }
@@ -395,12 +395,12 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
   let opened =
     run(model, tagging_page.UserRequestedRuleEdit(starbucks.id))
     |> run(
-      tagging_page.RuleFormMsg(rule_form.TagChanged(uuid.to_string(rent.id))),
+      tagging_page.RuleModalMsg(rule_modal.TagChanged(uuid.to_string(rent.id))),
     )
   let #(submitting, submit_effect, _) =
     tagging_page.update(
       opened,
-      tagging_page.RuleFormMsg(rule_form.SaveRequested),
+      tagging_page.RuleModalMsg(rule_modal.SaveRequested),
     )
   let assert effect.HttpRequest(method: method, timeout: timeout, ..) =
     submit_effect
@@ -411,11 +411,11 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
   let #(new_model, _, out_msg) =
     tagging_page.update(
       submitting,
-      tagging_page.RuleFormMsg(rule_form.SaveCompleted(Ok(moved))),
+      tagging_page.RuleModalMsg(rule_modal.SaveCompleted(Ok(moved))),
     )
 
   new_model.rules |> should.equal([moved])
-  new_model.rule_modal |> should.equal(rule_form.hidden())
+  new_model.rule_modal |> should.equal(rule_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
 }
@@ -434,7 +434,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
   let #(submitting, _, _) =
     tagging_page.update(
       opened,
-      tagging_page.RuleFormMsg(rule_form.SaveRequested),
+      tagging_page.RuleModalMsg(rule_modal.SaveRequested),
     )
 
   let error =
@@ -447,7 +447,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
   let #(failed, fail_effect, out_msg) =
     tagging_page.update(
       submitting,
-      tagging_page.RuleFormMsg(rule_form.SaveCompleted(Error(error))),
+      tagging_page.RuleModalMsg(rule_modal.SaveCompleted(Error(error))),
     )
 
   let assert form_modal.Errored(..) = failed.rule_modal
@@ -456,7 +456,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
   let assert effect.LogError(_) = fail_effect
 }
 
-pub fn cancelling_the_rule_form_closes_it_without_changes_test() {
+pub fn cancelling_the_rule_modal_closes_it_without_changes_test() {
   let coffee = tag_named(tag_id(1), "Coffee")
   let model =
     tagging_page.Model(
@@ -468,10 +468,10 @@ pub fn cancelling_the_rule_form_closes_it_without_changes_test() {
   let #(closed, close_effect, _) =
     tagging_page.update(
       opened,
-      tagging_page.RuleFormMsg(rule_form.CancelRequested),
+      tagging_page.RuleModalMsg(rule_modal.CancelRequested),
     )
 
-  closed.rule_modal |> should.equal(rule_form.hidden())
+  closed.rule_modal |> should.equal(rule_modal.hidden())
   closed.rules |> should.equal(model.rules)
   let assert effect.CloseDialog(_) = close_effect
 }
@@ -495,9 +495,12 @@ pub fn creating_tag_inserts_sorts_and_selects_it_test() {
   let named =
     model_with([coffee, rent])
     |> run(tagging_page.UserRequestedTagCreation)
-    |> run(tagging_page.TagFormMsg(tag_form.NameChanged("NewTag")))
+    |> run(tagging_page.TagModalMsg(tag_modal.NameChanged("NewTag")))
   let #(submitting, submit_effect, _) =
-    tagging_page.update(named, tagging_page.TagFormMsg(tag_form.SaveRequested))
+    tagging_page.update(
+      named,
+      tagging_page.TagModalMsg(tag_modal.SaveRequested),
+    )
   let assert effect.HttpRequest(method: method, timeout: timeout, ..) =
     submit_effect
   method |> should.equal(http_effect.Post)
@@ -507,12 +510,12 @@ pub fn creating_tag_inserts_sorts_and_selects_it_test() {
   let #(new_model, _, out_msg) =
     tagging_page.update(
       submitting,
-      tagging_page.TagFormMsg(tag_form.SaveCompleted(Ok(created))),
+      tagging_page.TagModalMsg(tag_modal.SaveCompleted(Ok(created))),
     )
 
   new_model.tags |> should.equal([coffee, created, rent])
   new_model.selected_tag |> should.equal(Some(created.id))
-  new_model.tag_modal |> should.equal(tag_form.hidden())
+  new_model.tag_modal |> should.equal(tag_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
 }
@@ -524,9 +527,12 @@ pub fn creating_duplicate_name_surfaces_server_error_inline_test() {
   let named =
     model
     |> run(tagging_page.UserRequestedTagCreation)
-    |> run(tagging_page.TagFormMsg(tag_form.NameChanged("Tea")))
+    |> run(tagging_page.TagModalMsg(tag_modal.NameChanged("Tea")))
   let #(submitting, submit_effect, _) =
-    tagging_page.update(named, tagging_page.TagFormMsg(tag_form.SaveRequested))
+    tagging_page.update(
+      named,
+      tagging_page.TagModalMsg(tag_modal.SaveRequested),
+    )
   let assert effect.HttpRequest(method: http_effect.Post, ..) = submit_effect
 
   let error =
@@ -539,7 +545,7 @@ pub fn creating_duplicate_name_surfaces_server_error_inline_test() {
   let #(failed, fail_effect, out_msg) =
     tagging_page.update(
       submitting,
-      tagging_page.TagFormMsg(tag_form.SaveCompleted(Error(error))),
+      tagging_page.TagModalMsg(tag_modal.SaveCompleted(Error(error))),
     )
 
   let assert form_modal.Errored(mode: form_modal.Create, error: details, ..) =
@@ -559,7 +565,10 @@ pub fn editing_tag_replaces_and_resorts_it_test() {
     model_with([coffee, rent])
     |> run(tagging_page.UserRequestedTagEdit(tag_id(2)))
   let #(submitting, submit_effect, _) =
-    tagging_page.update(opened, tagging_page.TagFormMsg(tag_form.SaveRequested))
+    tagging_page.update(
+      opened,
+      tagging_page.TagModalMsg(tag_modal.SaveRequested),
+    )
   let assert effect.HttpRequest(method: method, timeout: timeout, ..) =
     submit_effect
   method |> should.equal(http_effect.Put)
@@ -569,7 +578,7 @@ pub fn editing_tag_replaces_and_resorts_it_test() {
   let #(new_model, _, out_msg) =
     tagging_page.update(
       submitting,
-      tagging_page.TagFormMsg(tag_form.SaveCompleted(Ok(updated))),
+      tagging_page.TagModalMsg(tag_modal.SaveCompleted(Ok(updated))),
     )
 
   new_model.tags |> should.equal([updated, coffee])
@@ -583,7 +592,10 @@ pub fn failed_save_logs_error_and_keeps_the_form_open_test() {
   let model = model_with([coffee])
   let opened = run(model, tagging_page.UserRequestedTagEdit(coffee.id))
   let #(submitting, _, _) =
-    tagging_page.update(opened, tagging_page.TagFormMsg(tag_form.SaveRequested))
+    tagging_page.update(
+      opened,
+      tagging_page.TagModalMsg(tag_modal.SaveRequested),
+    )
 
   let error =
     ApiError(
@@ -595,7 +607,7 @@ pub fn failed_save_logs_error_and_keeps_the_form_open_test() {
   let #(failed, fail_effect, out_msg) =
     tagging_page.update(
       submitting,
-      tagging_page.TagFormMsg(tag_form.SaveCompleted(Error(error))),
+      tagging_page.TagModalMsg(tag_modal.SaveCompleted(Error(error))),
     )
 
   let assert form_modal.Errored(..) = failed.tag_modal
@@ -614,16 +626,16 @@ pub fn editing_an_unknown_tag_is_a_noop_test() {
   let assert effect.NoEffect = noop_effect
 }
 
-pub fn cancelling_the_tag_form_closes_it_without_changes_test() {
+pub fn cancelling_the_tag_modal_closes_it_without_changes_test() {
   let model = model_with([tag_named(tag_id(1), "Coffee")])
   let opened = run(model, tagging_page.UserRequestedTagCreation)
   let #(closed, close_effect, _) =
     tagging_page.update(
       opened,
-      tagging_page.TagFormMsg(tag_form.CancelRequested),
+      tagging_page.TagModalMsg(tag_modal.CancelRequested),
     )
 
-  closed.tag_modal |> should.equal(tag_form.hidden())
+  closed.tag_modal |> should.equal(tag_modal.hidden())
   closed.tags |> should.equal(model.tags)
   let assert effect.CloseDialog(_) = close_effect
 }

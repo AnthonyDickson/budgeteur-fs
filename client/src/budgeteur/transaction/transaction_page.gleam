@@ -10,7 +10,7 @@ import budgeteur/shared/response
 import budgeteur/transaction/create_transaction_request
 import budgeteur/transaction/transaction.{type Transaction}
 import budgeteur/transaction/transaction_delete_modal.{type DeleteModalState}
-import budgeteur/transaction/transaction_form
+import budgeteur/transaction/transaction_modal
 import budgeteur/transaction/transaction_page_data
 import gleam/dynamic/decode
 import gleam/json
@@ -28,7 +28,7 @@ import youid/uuid.{type Uuid}
 pub type Model {
   Model(
     transactions: List(Transaction),
-    modal: transaction_form.Modal,
+    modal: transaction_modal.Modal,
     delete_modal: DeleteModalState,
   )
 }
@@ -63,7 +63,7 @@ pub type Msg {
   // Modal messages
   UserRequestedCreationForm
   UserRequestedEditForm(Uuid)
-  TransactionFormMsg(transaction_form.Msg)
+  TransactionModalMsg(transaction_modal.Msg)
   // Delete modal messages
   UserRequestedDeleteForm(Transaction)
   UserConfirmedDelete
@@ -121,7 +121,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
       transactions: [],
-      modal: transaction_form.hidden(),
+      modal: transaction_modal.hidden(),
       delete_modal: transaction_delete_modal.empty(),
     ),
     effect.batch([
@@ -180,20 +180,20 @@ fn update_inner(
     }
 
     UserRequestedCreationForm ->
-      run_transaction_form(model, transaction_form.CreateRequested)
+      run_transaction_modal(model, transaction_modal.CreateRequested)
 
     UserRequestedEditForm(id) -> {
       case list.find(model.transactions, fn(t) { t.id == id }) {
         Ok(transaction) ->
-          run_transaction_form(
+          run_transaction_modal(
             model,
-            transaction_form.EditRequested(transaction),
+            transaction_modal.EditRequested(transaction),
           )
         Error(Nil) -> #(model, effect.none(), None)
       }
     }
 
-    TransactionFormMsg(msg) -> run_transaction_form(model, msg)
+    TransactionModalMsg(msg) -> run_transaction_modal(model, msg)
 
     UserRequestedDeleteForm(transaction) -> #(
       Model(..model, delete_modal: transaction_delete_modal.open(transaction)),
@@ -230,14 +230,14 @@ fn update_inner(
   }
 }
 
-fn run_transaction_form(
+fn run_transaction_modal(
   model: Model,
-  msg: transaction_form.Msg,
+  msg: transaction_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let #(modal, requests, outcome) = transaction_form.update(model.modal, msg)
+  let #(modal, requests, outcome) = transaction_modal.update(model.modal, msg)
   let model = Model(..model, modal:)
   let error_effect = case msg {
-    transaction_form.SaveCompleted(result: Error(error)) ->
+    transaction_modal.SaveCompleted(result: Error(error)) ->
       Some(effect.LogError(api_error.describe(error)))
     _ -> None
   }
@@ -253,7 +253,7 @@ fn run_transaction_form(
 
 fn apply_outcome(
   model: Model,
-  outcome: transaction_form.Outcome,
+  outcome: transaction_modal.Outcome,
 ) -> #(Model, Option(OutMsg)) {
   case outcome {
     form_modal.NoChange -> #(model, None)
@@ -279,13 +279,13 @@ fn apply_outcome(
 }
 
 fn interpret_transaction_request(
-  request: transaction_form.Request,
+  request: transaction_modal.Request,
 ) -> Effect(Msg) {
   case request {
     form_modal.ShowDialog ->
-      effect.ShowDialog(selector: transaction_form.dom_id_selector)
+      effect.ShowDialog(selector: transaction_modal.dom_id_selector)
     form_modal.CloseDialog ->
-      effect.CloseDialog(selector: transaction_form.dom_id_selector)
+      effect.CloseDialog(selector: transaction_modal.dom_id_selector)
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateTransaction |> api_route.to_string,
@@ -294,7 +294,7 @@ fn interpret_transaction_request(
         handle_save_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
-      |> effect.map(TransactionFormMsg)
+      |> effect.map(TransactionModalMsg)
     form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateTransaction(id) |> api_route.to_string,
@@ -303,7 +303,7 @@ fn interpret_transaction_request(
         handle_save_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
-      |> effect.map(TransactionFormMsg)
+      |> effect.map(TransactionModalMsg)
   }
 }
 
@@ -311,9 +311,9 @@ fn handle_save_response(result) {
   case result {
     Ok(body) ->
       response.decode_success(body, transaction.transaction_decoder())
-      |> transaction_form.SaveCompleted
+      |> transaction_modal.SaveCompleted
     Error(http_error) ->
-      transaction_form.SaveCompleted(
+      transaction_modal.SaveCompleted(
         Error(response.http_error_to_api_error(http_error)),
       )
   }
@@ -401,8 +401,8 @@ pub fn view(model: Model) -> Element(Msg) {
       ),
     ]),
     transactions_table(model.transactions),
-    transaction_form.view(model.modal)
-      |> element.map(TransactionFormMsg),
+    transaction_modal.view(model.modal)
+      |> element.map(TransactionModalMsg),
     transaction_delete_modal.view(
       model.delete_modal,
       on_cancel: UserCancelledDeleteModal,

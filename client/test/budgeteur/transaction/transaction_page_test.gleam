@@ -8,7 +8,7 @@ import budgeteur/shared/out_msg
 import budgeteur/shared/toast
 import budgeteur/transaction/transaction
 import budgeteur/transaction/transaction_delete_modal
-import budgeteur/transaction/transaction_form
+import budgeteur/transaction/transaction_modal
 import budgeteur/transaction/transaction_page
 import budgeteur/transaction/transaction_page_data
 import gleam/json
@@ -44,15 +44,15 @@ fn run(
 fn fill_create_form(model: transaction_page.Model) -> transaction_page.Model {
   model
   |> run(
-    transaction_page.TransactionFormMsg(transaction_form.AmountChanged("5")),
+    transaction_page.TransactionModalMsg(transaction_modal.AmountChanged("5")),
   )
   |> run(
-    transaction_page.TransactionFormMsg(transaction_form.DescriptionChanged(
+    transaction_page.TransactionModalMsg(transaction_modal.DescriptionChanged(
       "Snack",
     )),
   )
   |> run(
-    transaction_page.TransactionFormMsg(transaction_form.DateChanged(
+    transaction_page.TransactionModalMsg(transaction_modal.DateChanged(
       "2026-01-03",
     )),
   )
@@ -69,7 +69,7 @@ fn open_create_form(model: transaction_page.Model) -> transaction_page.Model {
 fn submit_create_form(model: transaction_page.Model) -> transaction_page.Model {
   run(
     model,
-    transaction_page.TransactionFormMsg(transaction_form.SaveRequested),
+    transaction_page.TransactionModalMsg(transaction_modal.SaveRequested),
   )
 }
 
@@ -87,7 +87,7 @@ fn submit_edit_form(
 ) -> transaction_page.Model {
   model
   |> run(transaction_page.UserRequestedEditForm(id))
-  |> run(transaction_page.TransactionFormMsg(transaction_form.SaveRequested))
+  |> run(transaction_page.TransactionModalMsg(transaction_modal.SaveRequested))
 }
 
 pub fn user_requested_edit_form_prefills_modal_test() {
@@ -102,7 +102,7 @@ pub fn user_requested_edit_form_prefills_modal_test() {
   edit_id |> should.equal(transaction.id)
   let assert field.Valid(value: amount, input: "12.50") = form.amount
   amount |> should.equal(12.5)
-  form.type_ |> should.equal(transaction_form.Debit)
+  form.type_ |> should.equal(transaction_modal.Debit)
   let assert field.Valid(value: "Coffee", input: "Coffee") = form.description
   let assert field.Valid(value: date, ..) = form.date
   date |> should.equal(calendar.Date(2026, calendar.January, 2))
@@ -136,7 +136,7 @@ pub fn opening_the_create_form_starts_fresh_test() {
   let assert field.Empty("") = form.description
   let assert field.Empty("") = form.date
   let assert effect.ShowDialog(selector: selector) = effect
-  selector |> should.equal(transaction_form.dom_id_selector)
+  selector |> should.equal(transaction_modal.dom_id_selector)
 }
 
 pub fn submitting_edit_issues_put_request_test() {
@@ -146,7 +146,7 @@ pub fn submitting_edit_issues_put_request_test() {
   let #(new_model, effect, _) =
     transaction_page.update(
       run(model, transaction_page.UserRequestedEditForm(transaction.id)),
-      transaction_page.TransactionFormMsg(transaction_form.SaveRequested),
+      transaction_page.TransactionModalMsg(transaction_modal.SaveRequested),
     )
 
   let assert effect.HttpRequest(method: method, url: url, timeout: timeout, ..) =
@@ -163,7 +163,7 @@ pub fn submitting_create_issues_post_request_test() {
   let #(new_model, effect, _) =
     transaction_page.update(
       empty_model() |> open_create_form,
-      transaction_page.TransactionFormMsg(transaction_form.SaveRequested),
+      transaction_page.TransactionModalMsg(transaction_modal.SaveRequested),
     )
 
   let assert effect.HttpRequest(method: method, url: url, timeout: timeout, ..) =
@@ -183,7 +183,7 @@ pub fn double_submit_while_submitting_arms_a_single_request_test() {
   let #(still, second_effect, _) =
     transaction_page.update(
       submitting,
-      transaction_page.TransactionFormMsg(transaction_form.SaveRequested),
+      transaction_page.TransactionModalMsg(transaction_modal.SaveRequested),
     )
   still.modal |> should.equal(submitting.modal)
   second_effect |> should.equal(effect.none())
@@ -196,13 +196,13 @@ pub fn server_created_transaction_closes_modal_and_updates_list_test() {
   let #(new_model, effect, out_msg) =
     transaction_page.update(
       submitting,
-      transaction_page.TransactionFormMsg(
-        transaction_form.SaveCompleted(Ok(transaction)),
+      transaction_page.TransactionModalMsg(
+        transaction_modal.SaveCompleted(Ok(transaction)),
       ),
     )
 
   new_model.transactions |> should.equal([transaction])
-  new_model.modal |> should.equal(transaction_form.hidden())
+  new_model.modal |> should.equal(transaction_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
   // The list changed, so the page closes the dialog and persists.
@@ -230,13 +230,13 @@ pub fn server_updated_transaction_replaces_row_in_place_test() {
   let #(new_model, _, _) =
     transaction_page.update(
       submitting,
-      transaction_page.TransactionFormMsg(
-        transaction_form.SaveCompleted(Ok(updated)),
+      transaction_page.TransactionModalMsg(
+        transaction_modal.SaveCompleted(Ok(updated)),
       ),
     )
 
   new_model.transactions |> should.equal([updated])
-  new_model.modal |> should.equal(transaction_form.hidden())
+  new_model.modal |> should.equal(transaction_modal.hidden())
 }
 
 pub fn server_save_error_shows_inline_error_and_keeps_the_modal_open_test() {
@@ -249,8 +249,8 @@ pub fn server_save_error_shows_inline_error_and_keeps_the_modal_open_test() {
   let #(new_model, effect, out_msg) =
     transaction_page.update(
       submitting,
-      transaction_page.TransactionFormMsg(
-        transaction_form.SaveCompleted(
+      transaction_page.TransactionModalMsg(
+        transaction_modal.SaveCompleted(
           Error(ApiError(
             error: "boom",
             details: "boom",
@@ -278,8 +278,8 @@ pub fn cancelling_the_form_after_a_failed_save_keeps_the_list_test() {
     |> with_transaction(transaction)
     |> submit_edit_form(transaction.id)
     |> run(
-      transaction_page.TransactionFormMsg(
-        transaction_form.SaveCompleted(
+      transaction_page.TransactionModalMsg(
+        transaction_modal.SaveCompleted(
           Error(ApiError(
             error: "boom",
             details: "boom",
@@ -293,13 +293,13 @@ pub fn cancelling_the_form_after_a_failed_save_keeps_the_list_test() {
   let #(closed, close_effect, _) =
     transaction_page.update(
       failed,
-      transaction_page.TransactionFormMsg(transaction_form.CancelRequested),
+      transaction_page.TransactionModalMsg(transaction_modal.CancelRequested),
     )
 
-  closed.modal |> should.equal(transaction_form.hidden())
+  closed.modal |> should.equal(transaction_modal.hidden())
   closed.transactions |> should.equal([transaction])
   let assert effect.CloseDialog(selector: selector) = close_effect
-  selector |> should.equal(transaction_form.dom_id_selector)
+  selector |> should.equal(transaction_modal.dom_id_selector)
 }
 
 pub fn user_requested_delete_form_sets_target_and_opens_test() {
@@ -504,8 +504,8 @@ pub fn server_created_transaction_persists_to_store_test() {
   let #(new_model, effect, _) =
     transaction_page.update(
       empty_model() |> submitting_create_form,
-      transaction_page.TransactionFormMsg(
-        transaction_form.SaveCompleted(Ok(transaction)),
+      transaction_page.TransactionModalMsg(
+        transaction_modal.SaveCompleted(Ok(transaction)),
       ),
     )
 
@@ -527,8 +527,8 @@ pub fn server_updated_transaction_persists_to_store_test() {
       empty_model()
         |> with_transaction(transaction)
         |> submit_edit_form(transaction.id),
-      transaction_page.TransactionFormMsg(
-        transaction_form.SaveCompleted(Ok(updated)),
+      transaction_page.TransactionModalMsg(
+        transaction_modal.SaveCompleted(Ok(updated)),
       ),
     )
 
@@ -584,7 +584,7 @@ pub fn non_mutating_message_does_not_persist_test() {
   let #(new_model, effect, _) =
     transaction_page.update(
       model,
-      transaction_page.TransactionFormMsg(transaction_form.AmountChanged("5")),
+      transaction_page.TransactionModalMsg(transaction_modal.AmountChanged("5")),
     )
 
   new_model.transactions |> should.equal([transaction])
@@ -594,7 +594,7 @@ pub fn non_mutating_message_does_not_persist_test() {
 fn empty_model() -> transaction_page.Model {
   transaction_page.Model(
     transactions: [],
-    modal: transaction_form.hidden(),
+    modal: transaction_modal.hidden(),
     delete_modal: transaction_delete_modal.empty(),
   )
 }
