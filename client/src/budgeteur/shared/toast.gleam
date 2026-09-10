@@ -43,6 +43,7 @@ pub fn view(toast: Toast, on_dismiss: fn(Uuid) -> msg) -> Element(msg) {
         <> " shadow-xl p-4 max-w-sm animate-[toast-in_0.3s_ease-out]",
       ),
       attribute.role(level_to_role(toast.level)),
+      attribute.attribute("data-testid", "toast"),
     ],
     [
       html.div([attribute.class("flex justify-between items-start gap-3")], [
