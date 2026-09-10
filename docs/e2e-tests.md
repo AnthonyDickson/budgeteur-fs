@@ -27,3 +27,7 @@ Server uses `/tmp/budgeteur_e2e.db` (ephemeral, cleared on each startup via
 
 `playwright.config.ts`: `ignoreHTTPSErrors: true` (self-signed certs),
 `screenshot: 'on'`, `trace: 'on-first-retry'`, auth via `storageState`.
+
+## Conventions
+
+- Tests must capture screenshots of the test subject.

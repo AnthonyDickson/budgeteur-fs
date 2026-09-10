@@ -20,7 +20,6 @@
   - Ensure docs are up-to-date and sufficient
 - Set transaction tag via create and update transaction dialogs
 - Display transaction tag in transactions table
-- Cut down AGENTS.md to around 150 lines
 
 ## Backlog
 
