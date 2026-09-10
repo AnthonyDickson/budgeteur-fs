@@ -19,8 +19,10 @@ reference implementation:
 - **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`,
   `ReadTransaction.fs`, `ReadAllTransactions.fs`, `UpdateTransaction.fs`,
   `DeleteTransaction.fs`, …), each exposing a `Path` literal and an
-  `endpoint (queryContext)` function. `<Name>Codec.fs` holds the `toRow` /
-  `fromRow` DB mapping; value invariants live with the type in `Domain/`.
+  `endpoint (queryContext)` function. A slice's `Codec.fs` holds the `toRow` /
+  `fromRow` DB mapping and moves to `Data/` once a second slice needs it (e.g.
+  `Data/TagCodec.fs`, shared by `Tag` and `TaggingPage`); value invariants live
+  with the type in `Domain/`.
 
 The `QueryContextFactory` (from the generated `Data/Db.fs`) is created once in
 `Program.fs` and threaded into each operation's `endpoint` function; there,
@@ -177,9 +179,10 @@ all I/O flows through a custom `Effect` type with a single interpreter so
 ### Layered MVU
 
 Two layers: `app.gleam` is the shell (routing, toasts, session expiry) and
-each feature page (e.g. `transaction/transaction_page.gleam`)
-owns its own model, update, and view. The shell delegates to the active page and
-maps the page's effects up to its own message type with `effect.map`.
+each feature page (e.g. `transaction/transaction_page.gleam`,
+`tagging_page/tagging_page.gleam`) owns its own model, update, and view. The
+shell delegates to the active page and maps the page's effects up to its own
+message type with `effect.map`.
 
 Pages additionally return an `OutMsg` alongside the new model and effect. This is
 a child-to-parent channel for requesting shell-level behaviours — currently used
@@ -189,7 +192,8 @@ therefore the single place where child requests are turned into shell effects.
 The same layering repeats inside a page: stateful modals (`transaction_modal`,
 `tag_modal`, `rule_modal`, plus the delete confirmations) keep their modal state
 in the page model, raise their own `Msg`s (lifted with `element.map`), and
-return `Request`/`Outcome` pairs the page turns into effects and data changes.
+return the new modal plus a list of `Request`s and an `Outcome`, which the page
+turns into effects and data changes.
 The underlying state machines are generic (`shared/form_modal.gleam`,
 `shared/delete_modal.gleam`); feature modules alias their `Modal`/`Request`/
 `Outcome` types, and `shared/modal_ui.gleam` owns the dialog chrome (dialog

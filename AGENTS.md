@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-A full-stack personal finance tracker (accounts, tags, transactions; auto-tagging rules on the roadmap).
+A full-stack personal finance tracker (accounts, tags, transactions, tagging rules; auto-tagging on the roadmap).
 
 - **Backend** — Oxpecker F# on .NET 10, SQLite + OIDC auth + OpenAPI (`server/`). Endpoints are organised as vertical slices. OpenAPI spec at `/openapi/v1.json`; interactive Scalar docs at `/scalar/v1` (development only).
 - **Frontend** — Gleam/Lustre SPA, Tailwind CSS v4, bundled with Vite (`client/`). Nested MVU with a custom effect system that keeps `update` pure.
@@ -55,7 +55,7 @@ Reviews push the codebase toward the design principles and are an opportunity to
 
 - **`Shared/`** — cross-cutting concerns (`Auth.fs`, `Endpoint.fs`, `Json.fs`, `ApiError.fs`, `DomainError.fs`, `Money.fs`, `OpenApi.fs`, `RequestLogging.fs`, `Config.fs`, `Coders.fs`).
 - **`Domain/`** — one file per domain type (`Transaction.fs`, `Tag.fs`, `Rule.fs`); value invariants are refined types (private single-case unions with `create`/`value`).
-- **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`, `ReadTransaction.fs`, `ReadAllTransactions.fs`, `UpdateTransaction.fs`, `DeleteTransaction.fs`, …), each exposing a `Path` literal and an `endpoint (queryContext)` function. `<Name>Codec.fs` holds the `toRow`/`fromRow` DB mapping, `<Name>Response.fs` the wire DTO.
+- **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`, `ReadTransaction.fs`, `ReadAllTransactions.fs`, `UpdateTransaction.fs`, `DeleteTransaction.fs`, …), each exposing a `Path` literal and an `endpoint (queryContext)` function. A slice's `Codec.fs` holds the `toRow`/`fromRow` DB mapping and moves to `Data/` once a second slice needs it (e.g. `Data/TagCodec.fs`); `<Name>Response.fs` holds the wire DTO.
 
 Handlers run through `Endpoint.handler`, which executes a `Task<Result<unit, DomainError>>` body and composes with FsToolkit's `taskResult` CE. Routes are `/api/<resource>` (collections) and `/api/<resource>/{id}` (items); every endpoint carries OpenAPI metadata via `addOpenApi`. IDs are server-generated v7 UUIDs (create requests carry no id). The `QueryContextFactory` from `Data/Db.fs` is created once in `Program.fs`, threaded into each endpoint, and grouped by HTTP method behind `Auth.requireAuth`.
 
@@ -125,9 +125,9 @@ CI's `check-db-generated` job re-runs migrations and SqlHydra, failing if `Db.fs
 
 ### Client (Gleam/Lustre SPA)
 
-Two-layer MVU: `app.gleam` is the shell (routing, toasts, session expiry) and each feature page (e.g. `transaction/transaction_page.gleam`) owns its model, update, and view. The shell delegates to the active page and maps the page's effects up with `effect.map`. Pages also return an `OutMsg` alongside model and effect — a child-to-parent channel for shell-level behaviours (currently toasts); the shell's `update` is the single place child requests become shell effects.
+Two-layer MVU: `app.gleam` is the shell (routing, toasts, session expiry) and each feature page (e.g. `transaction/transaction_page.gleam`, `tagging_page/tagging_page.gleam`) owns its model, update, and view. The shell delegates to the active page and maps the page's effects up with `effect.map`. Pages also return an `OutMsg` alongside model and effect — a child-to-parent channel for shell-level behaviours (currently toasts); the shell's `update` is the single place child requests become shell effects.
 
-Stateful modals (`transaction_modal`, `tag_modal`, `rule_modal`, delete confirmations) live in the page model, raise their own `Msg`s (lifted with `element.map`), and return `Request`/`Outcome` pairs the page turns into effects and data changes. The underlying state machines are generic: `shared/field.gleam` (tri-state field), `shared/form_modal.gleam` (create/update reducer), `shared/delete_modal.gleam` (delete confirmation), and `shared/modal_ui.gleam` (dialog chrome: buttons, banners, error styling). Feature modules alias the shared types and keep their own entities, forms, and list mutations.
+Stateful modals (`transaction_modal`, `tag_modal`, `rule_modal`, delete confirmations) live in the page model, raise their own `Msg`s (lifted with `element.map`), and return the new modal plus its `Request`s and `Outcome`, which the page turns into effects and data changes. The underlying state machines are generic: `shared/field.gleam` (tri-state field), `shared/form_modal.gleam` (create/update reducer), `shared/delete_modal.gleam` (delete confirmation), and `shared/modal_ui.gleam` (dialog chrome: buttons, banners, error styling). Feature modules alias the shared types and keep their own entities, forms, and list mutations.
 
 #### Effect system
 

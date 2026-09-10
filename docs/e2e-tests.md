@@ -23,6 +23,13 @@ Logs in once via Authelia before the test suite, saves `auth.json`:
 Server uses `/tmp/budgeteur_e2e.db` (ephemeral, cleared on each startup via
 `rm -f` before `dotnet watch run`). Fresh DB every run.
 
+### Server state reset
+
+Each test gets a fresh browser context, so localStorage starts empty, but the
+database persists across the run. The tagging spec's `beforeEach` calls
+`DELETE /api/test/tagging`, a dev-only endpoint (registered only in
+Development) that clears the current user's tags and rules.
+
 ## Configuration
 
 `playwright.config.ts`: `ignoreHTTPSErrors: true` (self-signed certs),

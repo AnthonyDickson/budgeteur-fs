@@ -84,17 +84,20 @@ nonsense ones are filtered by `if` guards scattered through the view. The
 invariant "deleting requires a target" exists only as discipline; the compiler
 can't see it.
 
-The actual type encodes the lifecycle instead (`transaction_delete_modal.gleam`):
+The actual type encodes the lifecycle instead: a generic state machine in
+`shared/delete_modal.gleam`, which each feature aliases with its own target
+(e.g. `transaction_delete_modal.gleam`):
 
 ```gleam
-pub type DeleteModalState {
+pub type State(target, context) {
   Hidden
-  Confirming(transaction: Transaction)
-  Deleting(transaction: Transaction)
+  Confirming(target: target, context: context)
+  Deleting(target: target, context: context)
+  Errored(target: target, context: context, error: String)
 }
 ```
 
-"Deleting" carries the transaction it is deleting, so the nonsense state has no
+"Deleting" carries the target it is deleting, so the nonsense state has no
 variant: it cannot be written, let alone reached.
 
 This kind of type, a fixed, named set of shapes a value can take with each
@@ -103,8 +106,7 @@ known as a sum type or tagged union. It's the single most-reused tool in this
 tour; watch for it again at stops 3, 4, 9, and 12. Every `case`/`match` on a
 type like this, the pattern-matching syntax you'll see throughout and a
 stricter cousin of a `switch` statement, has to name every variant, and the
-compiler checks the list is complete (stop 6). The type's own doc comment makes the same claim: the
-lifecycle is encoded in the variants so illegal states are unrepresentable.
+compiler checks the list is complete (stop 6).
 
 `transaction: Option(Transaction)` in the flag-shaped version above is worth a
 second look, too: that field is itself a small discriminated union; stop 2
@@ -125,12 +127,11 @@ That's the same discriminated-union shape from stop 1, applied to "value or
 nothing": `Option(a)` has exactly two variants, `Some(value)` and `None`, and
 the compiler treats them like any other pair of cases. There's no way to read
 the value out of an `Option` without first handling both. Stop 1's
-`DeleteModalState` already shows this at work: the flag-shaped version carried
-`transaction: Option(Transaction)` as a field that could quietly be `None`
-while other flags claimed a transaction was being deleted. The fixed version
-doesn't need `Option` at all: `Confirming(transaction: Transaction)` and
-`Deleting(transaction: Transaction)` only exist when a transaction is actually
-attached, so there's nothing left that could be missing.
+delete-confirmation state already shows this at work: the flag-shaped version
+carried `transaction: Option(Transaction)` as a field that could quietly be
+`None` while other flags claimed a transaction was being deleted. The fixed
+version doesn't need `Option` at all: its `Confirming` and `Deleting` variants
+carry the target directly, so there's nothing left that could be missing.
 
 Both halves of this repo lean on `Option` everywhere. A transaction may or may
 not be linked to an account or a tag, and the type says so explicitly
@@ -144,11 +145,11 @@ type Transaction = {
 }
 ```
 
-A new transaction starts with `AccountId = None` and `TagId = None` (see
-the `CreateTransaction.fs` handler in stop 7), and anything that reads a transaction must
-decide what "no account" means at every use. The client's `transaction.gleam`
-mirrors the same two fields as `account_id: Option(Uuid)` and
-`tag_id: Option(Uuid)`. Even the server's error type keeps failure explicit:
+The create dialog does not send either field yet (`create_transaction_request.gleam`
+omits them), so both arrive as `None`, and anything that reads a transaction
+must decide what "no account" means at every use. The client's
+`transaction.gleam` mirrors the same two fields as `account_id: Option(Uuid)`
+and `tag_id: Option(Uuid)`. Even the server's error type keeps failure explicit:
 `DomainError` (stop 3) carries the underlying .NET exception directly, so a
 database error can be logged with its cause.
 
@@ -176,8 +177,8 @@ with named cases (`DomainError.fs`):
 type DomainError =
     | ValidationFailed of string
     | NotFound of string
-    | Conflict of exn
     | Unauthorised
+    | Conflict of exn
     | DatabaseError of exn
     | UnhandledException of exn
 ```
@@ -248,7 +249,7 @@ let handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
     Endpoint.handler (fun ctx ->
         taskResult {
             let! userId = Auth.getUserId ctx
-            let! transaction = get queryContext id userId
+            let! transaction = get queryContext userId id
             match transaction with
             | Some t -> do! Json.write ctx t
             | None -> return! Error (NotFound $"Transaction %O{id} not found")
@@ -386,14 +387,20 @@ let private handler (queryContext : QueryContextFactory) : EndpointHandler =
             let! (req : CreateTransactionRequest) = Json.read ctx
             let! description = TransactionDescription.create req.Description
 
+            do!
+                Constraints.requireAll [
+                    Constraints.requireTagIfReferenced queryContext userId req.TagId
+                    requireAccountExists queryContext userId req.AccountId
+                ]
+
             let transaction : Transaction = {
                 Id = Guid.CreateVersion7 ()
                 Amount = Money.roundToCents req.Amount
                 Description = description
                 Date = req.Date
                 IsTransfer = req.IsTransfer
-                AccountId = None
-                TagId = None
+                AccountId = req.AccountId
+                TagId = req.TagId
             }
 
             let! () = insert queryContext transaction userId
@@ -409,11 +416,11 @@ let private handler (queryContext : QueryContextFactory) : EndpointHandler =
 ```
 
 Read it as a script: bind the user id, decode the request, validate the
-description, build the transaction, insert it, log it, respond. Every `let!`
-step can fail, and any failure short-circuits the rest: no nesting, no
-try/catch, no null checks. FsToolkit's `taskResult` — stop 4's `let!` sugar over
-`Task<Result<...>>` — keeps the type-safety of `Result` while reading like
-imperative code you already know.
+description, check the referenced tag and account exist, build the transaction,
+insert it, log it, respond. Every `let!`/`do!` step can fail, and any failure
+short-circuits the rest: no nesting, no try/catch, no null checks. FsToolkit's
+`taskResult` — stop 4's `let!` sugar over `Task<Result<...>>` — keeps the
+type-safety of `Result` while reading like imperative code you already know.
 
 The pragmatism isn't just syntax. Notice where the platform's failures are
 handled: not in the feature slice, but at the one boundary every handler
@@ -523,19 +530,23 @@ In a typical web app, components call services directly: `await api.createTransa
 `window.localStorage.setItem(...)`, `history.pushState(...)`. That code is
 entangled with the outside world, so testing it means mocking.
 
-This app does the opposite. Every page's `update` function returns **pure
-data**: the new model, plus a _description_ of what side effects should happen
-(`transaction/transaction_page.gleam`):
+This app does the opposite. Every page's `update` returns **pure data**: the
+new model, a _description_ of the side effects to perform, and an optional
+`OutMsg` request for the shell (`transaction/transaction_page.gleam`). The page
+builds that description by mapping the modal's request:
 
 ```gleam
-pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
-  case msg {
-    UserSubmittedForm -> #(
-      model,
-      effect.post("/api/transactions", body, fn(result) {
-        case result { Ok(_) -> ... | Error(err) -> ... }
-      }),
-    )
+fn interpret_transaction_request(
+  request: transaction_modal.Request,
+) -> Effect(Msg) {
+  case request {
+    form_modal.Post(payload) ->
+      effect.post(
+        api_route.CreateTransaction |> api_route.to_string,
+        create_transaction_request.create_transaction_request_to_json(payload)
+          |> json.to_string,
+        handle_save_response,
+      )
     ...
   }
 }
@@ -586,20 +597,19 @@ effect.HttpRequest(callback: original, ..) as request ->
   })
 ```
 
-And the `update` function itself is wrapped in decorators that post-process its
-result:
+And the shell's `update` function is wrapped in a decorator that post-processes
+its result:
 
 ```gleam
-let #(new_model, custom_effect) =
-  update(model, msg)
-  |> with_local_storage   // persist the whole model after every update
-  |> with_auth_redirect   // turn 401s into login redirects
+let #(new_model, custom_effect) = update(model, msg) |> with_auth_redirect
 ```
 
-Three different concerns, auth, persistence, and session expiry, become three
-one-liners, and none of them needed a framework. This is "the program is data"
-in practice, and it's why neither half of this stack needs a DI container or a
-middleware framework.
+Auth, session expiry, and persistence each become a small transformation rather
+than a framework: the server maps `Auth.requireAuth` over its endpoint lists,
+the client rewrites HTTP effects into a `401` redirect, and each page folds its
+own `SaveToStore` effect into the result before returning. This is "the program
+is data" in practice, and it's why neither half of this stack needs a DI
+container or a middleware framework.
 
 ### 11. App state as data
 
@@ -608,9 +618,9 @@ globals, so persisting it across a reload means saving pieces and hoping you
 got them all. The OOP version of "save the whole app and restore it" needs
 serialization annotations and a snapshotting strategy just to approximate
 what's really in memory. Here the model is plain data, with no methods and no
-hidden state, so persisting the entire application state is a few lines:
-serialize it to JSON, save it to localStorage after every update, parse it back
-on startup. Rich Hickey draws the same line in "The Value of Values": values
+hidden state, so each page persisting its own slice is a few lines: serialize
+it to JSON, save it to localStorage after every update, parse it back on
+startup. Rich Hickey draws the same line in "The Value of Values": values
 are immutable and self-contained, so they can be compared, cached, serialized,
 and passed between threads freely, while objects carry identity and mutable
 state.
@@ -622,7 +632,7 @@ string literals scattered through components, and a typo silently renders a
 blank page. Here, routes are a type with a bidirectional mapping (`shared/route.gleam`):
 
 ```gleam
-pub type Route { Transactions | NotFound }
+pub type Route { Transactions | Tagging | NotFound }
 
 pub fn to_string(route: Route) -> String { ... }
 ```
@@ -632,7 +642,7 @@ The URL is parsed into this type once; the compiler guarantees every
 footgun; they're the `NotFound` case you're forced to handle.
 
 The same idea applies to JSON: decoders are composed values, not reflection.
-`model_decoder()` is built from small `decode.field(...)` pieces, so the
+`data_decoder()` is built from small `decode.field(...)` pieces, so the
 serialization logic is explicit, readable, and type-checked, instead of
 "annotate the class and hope the serializer agrees." This is what Alexis King
 calls "parse, don't validate": the boundary checks the input once and hands the

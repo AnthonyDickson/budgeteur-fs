@@ -3,8 +3,8 @@
 ## Roadmap
 
 - [x] Transaction CRUD
-- [ ] Category (tag) CRUD
-- [ ] Rules CRUD
+- [x] Tag CRUD
+- [x] Tagging rules CRUD
 - [ ] Balances (Assets, Liabilities) CRUD
 - [ ] Dashboard MVP
 - [ ] Auto-tagging
@@ -16,8 +16,6 @@
 
 ## Current Tasks
 
-- Tags and rules page:
-  - Ensure docs are up-to-date and sufficient
 - Set transaction tag via create and update transaction dialogs
 - Display transaction tag in transactions table
 
@@ -40,8 +38,6 @@
   not clickable.
 - Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then replacing
   it with the server data.
-- Tags and rules page:
-  - Have new rule form default to selecting the selected tag
 
 ## CSV Parsing
 
