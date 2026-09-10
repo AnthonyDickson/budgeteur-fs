@@ -17,7 +17,6 @@
 ## Current Tasks
 
 - Tags and rules page:
-  - Cull unit tests
   - Add E2E tests
   - Ensure docs are up-to-date and sufficient
 - Set transaction tag via create and update transaction dialogs

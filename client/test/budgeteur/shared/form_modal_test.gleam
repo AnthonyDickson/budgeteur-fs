@@ -33,26 +33,7 @@ fn prefixed(name: String) -> String {
   "x" <> name
 }
 
-// ── constructors ──────────────────────────────────────────────────────────────
-
-pub fn hidden_is_hidden_test() {
-  let modal: form_modal.Modal(Form) = form_modal.hidden()
-  modal |> should.equal(form_modal.Hidden)
-}
-
-pub fn create_opens_an_active_create_modal_test() {
-  form_modal.create(form(""))
-  |> should.equal(form_modal.Active(form: form(""), mode: form_modal.Create))
-}
-
-pub fn edit_opens_an_active_edit_modal_test() {
-  let id = id(1)
-  form_modal.edit(id, form("Tea"))
-  |> should.equal(form_modal.Active(
-    form: form("Tea"),
-    mode: form_modal.Edit(id),
-  ))
-}
+// ── mode ──────────────────────────────────────────────────────────────────────
 
 pub fn mode_reports_the_open_modes_mode_test() {
   let id = id(1)

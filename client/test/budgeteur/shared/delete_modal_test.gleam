@@ -12,16 +12,6 @@ fn failing(error: String) -> api_error.ApiError {
   )
 }
 
-pub fn empty_is_hidden_test() {
-  let state: delete_modal.State(Int, String) = delete_modal.empty()
-  state |> should.equal(delete_modal.Hidden)
-}
-
-pub fn open_pre_targets_a_delete_test() {
-  delete_modal.open(1, "context")
-  |> should.equal(delete_modal.Confirming(target: 1, context: "context"))
-}
-
 pub fn confirm_from_confirming_transitions_to_deleting_test() {
   let assert Ok(#(state, target)) =
     delete_modal.confirm(delete_modal.open(1, "context"))
