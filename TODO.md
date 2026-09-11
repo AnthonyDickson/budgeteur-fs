@@ -16,8 +16,6 @@
 
 ## Current Tasks
 
-- Set transaction tag via create and update transaction dialogs
-- Display transaction tag in transactions table
 
 ## Backlog
 

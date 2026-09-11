@@ -6,10 +6,10 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/toast
+import budgeteur/tag
 import budgeteur/tagging_page/rule
 import budgeteur/tagging_page/rule_delete_modal
 import budgeteur/tagging_page/rule_modal
-import budgeteur/tag
 import budgeteur/tagging_page/tag_delete_modal
 import budgeteur/tagging_page/tag_modal
 import budgeteur/tagging_page/tagging_page

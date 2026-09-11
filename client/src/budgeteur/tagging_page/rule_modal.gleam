@@ -2,11 +2,11 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
+import budgeteur/tag.{type Tag}
 import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
 }
-import budgeteur/tag.{type Tag}
 import gleam/dynamic/decode
 import gleam/int
 import gleam/list

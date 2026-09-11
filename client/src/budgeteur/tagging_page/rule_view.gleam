@@ -1,7 +1,7 @@
 import budgeteur/shared/guard
-import budgeteur/tagging_page/rule.{type Rule}
+import budgeteur/shared/tag_ui
 import budgeteur/tag.{type Tag}
-import budgeteur/tagging_page/ui
+import budgeteur/tagging_page/rule.{type Rule}
 import gleam/list
 import gleam/option.{type Option}
 import lustre/attribute
@@ -52,7 +52,7 @@ pub fn panel(
               ],
               [html.text("Rules")],
             ),
-            ui.color_swatch(selected_tag.color),
+            tag_ui.color_swatch(selected_tag.color),
             html.h2([attribute.class("text-sm font-semibold text-gray-900")], [
               html.text(selected_tag.name),
             ]),

@@ -1,5 +1,5 @@
-import budgeteur/tagging_page/rule.{type Rule}
 import budgeteur/tag.{type Tag}
+import budgeteur/tagging_page/rule.{type Rule}
 import gleam/dynamic/decode
 import gleam/json
 

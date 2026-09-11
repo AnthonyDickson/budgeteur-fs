@@ -7,16 +7,23 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
+import budgeteur/tag.{type Tag}
 import budgeteur/transaction_page/create_transaction_request
 import budgeteur/transaction_page/transaction.{type Transaction}
-import budgeteur/transaction_page/transaction_delete_modal.{type DeleteModalState}
+import budgeteur/transaction_page/transaction_delete_modal.{
+  type DeleteModalState,
+}
 import budgeteur/transaction_page/transaction_modal
-import budgeteur/transaction_page/transaction_page_data
+import budgeteur/transaction_page/transaction_page_data.{
+  type TransactionPageData, TransactionPageData,
+}
+import gleam/dict
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order
+import gleam/result
 import gleam/string
 import gleam/time/calendar
 import lustre/attribute
@@ -28,15 +35,18 @@ import youid/uuid.{type Uuid}
 pub type Model {
   Model(
     transactions: List(Transaction),
+    tags: List(Tag),
     modal: transaction_modal.Modal,
     delete_modal: DeleteModalState,
   )
 }
 
-fn persist_transactions(transactions: List(Transaction)) -> Effect(Msg) {
+fn persist_page_data(model: Model) -> Effect(Msg) {
+  let Model(transactions:, tags:, ..) = model
+
   effect.SaveToStore(
     transaction_page_data.storage_key,
-    transaction_page_data.data_to_string(transactions),
+    transaction_page_data.to_string(TransactionPageData(transactions:, tags:)),
   )
 }
 
@@ -46,20 +56,20 @@ fn restore_transactions_from_store() -> Effect(Msg) {
     callback: fn(store_result) {
       case store_result {
         Ok(value) -> {
-          case json.parse(value, using: transaction_page_data.data_decoder()) {
-            Ok(transactions) -> ClientRestoredTransactions(Some(transactions))
-            Error(_) -> ClientRestoredTransactions(None)
-          }
+          json.parse(value, using: transaction_page_data.data_decoder())
+          |> option.from_result
+          |> ClientRestoredPageData
         }
-        Error(_) -> ClientRestoredTransactions(None)
+        Error(_) -> ClientRestoredPageData(None)
       }
     },
   )
 }
 
 pub type Msg {
-  ClientRestoredTransactions(Option(List(Transaction)))
+  ClientRestoredPageData(Option(TransactionPageData))
   ClientFetchedTransactions(Result(List(Transaction), ApiError))
+  ClientFetchedTags(Result(List(Tag), ApiError))
   // Modal messages
   UserRequestedCreationForm
   UserRequestedEditForm(Uuid)
@@ -69,6 +79,20 @@ pub type Msg {
   UserConfirmedDelete
   ServerDeletedTransaction(Transaction, Result(Nil, ApiError))
   UserCancelledDeleteModal
+}
+
+fn fetch_tags() -> Effect(Msg) {
+  effect.get(api_route.GetAllTags |> api_route.to_string, fn(result) {
+    case result {
+      Ok(body) ->
+        ClientFetchedTags(response.decode_success(
+          body,
+          decode.list(tag.tag_decoder()),
+        ))
+      Error(http_error) ->
+        ClientFetchedTags(Error(response.http_error_to_api_error(http_error)))
+    }
+  })
 }
 
 // TODO: Page results
@@ -107,6 +131,10 @@ fn delete_transaction(transaction: Transaction) -> Effect(Msg) {
   |> effect.with_timeout(delete_modal.delete_timeout_ms)
 }
 
+fn sort_tags(tags: List(Tag)) -> List(Tag) {
+  list.sort(tags, by: fn(a, b) { string.compare(a.name, b.name) })
+}
+
 fn sort_transactions(transactions: List(Transaction)) -> List(Transaction) {
   list.sort(transactions, by: fn(a, b) {
     calendar.naive_date_compare(a.date, b.date)
@@ -121,12 +149,14 @@ pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
       transactions: [],
+      tags: [],
       modal: transaction_modal.hidden(),
       delete_modal: transaction_delete_modal.empty(),
     ),
     effect.batch([
       restore_transactions_from_store(),
       fetch_transactions(),
+      fetch_tags(),
     ]),
   )
 }
@@ -136,13 +166,13 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
   case msg {
     // Restored data came from the store, so don't write it straight back.
-    ClientRestoredTransactions(_) -> #(new_model, effect, out_msg)
+    ClientRestoredPageData(_) -> #(new_model, effect, out_msg)
     _ ->
       case new_model.transactions == model.transactions {
         True -> #(new_model, effect, out_msg)
         False -> #(
           new_model,
-          effect.batch([effect, persist_transactions(new_model.transactions)]),
+          effect.batch([effect, persist_page_data(new_model)]),
           out_msg,
         )
       }
@@ -154,13 +184,17 @@ fn update_inner(
   msg: Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   case msg {
-    ClientRestoredTransactions(Some(transactions)) -> #(
-      Model(..model, transactions: sort_transactions(transactions)),
+    ClientRestoredPageData(Some(data)) -> #(
+      Model(
+        ..model,
+        transactions: sort_transactions(data.transactions),
+        tags: sort_tags(data.tags),
+      ),
       effect.none(),
       None,
     )
 
-    ClientRestoredTransactions(None) -> #(model, effect.none(), None)
+    ClientRestoredPageData(None) -> #(model, effect.none(), None)
 
     ClientFetchedTransactions(Ok(transactions)) -> #(
       Model(..model, transactions: sort_transactions(transactions)),
@@ -168,12 +202,18 @@ fn update_inner(
       None,
     )
 
-    ClientFetchedTransactions(Error(error)) -> {
+    ClientFetchedTags(Ok(tags)) -> #(
+      Model(..model, tags: sort_tags(tags)),
+      effect.none(),
+      None,
+    )
+
+    ClientFetchedTransactions(Error(error)) | ClientFetchedTags(Error(error)) -> {
       #(
         model,
         effect.LogError(api_error.describe(error)),
         Some(out_msg.error_toast(
-          "Could not sync transactions",
+          "Could not load page data",
           "Falling back to local data",
         )),
       )
@@ -382,6 +422,9 @@ fn on_delete_failed(
 }
 
 pub fn view(model: Model) -> Element(Msg) {
+  let tag_names_by_id =
+    model.tags |> list.map(fn(tag) { #(tag.id, tag.name) }) |> dict.from_list
+
   html.div([attribute.class("mx-auto max-w-4xl px-4 py-8 sm:px-6")], [
     html.div([attribute.class("flex items-center justify-between gap-4 mb-6")], [
       html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
@@ -400,8 +443,8 @@ pub fn view(model: Model) -> Element(Msg) {
         [html.text("Record Transaction")],
       ),
     ]),
-    transactions_table(model.transactions),
-    transaction_modal.view(model.modal)
+    transactions_table(model.transactions, tag_names_by_id),
+    transaction_modal.view(model.modal, model.tags)
       |> element.map(TransactionModalMsg),
     transaction_delete_modal.view(
       model.delete_modal,
@@ -411,7 +454,20 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn transactions_table(transactions: List(Transaction)) -> Element(Msg) {
+fn tag_name(
+  transaction: Transaction,
+  tag_names_by_id: dict.Dict(Uuid, String),
+) -> Option(String) {
+  transaction.tag_id
+  |> option.to_result(Nil)
+  |> result.try(fn(tag_id) { dict.get(tag_names_by_id, tag_id) })
+  |> option.from_result
+}
+
+fn transactions_table(
+  transactions: List(Transaction),
+  tag_names_by_id: dict.Dict(Uuid, String),
+) -> Element(Msg) {
   case list.is_empty(transactions) {
     True -> element.none()
     False ->
@@ -445,6 +501,9 @@ fn transactions_table(transactions: List(Transaction)) -> Element(Msg) {
                   ),
                   html.th([attribute.class("px-4 py-3 font-medium")], [
                     html.text("Description"),
+                  ]),
+                  html.th([attribute.class("px-4 py-3 font-medium")], [
+                    html.text("Tag"),
                   ]),
                   html.th(
                     [attribute.class("px-4 py-3 font-medium text-right")],
@@ -482,6 +541,15 @@ fn transactions_table(transactions: List(Transaction)) -> Element(Msg) {
                       [attribute.class("px-4 py-3 text-sm text-gray-700")],
                       [
                         html.text(transaction.description),
+                      ],
+                    ),
+                    html.td(
+                      [attribute.class("px-4 py-3 text-sm text-gray-700")],
+                      [
+                        html.text(
+                          tag_name(transaction, tag_names_by_id)
+                          |> option.unwrap("-"),
+                        ),
                       ],
                     ),
                     html.td(

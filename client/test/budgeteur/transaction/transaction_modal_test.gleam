@@ -9,7 +9,7 @@ import budgeteur/transaction_page/transaction_modal.{
   AmountChanged, AmountRequired, CancelRequested, CreateRequested, Credit,
   DateChanged, DateRequired, Debit, DescriptionChanged, DescriptionRequired,
   DialogDismissed, EditRequested, IsTransferChanged, NotADate, NotANumber,
-  NotPositive, SaveCompleted, SaveRequested, TooLong, TypeChanged,
+  NotPositive, SaveCompleted, SaveRequested, TagChanged, TooLong, TypeChanged,
 }
 import gleam/option.{None, Some}
 import gleam/string
@@ -136,6 +136,32 @@ pub fn set_date_records_not_a_date_error_test() {
   let assert field.Invalid(input: "not a date", error: NotADate) = form.date
 }
 
+pub fn create_modal_defaults_to_no_tag_test() {
+  let form = form_of(opened())
+  form.tag_id |> should.equal(None)
+}
+
+pub fn tag_changed_sets_tag_id_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000009")
+  let form = opened() |> send(TagChanged(uuid.to_string(id))) |> form_of
+  form.tag_id |> should.equal(Some(id))
+}
+
+pub fn tag_changed_to_empty_clears_tag_id_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000009")
+  let form =
+    opened()
+    |> send(TagChanged(uuid.to_string(id)))
+    |> send(TagChanged(""))
+    |> form_of
+  form.tag_id |> should.equal(None)
+}
+
+pub fn tag_changed_with_unparseable_value_clears_tag_id_test() {
+  let form = opened() |> send(TagChanged("not-a-uuid")) |> form_of
+  form.tag_id |> should.equal(None)
+}
+
 pub fn validate_includes_is_transfer_test() {
   let assert #(submitting, [Post(request)], NoChange) =
     transaction_modal.update(
@@ -173,6 +199,20 @@ pub fn validate_keeps_credit_amounts_positive_test() {
       SaveRequested,
     )
   request.amount |> should.equal(12.5)
+}
+
+pub fn validate_includes_selected_tag_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-00000000000a")
+  let assert #(_, [Post(request)], NoChange) =
+    transaction_modal.update(
+      opened()
+        |> send(AmountChanged("12.5"))
+        |> send(DescriptionChanged("Coffee"))
+        |> send(DateChanged("2026-01-02"))
+        |> send(TagChanged(uuid.to_string(id))),
+      SaveRequested,
+    )
+  request.tag_id |> should.equal(Some(id))
 }
 
 pub fn validate_returns_all_errors_test() {
@@ -225,6 +265,29 @@ pub fn edit_modal_prefills_transaction_test() {
   let assert field.Valid(value: "Coffee", input: "Coffee") = form.description
   let assert field.Valid(value: date, ..) = form.date
   date |> should.equal(calendar.Date(2026, calendar.January, 2))
+}
+
+pub fn edit_modal_prefills_tag_id_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000001")
+  let assert Ok(tag_id) =
+    uuid.from_string("00000000-0000-0000-0000-00000000000b")
+  let transaction =
+    transaction.Transaction(
+      id: id,
+      amount: -12.5,
+      description: "Coffee",
+      date: calendar.Date(2026, calendar.January, 2),
+      is_transfer: False,
+      account_id: None,
+      tag_id: Some(tag_id),
+    )
+  let #(modal, _, _) =
+    transaction_modal.update(
+      transaction_modal.hidden(),
+      EditRequested(transaction),
+    )
+  let assert Active(form:, ..) = modal
+  form.tag_id |> should.equal(Some(tag_id))
 }
 
 pub fn edit_modal_maps_credit_transaction_test() {

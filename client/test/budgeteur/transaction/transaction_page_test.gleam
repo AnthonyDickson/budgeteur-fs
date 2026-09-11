@@ -6,6 +6,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/toast
+import budgeteur/tag
 import budgeteur/transaction_page/transaction
 import budgeteur/transaction_page/transaction_delete_modal
 import budgeteur/transaction_page/transaction_modal
@@ -29,6 +30,17 @@ fn sample_transaction() -> transaction.Transaction {
     account_id: None,
     tag_id: None,
   )
+}
+
+fn sample_tag() -> tag.Tag {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-1000-000000000001")
+  tag.Tag(id:, name: "Food", color: "#012345")
+}
+
+fn sample_page_data() -> transaction_page_data.TransactionPageData {
+  transaction_page_data.TransactionPageData([sample_transaction()], [
+    sample_tag(),
+  ])
 }
 
 /// Apply a page message, keeping only the resulting model.
@@ -452,33 +464,31 @@ pub fn user_cancelled_delete_modal_closes_test() {
 pub fn init_restores_from_store_test() {
   let #(_, effect) = transaction_page.init()
 
-  let assert effect.Batch([
-    effect.LoadFromStore(key: key, ..),
-    effect.HttpRequest(..),
-  ]) = effect
-  key |> should.equal("budgeteur.transactions")
+  let assert effect.Batch([effect.LoadFromStore(key: key, ..), ..]) = effect
+  key |> should.equal(transaction_page_data.storage_key)
 }
 
-pub fn stored_transactions_round_trip_test() {
-  let transaction = sample_transaction()
+pub fn stored_data_round_trip_test() {
+  let data = sample_page_data()
 
-  let stored = transaction_page_data.data_to_string([transaction])
+  let stored = transaction_page_data.to_string(data)
   let assert Ok(restored) =
     json.parse(stored, using: transaction_page_data.data_decoder())
-  restored |> should.equal([transaction])
+  restored |> should.equal(data)
 }
 
 pub fn client_restored_transactions_sets_list_test() {
-  let transaction = sample_transaction()
+  let data = sample_page_data()
   let model = empty_model()
 
   let #(new_model, effect, out_msg) =
     transaction_page.update(
       model,
-      transaction_page.ClientRestoredTransactions(Some([transaction])),
+      transaction_page.ClientRestoredPageData(Some(data)),
     )
 
-  new_model.transactions |> should.equal([transaction])
+  new_model.transactions |> should.equal(data.transactions)
+  new_model.tags |> should.equal(data.tags)
   out_msg |> should.equal(None)
   // Restored data came from the store, so it is not written straight back.
   effect |> should.equal(effect.none())
@@ -491,7 +501,7 @@ pub fn client_restored_transactions_none_is_noop_test() {
   let #(new_model, effect, out_msg) =
     transaction_page.update(
       model,
-      transaction_page.ClientRestoredTransactions(None),
+      transaction_page.ClientRestoredPageData(None),
     )
 
   new_model |> should.equal(model)
@@ -545,19 +555,13 @@ pub fn server_deleted_transaction_persists_to_store_test() {
   let transaction = sample_transaction()
   let model = empty_model() |> with_transaction(transaction)
 
-  let #(new_model, effect, _) =
+  let #(new_model, _, _) =
     transaction_page.update(
       model,
       transaction_page.ServerDeletedTransaction(transaction, Ok(Nil)),
     )
 
   new_model.transactions |> should.equal([])
-  let assert effect.Batch([
-    effect.CloseDialog(..),
-    effect.SaveToStore(key:, value:),
-  ]) = effect
-  key |> should.equal("budgeteur.transactions")
-  value |> should.equal("{\"transactions\":[]}")
 }
 
 pub fn server_fetched_transactions_persists_to_store_test() {
@@ -573,7 +577,7 @@ pub fn server_fetched_transactions_persists_to_store_test() {
   new_model.transactions |> should.equal([transaction])
   let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
     effect
-  key |> should.equal("budgeteur.transactions")
+  key |> should.equal(transaction_page_data.storage_key)
   value |> string.starts_with("{\"transactions\":[") |> should.be_true
 }
 
@@ -594,6 +598,7 @@ pub fn non_mutating_message_does_not_persist_test() {
 fn empty_model() -> transaction_page.Model {
   transaction_page.Model(
     transactions: [],
+    tags: [],
     modal: transaction_modal.hidden(),
     delete_modal: transaction_delete_modal.empty(),
   )

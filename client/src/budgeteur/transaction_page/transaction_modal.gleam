@@ -4,6 +4,9 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/money
+import budgeteur/shared/route
+import budgeteur/shared/tag_ui
+import budgeteur/tag.{type Tag}
 import budgeteur/transaction_page/create_transaction_request.{
   type CreateTransactionRequest,
 }
@@ -11,6 +14,7 @@ import budgeteur/transaction_page/transaction.{type Transaction, Transaction}
 import gleam/dynamic/decode
 import gleam/float
 import gleam/int
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -18,6 +22,7 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
+import youid/uuid.{type Uuid}
 
 pub const max_description_length = 256
 
@@ -65,6 +70,7 @@ pub type Form {
     is_transfer: Bool,
     description: DescriptionField,
     date: DateField,
+    tag_id: Option(Uuid),
   )
 }
 
@@ -93,6 +99,7 @@ pub type Msg {
   IsTransferChanged(is_transfer: Bool)
   DescriptionChanged(value: String)
   DateChanged(value: String)
+  TagChanged(value: String)
   SaveRequested
   // Response to the in-flight create or update; the `Created`/`Updated`
   // outcome variant is chosen from the `mode` in the `Submitting` state.
@@ -137,6 +144,7 @@ pub fn update(state: Modal, msg: Msg) -> #(Modal, List(Request), Outcome) {
       form_modal.NoChange,
     )
     DateChanged(value:) -> #(set_date(state, value), [], form_modal.NoChange)
+    TagChanged(value:) -> #(set_tag(state, value), [], form_modal.NoChange)
     SaveRequested -> save(state)
     SaveCompleted(result: Ok(transaction)) ->
       on_save_succeeded(state, transaction)
@@ -170,6 +178,7 @@ fn empty_form() -> Form {
     is_transfer: False,
     description: field.Empty(""),
     date: field.Empty(""),
+    tag_id: None,
   )
 }
 
@@ -184,7 +193,7 @@ fn from_transaction(transaction: Transaction) -> Form {
     date:,
     is_transfer:,
     account_id: _,
-    tag_id: _,
+    tag_id:,
   ) = transaction
 
   let type_ = case amount <. 0.0 {
@@ -200,6 +209,7 @@ fn from_transaction(transaction: Transaction) -> Form {
     is_transfer:,
     description: field.Valid(value: description, input: description),
     date: field.Valid(value: date, input: date.format(date)),
+    tag_id:,
   )
 }
 
@@ -243,6 +253,35 @@ fn set_type(state: Modal, type_: TransactionType) -> Modal {
 /// states.
 fn set_is_transfer(state: Modal, is_transfer: Bool) -> Modal {
   form_modal.set_form(state, fn(form) { Form(..form, is_transfer:) })
+}
+
+/// Set the tag from the select's value. No op for Hidden and Submitting
+/// states.
+fn set_tag(state: Modal, tag_id: String) -> Modal {
+  form_modal.set_form(state, fn(form) {
+    Form(..form, tag_id: parse_tag_id(tag_id))
+  })
+}
+
+/// Parse a tag `<select>` value into a tag id. The empty string is the "No
+/// tag" option; any unparseable value also clears the tag.
+fn parse_tag_id(tag_id: String) -> Option(Uuid) {
+  case tag_id {
+    "" -> None
+    _ ->
+      case uuid.from_string(tag_id) {
+        Ok(id) -> Some(id)
+        Error(Nil) -> None
+      }
+  }
+}
+
+/// Look up the selected tag so its color can be shown next to the label.
+fn selected_tag(tags: List(Tag), tag_id: Option(Uuid)) -> Option(Tag) {
+  case tag_id {
+    Some(id) -> list.find(tags, fn(tag) { tag.id == id }) |> option.from_result
+    None -> None
+  }
 }
 
 /// Validate and set the description field. No op for Hidden and Submitting
@@ -379,7 +418,7 @@ fn validate_form(
 ) -> Result(#(CreateTransactionRequest, Form), Form) {
   let form = finalize(form)
 
-  let Form(amount:, type_:, is_transfer:, description:, date:) = form
+  let Form(amount:, type_:, is_transfer:, description:, date:, tag_id:) = form
 
   case field.value(amount), field.value(description), field.value(date) {
     Some(amount_value), Some(description), Some(date) -> {
@@ -394,6 +433,7 @@ fn validate_form(
           description:,
           date:,
           is_transfer:,
+          tag_id:,
         ),
         form,
       ))
@@ -418,7 +458,7 @@ fn finalize(form: Form) -> Form {
 
 // View
 
-pub fn view(state: Modal) -> Element(Msg) {
+pub fn view(state: Modal, tags: List(Tag)) -> Element(Msg) {
   let submitting = case state {
     form_modal.Submitting(..) -> True
     _ -> False
@@ -432,11 +472,11 @@ pub fn view(state: Modal) -> Element(Msg) {
     case state {
       form_modal.Hidden -> []
       form_modal.Active(form:, mode:) ->
-        view_form(form, mode, api_error: None, submitting: False)
+        view_form(form, mode, tags, api_error: None, submitting: False)
       form_modal.Submitting(form:, mode:) ->
-        view_form(form, mode, api_error: None, submitting: True)
+        view_form(form, mode, tags, api_error: None, submitting: True)
       form_modal.Errored(form:, mode:, error:) ->
-        view_form(form, mode, api_error: Some(error), submitting: False)
+        view_form(form, mode, tags, api_error: Some(error), submitting: False)
     },
   )
 }
@@ -444,6 +484,7 @@ pub fn view(state: Modal) -> Element(Msg) {
 fn view_form(
   form: Form,
   mode: form_modal.Mode,
+  tags: List(Tag),
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
@@ -460,7 +501,7 @@ fn view_form(
     )
   }
 
-  let Form(amount:, type_:, is_transfer:, description:, date:) = form
+  let Form(amount:, type_:, is_transfer:, description:, date:, tag_id:) = form
 
   let amount_error = field.error(amount)
   let description_error = field.error(description)
@@ -653,6 +694,66 @@ fn view_form(
             Some(DateRequired) ->
               modal_ui.form_error_message("Date cannot be empty")
             None -> element.none()
+          },
+        ]),
+        html.label([attribute.class("block")], [
+          html.span(
+            [
+              attribute.class(
+                "mb-1 flex items-center gap-2 text-sm font-medium text-gray-700",
+              ),
+            ],
+            [
+              html.text("Tag"),
+              case selected_tag(tags, tag_id) {
+                Some(tag) -> tag_ui.color_swatch(tag.color)
+                None -> element.none()
+              },
+            ],
+          ),
+          html.select(
+            [
+              attribute.attribute("data-testid", "transaction-tag-select"),
+              attribute.class(
+                "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
+                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
+                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
+              ),
+              attribute.disabled(submitting),
+              event.on_change(TagChanged),
+            ],
+            [
+              html.option(
+                [attribute.value(""), attribute.selected(tag_id == None)],
+                "No tag",
+              ),
+              ..list.map(tags, fn(tag) {
+                html.option(
+                  [
+                    attribute.value(uuid.to_string(tag.id)),
+                    attribute.selected(tag_id == Some(tag.id)),
+                  ],
+                  tag.name,
+                )
+              })
+            ],
+          ),
+          case tags {
+            [] ->
+              html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+                html.text("No tags yet. "),
+                html.a(
+                  [
+                    attribute.href(route.to_string(route.Tagging)),
+                    attribute.class(
+                      "font-medium text-indigo-600 hover:text-indigo-500",
+                    ),
+                  ],
+                  [html.text("Create one on the Tagging page")],
+                ),
+                html.text("."),
+              ])
+            _ -> element.none()
           },
         ]),
         html.div([attribute.class("flex justify-end gap-3 pt-2")], [
