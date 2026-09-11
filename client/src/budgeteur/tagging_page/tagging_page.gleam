@@ -5,15 +5,15 @@ import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
-import budgeteur/tagging_page/rule/rule.{type Rule}
-import budgeteur/tagging_page/rule/rule_delete_modal
-import budgeteur/tagging_page/rule/rule_modal
-import budgeteur/tagging_page/rule/rule_view
+import budgeteur/tagging_page/rule.{type Rule}
+import budgeteur/tagging_page/rule_delete_modal
+import budgeteur/tagging_page/rule_modal
+import budgeteur/tagging_page/rule_view
 import budgeteur/tagging_page/rule_write_request
 import budgeteur/tag.{type Tag}
-import budgeteur/tagging_page/tag/tag_delete_modal
-import budgeteur/tagging_page/tag/tag_modal
-import budgeteur/tagging_page/tag/tag_view
+import budgeteur/tagging_page/tag_delete_modal
+import budgeteur/tagging_page/tag_modal
+import budgeteur/tagging_page/tag_view
 import budgeteur/tagging_page/tag_write_request
 import budgeteur/tagging_page/tagging_page_data.{
   type TaggingPageData, TaggingPageData,

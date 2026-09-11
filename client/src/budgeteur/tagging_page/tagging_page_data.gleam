@@ -1,4 +1,4 @@
-import budgeteur/tagging_page/rule/rule.{type Rule}
+import budgeteur/tagging_page/rule.{type Rule}
 import budgeteur/tag.{type Tag}
 import gleam/dynamic/decode
 import gleam/json

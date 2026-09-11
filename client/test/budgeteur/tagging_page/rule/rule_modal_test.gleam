@@ -4,8 +4,8 @@ import budgeteur/shared/form_modal.{
   Active, CloseDialog, Create, Created, Edit, Errored, Hidden, NoChange, Post,
   Put, ShowDialog, Submitting, Updated,
 }
-import budgeteur/tagging_page/rule/rule.{type Rule, Rule}
-import budgeteur/tagging_page/rule/rule_modal.{
+import budgeteur/tagging_page/rule.{type Rule, Rule}
+import budgeteur/tagging_page/rule_modal.{
   type Modal, CancelRequested, CreateRequested, DialogDismissed, Duplicate,
   EditRequested, Form, InvalidTag, PatternChanged, PatternRequired,
   SaveCompleted, SaveRequested, TagChanged, TooLong, ValidTag,

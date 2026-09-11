@@ -1,5 +1,5 @@
 import budgeteur/shared/delete_modal
-import budgeteur/tagging_page/rule/rule.{type Rule}
+import budgeteur/tagging_page/rule.{type Rule}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
