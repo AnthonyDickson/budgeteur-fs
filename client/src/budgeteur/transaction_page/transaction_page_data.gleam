@@ -1,4 +1,4 @@
-import budgeteur/transaction/transaction.{type Transaction}
+import budgeteur/transaction_page/transaction.{type Transaction}
 import gleam/dynamic/decode
 import gleam/json
 

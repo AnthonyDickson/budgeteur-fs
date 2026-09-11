@@ -7,11 +7,11 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
-import budgeteur/transaction/create_transaction_request
-import budgeteur/transaction/transaction.{type Transaction}
-import budgeteur/transaction/transaction_delete_modal.{type DeleteModalState}
-import budgeteur/transaction/transaction_modal
-import budgeteur/transaction/transaction_page_data
+import budgeteur/transaction_page/create_transaction_request
+import budgeteur/transaction_page/transaction.{type Transaction}
+import budgeteur/transaction_page/transaction_delete_modal.{type DeleteModalState}
+import budgeteur/transaction_page/transaction_modal
+import budgeteur/transaction_page/transaction_page_data
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list

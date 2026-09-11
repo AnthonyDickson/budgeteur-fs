@@ -1,6 +1,6 @@
 import budgeteur/shared/delete_modal
 import budgeteur/shared/money
-import budgeteur/transaction/transaction.{type Transaction}
+import budgeteur/transaction_page/transaction.{type Transaction}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html

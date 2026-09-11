@@ -4,8 +4,8 @@ import budgeteur/shared/form_modal.{
   Active, CloseDialog, Create, Edit, Errored, Hidden, NoChange, Post, Put,
   Submitting,
 }
-import budgeteur/transaction/transaction
-import budgeteur/transaction/transaction_modal.{
+import budgeteur/transaction_page/transaction
+import budgeteur/transaction_page/transaction_modal.{
   AmountChanged, AmountRequired, CancelRequested, CreateRequested, Credit,
   DateChanged, DateRequired, Debit, DescriptionChanged, DescriptionRequired,
   DialogDismissed, EditRequested, IsTransferChanged, NotADate, NotANumber,

@@ -7,7 +7,7 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/route
 import budgeteur/shared/toast.{type Toast}
 import budgeteur/tagging_page/tagging_page
-import budgeteur/transaction/transaction_page
+import budgeteur/transaction_page/transaction_page
 import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}

@@ -6,11 +6,11 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/toast
-import budgeteur/transaction/transaction
-import budgeteur/transaction/transaction_delete_modal
-import budgeteur/transaction/transaction_modal
-import budgeteur/transaction/transaction_page
-import budgeteur/transaction/transaction_page_data
+import budgeteur/transaction_page/transaction
+import budgeteur/transaction_page/transaction_delete_modal
+import budgeteur/transaction_page/transaction_modal
+import budgeteur/transaction_page/transaction_page
+import budgeteur/transaction_page/transaction_page_data
 import gleam/json
 import gleam/option.{None, Some}
 import gleam/string

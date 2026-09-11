@@ -4,10 +4,10 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/money
-import budgeteur/transaction/create_transaction_request.{
+import budgeteur/transaction_page/create_transaction_request.{
   type CreateTransactionRequest,
 }
-import budgeteur/transaction/transaction.{type Transaction, Transaction}
+import budgeteur/transaction_page/transaction.{type Transaction, Transaction}
 import gleam/dynamic/decode
 import gleam/float
 import gleam/int
