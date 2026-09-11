@@ -9,7 +9,7 @@ import budgeteur/shared/toast
 import budgeteur/tagging_page/rule/rule
 import budgeteur/tagging_page/rule/rule_delete_modal
 import budgeteur/tagging_page/rule/rule_modal
-import budgeteur/tagging_page/tag/tag
+import budgeteur/tag
 import budgeteur/tagging_page/tag/tag_delete_modal
 import budgeteur/tagging_page/tag/tag_modal
 import budgeteur/tagging_page/tagging_page

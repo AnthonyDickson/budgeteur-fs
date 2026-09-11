@@ -4,7 +4,7 @@ import budgeteur/shared/form_modal.{
   Active, CloseDialog, Create, Created, Edit, Errored, Hidden, NoChange, Post,
   Put, Submitting, Updated,
 }
-import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
+import budgeteur/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag/tag_modal.{
   type Modal, CancelRequested, ColorChosen, CreateRequested, DialogDismissed,
   Duplicate, EditRequested, Form, NameChanged, NameRequired, SaveCompleted,

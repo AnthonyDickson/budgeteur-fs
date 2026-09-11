@@ -6,7 +6,7 @@ import budgeteur/tagging_page/rule/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
 }
-import budgeteur/tagging_page/tag/tag.{type Tag}
+import budgeteur/tag.{type Tag}
 import gleam/dynamic/decode
 import gleam/int
 import gleam/list

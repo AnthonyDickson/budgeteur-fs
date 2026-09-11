@@ -1,5 +1,5 @@
 import budgeteur/shared/delete_modal
-import budgeteur/tagging_page/tag/tag.{type Tag}
+import budgeteur/tag.{type Tag}
 import gleam/int
 import lustre/attribute
 import lustre/element.{type Element}

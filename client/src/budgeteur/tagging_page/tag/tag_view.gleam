@@ -1,4 +1,4 @@
-import budgeteur/tagging_page/tag/tag.{type Tag}
+import budgeteur/tag.{type Tag}
 import budgeteur/tagging_page/ui
 import gleam/list
 import gleam/option.{type Option, Some}

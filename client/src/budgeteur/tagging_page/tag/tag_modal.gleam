@@ -2,7 +2,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
-import budgeteur/tagging_page/tag/tag.{type Tag, Tag}
+import budgeteur/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
 }

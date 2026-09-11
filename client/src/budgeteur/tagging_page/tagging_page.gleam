@@ -10,7 +10,7 @@ import budgeteur/tagging_page/rule/rule_delete_modal
 import budgeteur/tagging_page/rule/rule_modal
 import budgeteur/tagging_page/rule/rule_view
 import budgeteur/tagging_page/rule_write_request
-import budgeteur/tagging_page/tag/tag.{type Tag}
+import budgeteur/tag.{type Tag}
 import budgeteur/tagging_page/tag/tag_delete_modal
 import budgeteur/tagging_page/tag/tag_modal
 import budgeteur/tagging_page/tag/tag_view
