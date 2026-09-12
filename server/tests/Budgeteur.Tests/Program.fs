@@ -14,6 +14,10 @@ let testRoot =
         Transactions.EndpointTests.tests
         Transactions.TransactionDescriptionPropertyTests.validationPropertyTests
         MoneyTests.moneyTests
+        BalanceSheetTests.itemNameTests
+        BalanceSheetTests.balanceTests
+        BalanceSheetTests.balanceSheetTotalsTests
+        BalanceSheetTests.workingCapitalTests
     ]
 
 [<EntryPoint>]
