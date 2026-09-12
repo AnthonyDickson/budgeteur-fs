@@ -16,7 +16,6 @@
 
 ## Current Tasks
 
-- Update deps (dev shell and application)
 
 ## Backlog
 
