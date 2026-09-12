@@ -103,11 +103,11 @@ HTTP method behind `Auth.requireAuth`.
 ### Request pipeline and errors
 
 `Endpoint.handler` maps each `DomainError` case to an HTTP status: validation → `400`, not found → `404`, conflict →
-`409`, missing user claims → `401`, everything else → `500`. Every response is a JSON `ApiError` record
-(`{ Error; Details; StatusCode; RequestId }`). No exceptions escape handlers — a global middleware in `Program.fs`
-catches the unexpected as a last resort. Database constraints are checked explicitly before writes (see
-`Data/Constraints.fs`) so common violations surface as friendly `400` `ValidationFailed` responses; the `409` mapping
-remains as a safety net for races.
+`409`, missing user claims → `401`, everything else → `500`. Every response is a JSON `ApiError` record (`{ Error;
+Details; StatusCode; RequestId }`). No exceptions escape handlers — a global middleware in `Program.fs` catches the
+unexpected as a last resort. Database constraints are checked explicitly before writes (see `Data/Constraints.fs`) so
+common violations surface as friendly `400` `ValidationFailed` responses; the `409` mapping remains as a safety net for
+races.
 
 ### Auth & Configuration
 
@@ -291,8 +291,8 @@ reports build version, uptime, and DB connectivity, returning `503` when the dat
 
 CI runs server tests, client tests, Gleam/F#/markdown format checks, and the `check-db-generated` job. Before finishing
 work, run the relevant tests plus `just lint` and `just format`; after schema changes run `just db-update` and commit
-the regenerated `Db.fs`. When a CI check fails, its log message names the local command to reproduce it (e.g.
-`just server-test`, `just format`).
+the regenerated `Db.fs`. When a CI check fails, its log message names the local command to reproduce it (e.g. `just
+server-test`, `just format`).
 
 ## Gotchas
 
@@ -300,8 +300,8 @@ the regenerated `Db.fs`. When a CI check fails, its log message names the local 
   that depend on them.
 - **SqlHydra query parameters**: function parameters can't be captured directly in query expressions. Bind them to local
   `let` values first (e.g. `let idStr = id.ToString()` before using it in a `where` clause).
-- **Central Package Management**: versions live in `Directory.Packages.props`; project files use bare
-  `<PackageReference Include="..." />`.
-- **Client install**: run `npm install` (or `just client-install-deps`) before the first
-  `just client-watch`/`client-build`.
+- **Central Package Management**: versions live in `Directory.Packages.props`; project files use bare `<PackageReference
+  Include="..." />`.
+- **Client install**: run `npm install` (or `just client-install-deps`) before the first `just
+  client-watch`/`client-build`.
 - **Request body limit**: Kestrel caps request bodies at 64 KB (`Program.fs`) — relevant when wiring the CSV import.

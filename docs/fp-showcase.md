@@ -194,13 +194,13 @@ let create (pattern : string) =
 
 `nonEmpty` and `acceptableLength` each return `Result<string, DomainError>`; `Result.bind` threads the value through
 while an `Error` short-circuits the pipeline. The failure, a `ValidationFailed` carrying a readable message, is just
-another value moving through the same `|>` pipes as the success case. The signature is the whole contract:
-`string -> Result<RulePattern, DomainError>`, no exceptions, no null, nothing hidden. And the compiler enforces
-handling: you cannot get a `RulePattern` out of this function without having dealt with the `Error` case first.
+another value moving through the same `|>` pipes as the success case. The signature is the whole contract: `string ->
+Result<RulePattern, DomainError>`, no exceptions, no null, nothing hidden. And the compiler enforces handling: you
+cannot get a `RulePattern` out of this function without having dealt with the `Error` case first.
 
-The same type appears at every layer of the stack. Auth shares it
-(`Auth.getUserId : HttpContext -> Result<string, DomainError>`), and endpoint handlers compose those value-returning
-steps with a computation expression (`Feature/Transaction/ReadTransaction.fs`):
+The same type appears at every layer of the stack. Auth shares it (`Auth.getUserId : HttpContext -> Result<string,
+DomainError>`), and endpoint handlers compose those value-returning steps with a computation expression
+(`Feature/Transaction/ReadTransaction.fs`):
 
 ```fsharp
 let handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
@@ -235,9 +235,9 @@ match result with
 | ...all other cases...
 ```
 
-The match also fixes the wire shape once: every endpoint emits the same machine-readable
-`{ Error, Details, StatusCode, RequestId }`. And because it is exhaustive, adding a case to `DomainError` makes the
-compiler point at every place that must handle it. An unhandled failure is a compile error, not a 500.
+The match also fixes the wire shape once: every endpoint emits the same machine-readable `{ Error, Details, StatusCode,
+RequestId }`. And because it is exhaustive, adding a case to `DomainError` makes the compiler point at every place that
+must handle it. An unhandled failure is a compile error, not a 500.
 
 Because the error is a _value_, it behaves like one. The `match` in the handler snippet translates `None` into
 `NotFound` in plain code, and the tests in `server/tests/` drive error paths with real inputs: nothing is mocked into
@@ -648,8 +648,7 @@ pays for the guarantee every time, whether or not they needed it.
 
 **Debugging feels different, not easier.** A debugger built around breakpoints and mutable locals assumes there's a
 "current" value sitting at each line; a pipeline or a pattern match doesn't pause at intermediate variables the same
-way, so stepping through `description.Trim () |> nonEmpty |> Result.bind
-acceptableLength` (stop 5) means stepping into
+way, so stepping through `description.Trim () |> nonEmpty |> Result.bind acceptableLength` (stop 5) means stepping into
 each function instead of watching one variable change across an `if` chain. Structured logs (stop 8) and property tests
 (stop 5) cover a lot of this repo's cases, but the "set a breakpoint, watch the variable" reflex from imperative code
 doesn't transfer directly.

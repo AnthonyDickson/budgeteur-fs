@@ -85,8 +85,8 @@ Database constraints are checked explicitly before writes via `Data/Constraints.
 
 ### Auth
 
-Two authentication schemes sit behind a policy scheme that selects the handler by checking for an
-`Authorization: Bearer` header:
+Two authentication schemes sit behind a policy scheme that selects the handler by checking for an `Authorization:
+Bearer` header:
 
 - **Cookie** — SPA session, authorization code flow.
 - **JWT Bearer** (`"bearer"`) — for the Scalar API docs, PKCE flow (dev only).
@@ -182,9 +182,8 @@ also carries a `transform` hook for per-request customisation (e.g. auth headers
 
 ### HTTP layer
 
-`http_effect.send` returns the raw response body as a string — 2xx as `Ok`, anything else as
-`Error(HttpError(status, body))`, and transport failures as `NetworkError`. Callers decode with the helpers in
-`shared/response.gleam`.
+`http_effect.send` returns the raw response body as a string — 2xx as `Ok`, anything else as `Error(HttpError(status,
+body))`, and transport failures as `NetworkError`. Callers decode with the helpers in `shared/response.gleam`.
 
 ### API routing (dev vs prod)
 

@@ -48,9 +48,8 @@ See the [Justfile](./justfile) for all targets.
   [Production OIDC Setup](docs/prod-oidc-setup.md).
 - **Testing** — Expecto server tests, gleeunit client unit tests, Playwright E2E tests via Docker Compose. See
   `docs/server-tests.md`, `docs/architecture.md#client-tests`, and `docs/e2e-tests.md`.
-- **Deployment** — Single-file publish (`just publish`) or Docker (`docker build` +
-  `docker compose -f docker-compose.prod.yml up -d`). Intended to be hosted behind a reverse proxy. See
-  [Deployment](docs/deployment.md).
+- **Deployment** — Single-file publish (`just publish`) or Docker (`docker build` + `docker compose -f
+  docker-compose.prod.yml up -d`). Intended to be hosted behind a reverse proxy. See [Deployment](docs/deployment.md).
 
 ## Dev Environment
 
