@@ -97,15 +97,24 @@ check-feature-boundaries:
 		exit 1
 	fi
 
+# Audit the project dependencies for known vulnerabilities
 audit:
 	cd client && npm audit
 	cd server && dotnet list package --vulnerable
 
+# List the outdated packages in the project
 outdated:
 	cd client && gleam deps outdated
 	# use `-` to ignore the exit code npm so outdated packages don't stop the next command from being run by just
 	-cd client && npm outdated
 	cd server && dotnet list package --outdated
+
+# Update all dependencies in the project to their latest versions
+update:
+	cd client && gleam update
+	cd client && npm update
+	cd server && dotnet package update
+	cd server && dotnet tool update --all
 
 # ── Database ──────────────────────────────────────────────────────────────
 
