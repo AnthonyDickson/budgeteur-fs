@@ -16,11 +16,13 @@
 
 ## Current Tasks
 
+- Update deps (dev shell and application)
 
 ## Backlog
 
 - Kiwibank statements have enough info to auto tag internal transfers without dedicated rule
-  - If the both the source and target account numbers are in the user's accounts, then you can tag as an internal transfer.
+  - If the both the source and target account numbers are in the user's accounts, then you can tag as an internal
+    transfer.
   - This should only apply on import, manual imports must be manually categorised.
   - May want user setting around which category to use for internal transfer, or hardcode and force user to use it.
   - Initial imports will be missed if the accounts are not added beforehand
@@ -34,12 +36,13 @@
     - Migrate tag colour swatch
 - Reconsider toasts for error handling in modal forms, the toasts are behind the backdrop layer so they are dimmed and
   not clickable.
-- Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then replacing
-  it with the server data.
+- Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then
+  replacing it with the server data.
 
 ## CSV Parsing
 
-We can use representative example CSVs for each format (schema) to generate type providers for type safe access and parsing:
+We can use representative example CSVs for each format (schema) to generate type providers for type safe access and
+parsing:
 
 ```fsharp
 open FSharp.Data
