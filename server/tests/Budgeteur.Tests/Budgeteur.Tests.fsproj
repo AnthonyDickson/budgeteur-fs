@@ -15,6 +15,7 @@
     <Compile Include="Transactions/EndpointTests.fs" />
     <Compile Include="Transactions/TransactionDescriptionPropertyTests.fs" />
     <Compile Include="MoneyTests.fs" />
+    <Compile Include="BalanceSheetTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

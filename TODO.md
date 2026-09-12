@@ -16,6 +16,12 @@
 
 ## Current Tasks
 
+- Balances page:
+  - Balances page static mock
+  - Add data migration
+  - Add API endpoints
+  - Wire up client to backend
+  - Tests, review, update docs
 
 ## Backlog
 

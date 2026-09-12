@@ -25,6 +25,8 @@
     <Compile Include="Domain/Tag.fs" />
     <Compile Include="Domain/Transaction.fs" />
     <Compile Include="Domain/Rule.fs" />
+    <Compile Include="Domain/BalanceSheetItem.fs" />
+    <Compile Include="Domain/BalanceSheet.fs" />
 
     <Compile Include="Data/Db.fs" />
     <Compile Include="Data/Constraints.fs" />
