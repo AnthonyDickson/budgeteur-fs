@@ -117,12 +117,20 @@ reads best (`liquid`, `fixed`, `short-term`, `long-term`); the model always stor
 - **Note**: this is a stock measure. Affordability in cash-flow terms also needs income, which is out of scope until the
   income statement exists.
 
+## Open questions
+
+- **User-facing label for working capital.** The domain term is working capital. Candidate on-screen labels: "Working
+  capital", "Short-term net worth", "Net current assets", "Near-term position". The name "Net cash" was considered and
+  rejected: it reads as cash only, hides that near-term liabilities are subtracted, collides with the app's bank
+  accounts, and clashes with the cash-flow sense of "net cash flow". The mock page currently shows "Working capital";
+  decide before the client page copy is finalised. The model field stays `workingCapital` either way.
+
 ## Consequences
 
 - **Domain gap closed.** The domain computes the current-only totals and working capital
   (`BalanceSheet.totalCurrentAssets`, `totalCurrentLiabilities`, `workingCapital`), pinned by tests.
 - **Read DTO.** The response carries `StatementDate` plus the computed totals (total assets, total liabilities, net
-  worth, current assets, current liabilities, working capital) and the items. The client derives nothing.
+  worth, current and non-current subtotals for each side, working capital) and the items. The client derives nothing.
 - **Item shape.** `Id`, `Name`, `Kind`, `Term`, `Balance`. No date, no account reference, no currency.
 - **Classification edges.** Under the liquid test a car is `NonCurrent` (a use asset), and a 3-year term deposit is
   `NonCurrent` unless it is genuinely liquid. The two-value axis collapses the planner three-bucket asset split (liquid,

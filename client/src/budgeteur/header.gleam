@@ -34,6 +34,12 @@ pub fn view(current_route: route.Route) -> Element(msg) {
             route.to_string(route.Tagging),
             "Tags & Rules",
           ),
+          nav_link(
+            route.BalanceSheet,
+            current_route,
+            route.to_string(route.BalanceSheet),
+            "Balance Sheet",
+          ),
         ]),
       ],
     ),

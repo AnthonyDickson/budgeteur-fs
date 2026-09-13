@@ -1,3 +1,4 @@
+import budgeteur/balance_sheet_page/balance_sheet_page
 import budgeteur/header
 import budgeteur/shared/auth_route
 import budgeteur/shared/effect.{type Effect}
@@ -25,6 +26,7 @@ import youid/uuid.{type Uuid}
 pub type Page {
   TransactionsPage(transaction_page.Model)
   TaggingPage(tagging_page.Model)
+  BalanceSheetPage(balance_sheet_page.Model)
   NotFound
 }
 
@@ -36,6 +38,7 @@ pub type Msg {
   SessionExpired
   TransactionsPageMsg(transaction_page.Msg)
   TaggingPageMsg(tagging_page.Msg)
+  BalanceSheetPageMsg(balance_sheet_page.Msg)
   ToastDismissed(id: Uuid)
   UrlChanged(url: String)
   NoOp
@@ -87,6 +90,11 @@ fn with_out_msg(
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg, model {
     UrlChanged(url), _ -> {
+      // Each route has two arms: one matches a URL change while already on
+      // that page, the other matches a switch from a different page. Landing on
+      // the page you are already on keeps its model (open modals and unsaved
+      // input survive) and only re-runs `init` for its side effects, such as
+      // refetching; arriving from elsewhere installs a fresh page model.
       case route.from_string(url), model.page {
         route.Transactions, TransactionsPage(_) -> {
           let #(_, page_effect) = transaction_page.init()
@@ -95,6 +103,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         route.Tagging, TaggingPage(_) -> {
           let #(_, page_effect) = tagging_page.init()
           #(model, effect.map(page_effect, TaggingPageMsg))
+        }
+        route.BalanceSheet, BalanceSheetPage(_) -> {
+          let #(_, page_effect) = balance_sheet_page.init()
+          #(model, effect.map(page_effect, BalanceSheetPageMsg))
         }
         route.Transactions, _ -> {
           let #(inner_model, inner_effect) = transaction_page.init()
@@ -109,6 +121,14 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
           let model = Model(..model, page: TaggingPage(inner_model))
           let effect = effect.map(inner_effect, TaggingPageMsg)
+
+          #(model, effect)
+        }
+        route.BalanceSheet, _ -> {
+          let #(inner_model, inner_effect) = balance_sheet_page.init()
+
+          let model = Model(..model, page: BalanceSheetPage(inner_model))
+          let effect = effect.map(inner_effect, BalanceSheetPageMsg)
 
           #(model, effect)
         }
@@ -135,6 +155,18 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       #(
         Model(..model, page: TaggingPage(inner_model)),
         effect.map(inner_effect, TaggingPageMsg),
+      )
+      |> with_out_msg(out_msg)
+    }
+    BalanceSheetPageMsg(inner_msg),
+      Model(page: BalanceSheetPage(inner_model), ..)
+    -> {
+      let #(inner_model, inner_effect, out_msg) =
+        balance_sheet_page.update(inner_model, inner_msg)
+
+      #(
+        Model(..model, page: BalanceSheetPage(inner_model)),
+        effect.map(inner_effect, BalanceSheetPageMsg),
       )
       |> with_out_msg(out_msg)
     }
@@ -203,6 +235,10 @@ pub fn view(model: Model) -> Element(Msg) {
       tagging_page.view(inner_model)
       |> element.map(TaggingPageMsg)
 
+    BalanceSheetPage(inner_model) ->
+      balance_sheet_page.view(inner_model)
+      |> element.map(BalanceSheetPageMsg)
+
     NotFound -> view_not_found()
   }
 
@@ -219,6 +255,7 @@ fn current_route(page: Page) -> route.Route {
   case page {
     TransactionsPage(_) -> route.Transactions
     TaggingPage(_) -> route.Tagging
+    BalanceSheetPage(_) -> route.BalanceSheet
     NotFound -> route.NotFound
   }
 }

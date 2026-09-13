@@ -22,6 +22,7 @@
   - Add API endpoints
   - Wire up client to backend
   - Tests, review, update docs
+  - Update money.gleam to use JS ffi to format numbers with commas
 
 ## Backlog
 
