@@ -32,6 +32,40 @@ module main =
     let Accounts = table<Accounts>
 
     [<CLIMutable>]
+    type BalanceSheetItems =
+        { Id: System.Guid
+          Name: string
+          Kind: string
+          Term: string
+          Balance: decimal
+          BalanceSheetId: System.Guid }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "Id"; Value = box this.Id; ProviderDbType = None }
+                  { WriteColumn.Name = "Name"; Value = box this.Name; ProviderDbType = None }
+                  { WriteColumn.Name = "Kind"; Value = box this.Kind; ProviderDbType = None }
+                  { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None }
+                  { WriteColumn.Name = "Balance"; Value = box this.Balance; ProviderDbType = None }
+                  { WriteColumn.Name = "BalanceSheetId"; Value = box this.BalanceSheetId; ProviderDbType = None } ]
+
+    let BalanceSheetItems = table<BalanceSheetItems>
+
+    [<CLIMutable>]
+    type BalanceSheets =
+        { Id: System.Guid
+          UserId: string
+          StatementDate: System.DateOnly }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "Id"; Value = box this.Id; ProviderDbType = None }
+                  { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
+                  { WriteColumn.Name = "StatementDate"; Value = box this.StatementDate; ProviderDbType = None } ]
+
+    let BalanceSheets = table<BalanceSheets>
+
+    [<CLIMutable>]
     type Rules =
         { Id: System.Guid
           UserId: string
