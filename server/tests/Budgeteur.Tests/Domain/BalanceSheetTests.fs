@@ -8,32 +8,7 @@ open FsCheck.FSharp
 open Budgeteur.Domain.BalanceSheet
 open Budgeteur.Domain.BalanceSheetItem
 
-/// <summary>
-/// Pure domain tests for the balance sheet item value objects and the totals derived
-/// from a <c>BalanceSheet</c>. No database or HTTP is involved: these pin the
-/// invariants that make an invalid item unrepresentable, plus the net worth arithmetic.
-/// </summary>
 module BalanceSheetTests =
-
-    module Arbitraries =
-        /// FsCheck's default string generator can produce null, but the validation
-        /// functions assume a non-null input (guaranteed by JSON decoding at the edge).
-        type NonNullStrings =
-            static member String () : Arbitrary<string> =
-                ArbMap.defaults
-                |> ArbMap.arbitrary<string>
-                |> Arb.filter (fun s -> not (isNull s))
-
-    let private maxItemNameLength = 128
-
-    let private nameConfig = {
-        FsCheckConfig.defaultConfig with
-            // Pushes FsCheck past the length limit so an off-by-one at the boundary
-            // is exercised rather than missed.
-            endSize = 512
-            arbitrary = [ typeof<Arbitraries.NonNullStrings> ]
-    }
-
     let private okOrFail label =
         function
         | Ok value -> value
@@ -52,31 +27,14 @@ module BalanceSheetTests =
         Items = items
     }
 
-    // ItemName -----------------------------------------------------------------
-
-    let private propNamePreservesTrim (s : string) =
-        match ItemName.create s with
-        | Ok trimmed -> ItemName.value trimmed = s.Trim ()
-        | Error _ -> true
-
-    let private propNameLengthBounded (s : string) =
-        match ItemName.create s with
-        | Ok trimmed -> (ItemName.value trimmed).Length <= maxItemNameLength
-        | Error _ -> true
-
-    let private propNameRejectsWhitespace (s : string) =
-        if String.IsNullOrWhiteSpace s then
-            match ItemName.create s with
-            | Error _ -> true
-            | Ok _ -> false
-        else
-            let trimmed = s.Trim ()
-
-            match ItemName.create s with
-            | Ok _ -> trimmed.Length <= maxItemNameLength
-            | Error _ -> trimmed.Length > maxItemNameLength
-
-    // Balance ------------------------------------------------------------------
+    let private sampleSheet =
+        sheet [
+            item "Chequing" ItemKind.Asset Term.Current 2000m
+            item "Savings" ItemKind.Asset Term.Current 5000m
+            item "House" ItemKind.Asset Term.NonCurrent 400000m
+            item "Credit card" ItemKind.Liability Term.Current 1500m
+            item "Mortgage" ItemKind.Liability Term.NonCurrent 300000m
+        ]
 
     let private propBalanceAcceptedIsNonNegativeCents (amount : decimal) =
         match Balance.create amount with
@@ -89,46 +47,6 @@ module BalanceSheetTests =
         match Balance.create amount with
         | Ok _ -> amount >= 0m
         | Error _ -> amount < 0m
-
-    // BalanceSheet -------------------------------------------------------------
-
-    let private sampleSheet =
-        sheet [
-            item "Chequing" ItemKind.Asset Term.Current 2000m
-            item "Savings" ItemKind.Asset Term.Current 5000m
-            item "House" ItemKind.Asset Term.NonCurrent 400000m
-            item "Credit card" ItemKind.Liability Term.Current 1500m
-            item "Mortgage" ItemKind.Liability Term.NonCurrent 300000m
-        ]
-
-    [<Tests>]
-    let itemNameTests =
-        testList "ItemName" [
-            testPropertyWithConfig
-                nameConfig
-                "Acceptance preserves trim: Ok trimmed exactly equals s.Trim()"
-                propNamePreservesTrim
-
-            testPropertyWithConfig
-                nameConfig
-                "Length bounded on accept: accepted name length <= 128"
-                propNameLengthBounded
-
-            testPropertyWithConfig
-                nameConfig
-                "Whitespace rejection: Error iff trimmed input is empty"
-                propNameRejectsWhitespace
-
-            testCase "create accepts a name at exactly the length limit"
-            <| fun () ->
-                let name = String ('a', maxItemNameLength)
-                Expect.isOk (ItemName.create name) "128 character names are allowed"
-
-            testCase "create rejects a name one character over the limit"
-            <| fun () ->
-                let name = String ('a', maxItemNameLength + 1)
-                Expect.isError (ItemName.create name) "129 character names are rejected"
-        ]
 
     [<Tests>]
     let balanceTests =

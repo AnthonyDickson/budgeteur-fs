@@ -17,8 +17,7 @@
 ## Current Tasks
 
 - Balances page:
-  - Balances page static mock
-  - Add data migration
+  - Get test adapter working for Expecto so I don't have to list out all tests
   - Add API endpoints
   - Wire up client to backend
   - Tests, review, update docs

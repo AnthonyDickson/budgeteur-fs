@@ -10,17 +10,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TestApp.fs" />
-    <Compile Include="TestHttp.fs" />
-    <Compile Include="Transactions/EndpointTests.fs" />
-    <Compile Include="Transactions/TransactionDescriptionPropertyTests.fs" />
-    <Compile Include="MoneyTests.fs" />
-    <Compile Include="BalanceSheetTests.fs" />
-    <Compile Include="Program.fs" />
+    <ProjectReference Include="../../src/Budgeteur/Budgeteur.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Budgeteur/Budgeteur.fsproj" />
+    <Compile Include="TestApp.fs" />
+    <Compile Include="TestHttp.fs" />
+    <Compile Include="Domain/BalanceSheetItemTests.fs" />
+    <Compile Include="Domain/BalanceSheetTests.fs" />
+    <Compile Include="Data/BalanceSheetItemTests.fs" />
+    <Compile Include="Transactions/EndpointTests.fs" />
+    <Compile Include="Transactions/TransactionDescriptionPropertyTests.fs" />
+    <Compile Include="MoneyTests.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>

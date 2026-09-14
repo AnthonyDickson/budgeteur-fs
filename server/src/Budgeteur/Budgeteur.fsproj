@@ -11,6 +11,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Budgeteur.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Shared/ApiError.fs" />
     <Compile Include="Shared/DomainError.fs" />
     <Compile Include="Shared/RequestLogging.fs" />
@@ -32,6 +36,8 @@
     <Compile Include="Data/Constraints.fs" />
     <Compile Include="Data/RuleCodec.fs" />
     <Compile Include="Data/TagCodec.fs" />
+    <Compile Include="Data/BalanceSheetItemCodec.fs" />
+    <Compile Include="Data/BalanceSheetCodec.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />

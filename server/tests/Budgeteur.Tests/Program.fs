@@ -14,7 +14,10 @@ let testRoot =
         Transactions.EndpointTests.tests
         Transactions.TransactionDescriptionPropertyTests.validationPropertyTests
         MoneyTests.moneyTests
-        BalanceSheetTests.itemNameTests
+        BalanceSheetItemTests.itemNameTests
+        BalanceSheetItemTests.itemKindTests
+        BalanceSheetItemTests.termTests
+        BalanceSheetItemCodecTests.codecTests
         BalanceSheetTests.balanceTests
         BalanceSheetTests.balanceSheetTotalsTests
         BalanceSheetTests.workingCapitalTests
