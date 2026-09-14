@@ -52,7 +52,7 @@ More specifically:
 - **Functional programming** — push I/O to the edges, make illegal states unrepresentable, functions as the default
   abstraction, programs as data (the effect system).
 - **Domain-Driven Design** (Wlaschin, _Domain Modeling Made Functional_) — start from the pure domain; everything else
-  follows.
+  follows. Focus on _strategic_ DDD (ubiquitous language, bounded contexts) over tactical DDD.
 - **Vertical Slice Architecture** — group code by feature/workflow; some duplication is acceptable, especially when
   establishing new features or when code changes for different reasons; limit blast radius by minimising coupling and
   maximising coherence.
