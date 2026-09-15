@@ -7,6 +7,10 @@ run:
 	docker compose up
 	docker compose down
 
+# Run dotnet restore on the server solution
+server-restore:
+	cd server && dotnet restore
+
 # Build the server
 server-build:
 	dotnet build server/src/Budgeteur/Budgeteur.fsproj

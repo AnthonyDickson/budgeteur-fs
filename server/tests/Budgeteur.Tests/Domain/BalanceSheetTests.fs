@@ -23,7 +23,7 @@ module BalanceSheetTests =
     }
 
     let private sheet items = {
-        StatementDate = DateOnly (2026, 1, 1)
+        StatementDate = DateTime (DateOnly (2026, 1, 1), TimeOnly.MinValue, DateTimeKind.Utc)
         Items = items
     }
 

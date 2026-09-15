@@ -14,6 +14,8 @@ module BalanceSheetItemCodecTests =
 
     [<Tests>]
     let codecTests =
+        let userId = "test"
+
         let tests =
             List.allPairs [ ItemKind.Asset; ItemKind.Liability ] [ Term.Current; Term.NonCurrent ]
             |> List.map (fun (kind, term) ->
@@ -30,7 +32,7 @@ module BalanceSheetItemCodecTests =
                             Balance = Balance.create 1.23m |> okOrFail "Balance"
                         }
 
-                        let row = BalanceSheetItemCodec.toRow sheetId item
+                        let row = BalanceSheetItemCodec.toRow item userId
                         let item' = BalanceSheetItemCodec.fromRow row
 
                         Expect.equal item' item "Decoded BalanceSheetItem did not match the original"))

@@ -42,6 +42,14 @@
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 
+    <Compile Include="Feature/BalanceSheet/Shared.fs" />
+    <Compile Include="Feature/BalanceSheet/ReadSheet.fs" />
+    <Compile Include="Feature/BalanceSheet/CreateItem.fs" />
+    <Compile Include="Feature/BalanceSheet/ReadItem.fs" />
+    <Compile Include="Feature/BalanceSheet/ReadAllItems.fs" />
+    <Compile Include="Feature/BalanceSheet/UpdateItem.fs" />
+    <Compile Include="Feature/BalanceSheet/DeleteItem.fs" />
+
     <Compile Include="Feature/Tag/TagResponse.fs" />
     <Compile Include="Feature/Tag/CreateTag.fs" />
     <Compile Include="Feature/Tag/ReadTag.fs" />

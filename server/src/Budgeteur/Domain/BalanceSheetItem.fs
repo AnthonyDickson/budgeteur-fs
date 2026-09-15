@@ -51,7 +51,7 @@ module ItemKind =
         match string with
         | "Asset" -> Ok Asset
         | "Liability" -> Ok Liability
-        | other -> Error $"{other} is not a valid value for ItemKind, expecting one of \"Asset\" or \"Liability\"."
+        | other -> Error $"\"{other}\" is not a valid value for ItemKind, expecting one of \"Asset\" or \"Liability\"."
 
 /// <summary>
 /// Whether an item is expected to be realised (assets) or settled (liabilities) within
@@ -71,7 +71,7 @@ module Term =
         match string with
         | "Current" -> Ok Current
         | "NonCurrent" -> Ok NonCurrent
-        | other -> Error $"{other} is not a valid value for Term, expecting one of \"Current\" or \"NonCurrent\"."
+        | other -> Error $"\"{other}\" is not a valid value for Term, expecting one of \"Current\" or \"NonCurrent\"."
 
 /// <summary>
 /// An item's value as a positive magnitude. The direction of the value is implied by

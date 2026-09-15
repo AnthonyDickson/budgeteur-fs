@@ -18,13 +18,25 @@
 
 - Balances page:
   - Get test adapter working for Expecto so I don't have to list out all tests
-  - Add API endpoints
   - Wire up client to backend
+    - Convert UTC time in balance sheet to local time on display if possible
   - Tests, review, update docs
   - Update money.gleam to use JS ffi to format numbers with commas
+  - Consider renaming balance sheet _item_ to balance sheet _entry_.
+- Consider reworking constraints: Rather than eagerly checking constraints, run the DB query and catch any exceptions.
+  If the exception is related to a DB constraint, run the existing checks against the database to create a descriptive
+  error message.
 
 ## Backlog
 
+- Instead of saving `DateOnly` (e.g. transaction dates), use UTC time everywhere except for display on the client or
+  filtering by date range on the server (e.g. calculating net income for last 28 days). The server CLI should set a
+  default timezone and the client should allow the user to set their own timezone via a settings page
+
+  Can use the following code to init a timezone object:
+  ```fsharp
+  let timezone = TimeZoneInfo.FindSystemTimeZoneById "Pacific/Auckland"
+  ```
 - BUG: From the transactions modal with no tags, click link to create new tag, client navigates to the tagging page, an
   empty dialog is visible.
 - Kiwibank statements have enough info to auto tag internal transfers without dedicated rule
@@ -45,6 +57,8 @@
   not clickable.
 - Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then
   replacing it with the server data.
+- Authelia: Check why Authelia keeps showing consents screen
+- Scalar docs: refresh tokens for Authelia
 
 ## CSV Parsing
 

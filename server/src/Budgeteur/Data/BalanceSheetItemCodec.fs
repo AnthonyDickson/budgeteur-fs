@@ -5,13 +5,13 @@ module BalanceSheetItemCodec =
     open Budgeteur.Data.Db
     open Budgeteur.Domain.BalanceSheetItem
 
-    let toRow (sheetId : Guid) (item : BalanceSheetItem) : main.BalanceSheetItems = {
+    let toRow (item : BalanceSheetItem) (userId : string) : main.BalanceSheetItems = {
         Id = item.Id
+        UserId = userId
         Name = ItemName.value item.Name
         Kind = ItemKind.toString item.Kind
         Term = Term.toString item.Term
         Balance = Balance.value item.Balance
-        BalanceSheetId = sheetId
     }
 
     let fromRow (row : main.BalanceSheetItems) : BalanceSheetItem = {

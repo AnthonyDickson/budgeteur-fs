@@ -7,7 +7,7 @@ open Budgeteur.Domain.BalanceSheetItem
 /// <summary>The balance sheet items a user tracks, all valued as of a single date.</summary>
 type BalanceSheet = {
     /// <summary>The date the balances are accurate as of.</summary>
-    StatementDate : DateOnly
+    StatementDate : DateTime
 
     /// <summary>Every asset and liability currently being tracked.</summary>
     Items : BalanceSheetItem list
@@ -28,10 +28,6 @@ module BalanceSheet =
     let totalLiabilities (sheet : BalanceSheet) =
         sumWhere (fun item -> item.Kind = ItemKind.Liability) sheet
 
-    /// <summary>Total assets minus total liabilities.</summary>
-    let netWorth (sheet : BalanceSheet) =
-        totalAssets sheet - totalLiabilities sheet
-
     /// <summary>Total value of assets expected to be realised within the current period.</summary>
     let totalCurrentAssets (sheet : BalanceSheet) =
         sumWhere (fun item -> item.Kind = ItemKind.Asset && item.Term = Term.Current) sheet
@@ -39,6 +35,18 @@ module BalanceSheet =
     /// <summary>Total value of liabilities expected to be settled within the current period.</summary>
     let totalCurrentLiabilities (sheet : BalanceSheet) =
         sumWhere (fun item -> item.Kind = ItemKind.Liability && item.Term = Term.Current) sheet
+
+    /// <summary>Total value of assets **not** expected to be realised within the current period.</summary>
+    let totalNonCurrentAssets (sheet : BalanceSheet) =
+        sumWhere (fun item -> item.Kind = ItemKind.Asset && item.Term = Term.NonCurrent) sheet
+
+    /// <summary>Total value of liabilities **not** expected to be settled within the current period.</summary>
+    let totalNonCurrentLiabilities (sheet : BalanceSheet) =
+        sumWhere (fun item -> item.Kind = ItemKind.Liability && item.Term = Term.NonCurrent) sheet
+
+    /// <summary>Total assets minus total liabilities.</summary>
+    let netWorth (sheet : BalanceSheet) =
+        totalAssets sheet - totalLiabilities sheet
 
     /// <summary>
     /// Current assets minus current liabilities: the near-term position. Unlike net worth it

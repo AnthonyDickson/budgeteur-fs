@@ -31,6 +31,7 @@ open Budgeteur.Shared.Json
 open Budgeteur.Shared.OpenApi
 open Budgeteur.Shared.RequestLogging
 open Budgeteur.Feature.Auth
+open Budgeteur.Feature.BalanceSheet
 open Budgeteur.Feature.Rule
 open Budgeteur.Feature.Status
 open Budgeteur.Feature.Tag
@@ -212,6 +213,7 @@ let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit
 let private withAuth endpoints =
     Seq.map (addFilter Auth.requireAuth) endpoints
 
+// TODO: Move to own file
 let private buildEndpoints (connectionString : string) (loginReturnUrl : string) (app : WebApplication) =
     let queryContext = QueryContextFactory.Create connectionString
     let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime ()
@@ -224,6 +226,21 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
             GetStatus.endpoint connectionString app.Environment.EnvironmentName startedAt
         ]
     ]
+
+    let balanceSheetEndpoints =
+        [ GET [ ReadBalanceSheet.endpoint queryContext ] ] |> withAuth
+
+    let balanceSheetItemEndpoints =
+        [
+            POST [ CreateBalanceSheetItem.endpoint queryContext ]
+            GET [
+                ReadBalanceSheetItem.endpoint queryContext
+                ReadAllBalanceSheetItems.endpoint queryContext
+            ]
+            PUT [ UpdateBalanceSheetItem.endpoint queryContext ]
+            DELETE [ DeleteBalanceSheetItem.endpoint queryContext ]
+        ]
+        |> withAuth
 
     let transactionEndpoints =
         [
@@ -268,6 +285,8 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
 
     Seq.concat [
         authEndpoints
+        balanceSheetEndpoints
+        balanceSheetItemEndpoints
         ruleEndpoints
         statusEndpoints
         transactionEndpoints

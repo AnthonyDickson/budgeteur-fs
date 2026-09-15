@@ -40,27 +40,22 @@ CREATE INDEX IX_Accounts_UserId on Accounts(UserId);
 -- Balance Sheet + Items
 
 CREATE TABLE BalanceSheets (
-    -- v7 UUID
-    Id            GUID     NOT NULL PRIMARY KEY,
-    UserId        TEXT     NOT NULL,
-    -- When the balance snapshot was taken (the date the balance is accurate as of).
-    StatementDate DATE     NOT NULL,
     -- One balance sheet per user
-    UNIQUE(UserId)
+    UserId        TEXT     NOT NULL PRIMARY KEY,
+    -- When the balance snapshot was taken (the date the balance is accurate as of).
+    StatementDate DATETIME NOT NULL
 );
 
 CREATE TABLE BalanceSheetItems (
     -- v7 UUID
     Id      GUID     NOT NULL PRIMARY KEY,
+    UserId  TEXT     NOT NULL,
     Name    TEXT     NOT NULL,
     Kind    TEXT     NOT NULL CHECK (Kind IN ('Asset', 'Liability')),
     Term    TEXT     NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
     Balance CURRENCY NOT NULL CHECK (Balance >= 0),
-    BalanceSheetId GUID NOT NULL,
-    FOREIGN KEY(BalanceSheetId) REFERENCES BalanceSheets(Id) ON UPDATE CASCADE ON DELETE CASCADE
+    UNIQUE(UserId, Name, Kind, Term)
 );
-
-CREATE INDEX IX_BalanceSheetItems_BalanceSheetId on BalanceSheetItems(BalanceSheetId);
 
 -- Tags
 
