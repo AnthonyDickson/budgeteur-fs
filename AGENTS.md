@@ -8,7 +8,8 @@ A full-stack personal finance tracker (accounts, tags, transactions, tagging rul
 roadmap).
 
 - **Backend** — Oxpecker F# on .NET 10, SQLite + OIDC auth + OpenAPI (`server/`). Endpoints are organised as vertical
-  slices. OpenAPI spec at `/openapi/v1.json`; interactive Scalar docs at `/scalar/v1` (development only).
+  slices. OpenAPI spec at `/openapi/v1.json`; interactive Scalar docs at `/scalar/v1` (development only). Schema
+  conventions live in [docs/openapi.md](docs/openapi.md).
 - **Frontend** — Gleam/Lustre SPA, Tailwind CSS v4, bundled with Vite (`client/`). Nested MVU with a custom effect
   system that keeps `update` pure.
 

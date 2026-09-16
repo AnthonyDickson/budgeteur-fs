@@ -47,6 +47,8 @@ let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAut
         options.AddSchemaTransformer<FSharpOptionSchemaTransformer> () |> ignore
         options.AddSchemaTransformer<OpenApi.FSharpRecordSchemaTransformer> () |> ignore
         options.AddSchemaTransformer<OpenApi.XmlDocSchemaTransformer> () |> ignore
+        options.AddSchemaTransformer<OpenApi.SchemaHintTransformer> () |> ignore
+        options.AddSchemaTransformer<OpenApi.DecimalSchemaTransformer> () |> ignore
 
         options.AddDocumentTransformer (fun doc _ _ ->
             if isNull doc.Components then
