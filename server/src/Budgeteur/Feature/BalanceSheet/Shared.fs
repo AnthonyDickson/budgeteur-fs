@@ -60,7 +60,7 @@ type WriteBalanceSheetItemRequest = {
     Term : string
 
     /// <summary>The positive magnitude of the item's value. Direction is implied by Kind.</summary>
-    [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+    [<SchemaHint.Decimal(NonNegative = true)>]
     Balance : decimal
 }
 
@@ -123,7 +123,7 @@ type BalanceSheetItemResponse = {
     Term : string
 
     /// <summary>The positive magnitude of the item's value. Direction is implied by Kind.</summary>
-    [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+    [<SchemaHint.Decimal(NonNegative = true)>]
     Balance : decimal
 }
 

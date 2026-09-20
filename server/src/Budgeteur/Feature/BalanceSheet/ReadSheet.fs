@@ -32,38 +32,36 @@ module ReadBalanceSheet =
         Items : BalanceSheetItemResponse list
 
         /// <summary>Total value of assets expected to be realised within the current period.</summary>
-        [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+        [<SchemaHint.Decimal(NonNegative = true)>]
         TotalCurrentAssets : decimal
 
         /// <summary>Total value of liabilities expected to be settled within the current period.</summary>
-        [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+        [<SchemaHint.Decimal(NonNegative = true)>]
         TotalCurrentLiabilities : decimal
 
         /// <summary>Total value of assets **not** expected to be realised within the current period.</summary>
-        [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+        [<SchemaHint.Decimal(NonNegative = true)>]
         TotalNonCurrentAssets : decimal
 
         /// <summary>Total value of liabilities **not** expected to be settled within the current period.</summary>
-        [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+        [<SchemaHint.Decimal(NonNegative = true)>]
         TotalNonCurrentLiabilities : decimal
 
         /// <summary>Total value of everything owned, both current and non-current.</summary>
-        [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+        [<SchemaHint.Decimal(NonNegative = true)>]
         TotalAssets : decimal
 
         /// <summary>Total value of everything owed, both current and non-current.</summary>
-        [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+        [<SchemaHint.Decimal(NonNegative = true)>]
         TotalLiabilities : decimal
 
         /// <summary>Total assets minus total liabilities.</summary>
-        [<SchemaHint.Number(MultipleOf = 0.01)>]
         NetWorth : decimal
 
         /// <summary>
         /// Current assets minus current liabilities: the near-term position. Unlike net worth it
         /// excludes non-current debt, so it stays sensitive to near-term decisions.
         /// </summary>
-        [<SchemaHint.Number(MultipleOf = 0.01)>]
         WorkingCapital : decimal
     }
 

@@ -44,19 +44,22 @@ type CreateBalanceSheetItemRequest = {
 
 Reach for the attributes in `Budgeteur.Shared.OpenApi.SchemaHint` only when the native attributes cannot express the
 constraint. (The `Attribute` suffix is optional: `SchemaHint.Enum` and `SchemaHint.EnumAttribute`, and likewise
-`Number`, are the same type.)
+`Decimal`, are the same type.)
 
 - `SchemaHint.Enum(typeof<ItemKind>)` documents a property as a `string` enum whose values are the union's case names.
   The native mapping only understands C# enums, not F# unions. The reflected values must match the wire strings; they do
   for the domain enums, whose `toString` returns the case names. If a case name ever diverges from its wire value,
   reflect a dedicated union whose names match, or fall back to `[<RegularExpression>]`.
-- `SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)` constrains a numeric property. Use it for a minimum-only or
-  maximum-only bound, or for `multipleOf`, which `[<Range>]` cannot express because it requires both bounds. Leave a
-  bound blank to omit it.
+- `SchemaHint.Decimal(NonNegative = true)` marks a decimal as a non-negative money value. Decimals are encoded as
+  strings, so every decimal is published as a `string` with a money pattern (see
+  [Decimal wire format](#decimal-wire-format)); the pattern is signed by default and drops the sign when `NonNegative`
+  is set. Use it wherever the domain forbids negative values (balances and totals); signed values (transaction amounts,
+  net worth, working capital) need no attribute. The two-digit fraction cap in the pattern replaces the `multipleOf`
+  that a numeric schema would carry.
 
 ```fsharp
 type CreateBalanceSheetItemRequest = {
-    [<SchemaHint.Number(Minimum = "0", MultipleOf = 0.01)>]
+    [<SchemaHint.Decimal(NonNegative = true)>]
     Balance : decimal
 
     [<SchemaHint.Enum(typeof<ItemKind>)>]
@@ -76,14 +79,20 @@ source of truth, so keep the hints in step when a rule changes.
 - `FSharpRecordSchemaTransformer` - marks non-`option` record fields required and fixes string type inference.
 - `XmlDocSchemaTransformer` - populates descriptions from F# XML doc comments.
 - `SchemaHintTransformer` - applies the `SchemaHint` attributes.
-- `DecimalSchemaTransformer` - documents `decimal` as a plain `number`. Without it, `System.Text.Json` infers a
-  `number`-or-`string` union with `format: double` and a numeric-string pattern.
+- `DecimalSchemaTransformer` - documents `decimal` as a `string` with a money pattern. Without it, `System.Text.Json`
+  infers a `number`-or-`string` union with `format: double`.
 
 ### Decimal wire format
 
-The document says `decimal` is a `number`, but the server encodes decimals as JSON strings (Thoth's `Encode.decimal`)
-and the client sends strings too. Requests currently accept either, so the mismatch is only on the response side.
-Revisit this if the encoder or the client ever changes.
+Decimals are encoded as JSON strings (Thoth's `Encode.decimal`) and the client sends strings too, so the documents
+publish every `decimal` as a `string` with a money pattern: `^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$`, or the unsigned form
+`^(?:0|[1-9]\d*)(?:\.\d{1,2})?$` for `[<SchemaHint.Decimal(NonNegative = true)>]`. The two-digit fraction cap mirrors
+the rounding to cents; a `string` schema cannot carry `minimum`/`maximum`/`multipleOf`, so those keywords are not
+published.
+
+Requests are more lenient than the document: the decoder accepts a JSON number as well as a string. The document keeps
+the canonical string form, since that is always what the server sends and what the client sends. Revisit if the encoder
+or the client ever changes.
 
 ## Future migrations and alternatives
 

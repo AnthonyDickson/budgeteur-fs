@@ -15,9 +15,9 @@ open System
 /// </para>
 /// <para>
 /// Use <see cref="SchemaHint.EnumAttribute"/> to document a string enum derived from an F# union's
-/// cases, and <see cref="SchemaHint.NumberAttribute"/> for a minimum-only boundary or
-/// <c>multipleOf</c> that <c>[&lt;Range&gt;]</c> cannot express. Hints document only; they do not
-/// validate, so keep them in step with the domain invariants.
+/// cases, and <see cref="SchemaHint.DecimalAttribute"/> to mark a decimal as a non-negative money
+/// value. Hints document only; they do not validate, so keep them in step with the domain
+/// invariants.
 /// </para>
 /// <para>
 /// See <c>docs/openapi.md</c> for the native attribute reference, the full guidance, and future
@@ -45,25 +45,23 @@ module SchemaHint =
         member _.UnionType = unionType
 
     /// <summary>
-    /// Constrains a numeric property, e.g. a positive magnitude with
-    /// <c>SchemaHint.Number (Minimum = "0", MultipleOf = 0.01)</c>.
+    /// Marks a decimal property as a non-negative money value, e.g.
+    /// <c>SchemaHint.Decimal (NonNegative = true)</c>.
     /// </summary>
     /// <remarks>
-    /// Use this only where <c>[&lt;Range(min, max)&gt;]</c> is not enough: it requires both bounds,
-    /// so it cannot express a minimum-only constraint on a positive magnitude. Bounds are JSON
-    /// Schema keywords carried as strings because <c>OpenApiSchema.Minimum</c> and
-    /// <c>OpenApiSchema.Maximum</c> are strings; leave a bound blank to omit it.
+    /// Decimals are encoded as JSON strings, so the published decimal schema is a <c>string</c>
+    /// with a money pattern (see <see cref="OpenApi.DecimalSchemaTransformer"/>). The pattern is
+    /// signed by default; set <c>NonNegative</c> to drop the sign, mirroring the domain rule that
+    /// a magnitude cannot be negative.
     /// </remarks>
     [<AttributeUsage(AttributeTargets.Class
                      ||| AttributeTargets.Struct
                      ||| AttributeTargets.Property
                      ||| AttributeTargets.Field)>]
-    type NumberAttribute () =
+    type DecimalAttribute () =
         inherit Attribute ()
 
-        member val Minimum = "" with get, set
-        member val Maximum = "" with get, set
-        member val MultipleOf = 0.0 with get, set
+        member val NonNegative = false with get, set
 
 module OpenApi =
     open Microsoft.AspNetCore.OpenApi
@@ -185,8 +183,7 @@ module OpenApi =
 
     /// <summary>
     /// Applies <see cref="SchemaHint"/> attributes to generated schemas, so refined values are
-    /// documented as their wire representation: an enum derived from a union's cases, or a
-    /// constrained number.
+    /// documented as their wire representation: an enum derived from a union's cases.
     /// </summary>
     type SchemaHintTransformer () =
         interface IOpenApiSchemaTransformer with
@@ -203,22 +200,6 @@ module OpenApi =
                                     JsonValue.Create case.Name :> JsonNode
                             ]
 
-                    for attribute in provider.GetCustomAttributes (typeof<SchemaHint.NumberAttribute>, false) do
-                        let hint = attribute :?> SchemaHint.NumberAttribute
-
-                        schema.Type <- Nullable JsonSchemaType.Number
-                        schema.Format <- null
-                        schema.Pattern <- null
-
-                        if not (String.IsNullOrEmpty hint.Minimum) then
-                            schema.Minimum <- hint.Minimum
-
-                        if not (String.IsNullOrEmpty hint.Maximum) then
-                            schema.Maximum <- hint.Maximum
-
-                        if hint.MultipleOf > 0.0 then
-                            schema.MultipleOf <- Nullable (decimal hint.MultipleOf)
-
                 if not (isNull context.JsonPropertyInfo) then
                     apply context.JsonPropertyInfo.AttributeProvider
 
@@ -227,15 +208,32 @@ module OpenApi =
                 Task.CompletedTask
 
     /// <summary>
-    /// Documents <c>decimal</c> as a plain JSON number. System.Text.Json otherwise infers a
-    /// <c>number</c>-or-<c>string</c> union with a <c>double</c> format and a numeric-string pattern.
+    /// Documents <c>decimal</c> as a JSON string using the money pattern, because the server encodes
+    /// decimals as strings (Thoth's <c>Encode.decimal</c>) and the client sends strings. The pattern
+    /// allows at most two fraction digits, matching the domain's rounding to cents. A property
+    /// marked with <see cref="SchemaHint.DecimalAttribute.NonNegative"/> uses the unsigned pattern.
     /// </summary>
     type DecimalSchemaTransformer () =
+        let signedPattern = @"^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$"
+        let nonNegativePattern = @"^(?:0|[1-9]\d*)(?:\.\d{1,2})?$"
+
         interface IOpenApiSchemaTransformer with
             member _.TransformAsync (schema, context, _cancellationToken : CancellationToken) =
                 if context.JsonTypeInfo.Type = typeof<decimal> then
-                    schema.Type <- Nullable JsonSchemaType.Number
+                    schema.Type <- Nullable JsonSchemaType.String
                     schema.Format <- null
-                    schema.Pattern <- null
+                    schema.Minimum <- null
+                    schema.Maximum <- null
+                    schema.MultipleOf <- Nullable ()
+
+                    let isNonNegative =
+                        not (isNull context.JsonPropertyInfo)
+                        && context.JsonPropertyInfo.AttributeProvider.GetCustomAttributes (
+                            typeof<SchemaHint.DecimalAttribute>,
+                            false
+                           )
+                           |> Array.exists (fun attribute -> (attribute :?> SchemaHint.DecimalAttribute).NonNegative)
+
+                    schema.Pattern <- if isNonNegative then nonNegativePattern else signedPattern
 
                 Task.CompletedTask
