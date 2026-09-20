@@ -29,7 +29,7 @@ balance sheet feature (assets and liabilities) records its domain decisions, rat
 | -------------------------- | ---------------------------------------------------------- |
 | `just server-build`        | Build the server                                           |
 | `just server-watch`        | Run the server at :5000 (auto-applies DB migrations)       |
-| `just server-test`         | Server Expecto tests                                       |
+| `just server-test`         | Server Expecto tests (via the test adapter)                |
 | `just client-install-deps` | Install npm packages (first run)                           |
 | `just client-watch`        | Client dev server at :5173 (Vite + Gleam watch)            |
 | `just client-test`         | Client gleeunit tests                                      |
@@ -246,7 +246,8 @@ the SPA itself. This is why no CORS is configured anywhere.
 
 Three layers. Each has a dedicated doc:
 
-- **Server** — Expecto (`just server-test`). An in-memory SQLite `TestApp` (via `HostBuilder` + `TestServer`) wires each
+- **Server** — Expecto via the Expecto test adapter (`just server-test`, i.e. `dotnet test server/Budgeteur.slnx`) — the
+  same mechanism IDE test explorers use. An in-memory SQLite `TestApp` (via `HostBuilder` + `TestServer`) wires each
   feature's `GET`/`POST`/`PUT`/`DELETE` endpoint lists directly — the same grouping as `Program.fs`, minus the auth
   middleware that needs the full OIDC/JWT setup — and injects a fake `ClaimsPrincipal` with a `sub` claim. A fresh app
   per test gives an empty database. See [docs/server-tests.md](docs/server-tests.md).

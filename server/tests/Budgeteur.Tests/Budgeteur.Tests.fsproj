@@ -5,8 +5,6 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <GenerateProgramFile>false</GenerateProgramFile>
-    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,13 +20,14 @@
     <Compile Include="Transactions/EndpointTests.fs" />
     <Compile Include="Transactions/TransactionDescriptionPropertyTests.fs" />
     <Compile Include="MoneyTests.fs" />
-    <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Expecto" />
     <PackageReference Include="Expecto.FsCheck" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="YoloDev.Expecto.TestSdk" />
   </ItemGroup>
 
 </Project>

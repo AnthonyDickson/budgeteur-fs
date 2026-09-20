@@ -19,9 +19,9 @@ server-build:
 server-watch:
 	ASPNETCORE_ENVIRONMENT=Development dotnet watch run --project server/src/Budgeteur --no-hot-reload
 
-# Expecto tests
+# Expecto tests (through the Expecto test adapter, same as IDE test explorers)
 server-test:
-	dotnet run --project server/tests/Budgeteur.Tests
+	dotnet test server/Budgeteur.slnx
 
 # npm install
 client-install-deps:

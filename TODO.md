@@ -17,7 +17,6 @@
 ## Current Tasks
 
 - Balances page:
-  - Get test adapter working for Expecto so I don't have to list out all tests
   - Wire up client to backend
     - Convert UTC time in balance sheet to local time on display if possible
   - Tests, review, update docs
