@@ -35,8 +35,8 @@ balance sheet feature (assets and liabilities) records its domain decisions, rat
 Dev environment via Nix: `nix develop` (or `direnv allow`). Run `just client-install-deps` once before any client
 command. The justfile is the source of truth for the full target list (`audit`, `outdated`, the `db-*` family).
 
-Quick start either via `docker compose up` (Authelia :9091, server :5000, client :5173; log in with
-`dev`/`dev-password`) or natively with `just server-watch` plus `just client-watch` in a second terminal. See
+Quick start either via `docker compose -f docker/docker-compose.yml up` (Authelia :9091, server :5000, client :5173; log
+in with `dev`/`dev-password`) or natively with `just server-watch` plus `just client-watch` in a second terminal. See
 [README.md](README.md) for details.
 
 ## Design Principles

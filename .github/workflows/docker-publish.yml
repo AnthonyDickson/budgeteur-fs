@@ -32,6 +32,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
+          file: docker/Dockerfile
           push: true
           tags: |
             ghcr.io/anthonydickson/budgeteur-fs:${{ inputs.tag }}

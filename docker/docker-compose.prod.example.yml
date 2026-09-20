@@ -1,9 +1,11 @@
 # ═══════════════════════════════════════════════════════════════════════
 # EXAMPLE — DO NOT USE AS-IS
-# Copy to docker-compose.prod.yml and fill in your own values for
-# Oidc__Authority, Oidc__ClientId, Oidc__ClientSecret, and
+# Copy to docker-compose.prod.yml alongside this file and fill in your own
+# values for Oidc__Authority, Oidc__ClientId, Oidc__ClientSecret, and
 # Login__ReturnUrl. See docs/prod-oidc-setup.md.
 # ═══════════════════════════════════════════════════════════════════════
+
+name: budgeteur-fs
 
 services:
   budgeteur-fs:

@@ -4,8 +4,8 @@ VERSION := env_var_or_default("VERSION", "0.0.0-local")
 GIT_SHA := env_var_or_default("GIT_SHA", "")
 
 run:
-	docker compose up
-	docker compose down
+	docker compose -f docker/docker-compose.yml up
+	docker compose -f docker/docker-compose.yml down
 
 # Run dotnet restore on the server solution
 server-restore:
@@ -57,8 +57,8 @@ publish: copy-client-dist
 
 # Playwright E2E tests in Docker
 e2e-test:
-	docker compose -f docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
-	docker compose down
+	docker compose -f docker/docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
+	docker compose -f docker/docker-compose.e2e.yml down
 
 # Format with fantomas + gleam format
 format:

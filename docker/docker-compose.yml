@@ -1,3 +1,5 @@
+name: budgeteur-fs
+
 services:
   authelia:
     image: authelia/authelia:4.39.20
@@ -6,7 +8,7 @@ services:
     ports:
       - '9091:9091'
     volumes:
-      - ./authelia:/config
+      - ../authelia:/config
     environment:
       - TZ=UTC
     healthcheck:
@@ -28,8 +30,8 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
     volumes:
-      - ./.git:/src/.git:ro
-      - ./server:/src/server
+      - ../.git:/src/.git:ro
+      - ../server:/src/server
     healthcheck:
       test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:5000/api/status"]
       interval: 5s
@@ -39,8 +41,8 @@ services:
 
   client:
     build:
-      context: .
-      dockerfile: Dockerfile.client-dev
+      context: ..
+      dockerfile: docker/Dockerfile.client-dev
     container_name: budgeteur-fs-client
     network_mode: "host"
     working_dir: /src/client
@@ -51,7 +53,7 @@ services:
     environment:
       - NODE_ENV=development
     volumes:
-      - ./client:/src/client
+      - ../client:/src/client
       - client-node-modules:/src/client/node_modules
       - gleam-packages:/src/client/build
     depends_on:
