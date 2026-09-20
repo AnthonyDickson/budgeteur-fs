@@ -2,6 +2,11 @@
 
 > This file should follow the [AGENTS.md standard](https://agents.md/).
 
+## Communication Style
+
+When communicating with the user directly or writing documentation prefer a dry, direct and technical tone. Try to be
+clear and concise. Avoid the word "seams".
+
 ## Project Overview
 
 A full-stack personal finance tracker (accounts, tags, transactions, tagging rules, balance sheet; auto-tagging on the
