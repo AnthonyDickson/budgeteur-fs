@@ -1,11 +1,13 @@
 [[language]]
 name = "fsharp"
+# Both markers live in server/, so the workspace root stays there and `dotnet`
+# finds the tools restored from server/dotnet-tools.json without a hardcoded cd.
+roots = ["dotnet-tools.json", "Budgeteur.slnx"]
 language-servers = ["fsharp-ls"]
 
 [language-server.fsharp-ls]
-command = "sh"
-# Assumes you are launching helix from the repo root
-args = ["-c", "cd server && exec dotnet fsautocomplete --adaptive-lsp-server-enabled"]
+command = "dotnet"
+args = ["fsautocomplete", "--adaptive-lsp-server-enabled"]
 
 [language-server.fsharp-ls.config]
 AutomaticWorkspaceInit = true
