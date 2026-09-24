@@ -21,7 +21,7 @@ module DeleteBalanceSheetItem =
     [<Literal>]
     let Path = "/api/balance-sheet/items/{%O:guid}"
 
-    let deleteBalanceSheetItem (queryContext : QueryContext) (userId : string) (id : Guid) =
+    let private deleteBalanceSheetItem (queryContext : QueryContext) (userId : string) (id : Guid) =
         task {
             let! rows =
                 deleteTask queryContext {

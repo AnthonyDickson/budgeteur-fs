@@ -91,9 +91,9 @@ module Balance =
         else
             Ok amount
 
-    /// <summary>Round to cents and then validate that the balance is a positive magnitude.</summary>
+    /// <summary>Round to cents and validate that the balance is a positive magnitude.</summary>
     let create (amount : decimal) =
-        amount |> Money.roundToCents |> nonNegative |> Result.map Balance
+        amount |> nonNegative |> Result.map Money.roundToCents |> Result.map Balance
 
     let value (Balance amount) = amount
 

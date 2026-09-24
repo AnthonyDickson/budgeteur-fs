@@ -14,11 +14,12 @@ module ReadBalanceSheet =
     open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.BalanceSheet
-    open Budgeteur.Shared.OpenApi
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
+    open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
+    open Budgeteur.Shared.OpenApi
     open Budgeteur.Shared.RequestLogging
 
     [<Literal>]
@@ -111,15 +112,8 @@ module ReadBalanceSheet =
                 | Some sheet ->
                     log.Info "Returned balance sheet"
                     do! Json.write ctx (BalanceSheetResponse.fromDomain sheet)
-                | None ->
-                    log.Info "Returned temporary balance sheet, could not find existing balance sheet"
+                | None -> return! Error (NotFound $"Could not find balance sheet for user {userId}")
 
-                    let sheet : BalanceSheet = {
-                        StatementDate = DateTime.UtcNow
-                        Items = []
-                    }
-
-                    do! Json.write ctx (BalanceSheetResponse.fromDomain sheet)
             })
 
     let endpoint (queryContext : QueryContextFactory) =
@@ -129,6 +123,7 @@ module ReadBalanceSheet =
                 responseBodies = [|
                     ResponseBody typeof<BalanceSheetResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
+                    ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
                 configureOperation =
                     fun op _ _ ->

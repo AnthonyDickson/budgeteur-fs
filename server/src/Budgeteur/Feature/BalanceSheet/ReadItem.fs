@@ -41,9 +41,9 @@ module ReadBalanceSheetItem =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! sheet = tryReadBalanceSheetItem queryContext id userId
+                let! item = tryReadBalanceSheetItem queryContext id userId
 
-                match sheet with
+                match item with
                 | Some item ->
                     log.Info (
                         $"Returned balance sheet item %O{id}",

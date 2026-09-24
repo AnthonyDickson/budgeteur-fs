@@ -32,7 +32,7 @@ Reference a `[<Literal>]` for bounds so they are not duplicated, e.g. `[<MaxLeng
 bare `128`.
 
 ```fsharp
-type CreateBalanceSheetItemRequest = {
+type WriteBalanceSheetItemRequest = {
     [<MinLength(1)>]
     [<MaxLength(ItemName.MaxLength)>]
     Name : string
@@ -58,7 +58,7 @@ constraint. (The `Attribute` suffix is optional: `SchemaHint.Enum` and `SchemaHi
   that a numeric schema would carry.
 
 ```fsharp
-type CreateBalanceSheetItemRequest = {
+type WriteBalanceSheetItemRequest = {
     [<SchemaHint.Decimal(NonNegative = true)>]
     Balance : decimal
 

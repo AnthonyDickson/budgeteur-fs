@@ -73,7 +73,7 @@ module CreateBalanceSheetItem =
                 let! req = Json.read ctx
                 let! item = WriteBalanceSheetItemRequest.validate req (Guid.CreateVersion7 ())
 
-                do! Constraints.requireAll [ requireBalanceSheetItemIsUnique queryContext item userId ]
+                do! Constraints.requireOne (requireBalanceSheetItemIsUnique queryContext item userId)
 
                 use! sharedCtx = queryContext.OpenContextAsync ()
                 sharedCtx.BeginTransaction ()
