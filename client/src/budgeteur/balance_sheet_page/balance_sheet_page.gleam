@@ -1,10 +1,21 @@
+import budgeteur/balance_sheet_page/balance_sheet.{
+  type BalanceSheet, BalanceSheet,
+}
+import budgeteur/balance_sheet_page/balance_sheet_item.{
+  type BalanceSheetItem, BalanceSheetItem,
+}
+import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
+import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/date
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import gleam/list
 import gleam/option.{type Option, None}
-import gleam/time/calendar.{type Date, Date}
+import gleam/pair
+import gleam/time/calendar
+import gleam/time/duration
+import gleam/time/timestamp
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -13,41 +24,6 @@ import youid/uuid.{type Uuid}
 
 // Types
 // -----
-
-pub type ItemKind {
-  Asset
-  Liability
-}
-
-pub type Term {
-  Current
-  NonCurrent
-}
-
-pub type BalanceSheetItem {
-  BalanceSheetItem(
-    id: Uuid,
-    name: String,
-    kind: ItemKind,
-    term: Term,
-    balance: Float,
-  )
-}
-
-pub type BalanceSheet {
-  BalanceSheet(
-    statement_date: Date,
-    total_assets: Float,
-    total_liabilities: Float,
-    net_worth: Float,
-    total_current_assets: Float,
-    total_non_current_assets: Float,
-    total_current_liabilities: Float,
-    total_non_current_liabilities: Float,
-    working_capital: Float,
-    items: List(BalanceSheetItem),
-  )
-}
 
 pub type Model {
   Model(balance_sheet: BalanceSheet)
@@ -68,7 +44,11 @@ pub fn init() -> #(Model, Effect(Msg)) {
 
 fn sample_balance_sheet() -> BalanceSheet {
   BalanceSheet(
-    statement_date: Date(2026, calendar.January, 1),
+    statement_date: timestamp.from_calendar(
+      calendar.Date(2026, calendar.January, 1),
+      calendar.TimeOfDay(0, 0, 0, 0),
+      duration.seconds(0),
+    ),
     total_assets: 407_000.0,
     total_liabilities: 301_500.0,
     net_worth: 105_500.0,
@@ -158,7 +138,14 @@ fn page_header(sheet: BalanceSheet) -> Element(Msg) {
           html.text("Balance Sheet"),
         ]),
         html.p([attribute.class("mt-1 text-sm text-gray-500")], [
-          html.text("Balances as of " <> date.format(sheet.statement_date)),
+          html.text(
+            "Balances as of "
+            <> date.format(
+              sheet.statement_date
+              |> timestamp.to_calendar(calendar.local_offset())
+              |> pair.first,
+            ),
+          ),
         ]),
       ]),
       html.button(
