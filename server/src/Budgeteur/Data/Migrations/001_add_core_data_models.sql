@@ -5,11 +5,6 @@
 --
 -- # Column Type Assumptions
 -- GUIDs are assumed to be v7 UUIDs
--- DATE columns are assumed to be in local time, although for a budgeting app
--- the distinction does not matter too much. The discrepancy between local dates
--- and UTC timestamps does not matter too much either since dates are used
--- consistently for user-facing data and timestamps are only used internally for
--- sorting queues.
 --
 -- # DATETIME Special Handling
 -- 
@@ -32,6 +27,7 @@ CREATE TABLE Accounts (
     -- The amount of money held in the account. Positive values indicate credit whereas negative values indicate debit.
     Balance     CURRENCY NOT NULL,
     -- When the balance snapshot was taken (the date the balance is accurate as of).
+    -- TODO: Change this column to UTC DATETIME to ensure the local date can be reconstructed from it
     CurrentAsOf DATE     NOT NULL
 );
 
@@ -83,6 +79,7 @@ CREATE TABLE Transactions (
     -- A text description of the transaction either manually entered by the user or derived from a CSV row.
     Description TEXT     NOT NULL,
     -- When the transaction occurred.
+    -- TODO: Change this column to UTC DATETIME to ensure the local date can be reconstructed from it
     Date        DATE     NOT NULL,
     -- Whether the transaction represents an internal transfer between a user's own accounts.
     -- If true, the transaction should only be shown in the transactions table, but not anywhere else.
