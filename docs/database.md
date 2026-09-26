@@ -48,13 +48,29 @@ Deletes `app.sqlite3`, re-applies all migrations in order, regenerates `Db.fs`.
 ## Schema
 
 The core schema (accounts, categories, transactions, auto-tagging rules, a tagging queue, and user preferences) is
-defined in `Data/Migrations/`. The header comment of the first migration documents the column type conventions — the
-`GUID`, `BOOLEAN`, `DATETIME` etc. hints are not real SQLite types but drive SqlHydra's F# codegen. See
+defined in `Data/Migrations/`. The header comment of the first migration documents the codegen hints: `GUID`, `BOOLEAN`,
+`DATETIME` and the rest are not real SQLite types, they drive SqlHydra's F# codegen. See
 [SqlHydra's SqliteDataTypes.fs](https://github.com/JordanMarr/SqlHydra/blob/main/src/SqlHydra.Cli/Sqlite/SqliteDataTypes.fs)
 for the full list of supported hints.
 
 At startup `Program.fs` enables WAL journal mode and foreign-key enforcement via PRAGMA after migrations run — SQLite
 silently ignores foreign keys otherwise.
+
+### Date and datetime columns
+
+`DATETIME` columns carry no offset, so values are stored and read back without one. `BalanceSheets.StatementDate` and
+`TaggingQueue.CreatedAt` are the ones the schema has today, and all such columns are assumed to be UTC. A deviation has
+to be documented on the column itself.
+
+- **Writing.** Convert before the value reaches the column. F# code carries instants as `DateTimeOffset` and calls
+  `.UtcDateTime` at the point of the write, so the stored value is UTC whatever offset the caller holds; see
+  `BalanceSheetStore.updateOrCreate`. SQL writes (a trigger, a queue insert) are outside the type system and have to
+  apply the same rule by hand; SQLite's `datetime('now')` is already UTC.
+- **Reading.** SQLite hands the value back as `DateTimeKind.Unspecified`, so each codec restores the kind with
+  `DateTime.SpecifyKind (value, DateTimeKind.Utc)`; see `BalanceSheetCodec.fromRow`. Skipping it leaves the value
+  `Unspecified`, so it is only correct if every reader happens to assume UTC.
+- **`DATE` columns are not covered by this rule.** `Accounts.CurrentAsOf` and `Transactions.Date` hold local dates today
+  and each carries a TODO to move to UTC.
 
 ## Key Constraints
 

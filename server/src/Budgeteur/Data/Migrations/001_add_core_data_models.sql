@@ -5,14 +5,8 @@
 --
 -- # Column Type Assumptions
 -- GUIDs are assumed to be v7 UUIDs
---
--- # DATETIME Special Handling
--- 
--- DATETIME columns are stored without offset info and by default will be loaded
--- with the `Unspecified` offset. In general, DATETIME values are assumed to be
--- UTC and any deviation from this should be clearly documented.
--- When writing to this column ensure the value is in UTC.
--- When reading this column, set the offset to UTC via DateTime.SpecifyKind.
+-- DATETIME columns are assumed to be UTC, see the "Date and datetime columns" section of
+-- docs/database.md for how to read and write them.
 
 -- Accounts
 

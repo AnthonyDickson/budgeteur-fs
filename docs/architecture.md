@@ -117,7 +117,7 @@ the key design points:
   `SchemaVersions` table. Never modify an already-applied migration.
 - `Data/Db.fs` is SqlHydra-generated and committed. SqlHydra-compatible type hints (`GUID`, `BOOLEAN`, `DATETIME`,
   `CURRENCY`, …) in migration columns are not real SQLite types but drive codegen; the first migration's header comment
-  documents the conventions (v7 UUIDs, UTC timestamps, etc.).
+  explains them, and the conventions they imply (v7 UUIDs, UTC timestamps) live in [docs/database.md](database.md).
 - The `toRow` / `fromRow` mapping layer is the control point — DB columns never leak to the API.
 - `Data/Constraints.fs` holds explicit `require*` checks mirroring the schema's integrity constraints, to give friendly
   `ValidationFailed` errors.
