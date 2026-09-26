@@ -65,7 +65,8 @@ More specifically:
 - **Client MVU/TEA** — two-tier shell + page modules; avoid stateful components (nested TEA).
 - **Testing** — prefer tests where confidence is low (multi-step/stateful logic, validation, save/error/retry), not
   trivial mappings. Each feature needs at least one test driving the happy path through the real event flow. Only E2E
-  tests exercise client-server interactions. Minimise maintenance while maximising confidence.
+  tests exercise client-server interactions. Minimise maintenance while maximising confidence. Decisions about what to
+  test, at which layer, and how much live in [docs/testing-strategy.md](docs/testing-strategy.md).
 
 ## Code Review
 
