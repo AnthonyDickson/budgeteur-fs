@@ -34,6 +34,7 @@
 
     <Compile Include="Data/Db.fs" />
     <Compile Include="Data/Constraints.fs" />
+    <Compile Include="Data/UtcDateTime.fs" />
     <Compile Include="Data/RuleCodec.fs" />
     <Compile Include="Data/TagCodec.fs" />
     <Compile Include="Data/BalanceSheetItemCodec.fs" />

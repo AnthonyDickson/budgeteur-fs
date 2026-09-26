@@ -25,17 +25,17 @@ balance sheet feature (assets and liabilities) records its domain decisions, rat
 
 ## Essential Commands
 
-| Command                    | Purpose                                                    |
-| -------------------------- | ---------------------------------------------------------- |
-| `just server-build`        | Build the server                                           |
-| `just server-watch`        | Run the server at :5000 (auto-applies DB migrations)       |
-| `just server-test`         | Server Expecto tests (via the test adapter)                |
-| `just client-install-deps` | Install npm packages (first run)                           |
-| `just client-watch`        | Client dev server at :5173 (Vite + Gleam watch)            |
-| `just client-test`         | Client gleeunit tests                                      |
-| `just e2e-test`            | Playwright E2E tests in Docker                             |
-| `just format`              | Format markdown (dprint) + Gleam + F#                      |
-| `just lint`                | Lint F# with fsharplint + enforce feature-slice boundaries |
+| Command                    | Purpose                                              |
+| -------------------------- | ---------------------------------------------------- |
+| `just server-build`        | Build the server                                     |
+| `just server-watch`        | Run the server at :5000 (auto-applies DB migrations) |
+| `just server-test`         | Server Expecto tests (via the test adapter)          |
+| `just client-install-deps` | Install npm packages (first run)                     |
+| `just client-watch`        | Client dev server at :5173 (Vite + Gleam watch)      |
+| `just client-test`         | Client gleeunit tests                                |
+| `just e2e-test`            | Playwright E2E tests in Docker                       |
+| `just format`              | Format markdown (dprint) + Gleam + F#                |
+| `just lint`                | Lint F# with fsharplint + [custom lints](./justfile) |
 
 Dev environment via Nix: `nix develop` (or `direnv allow`). Run `just client-install-deps` once before any client
 command. The justfile is the source of truth for the full target list (`audit`, `outdated`, the `db-*` family).

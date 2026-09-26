@@ -19,15 +19,15 @@ module BalanceSheetStore =
 
     open SqlHydra.Query
 
+    open Budgeteur.Data
     open Budgeteur.Data.Db
 
     /// <summary> Update the statement date on the user's balance sheet if it exists, otherwise create it.
     /// The instant is stored in UTC, as the <c>DATETIME</c> column convention requires.</summary>
     let updateOrCreate (queryContext : QueryContext) (now : DateTimeOffset) (userId : string) : Task<unit> =
         task {
-            // The column carries no offset, so it has to be written as UTC. Converting here means
-            // the stored instant is right whatever offset the clock reports.
-            let statementDate = now.UtcDateTime
+            // The column carries no offset, so it has to be written as UTC.
+            let statementDate = UtcDateTime.toColumn now
 
             let! sheetCount =
                 selectTask queryContext {
