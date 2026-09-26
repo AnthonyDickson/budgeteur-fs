@@ -3,8 +3,33 @@
 
 # Budgeteur
 
-A full-stack web app with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI) and a Gleam/Lustre SPA frontend
-(Tailwind CSS v4, Vite).
+## About
+
+Budgeteur is a budgeting and personal finance web-app.
+
+This app aims to provide two services:
+
+- Budgeting: Recording your income and expenses, and tracking savings targets.
+- Personal Finance: Keeping track of your net worth.
+
+This application is intended to be self-hosted on a home server.
+
+## Why?
+
+I started budgeting with a mobile app, but I quickly ran into three main issues:
+
+1. it required me to enter my income/expenses manually,
+1. it only worked on my phone,
+1. and it didn't help me with tracking my net worth.
+
+I have tried using a spreadsheet to track my net worth, however I then ran into issues where editing this spreadsheet
+from multiple devices lead to old copies overwriting the copy in my cloud storage.
+
+Budgeteur is my attempt at a single, cross-platform application for tracking my budget and net worth. One helpful
+feature of Budgeteur is that you can import transactions and track your account balances from CSV files. These CSV can
+be exported from the internet banking websites for New Zealand bank accounts (ASB and Kiwibank). This reduces the amount
+manual data entry significantly, making it easier to maintain the habit of tracking your budget even when life gets
+busy.
 
 ## Getting Started
 
@@ -38,6 +63,9 @@ just client-watch        # Vite dev server at :5173
 See the [Justfile](./justfile) for all targets.
 
 ## How It Works
+
+Budgetetur is a full-stack web app with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI) and a Gleam/Lustre SPA
+frontend (Tailwind CSS v4, Vite).
 
 - **Backend** — Oxpecker on .NET 10 with OIDC auth (cookie + JWT bearer). Endpoints live in vertical slices (one folder
   per domain). SQLite with DbUp migrations and SqlHydra type-safe queries. OpenAPI spec at `/openapi/v1.json` and
