@@ -34,7 +34,7 @@ module DeleteBalanceSheetItem =
             return deleted
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler (queryContext : QueryContextFactory) (clock : Clock) (id : Guid) : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -45,7 +45,7 @@ module DeleteBalanceSheetItem =
                 let! deleted = deleteBalanceSheetItem sharedCtx userId id
 
                 if deleted then
-                    do! BalanceSheetStore.updateOrCreate sharedCtx DateTime.UtcNow userId
+                    do! BalanceSheetStore.updateOrCreate sharedCtx (clock ()) userId
                     sharedCtx.CommitTransaction ()
                     log.Info ($"Deleted balance sheet item %O{id}", LogProp.prop "balanceSheetItemId" (id.ToString ()))
                     ctx.SetStatusCode 204
@@ -60,8 +60,8 @@ module DeleteBalanceSheetItem =
                     return! Error (NotFound $"Balance sheet item %O{id} not found")
             })
 
-    let endpoint (queryContext : QueryContextFactory) =
-        routef Path (handler queryContext)
+    let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
+        routef Path (handler queryContext clock)
         |> addOpenApi (
             OpenApiConfig (
                 responseBodies = [|

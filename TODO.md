@@ -17,7 +17,7 @@
 ## Current Tasks
 
 - Balances page:
-  - Tests, review
+  - Review
   - Update money.gleam to use JS ffi to format numbers with commas
   - Consider renaming balance sheet _item_ to balance sheet _entry_.
 - Consider reworking constraints: Rather than eagerly checking constraints, run the DB query and catch any exceptions.

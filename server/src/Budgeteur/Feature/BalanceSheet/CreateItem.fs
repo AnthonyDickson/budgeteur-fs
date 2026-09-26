@@ -65,7 +65,7 @@ module CreateBalanceSheetItem =
             return ()
         }
 
-    let private handler (queryContext : QueryContextFactory) : EndpointHandler =
+    let private handler (queryContext : QueryContextFactory) (clock : Clock) : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -78,7 +78,7 @@ module CreateBalanceSheetItem =
                 use! sharedCtx = queryContext.OpenContextAsync ()
                 sharedCtx.BeginTransaction ()
                 do! insertBalanceSheetItem sharedCtx item userId
-                do! BalanceSheetStore.updateOrCreate sharedCtx DateTime.UtcNow userId
+                do! BalanceSheetStore.updateOrCreate sharedCtx (clock ()) userId
                 sharedCtx.CommitTransaction ()
 
                 log.Info (
@@ -90,8 +90,8 @@ module CreateBalanceSheetItem =
                 do! Json.write ctx (BalanceSheetItemResponse.fromDomain item)
             })
 
-    let endpoint (queryContext : QueryContextFactory) =
-        route Path (handler queryContext)
+    let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
+        route Path (handler queryContext clock)
         |> addOpenApi (
             OpenApiConfig (
                 requestBody = RequestBody typeof<WriteBalanceSheetItemRequest>,

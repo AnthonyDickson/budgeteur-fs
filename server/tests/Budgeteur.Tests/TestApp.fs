@@ -16,7 +16,11 @@ open Oxpecker
 module private TestClaims =
     let userId = "test-user"
 
-    let principal =
+    /// The header a request can carry to act as a different user against the same
+    /// database. Used by the cross-user scoping tests.
+    let header = "X-Test-User"
+
+    let principal (userId : string) =
         let identity = ClaimsIdentity ([ Claim ("sub", userId) ], "test")
         ClaimsPrincipal identity
 
@@ -27,6 +31,7 @@ type TestAppConfig = {
 
 module TestAppConfig =
     open Budgeteur.Data.Db
+    open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Feature.Transaction
 
     let empty = {
@@ -53,8 +58,30 @@ module TestAppConfig =
             CleanTables = "Transactions" :: config.CleanTables
     }
 
+    let withBalanceSheet (clock : Clock) (config : TestAppConfig) = {
+        config with
+            EndpointProviders =
+                (fun connStr ->
+                    let queryContext = QueryContextFactory.Create connStr
+
+                    [
+                        GET [ ReadBalanceSheet.endpoint queryContext ]
+                        POST [ CreateBalanceSheetItem.endpoint queryContext clock ]
+                        GET [
+                            ReadBalanceSheetItem.endpoint queryContext
+                            ReadAllBalanceSheetItems.endpoint queryContext
+                        ]
+                        PUT [ UpdateBalanceSheetItem.endpoint queryContext clock ]
+                        DELETE [ DeleteBalanceSheetItem.endpoint queryContext clock ]
+                    ])
+                :: config.EndpointProviders
+            CleanTables = "BalanceSheetItems" :: "BalanceSheets" :: config.CleanTables
+    }
+
 type TestApp = {
     Client : HttpClient
+    /// A second client authenticated as a different user against the same database.
+    ClientForUser : string -> HttpClient
     CleanDatabase : unit -> unit
     Dispose : unit -> unit
 } with
@@ -95,6 +122,16 @@ module TestApp =
             // test requests can't interleave their output mid-line.
             lock dumpLock (fun () -> eprintf "%s" (sb.ToString ()))
 
+    /// The `sub` claim to authenticate a request as: the `X-Test-User` header when
+    /// present, otherwise the default test user.
+    let private requestUser (ctx : HttpContext) (defaultUser : string) =
+        let header = ctx.Request.Headers[TestClaims.header]
+
+        if header.Count > 0 && not (String.IsNullOrWhiteSpace header[0]) then
+            string header[0]
+        else
+            defaultUser
+
     /// Create an app server with an in-memory SQLite database
     let create (config : TestAppConfig) =
         // In-memory database shared by every connection through SQLite's shared cache. The keeper
@@ -131,7 +168,7 @@ module TestApp =
                             app.Use (fun (ctx : HttpContext) (next : Func<Task>) ->
                                 task {
                                     ctx.Items[RequestLog.Key] <- RequestLog ()
-                                    ctx.User <- TestClaims.principal
+                                    ctx.User <- TestClaims.principal (requestUser ctx TestClaims.userId)
 
                                     try
                                         return! next.Invoke ()
@@ -150,6 +187,11 @@ module TestApp =
 
         let client = host.GetTestClient ()
 
+        let clientForUser (userId : string) =
+            let client = host.GetTestClient ()
+            client.DefaultRequestHeaders.Add (TestClaims.header, userId)
+            client
+
         let cleanDatabase () =
             use conn = new SqliteConnection (connectionString)
             conn.Open ()
@@ -166,6 +208,7 @@ module TestApp =
 
         {
             Client = client
+            ClientForUser = clientForUser
             CleanDatabase = cleanDatabase
             Dispose = dispose
         }

@@ -6,6 +6,14 @@ open System.ComponentModel.DataAnnotations
 open Budgeteur.Domain.BalanceSheetItem
 open Budgeteur.Shared.OpenApi
 
+/// <summary>Reads the current instant. The item write endpoints take one so a caller can control the
+/// <c>StatementDate</c> a write stamps, which is otherwise only ever "now".</summary>
+type Clock = unit -> DateTimeOffset
+
+module Clock =
+    /// <summary>The real clock: the current instant, in UTC.</summary>
+    let system : Clock = fun () -> DateTimeOffset.UtcNow
+
 module BalanceSheetStore =
     open System.Threading.Tasks
 
@@ -13,9 +21,14 @@ module BalanceSheetStore =
 
     open Budgeteur.Data.Db
 
-    /// <summary> Update the statement date on the user's balance sheet if it exists, otherwise create it.</summary>
-    let updateOrCreate (queryContext : QueryContext) (now : DateTime) (userId : string) : Task<unit> =
+    /// <summary> Update the statement date on the user's balance sheet if it exists, otherwise create it.
+    /// The instant is stored in UTC, as the <c>DATETIME</c> column convention requires.</summary>
+    let updateOrCreate (queryContext : QueryContext) (now : DateTimeOffset) (userId : string) : Task<unit> =
         task {
+            // The column carries no offset, so it has to be written as UTC. Converting here means
+            // the stored instant is right whatever offset the clock reports.
+            let statementDate = now.UtcDateTime
+
             let! sheetCount =
                 selectTask queryContext {
                     for b in main.BalanceSheets do
@@ -29,7 +42,7 @@ module BalanceSheetStore =
                 let! _ =
                     updateTask queryContext {
                         for b in main.BalanceSheets do
-                            set b.StatementDate now
+                            set b.StatementDate statementDate
                             where (b.UserId = userId)
                     }
 
@@ -38,7 +51,10 @@ module BalanceSheetStore =
                 let! _ =
                     insertTask queryContext {
                         for b in main.BalanceSheets do
-                            entity { UserId = userId; StatementDate = now }
+                            entity {
+                                UserId = userId
+                                StatementDate = statementDate
+                            }
                     }
 
                 return ()

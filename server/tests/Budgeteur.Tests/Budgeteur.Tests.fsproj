@@ -17,6 +17,7 @@
     <Compile Include="Domain/BalanceSheetItemTests.fs" />
     <Compile Include="Domain/BalanceSheetTests.fs" />
     <Compile Include="Data/BalanceSheetItemTests.fs" />
+    <Compile Include="BalanceSheet/EndpointTests.fs" />
     <Compile Include="Transactions/EndpointTests.fs" />
     <Compile Include="Transactions/TransactionDescriptionPropertyTests.fs" />
     <Compile Include="MoneyTests.fs" />
