@@ -213,21 +213,10 @@ fn from_transaction(transaction: Transaction) -> Form {
   )
 }
 
-/// Note: only clips valid numbers such as "1.234".
-/// Invalid numbers such as "12.." and "12.34.56" pass through for the validation
-/// layer to catch the issue.
-pub fn clip_amount_to_two_dp(amount: String) -> String {
-  case string.split(amount, ".") {
-    [whole, fraction] ->
-      whole <> "." <> string.slice(from: fraction, at_index: 0, length: 2)
-    _ -> amount
-  }
-}
-
 /// Validate and set the amount field. No op for Hidden and Submitting states.
 fn set_amount(state: Modal, amount: String) -> Modal {
   form_modal.set_form(state, fn(form) {
-    let amount = clip_amount_to_two_dp(amount)
+    let amount = money.clip_to_two_dp(amount)
     Form(
       ..form,
       amount: field.validate(amount, validate_amount, is_amount_required),
@@ -325,26 +314,14 @@ fn is_date_required(error: DateError) -> Bool {
 }
 
 fn validate_amount(amount_string: String) -> Result(Float, AmountError) {
-  case float.parse(amount_string) {
+  case money.parse_decimal(amount_string) {
     Ok(amount) ->
       case amount <. 0.0 {
         True -> Error(NotPositive)
         False -> Ok(amount)
       }
 
-    Error(Nil) ->
-      case int.parse(amount_string) {
-        Ok(amount) -> {
-          let amount = int.to_float(amount)
-
-          case amount <. 0.0 {
-            True -> Error(NotPositive)
-            False -> Ok(amount)
-          }
-        }
-
-        Error(Nil) -> Error(NotANumber)
-      }
+    Error(Nil) -> Error(NotANumber)
   }
 }
 

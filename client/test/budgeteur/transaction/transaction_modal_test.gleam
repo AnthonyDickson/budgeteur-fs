@@ -41,31 +41,6 @@ fn form_of(modal: transaction_modal.Modal) -> transaction_modal.Form {
   }
 }
 
-pub fn clip_amount_allows_up_to_two_decimal_places_test() {
-  transaction_modal.clip_amount_to_two_dp("12.3")
-  |> should.equal("12.3")
-}
-
-pub fn clip_amount_truncates_extra_decimal_places_test() {
-  transaction_modal.clip_amount_to_two_dp("12.345")
-  |> should.equal("12.34")
-}
-
-pub fn clip_amount_preserves_trailing_decimal_point_test() {
-  transaction_modal.clip_amount_to_two_dp("12.")
-  |> should.equal("12.")
-}
-
-pub fn clip_amount_leaves_multiple_decimal_points_untouched_test() {
-  transaction_modal.clip_amount_to_two_dp("12.34.56")
-  |> should.equal("12.34.56")
-}
-
-pub fn clip_amount_leaves_whole_numbers_untouched_test() {
-  transaction_modal.clip_amount_to_two_dp("123")
-  |> should.equal("123")
-}
-
 pub fn set_amount_clips_to_two_decimal_places_test() {
   let form = opened() |> send(AmountChanged("12.345")) |> form_of
   let assert field.Valid(value: amount, input: "12.34") = form.amount
@@ -100,12 +75,6 @@ pub fn set_amount_double_dot_is_not_a_number_error_test() {
 pub fn set_amount_digit_between_dots_is_not_a_number_error_test() {
   let form = opened() |> send(AmountChanged("1.2.3")) |> form_of
   let assert field.Invalid(input: "1.2.3", error: NotANumber) = form.amount
-}
-
-pub fn clip_amount_leaves_malformed_dot_input_untouched_test() {
-  "12.." |> transaction_modal.clip_amount_to_two_dp() |> should.equal("12..")
-  "1.2.3" |> transaction_modal.clip_amount_to_two_dp() |> should.equal("1.2.3")
-  "12." |> transaction_modal.clip_amount_to_two_dp() |> should.equal("12.")
 }
 
 pub fn set_description_blank_field_is_empty_state_test() {

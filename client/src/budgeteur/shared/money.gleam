@@ -47,6 +47,39 @@ pub fn encode_decimal(amount: Float) -> json.Json {
   amount |> to_string |> json.string
 }
 
+/// Parse a user-entered amount. `gleam/float.parse` requires a decimal point,
+/// so whole numbers such as "400000" fall back to `int.parse`. Mirrors
+/// `decode_decimal`, which accepts both shapes from the server.
+///
+/// # Example
+/// ```gleam
+/// assert parse_decimal("400000") == Ok(400000.0)
+/// assert parse_decimal("12.50") == Ok(12.5)
+/// assert parse_decimal("abc") == Error(Nil)
+/// ```
+pub fn parse_decimal(input: String) -> Result(Float, Nil) {
+  case float.parse(input) {
+    Ok(amount) -> Ok(amount)
+    Error(Nil) ->
+      case int.parse(input) {
+        Ok(amount) -> Ok(int.to_float(amount))
+        Error(Nil) -> Error(Nil)
+      }
+  }
+}
+
+/// Truncate a user-entered amount to two decimal places, so the value on screen
+/// matches the cents the server stores. Only well-formed amounts are clipped;
+/// malformed input such as "12.." or "1.2.3" passes through unchanged for the
+/// validation layer to report.
+pub fn clip_to_two_dp(input: String) -> String {
+  case string.split(input, ".") {
+    [whole, fraction] ->
+      whole <> "." <> string.slice(from: fraction, at_index: 0, length: 2)
+    _ -> input
+  }
+}
+
 /// Convert an amount to a string with exactly two decimal places, without a
 /// currency symbol.
 ///

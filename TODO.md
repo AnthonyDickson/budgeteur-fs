@@ -5,7 +5,7 @@
 - [x] Transaction CRUD
 - [x] Tag CRUD
 - [x] Tagging rules CRUD
-- [ ] Balances (Assets, Liabilities) CRUD
+- [x] Balances (Assets, Liabilities) CRUD
 - [ ] Dashboard MVP
 - [ ] Auto-tagging
 - [ ] CSV Imports
@@ -17,9 +17,7 @@
 ## Current Tasks
 
 - Balances page:
-  - Wire up client to backend
-    - Convert UTC time in balance sheet to local time on display if possible
-  - Tests, review, update docs
+  - Tests, review
   - Update money.gleam to use JS ffi to format numbers with commas
   - Consider renaming balance sheet _item_ to balance sheet _entry_.
 - Consider reworking constraints: Rather than eagerly checking constraints, run the DB query and catch any exceptions.

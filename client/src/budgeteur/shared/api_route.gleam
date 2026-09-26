@@ -14,6 +14,10 @@ pub type ApiRoute {
   CreateRule
   UpdateRule(id: Uuid)
   DeleteRule(id: Uuid)
+  GetBalanceSheet
+  CreateBalanceSheetItem
+  UpdateBalanceSheetItem(id: Uuid)
+  DeleteBalanceSheetItem(id: Uuid)
 }
 
 const api_prefix = "/api"
@@ -30,5 +34,9 @@ pub fn to_string(route: ApiRoute) -> String {
     CreateRule -> api_prefix <> "/rules"
     UpdateRule(id:) | DeleteRule(id:) ->
       api_prefix <> "/rules/" <> uuid.to_string(id)
+    GetBalanceSheet -> api_prefix <> "/balance-sheet"
+    CreateBalanceSheetItem -> api_prefix <> "/balance-sheet/items"
+    UpdateBalanceSheetItem(id:) | DeleteBalanceSheetItem(id:) ->
+      api_prefix <> "/balance-sheet/items/" <> uuid.to_string(id)
   }
 }

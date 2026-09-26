@@ -7,18 +7,31 @@ pub type Term {
   NonCurrent
 }
 
-pub fn to_json(term: Term) -> json.Json {
+/// The encoded string for a `Term`. Mirrors the server's `toString`.
+pub fn to_string(term: Term) -> String {
   case term {
-    Current -> json.string("Current")
-    NonCurrent -> json.string("NonCurrent")
+    Current -> "Current"
+    NonCurrent -> "NonCurrent"
   }
+}
+
+/// Parse a `Term` from its encoded string.
+pub fn parse(value: String) -> Result(Term, Nil) {
+  case value {
+    "Current" -> Ok(Current)
+    "NonCurrent" -> Ok(NonCurrent)
+    _ -> Error(Nil)
+  }
+}
+
+pub fn to_json(term: Term) -> json.Json {
+  json.string(to_string(term))
 }
 
 pub fn decoder() -> decode.Decoder(Term) {
   use variant <- decode.then(decode.string)
-  case variant {
-    "Current" -> decode.success(Current)
-    "NonCurrent" -> decode.success(NonCurrent)
-    _ -> decode.failure(Current, "Term")
+  case parse(variant) {
+    Ok(term) -> decode.success(term)
+    Error(Nil) -> decode.failure(Current, "Term")
   }
 }

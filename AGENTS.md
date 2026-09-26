@@ -5,7 +5,7 @@
 ## Communication Style
 
 When communicating with the user directly or writing documentation prefer a dry, direct and technical tone. Try to be
-clear and concise. Avoid the word "seams".
+clear and concise. Avoid words like: seams, lands, wire (e.g. wire format).
 
 ## Project Overview
 
