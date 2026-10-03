@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 
 /// Create a tag through the tagging UI. The database persists across the run,
 /// so the tagging page may show either the empty state or an existing tag
@@ -20,6 +20,21 @@ async function createTag(page: Page, name: string) {
   await modal.getByTestId('tag-name-input').fill(name);
   await modal.getByTestId('tag-submit-button').click();
   await expect(modal).toBeHidden();
+}
+
+/// Assert the amount rendered inside a container, independent of how it is
+/// displayed. `data-amount` holds the raw value; parsing it with `Number` keeps
+/// the expectation a plain JS number, so the currency symbol, grouping, and
+/// separators are free to change.
+async function expectAmount(container: Locator, expected: number) {
+  await expect
+    .poll(async () => {
+      const raw = await container
+        .locator('[data-amount]')
+        .getAttribute('data-amount');
+      return raw === null ? null : Number(raw);
+    })
+    .toBe(expected);
 }
 
 test.describe('transactions', () => {
@@ -59,7 +74,7 @@ test.describe('transactions', () => {
       .locator('[data-testid="transaction-row"]')
       .filter({ hasText: description });
     await expect(row).toHaveCount(1);
-    await expect(row).toContainText('-$12.34');
+    await expectAmount(row, -12.34);
     await expect(row).toContainText('2026-08-15');
     await expect(row).toContainText(tagName);
     await expect(formModal).toBeHidden();
@@ -86,7 +101,7 @@ test.describe('transactions', () => {
       .locator('[data-testid="transaction-row"]')
       .filter({ hasText: updatedDescription });
     await expect(updatedRow).toHaveCount(1);
-    await expect(updatedRow).toContainText('-$25.00');
+    await expectAmount(updatedRow, -25.0);
     await expect(updatedRow).toContainText('2026-08-15');
     await expect(updatedRow).not.toContainText(tagName);
     await expect(formModal).toBeHidden();

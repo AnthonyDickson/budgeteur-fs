@@ -19,6 +19,7 @@ import budgeteur/transaction_page/transaction_page_data.{
 }
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/float
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -533,6 +534,10 @@ fn transactions_table(
                       [
                         attribute.class(
                           "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-gray-900 text-right",
+                        ),
+                        attribute.attribute(
+                          "data-amount",
+                          float.to_string(transaction.amount),
                         ),
                       ],
                       [html.text(transaction.amount |> money.format)],

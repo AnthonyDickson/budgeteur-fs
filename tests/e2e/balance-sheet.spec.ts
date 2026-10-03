@@ -1,4 +1,10 @@
-import { test, expect, type Page, type TestInfo } from '@playwright/test';
+import {
+  test,
+  expect,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from '@playwright/test';
 
 // The balance sheet page reads from both localStorage and the server. Each test
 // gets a fresh browser context (so empty localStorage), and the dev-only reset
@@ -34,6 +40,21 @@ const itemGroup = (page: Page, title: string) =>
     .last();
 
 const summaryCard = (page: Page, testId: string) => page.getByTestId(testId);
+
+/// Assert the amount rendered inside a container, independent of how it is
+/// displayed. `data-amount` holds the raw value; parsing it with `Number` keeps
+/// the expectation a plain JS number, so the currency symbol, grouping, and
+/// separators are free to change.
+async function expectAmount(container: Locator, expected: number) {
+  await expect
+    .poll(async () => {
+      const raw = await container
+        .locator('[data-amount]')
+        .getAttribute('data-amount');
+      return raw === null ? null : Number(raw);
+    })
+    .toBe(expected);
+}
 
 async function gotoNewBalanceSheet(page: Page) {
   await page.goto('/balance-sheet');
@@ -101,24 +122,16 @@ test.describe('balance sheet', () => {
     await expect(page.getByTestId('no-items-empty-state')).toBeHidden();
 
     // Every item is filed under its term, with the term's subtotal.
-    await expect(itemGroup(page, 'Current assets')).toContainText('$2000.00');
-    await expect(itemGroup(page, 'Non-current assets')).toContainText(
-      '$400000.00',
-    );
-    await expect(itemGroup(page, 'Current liabilities')).toContainText(
-      '$1500.00',
-    );
-    await expect(itemGroup(page, 'Non-current liabilities')).toContainText(
-      '$300000.00',
-    );
+    await expectAmount(itemGroup(page, 'Current assets'), 2000);
+    await expectAmount(itemGroup(page, 'Non-current assets'), 400000);
+    await expectAmount(itemGroup(page, 'Current liabilities'), 1500);
+    await expectAmount(itemGroup(page, 'Non-current liabilities'), 300000);
 
     // The server's totals are rendered as received, not recomputed by the page.
-    await expect(summaryCard(page, 'total-assets')).toContainText('$402000.00');
-    await expect(summaryCard(page, 'total-liabilities')).toContainText(
-      '$301500.00',
-    );
-    await expect(summaryCard(page, 'net-worth')).toContainText('$100500.00');
-    await expect(summaryCard(page, 'working-capital')).toContainText('$500.00');
+    await expectAmount(summaryCard(page, 'total-assets'), 402000);
+    await expectAmount(summaryCard(page, 'total-liabilities'), 301500);
+    await expectAmount(summaryCard(page, 'net-worth'), 100500);
+    await expectAmount(summaryCard(page, 'working-capital'), 500);
 
     await page.screenshot({
       path: screenshotPath(testInfo, 'items-added'),
@@ -132,16 +145,16 @@ test.describe('balance sheet', () => {
     await modal(page).getByTestId('item-submit-button').click();
     await expect(modal(page)).toBeHidden();
 
-    await expect(itemGroup(page, 'Current assets')).toContainText('$3000.00');
-    await expect(summaryCard(page, 'total-assets')).toContainText('$403000.00');
-    await expect(summaryCard(page, 'net-worth')).toContainText('$101500.00');
-    await expect(summaryCard(page, 'working-capital')).toContainText('$1500.00');
+    await expectAmount(itemGroup(page, 'Current assets'), 3000);
+    await expectAmount(summaryCard(page, 'total-assets'), 403000);
+    await expectAmount(summaryCard(page, 'net-worth'), 101500);
+    await expectAmount(summaryCard(page, 'working-capital'), 1500);
 
     // ── Delete: a non-current item moves net worth but not working capital ───
     await deleteItem(page, 'House');
 
-    await expect(summaryCard(page, 'net-worth')).toContainText('-$298500.00');
-    await expect(summaryCard(page, 'working-capital')).toContainText('$1500.00');
+    await expectAmount(summaryCard(page, 'net-worth'), -298500);
+    await expectAmount(summaryCard(page, 'working-capital'), 1500);
 
     // ── Validation ───────────────────────────────────────────────────────────
     await page.getByTestId('add-asset-button').click();
@@ -158,7 +171,7 @@ test.describe('balance sheet', () => {
 
     await expect(page.getByTestId('no-items-empty-state')).toBeVisible();
     await expect(page.getByTestId('no-balance-sheet-empty-state')).toBeHidden();
-    await expect(summaryCard(page, 'net-worth')).toContainText('$0.00');
+    await expectAmount(summaryCard(page, 'net-worth'), 0);
 
     await page.screenshot({
       path: screenshotPath(testInfo, 'all-items-deleted'),

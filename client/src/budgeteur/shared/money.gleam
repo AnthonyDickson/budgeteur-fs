@@ -102,6 +102,13 @@ pub fn to_string(amount: Float) -> String {
   }
 }
 
+const locale = "en-NZ"
+
+const currency = "NZD"
+
+@external(javascript, "./money_ffi.mjs", "formatCurrency")
+fn format_currency(amount: Float, locale: String, currency: String) -> String
+
 /// Format a monetary amount.
 ///
 /// # Example
@@ -110,11 +117,5 @@ pub fn to_string(amount: Float) -> String {
 /// assert format(-3.14159) == "-$3.14"
 /// ```
 pub fn format(amount: Float) -> String {
-  let is_negative = amount <. 0.0
-  let prefix = case is_negative {
-    True -> "-$"
-    False -> "$"
-  }
-
-  prefix <> to_string(amount |> float.absolute_value)
+  format_currency(amount, locale, currency)
 }

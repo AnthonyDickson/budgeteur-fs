@@ -17,6 +17,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
+import gleam/float
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -607,6 +608,7 @@ fn summary_card(label: String, amount: Float, testid: String) -> Element(Msg) {
           attribute.class(
             "mt-1 text-xl font-semibold tabular-nums text-gray-900",
           ),
+          attribute.attribute("data-amount", float.to_string(amount)),
         ],
         [html.text(money.format(amount))],
       ),
@@ -690,6 +692,7 @@ fn sheet_side(
               attribute.class(
                 "text-sm font-semibold tabular-nums text-gray-900",
               ),
+              attribute.attribute("data-amount", float.to_string(total)),
             ],
             [html.text(money.format(total))],
           ),
@@ -720,9 +723,13 @@ fn item_group(
           ],
           [html.text(title)],
         ),
-        html.span([attribute.class("text-xs font-semibold text-gray-500")], [
-          html.text(money.format(subtotal)),
-        ]),
+        html.span(
+          [
+            attribute.class("text-xs font-semibold text-gray-500"),
+            attribute.attribute("data-amount", float.to_string(subtotal)),
+          ],
+          [html.text(money.format(subtotal))],
+        ),
       ],
     ),
     case list.is_empty(items) {
@@ -752,7 +759,10 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
         html.text(item.name),
       ]),
       html.span(
-        [attribute.class("text-right text-sm tabular-nums text-gray-900")],
+        [
+          attribute.class("text-right text-sm tabular-nums text-gray-900"),
+          attribute.attribute("data-amount", float.to_string(item.balance)),
+        ],
         [html.text(money.format(item.balance))],
       ),
       html.div([attribute.class("flex items-center gap-1")], [

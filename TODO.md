@@ -13,12 +13,12 @@
 - [ ] Full dashboard w/ charts
 - [ ] Transaction search
 - [ ] Regular snapshots with balance sheets, income statement
+- [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
 
 ## Current Tasks
 
 - Balances page:
   - Review
-  - Update money.gleam to use JS ffi to format numbers with commas
   - Consider renaming balance sheet _item_ to balance sheet _entry_.
 - Consider reworking constraints: Rather than eagerly checking constraints, run the DB query and catch any exceptions.
   If the exception is related to a DB constraint, run the existing checks against the database to create a descriptive
