@@ -1,4 +1,7 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+import { expectAmount } from '../support/amount';
+import { screenshotPath } from '../support/screenshot';
 
 /// Create a tag through the tagging UI. The database persists across the run,
 /// so the tagging page may show either the empty state or an existing tag
@@ -22,30 +25,8 @@ async function createTag(page: Page, name: string) {
   await expect(modal).toBeHidden();
 }
 
-/// Assert the amount rendered inside a container, independent of how it is
-/// displayed. `data-amount` holds the raw value; parsing it with `Number` keeps
-/// the expectation a plain JS number, so the currency symbol, grouping, and
-/// separators are free to change.
-async function expectAmount(container: Locator, expected: number) {
-  await expect
-    .poll(async () => {
-      const raw = await container
-        .locator('[data-amount]')
-        .getAttribute('data-amount');
-      return raw === null ? null : Number(raw);
-    })
-    .toBe(expected);
-}
-
 test.describe('transactions', () => {
   test('full CRUD flow for a transaction', async ({ page }, testInfo) => {
-    // Playwright reuses the same per-test output folder across retries, so the
-    // retry number is folded into the filename to keep each attempt's
-    // screenshots.
-    const screenshotPath = (name: string) =>
-      testInfo.outputPath(
-        `${name}${testInfo.retry > 0 ? `.retry-${testInfo.retry}` : ''}.png`,
-      );
     // Unique names keep retries independent: the database persists across
     // attempts within a single `just e2e-test` run.
     const description = `E2E transaction ${Date.now()}`;
@@ -79,7 +60,7 @@ test.describe('transactions', () => {
     await expect(row).toContainText(tagName);
     await expect(formModal).toBeHidden();
     await page.screenshot({
-      path: screenshotPath('transaction-created'),
+      path: screenshotPath(testInfo, 'transaction-created'),
       fullPage: true,
     });
 
@@ -106,7 +87,7 @@ test.describe('transactions', () => {
     await expect(updatedRow).not.toContainText(tagName);
     await expect(formModal).toBeHidden();
     await page.screenshot({
-      path: screenshotPath('transaction-updated'),
+      path: screenshotPath(testInfo, 'transaction-updated'),
       fullPage: true,
     });
 
@@ -120,7 +101,7 @@ test.describe('transactions', () => {
 
     await expect(rowToDelete).toHaveCount(0);
     await page.screenshot({
-      path: screenshotPath('transaction-deleted'),
+      path: screenshotPath(testInfo, 'transaction-deleted'),
       fullPage: true,
     });
   });

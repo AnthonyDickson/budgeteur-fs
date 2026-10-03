@@ -1,10 +1,7 @@
-import {
-  test,
-  expect,
-  type Locator,
-  type Page,
-  type TestInfo,
-} from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+import { expectAmount } from '../support/amount';
+import { screenshotPath } from '../support/screenshot';
 
 // The balance sheet page reads from both localStorage and the server. Each test
 // gets a fresh browser context (so empty localStorage), and the dev-only reset
@@ -14,11 +11,6 @@ test.beforeEach(async ({ page }) => {
   const response = await page.request.delete('/api/test/balance-sheet');
   expect(response.status()).toBe(204);
 });
-
-const screenshotPath = (testInfo: TestInfo, name: string) =>
-  testInfo.outputPath(
-    `${name}${testInfo.retry > 0 ? `.retry-${testInfo.retry}` : ''}.png`,
-  );
 
 const modal = (page: Page) => page.getByTestId('balance-sheet-item-modal');
 
@@ -40,21 +32,6 @@ const itemGroup = (page: Page, title: string) =>
     .last();
 
 const summaryCard = (page: Page, testId: string) => page.getByTestId(testId);
-
-/// Assert the amount rendered inside a container, independent of how it is
-/// displayed. `data-amount` holds the raw value; parsing it with `Number` keeps
-/// the expectation a plain JS number, so the currency symbol, grouping, and
-/// separators are free to change.
-async function expectAmount(container: Locator, expected: number) {
-  await expect
-    .poll(async () => {
-      const raw = await container
-        .locator('[data-amount]')
-        .getAttribute('data-amount');
-      return raw === null ? null : Number(raw);
-    })
-    .toBe(expected);
-}
 
 async function gotoNewBalanceSheet(page: Page) {
   await page.goto('/balance-sheet');

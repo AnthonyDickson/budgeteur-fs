@@ -1,4 +1,6 @@
-import { test, expect, type Page, type TestInfo } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+
+import { screenshotPath } from '../support/screenshot';
 
 // The tagging page reads from both localStorage and the server. Each test gets
 // a fresh browser context (so empty localStorage), and the dev-only reset
@@ -8,11 +10,6 @@ test.beforeEach(async ({ page }) => {
   const response = await page.request.delete('/api/test/tagging');
   expect(response.status()).toBe(204);
 });
-
-const screenshotPath = (testInfo: TestInfo, name: string) =>
-  testInfo.outputPath(
-    `${name}${testInfo.retry > 0 ? `.retry-${testInfo.retry}` : ''}.png`,
-  );
 
 const colorTestId = (hex: string) => `tag-color-hex${hex.replace('#', '')}`;
 
