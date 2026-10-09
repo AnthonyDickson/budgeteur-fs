@@ -77,6 +77,18 @@ module TestAppConfig =
             CleanTables = "Tags" :: config.CleanTables
     }
 
+    let withIncomeStatement (config : TestAppConfig) = {
+        config with
+            EndpointProviders =
+                (fun connStr ->
+                    let queryContext = QueryContextFactory.Create connStr
+
+                    [
+                        GET [ Budgeteur.Feature.IncomeStatement.ReadIncomeStatement.endpoint queryContext ]
+                    ])
+                :: config.EndpointProviders
+    }
+
     let withBalanceSheet (clock : Clock) (config : TestAppConfig) = {
         config with
             EndpointProviders =

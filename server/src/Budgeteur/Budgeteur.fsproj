@@ -75,6 +75,9 @@
 
     <Compile Include="Feature/TaggingPage/ReadTaggingData.fs" />
 
+    <Compile Include="Feature/IncomeStatement/IncomeStatement.fs" />
+    <Compile Include="Feature/IncomeStatement/ReadIncomeStatement.fs" />
+
     <Compile Include="Feature/GetStatus.fs" />
 
     <Compile Include="Feature/TestSupport/ResetUserData.fs" />

@@ -70,8 +70,8 @@ The MVP shows figures and tables only. Charts, comparisons against a baseline, a
   side's total.
 - **Totals**: income is the sum of income lines, expenses is the sum of expense lines, net income is income minus
   expenses.
-- **Share**: each expense line carries its share of total expenses. A negative expense line has a negative share; the
-  share is omitted when total expenses are zero or negative.
+- **Share**: each expense line carries its share of total expenses, as a percentage rounded to two decimal places. A
+  negative expense line has a negative share; the share is omitted when total expenses are zero or negative.
 
 ### 4. The client supplies the period
 
@@ -80,7 +80,8 @@ The MVP shows figures and tables only. Charts, comparisons against a baseline, a
 - **Why**: covered in [dates.md](dates.md). The previous project derived `today` on the server and needed a configured
   timezone to do it.
 - **Validation**: both dates parse with `Coders.Extra.DateOnly.tryParse`, `from <= to`, and the span is at most 366
-  days. Failures are combined with `requireAll` into one `400`.
+  days. Failures are combined with FsToolkit's `validation` into one `400`. (`requireAll` is for checks that mirror
+  database constraints.)
 - **Goal**: no server timezone for the MVP, and endpoint tests are deterministic.
 
 ### 5. Aggregation runs in F# on `decimal`
@@ -127,7 +128,7 @@ The MVP shows figures and tables only. Charts, comparisons against a baseline, a
 
 - **Tag API.** Tag create, update, and read requests and responses carry `Kind`. The tag modal gets a kind select;
   tag-creating test helpers and E2E specs supply one.
-- **Response shape** (draft):
+- **Response shape** (`ReadIncomeStatement.fs` holds the field docs):
 
   ```text
   IncomeStatement {

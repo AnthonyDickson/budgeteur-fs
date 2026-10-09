@@ -32,6 +32,7 @@ open Budgeteur.Shared.OpenApi
 open Budgeteur.Shared.RequestLogging
 open Budgeteur.Feature.Auth
 open Budgeteur.Feature.BalanceSheet
+open Budgeteur.Feature.IncomeStatement
 open Budgeteur.Feature.Rule
 open Budgeteur.Feature.Status
 open Budgeteur.Feature.Tag
@@ -238,6 +239,9 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
         ]
         |> withAuth
 
+    let incomeStatementEndpoints =
+        [ GET [ ReadIncomeStatement.endpoint queryContext ] ] |> withAuth
+
     let transactionEndpoints =
         [
             POST [ CreateTransaction.endpoint queryContext ]
@@ -293,6 +297,7 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
         authEndpoints
         balanceSheetEndpoints
         balanceSheetItemEndpoints
+        incomeStatementEndpoints
         ruleEndpoints
         statusEndpoints
         transactionEndpoints
