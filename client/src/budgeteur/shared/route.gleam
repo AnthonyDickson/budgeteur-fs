@@ -3,6 +3,7 @@ import gleam/uri
 
 /// A route to a page in this SPA.
 pub type Route {
+  Dashboard
   Transactions
   Tagging
   BalanceSheet
@@ -12,6 +13,7 @@ pub type Route {
 /// Convert a route into a path string.
 pub fn to_string(route: Route) -> String {
   case route {
+    Dashboard -> "/"
     Transactions -> "/transactions"
     Tagging -> "/tagging"
     BalanceSheet -> "/balance-sheet"
@@ -21,6 +23,7 @@ pub fn to_string(route: Route) -> String {
 
 fn from_path_segments(path: List(String)) -> Route {
   case path {
+    [] -> Dashboard
     ["transactions"] -> Transactions
     ["tagging"] -> Tagging
     ["balance-sheet"] -> BalanceSheet

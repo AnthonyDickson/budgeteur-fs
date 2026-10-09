@@ -16,12 +16,18 @@ pub fn view(current_route: route.Route) -> Element(msg) {
       [
         html.a(
           [
-            attribute.href(route.to_string(route.Transactions)),
+            attribute.href(route.to_string(route.Dashboard)),
             attribute.class("text-base font-semibold text-gray-900"),
           ],
           [html.text("Budgeteur")],
         ),
         html.nav([attribute.class("flex items-center gap-1")], [
+          nav_link(
+            route.Dashboard,
+            current_route,
+            route.to_string(route.Dashboard),
+            "Dashboard",
+          ),
           nav_link(
             route.Transactions,
             current_route,

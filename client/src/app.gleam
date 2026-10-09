@@ -1,4 +1,5 @@
 import budgeteur/balance_sheet_page/balance_sheet_page
+import budgeteur/dashboard_page/dashboard_page
 import budgeteur/header
 import budgeteur/shared/auth_route
 import budgeteur/shared/effect.{type Effect}
@@ -26,6 +27,7 @@ import youid/uuid.{type Uuid}
 // ----------------
 
 pub type Page {
+  DashboardPage(dashboard_page.Model)
   TransactionsPage(transaction_page.Model)
   TaggingPage(tagging_page.Model)
   BalanceSheetPage(balance_sheet_page.Model)
@@ -38,6 +40,7 @@ pub type Model {
 
 pub type Msg {
   SessionExpired
+  DashboardPageMsg(dashboard_page.Msg)
   TransactionsPageMsg(transaction_page.Msg)
   TaggingPageMsg(tagging_page.Msg)
   BalanceSheetPageMsg(balance_sheet_page.Msg)
@@ -98,6 +101,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       // input survive) and only re-runs `init` for its side effects, such as
       // refetching; arriving from elsewhere installs a fresh page model.
       case route.from_string(url), model.page {
+        route.Dashboard, DashboardPage(_) -> {
+          let #(_, page_effect) = dashboard_page.init()
+          #(model, effect.map(page_effect, DashboardPageMsg))
+        }
         route.Transactions, TransactionsPage(_) -> {
           let #(_, page_effect) = transaction_page.init()
           #(model, effect.map(page_effect, TransactionsPageMsg))
@@ -109,6 +116,14 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         route.BalanceSheet, BalanceSheetPage(_) -> {
           let #(_, page_effect) = balance_sheet_page.init()
           #(model, effect.map(page_effect, BalanceSheetPageMsg))
+        }
+        route.Dashboard, _ -> {
+          let #(inner_model, inner_effect) = dashboard_page.init()
+
+          let model = Model(..model, page: DashboardPage(inner_model))
+          let effect = effect.map(inner_effect, DashboardPageMsg)
+
+          #(model, effect)
         }
         route.Transactions, _ -> {
           let #(inner_model, inner_effect) = transaction_page.init()
@@ -137,6 +152,16 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         route.NotFound, NotFound -> #(model, effect.none())
         route.NotFound, _ -> #(Model(..model, page: NotFound), effect.none())
       }
+    }
+    DashboardPageMsg(inner_msg), Model(page: DashboardPage(inner_model), ..) -> {
+      let #(inner_model, inner_effect, out_msg) =
+        dashboard_page.update(inner_model, inner_msg)
+
+      #(
+        Model(..model, page: DashboardPage(inner_model)),
+        effect.map(inner_effect, DashboardPageMsg),
+      )
+      |> with_out_msg(out_msg)
     }
     TransactionsPageMsg(inner_msg),
       Model(page: TransactionsPage(inner_model), ..)
@@ -229,6 +254,10 @@ fn update_with_effect(
 
 pub fn view(model: Model) -> Element(Msg) {
   let page = case model.page {
+    DashboardPage(inner_model) ->
+      dashboard_page.view(inner_model)
+      |> element.map(DashboardPageMsg)
+
     TransactionsPage(inner_model) ->
       transaction_page.view(inner_model)
       |> element.map(TransactionsPageMsg)
@@ -259,6 +288,7 @@ pub fn view(model: Model) -> Element(Msg) {
 
 fn current_route(page: Page) -> route.Route {
   case page {
+    DashboardPage(_) -> route.Dashboard
     TransactionsPage(_) -> route.Transactions
     TaggingPage(_) -> route.Tagging
     BalanceSheetPage(_) -> route.BalanceSheet
@@ -271,7 +301,7 @@ fn view_not_found() -> Element(Msg) {
     html.h1([], [html.text("404 Page Not Found")]),
     html.p([], [html.text("This is not the page you're looking for.")]),
     html.p([], [
-      html.a([attribute.href(route.Transactions |> route.to_string)], [
+      html.a([attribute.href(route.Dashboard |> route.to_string)], [
         html.text("Take me home!"),
       ]),
     ]),
