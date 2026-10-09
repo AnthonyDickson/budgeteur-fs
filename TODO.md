@@ -6,7 +6,7 @@
 - [x] Tag CRUD
 - [x] Tagging rules CRUD
 - [x] Balances (Assets, Liabilities) CRUD
-- [ ] Dashboard MVP
+- [x] Dashboard MVP
 - [ ] Auto-tagging
 - [ ] CSV Imports
 - [ ] Quick-tagging
@@ -17,13 +17,7 @@
 
 ## Current Tasks
 
-Dashboard MVP. Design and rationale are in `docs/dashboard.md`; date conventions in `docs/dates.md`.
-
-1. Tag kind (own commit): `Tags.Kind` (`Income`/`Expense`) in migration `001`, `TagKind` in `Domain/Tag.fs`, tag codec
-   and endpoints, client tag type and modal, tests.
-2. Income statement slice: `IncomeStatement.compute`, `GET /api/income-statement?from=&to=`, OpenAPI metadata, tests.
-3. Client period module (`today` + preset → `from`/`to`) and tests.
-4. Dashboard page at `/`, header link, `update` tests, E2E test.
+None. The next roadmap item is auto-tagging.
 
 ## Backlog
 
