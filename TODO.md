@@ -17,8 +17,6 @@
 
 ## Current Tasks
 
-- Add view for empty transactions table, currently it just shows the header and a blank page
-
 ## Backlog
 
 - Instead of saving `DateOnly` (e.g. transaction dates), use UTC time everywhere except for display on the client or
@@ -42,8 +40,6 @@
 - Consider how to manage styling across pages/source code files for consistent styling.
   - Consider Catppuccin Latte and Mocha
     - Migrate tag colour swatch
-- Reconsider toasts for error handling in modal forms, the toasts are behind the backdrop layer so they are dimmed and
-  not clickable.
 - Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then
   replacing it with the server data.
 - For modals, ensure that focus is returned to the element focused before opening the modal. This is needed due to the

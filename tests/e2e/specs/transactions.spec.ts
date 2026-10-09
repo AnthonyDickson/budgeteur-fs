@@ -24,6 +24,8 @@ test.describe('transactions', () => {
 
     await createFirstTag(page, tagName);
     await page.goto('/transactions');
+    const emptyState = page.getByTestId('no-transactions-empty-state');
+    await expect(emptyState).toBeVisible();
 
     // ── Create ───────────────────────────────────────────────────────────────
     await page.getByTestId('record-transaction-button').click();
@@ -49,6 +51,7 @@ test.describe('transactions', () => {
     await expect(row).toContainText('2026-08-15');
     await expect(row).toContainText(tagName);
     await expect(formModal).toBeHidden();
+    await expect(emptyState).toBeHidden();
     await page.screenshot({
       path: screenshotPath(testInfo, 'transaction-created'),
       fullPage: true,
@@ -90,6 +93,7 @@ test.describe('transactions', () => {
     await deleteModal.getByTestId('delete-confirm-button').click();
 
     await expect(rowToDelete).toHaveCount(0);
+    await expect(emptyState).toBeVisible();
     await page.screenshot({
       path: screenshotPath(testInfo, 'transaction-deleted'),
       fullPage: true,

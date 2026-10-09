@@ -469,7 +469,7 @@ fn transactions_table(
   tag_names_by_id: dict.Dict(Uuid, String),
 ) -> Element(Msg) {
   case list.is_empty(transactions) {
-    True -> element.none()
+    True -> no_transactions_empty_state()
     False ->
       html.div(
         [
@@ -620,4 +620,26 @@ fn transactions_table(
         ],
       )
   }
+}
+
+/// Shown in place of the table when there are no transactions yet. The
+/// "Record Transaction" button in the page header stays visible, so no extra
+/// call to action is needed here.
+fn no_transactions_empty_state() -> Element(Msg) {
+  html.div(
+    [
+      attribute.class(
+        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
+      ),
+      attribute.attribute("data-testid", "no-transactions-empty-state"),
+    ],
+    [
+      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+        html.text("No transactions yet"),
+      ]),
+      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+        html.text("Use \"Record Transaction\" to add your first one."),
+      ]),
+    ],
+  )
 }
