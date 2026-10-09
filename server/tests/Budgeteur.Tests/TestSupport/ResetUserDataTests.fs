@@ -39,10 +39,14 @@ module ResetUserDataTests =
     /// Give a user a transaction, a balance sheet, and a balance sheet item.
     let private seed (client : HttpClient) =
         async {
-            let! created = TestHttp.postJson client CreateTransaction.Path transaction |> Async.AwaitTask
+            let! created =
+                TestHttp.postJson client CreateTransaction.Path transaction |> Async.AwaitTask
+
             Expect.equal created.StatusCode HttpStatusCode.Created "seeding a transaction should return 201"
 
-            let! created = TestHttp.postJson client CreateBalanceSheetItem.Path item |> Async.AwaitTask
+            let! created =
+                TestHttp.postJson client CreateBalanceSheetItem.Path item |> Async.AwaitTask
+
             Expect.equal created.StatusCode HttpStatusCode.Created "seeding an item should return 201"
         }
 

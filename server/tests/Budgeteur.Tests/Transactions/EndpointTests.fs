@@ -70,7 +70,9 @@ module EndpointTests =
                 use app = newApp ()
 
                 let input = request "Salary" 2500.00m
-                let! createResponse = TestHttp.postJson app.Client CreateTransaction.Path input |> Async.AwaitTask
+
+                let! createResponse =
+                    TestHttp.postJson app.Client CreateTransaction.Path input |> Async.AwaitTask
 
                 let! createBody = createResponse.Content.ReadAsStringAsync () |> Async.AwaitTask
 
@@ -79,7 +81,8 @@ module EndpointTests =
                     | Ok created -> created.Id
                     | Error err -> failtest err
 
-                let! response = app.Client.GetAsync (routefPath ReadTransaction.Path id) |> Async.AwaitTask
+                let! response =
+                    app.Client.GetAsync (routefPath ReadTransaction.Path id) |> Async.AwaitTask
 
                 Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
 
@@ -109,7 +112,8 @@ module EndpointTests =
 
                 let input = request "Utilities" 99.99m
 
-                let! response = TestHttp.postJson app.Client CreateTransaction.Path input |> Async.AwaitTask
+                let! response =
+                    TestHttp.postJson app.Client CreateTransaction.Path input |> Async.AwaitTask
 
                 Expect.equal response.StatusCode HttpStatusCode.Created "status code should be 201"
 
@@ -136,7 +140,8 @@ module EndpointTests =
                 let content =
                     new Net.Http.StringContent (json, Text.Encoding.UTF8, "application/json")
 
-                let! response = app.Client.PostAsync (CreateTransaction.Path, content) |> Async.AwaitTask
+                let! response =
+                    app.Client.PostAsync (CreateTransaction.Path, content) |> Async.AwaitTask
 
                 Expect.equal response.StatusCode HttpStatusCode.BadRequest "status code should be 400"
             }
@@ -150,7 +155,8 @@ module EndpointTests =
                         Description = "  Rent  "
                 }
 
-                let! response = TestHttp.postJson app.Client CreateTransaction.Path input |> Async.AwaitTask
+                let! response =
+                    TestHttp.postJson app.Client CreateTransaction.Path input |> Async.AwaitTask
 
                 Expect.equal response.StatusCode HttpStatusCode.Created "status code should be 201"
 
@@ -167,7 +173,9 @@ module EndpointTests =
 
                 // Given: an existing transaction.
                 let original = request "Old description" 12.50m
-                let! _ = TestHttp.postJson app.Client CreateTransaction.Path original |> Async.AwaitTask
+
+                let! _ =
+                    TestHttp.postJson app.Client CreateTransaction.Path original |> Async.AwaitTask
 
                 // Given: its id, recovered from the store.
                 let! body = app.Client.GetStringAsync ReadAllTransactions.Path |> Async.AwaitTask
@@ -214,13 +222,15 @@ module EndpointTests =
                     | _ -> failtest "Expected one transaction"
 
                 // When: the transaction is deleted.
-                let! deleteResponse = app.Client.DeleteAsync (routefPath DeleteTransaction.Path id) |> Async.AwaitTask
+                let! deleteResponse =
+                    app.Client.DeleteAsync (routefPath DeleteTransaction.Path id) |> Async.AwaitTask
 
                 // Then: deletion succeeds.
                 Expect.equal deleteResponse.StatusCode HttpStatusCode.NoContent "delete status should be 204"
 
                 // Then: the transaction is no longer retrievable.
-                let! getResponse = app.Client.GetAsync (routefPath ReadTransaction.Path id) |> Async.AwaitTask
+                let! getResponse =
+                    app.Client.GetAsync (routefPath ReadTransaction.Path id) |> Async.AwaitTask
 
                 Expect.equal getResponse.StatusCode HttpStatusCode.NotFound "get after delete should be 404"
             }

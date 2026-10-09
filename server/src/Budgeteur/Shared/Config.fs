@@ -72,7 +72,7 @@ module Config =
         (config : IConfiguration)
         (sectionName : string)
         =
-        services.AddOptions<'T>().Bind(config.GetSection sectionName).ValidateDataAnnotations().ValidateOnStart ()
+        services.AddOptions<'T>().Bind(config.GetSection sectionName).ValidateDataAnnotations().ValidateOnStart()
         |> ignore
 
     /// Raises `OptionsValidationException` for missing or invalid config entries.
@@ -80,7 +80,7 @@ module Config =
         (config : IConfiguration)
         (sectionName : string)
         : 'T =
-        let value = config.GetSection(sectionName).Get<'T> ()
+        let value = config.GetSection(sectionName).Get<'T>()
         let validator = DataAnnotationValidateOptions<'T> Options.DefaultName
         let result = validator.Validate (Options.DefaultName, value)
 
@@ -89,7 +89,7 @@ module Config =
         else
             raise (OptionsValidationException (sectionName, typeof<'T>, result.Failures))
 
-    let private sectionExists (config : IConfiguration) (name : string) = (config.GetSection name).Exists ()
+    let private sectionExists (config : IConfiguration) (name : string) = (config.GetSection name).Exists()
 
     /// Raises `OptionsValidationException` for missing or invalid config entries.
     let load (services : IServiceCollection) (config : IConfiguration) : AppConfig =

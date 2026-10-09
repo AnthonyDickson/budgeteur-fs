@@ -30,7 +30,7 @@ module ResetUserData =
             let conn = ctx.Connection
             use! tx = conn.BeginTransactionAsync ()
 
-            let tables = ResizeArray<string> ()
+            let tables = ResizeArray<string>()
 
             do!
                 task {

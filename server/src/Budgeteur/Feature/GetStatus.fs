@@ -62,7 +62,7 @@ module GetStatus =
         match Assembly.GetEntryAssembly () with
         | null -> "unknown"
         | assembly ->
-            match assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute> () with
+            match assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>() with
             | null -> string (assembly.GetName().Version)
             | attr -> attr.InformationalVersion
 

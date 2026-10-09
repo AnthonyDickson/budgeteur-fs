@@ -54,7 +54,7 @@ module LogEntry =
     }
 
 type RequestLog () =
-    let entries = ResizeArray<LogEntry> ()
+    let entries = ResizeArray<LogEntry>()
 
     member _.Info (msg : string, [<ParamArray>] props : LogProperty array) =
         entries.Add {
@@ -107,7 +107,7 @@ module Middleware =
     open Serilog
 
     let private entryToDict (e : LogEntry) =
-        let dict = Dictionary<string, obj> ()
+        let dict = Dictionary<string, obj>()
         dict["level"] <- LogLevel.toString e.Level
         dict["message"] <- e.Message
         dict["timestamp"] <- box e.Timestamp

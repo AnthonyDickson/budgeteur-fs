@@ -45,18 +45,18 @@ let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAut
     let oauth2TokenUrl = oauth2.TokenUrl
 
     builder.Services.AddOpenApi (fun options ->
-        options.AddSchemaTransformer<FSharpOptionSchemaTransformer> () |> ignore
-        options.AddSchemaTransformer<OpenApi.FSharpRecordSchemaTransformer> () |> ignore
-        options.AddSchemaTransformer<OpenApi.XmlDocSchemaTransformer> () |> ignore
-        options.AddSchemaTransformer<OpenApi.SchemaHintTransformer> () |> ignore
-        options.AddSchemaTransformer<OpenApi.DecimalSchemaTransformer> () |> ignore
+        options.AddSchemaTransformer<FSharpOptionSchemaTransformer>() |> ignore
+        options.AddSchemaTransformer<OpenApi.FSharpRecordSchemaTransformer>() |> ignore
+        options.AddSchemaTransformer<OpenApi.XmlDocSchemaTransformer>() |> ignore
+        options.AddSchemaTransformer<OpenApi.SchemaHintTransformer>() |> ignore
+        options.AddSchemaTransformer<OpenApi.DecimalSchemaTransformer>() |> ignore
 
         options.AddDocumentTransformer (fun doc _ _ ->
             if isNull doc.Components then
                 doc.Components <- OpenApiComponents ()
 
             if isNull doc.Components.SecuritySchemes then
-                doc.Components.SecuritySchemes <- Dictionary<string, IOpenApiSecurityScheme> ()
+                doc.Components.SecuritySchemes <- Dictionary<string, IOpenApiSecurityScheme>()
 
             doc.Components.SecuritySchemes["bearerAuth"] <-
                 OpenApiSecurityScheme (
@@ -92,12 +92,12 @@ let private addOpenApiToApp (app : WebApplication) (clientId : string) =
         opts
             .WithTitle("Budgeteur API")
             .WithTheme(ScalarTheme.DeepSpace)
-            .WithDefaultHttpClient (ScalarTarget.Http, ScalarClient.Curl)
+            .WithDefaultHttpClient(ScalarTarget.Http, ScalarClient.Curl)
         |> ignore
 
         opts
             .AddPreferredSecuritySchemes([| "scalarOAuth2" |])
-            .AddAuthorizationCodeFlow (
+            .AddAuthorizationCodeFlow(
                 "scalarOAuth2",
                 fun flow ->
                     flow.ClientId <- clientId
@@ -114,7 +114,7 @@ let private applyMigrations (connectionString : string) =
             .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly ())
             .LogToConsole()
             .Build()
-            .PerformUpgrade ()
+            .PerformUpgrade()
 
     if not result.Successful then
         failwithf "Database migration failed: %O" result.Error
@@ -216,7 +216,7 @@ let private withAuth endpoints =
 // TODO: Move to own file
 let private buildEndpoints (connectionString : string) (loginReturnUrl : string) (app : WebApplication) =
     let queryContext = QueryContextFactory.Create connectionString
-    let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime ()
+    let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime()
 
     let authEndpoints =
         seq [ GET [ Login.endpoint loginReturnUrl; Logout.endpoint "/" ] ]
@@ -306,12 +306,12 @@ let private configureBuilder (builder : WebApplicationBuilder) (config : AppConf
     let isDevelopment = builder.Environment.IsDevelopment ()
 
     Auth.configureServices builder.Services isDevelopment config.Oidc
-    builder.Services.AddRouting().AddOxpecker () |> ignore
+    builder.Services.AddRouting().AddOxpecker() |> ignore
 
     builder.Services.Configure<ForwardedHeadersOptions> configureForwardedHeaders
     |> ignore
 
-    builder.Services.Configure<HostOptions> (fun (options : HostOptions) ->
+    builder.Services.Configure<HostOptions>(fun (options : HostOptions) ->
         options.ShutdownTimeout <- System.TimeSpan.FromSeconds 30L)
     |> ignore
 
@@ -331,7 +331,7 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     | Some config when isDevelopment -> addOpenApiToApp app config.ClientId
     | _ -> ()
 
-    app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory> ()))
+    app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory>()))
     |> ignore
 
     app.UseForwardedHeaders () |> ignore
@@ -341,7 +341,7 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
 
     app.Use (
         Middleware.requestLogging (
-            (app.Services.GetRequiredService<Serilog.ILogger> ()).ForContext ("SourceContext", "Budgeteur.Request")
+            (app.Services.GetRequiredService<Serilog.ILogger>()).ForContext("SourceContext", "Budgeteur.Request")
         )
     )
     |> ignore

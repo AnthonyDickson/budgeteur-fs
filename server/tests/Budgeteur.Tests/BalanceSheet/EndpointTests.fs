@@ -20,13 +20,12 @@ module EndpointTests =
         (kind : string)
         (term : string)
         (balance : decimal)
-        : WriteBalanceSheetItemRequest =
-        {
-            Name = name
-            Kind = kind
-            Term = term
-            Balance = balance
-        }
+        : WriteBalanceSheetItemRequest = {
+        Name = name
+        Kind = kind
+        Term = term
+        Balance = balance
+    }
 
     let private newApp () =
         TestApp.create (TestAppConfig.empty |> TestAppConfig.withBalanceSheet Clock.system)
@@ -55,7 +54,9 @@ module EndpointTests =
     /// Create an item and return its server-assigned id.
     let private createItem (client : HttpClient) (payload : WriteBalanceSheetItemRequest) : Async<Guid> =
         async {
-            let! response = TestHttp.postJson client CreateBalanceSheetItem.Path payload |> Async.AwaitTask
+            let! response =
+                TestHttp.postJson client CreateBalanceSheetItem.Path payload |> Async.AwaitTask
+
             Expect.equal response.StatusCode HttpStatusCode.Created "create should return 201"
             return! itemId response
         }
@@ -97,7 +98,8 @@ module EndpointTests =
 
     let private getItem (client : HttpClient) (id : Guid) : Async<HttpStatusCode> =
         async {
-            let! response = client.GetAsync (routefPath ReadBalanceSheetItem.Path id) |> Async.AwaitTask
+            let! response =
+                client.GetAsync (routefPath ReadBalanceSheetItem.Path id) |> Async.AwaitTask
 
             return statusOf response
         }
@@ -131,7 +133,9 @@ module EndpointTests =
                 Expect.equal ownedList.StatusCode HttpStatusCode.OK "the owner's item list should be 200"
 
                 let! listBody = ownedList.Content.ReadAsStringAsync () |> Async.AwaitTask
-                let! ownedItems = Decode.fromStringAuto<BalanceSheetItemResponse list> listBody |> orFail
+
+                let! ownedItems =
+                    Decode.fromStringAuto<BalanceSheetItemResponse list> listBody |> orFail
 
                 Expect.equal
                     (List.map (fun item -> item.Id) ownedItems)
@@ -149,7 +153,9 @@ module EndpointTests =
                 Expect.equal otherList.StatusCode HttpStatusCode.OK "another user's item list should still be 200"
 
                 let! otherListBody = otherList.Content.ReadAsStringAsync () |> Async.AwaitTask
-                let! otherItems = Decode.fromStringAuto<BalanceSheetItemResponse list> otherListBody |> orFail
+
+                let! otherItems =
+                    Decode.fromStringAuto<BalanceSheetItemResponse list> otherListBody |> orFail
 
                 Expect.equal otherItems [] "another user's item list should be empty"
 
@@ -177,7 +183,9 @@ module EndpointTests =
                 let! response = getSheet app.Client
                 Expect.equal response.StatusCode HttpStatusCode.OK "the sheet should be readable"
                 let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
-                let! sheet = Decode.fromStringAuto<ReadBalanceSheet.BalanceSheetResponse> body |> orFail
+
+                let! sheet =
+                    Decode.fromStringAuto<ReadBalanceSheet.BalanceSheetResponse> body |> orFail
 
                 // Then: the statement date and every item are present.
                 Expect.isTrue

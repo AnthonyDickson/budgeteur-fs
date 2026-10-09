@@ -162,7 +162,7 @@ module TestApp =
                 // We need to access server assembly for the migration scripts.
                 .WithScriptsEmbeddedInAssembly(typeof<Transaction>.Assembly)
                 .Build()
-                .PerformUpgrade ()
+                .PerformUpgrade()
 
         if not result.Successful then
             failwithf "Test database migration failed: %O" result.Error
@@ -172,8 +172,8 @@ module TestApp =
                 .ConfigureWebHost(fun webHostBuilder ->
                     webHostBuilder
                         .UseTestServer()
-                        .ConfigureServices(fun services -> services.AddRouting().AddOxpecker () |> ignore)
-                        .Configure (fun app ->
+                        .ConfigureServices(fun services -> services.AddRouting().AddOxpecker() |> ignore)
+                        .Configure(fun app ->
                             app.Use (fun (ctx : HttpContext) (next : Func<Task>) ->
                                 task {
                                     ctx.Items[RequestLog.Key] <- RequestLog ()
@@ -190,9 +190,9 @@ module TestApp =
 
                             app.UseRouting().UseOxpecker endpoints |> ignore)
                     |> ignore)
-                .Build ()
+                .Build()
 
-        host.StartAsync().GetAwaiter().GetResult ()
+        host.StartAsync().GetAwaiter().GetResult()
 
         let client = host.GetTestClient ()
 

@@ -125,7 +125,7 @@ module OpenApi =
     /// Populates schema and property descriptions from F# XML doc comments (`summary` tags on types and record fields).
     /// </summary>
     type XmlDocSchemaTransformer () =
-        let loadedDocs = ConcurrentDictionary<string, Map<string, string>> ()
+        let loadedDocs = ConcurrentDictionary<string, Map<string, string>>()
 
         let tryLoadDoc (asm : Assembly) : Map<string, string> =
             let xmlPath = Path.ChangeExtension (asm.Location, ".xml")

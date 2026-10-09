@@ -40,7 +40,7 @@ module Auth =
     let private requirePolicy (policyName : string) : EndpointMiddleware =
         fun next ctx ->
             task {
-                let authz = ctx.RequestServices.GetRequiredService<IAuthorizationService> ()
+                let authz = ctx.RequestServices.GetRequiredService<IAuthorizationService>()
 
                 let! result = authz.AuthorizeAsync (ctx.User, null, policyName)
 
@@ -148,11 +148,11 @@ module Auth =
                                 ServerCertificateCustomValidationCallback = fun _ _ _ _ -> true
                             )
             )
-            .Services.AddAuthorization (fun options ->
+            .Services.AddAuthorization(fun options ->
                 options.AddPolicy (
                     policyName,
                     fun policy ->
-                        policy.AddAuthenticationSchemes(cookieScheme, bearerScheme).RequireAuthenticatedUser ()
+                        policy.AddAuthenticationSchemes(cookieScheme, bearerScheme).RequireAuthenticatedUser()
                         |> ignore
                 )
                 |> ignore)
