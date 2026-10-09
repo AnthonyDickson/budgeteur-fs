@@ -71,7 +71,7 @@ lint: check-architecture
 	cd server && dotnet fsharplint lint Budgeteur.slnx
 
 # Enforce the architecture rules that no compiler or formatter can: kernel/feature boundaries,
-# and the DATETIME column convention (see "Date and datetime columns" in docs/database.md)
+# and the DATETIME column convention (see docs/dates.md)
 check-architecture:
 	#!/usr/bin/env bash
 	set -euo pipefail

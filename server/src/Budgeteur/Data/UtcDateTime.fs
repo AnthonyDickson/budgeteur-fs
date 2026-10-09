@@ -3,7 +3,7 @@ namespace Budgeteur.Data
 open System
 
 /// <summary>Conversions for the <c>DATETIME</c> column convention: the columns carry no offset and
-/// values are assumed to be UTC. See "Date and datetime columns" in docs/database.md. The names
+/// values are assumed to be UTC. See docs/dates.md. The names
 /// mirror the codecs' <c>fromRow</c>/<c>toRow</c>: same direction, one layer out.</summary>
 [<RequireQualifiedAccess>]
 module UtcDateTime =

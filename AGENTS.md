@@ -159,7 +159,8 @@ See [docs/database.md](docs/database.md) for the full picture. Key points:
   migration makes DbUp treat it as new and re-run it, which fails on an existing database.
 - Migration columns use SqlHydra-compatible type hints (`GUID`, `BOOLEAN`, `DATETIME`, `CURRENCY`, …). These are not
   real SQLite types but drive codegen; the first migration's header comment explains them, and the conventions they
-  imply (v7 UUIDs, UTC timestamps) live in [docs/database.md](docs/database.md).
+  imply live in [docs/database.md](docs/database.md) (v7 UUIDs) and [docs/dates.md](docs/dates.md) (dates, UTC
+  timestamps).
 - `Data/Constraints.fs` holds hand-written `require*` checks mirroring the schema's integrity constraints, combined with
   `requireAll`/`requireOne` so a client sees every failure in one response (SQLite does not always report which column
   triggered a violation).
@@ -286,6 +287,9 @@ reports build version, uptime, and DB connectivity, returning `503` when the dat
   will leak data across users.
 - **Money** — amounts are `decimal`, rounded to cents with `Money.roundToCents` (`MidpointRounding.AwayFromZero`), and
   serialised as JSON strings, not numbers.
+- **Dates and timestamps** — days from the user or a bank statement are calendar dates (`DATE` / `DateOnly`); events the
+  server records are UTC instants (`DATETIME`). Date ranges are inclusive and supplied by the client. See
+  [docs/dates.md](docs/dates.md).
 - **Secrets** — never log secrets or tokens; source them from environment variables / config sections, not source
   control.
 

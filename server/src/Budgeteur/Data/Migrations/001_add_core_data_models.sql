@@ -5,8 +5,8 @@
 --
 -- # Column Type Assumptions
 -- GUIDs are assumed to be v7 UUIDs
--- DATETIME columns are assumed to be UTC, see the "Date and datetime columns" section of
--- docs/database.md for how to read and write them.
+-- DATETIME columns are assumed to be UTC and DATE columns hold calendar dates, see docs/dates.md
+-- for how to read and write them.
 
 -- Accounts
 
