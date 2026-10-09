@@ -79,7 +79,9 @@ which translate instants rather than relabel them.
 
 ## Key Constraints
 
-- **Never modify an already-applied migration.** They run once, in order. Add a new file for schema changes.
+- **Never modify a released migration.** A migration is released once a version tag (created by the Docker Publish
+  workflow) contains it; check with `git tag --contains <commit>`. Until then, edit it in place and run `just db-reset`.
+  Released migrations run once, in order — add a new file for schema changes.
 - **`Db.fs` is auto-generated** by `dotnet sqlhydra sqlite` — record types, table declarations, and
   `QueryContextFactory`. Committed to source control; do not hand-edit. `just db-update` regenerates it from the live
   database.

@@ -114,7 +114,8 @@ SQLite with DbUp migrations and SqlHydra type-safe queries. See [docs/database.m
 the key design points:
 
 - Numbered migration `.sql` files are embedded in the assembly, applied in order at startup, tracked in a
-  `SchemaVersions` table. Never modify an already-applied migration.
+  `SchemaVersions` table. Never modify a released migration (see [Key Constraints](database.md#key-constraints) for what
+  counts as released).
 - `Data/Db.fs` is SqlHydra-generated and committed. SqlHydra-compatible type hints (`GUID`, `BOOLEAN`, `DATETIME`,
   `CURRENCY`, …) in migration columns are not real SQLite types but drive codegen; the first migration's header comment
   explains them, and the conventions they imply (v7 UUIDs, UTC timestamps) live in [docs/database.md](database.md).

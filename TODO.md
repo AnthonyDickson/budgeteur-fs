@@ -17,16 +17,45 @@
 
 ## Current Tasks
 
+- Dates for the dashboard MVP. Instants are stored as UTC `DATETIME`; calendar dates stay as `DATE` / `DateOnly`.
+  - Keep `Transactions.Date` as `DATE` / `DateOnly`: bank CSVs and manual entry give a calendar date, not an instant.
+    Remove the TODO comments on `Transactions.Date` and `Accounts.CurrentAsOf` in migration 001. Nothing has been
+    released, so migration 001 is edited in place; run `just db-reset` afterwards.
+  - Write `docs/dates.md`, a short statement of the date and timestamp conventions, and link it from `AGENTS.md`
+    (Conventions) and `docs/database.md`. Move the "Date and datetime columns" section of `docs/database.md` into it.
+    Cover:
+    - Calendar dates (`DATE` / `DateOnly` / `calendar.Date`) for values the user or a bank statement gives as a day;
+      instants (`DATETIME` UTC / `DateTimeOffset` / `Timestamp`) for events the server records.
+    - Storage: `DATE` as `yyyy-MM-dd` text, `DATETIME` as UTC without an offset (`UtcDateTime.toColumn`/`fromColumn`).
+    - Wire format: ISO-8601 `yyyy-MM-dd` for dates, RFC 3339 with an offset for instants; parsing is culture-invariant.
+    - Date ranges are inclusive `from`/`to` dates worked out by the client from its local `today`; the server does not
+      convert between timezones yet.
+    - Instants are converted to local time only for display.
+  - Dashboard endpoints take an explicit inclusive date range (`?from=YYYY-MM-DD&to=YYYY-MM-DD`) and filter
+    `Transactions.Date` on it. The client works out the range from its local date (the `GetLocalDate` effect), so the
+    server needs no timezone for the MVP and the endpoints are deterministic to test. Exclude `IsInternalTransfer` rows.
+  - Put period arithmetic (last N days, calendar month, week, financial year starting 1 April) in a pure client module
+    that takes `today` and returns `from`/`to`, with unit tests for month ends, leap years and year boundaries.
+  - Validate the range on the server: both dates ISO, `from <= to`, and a maximum span, returning `400` otherwise.
+  - Parse dates with `DateOnly.ParseExact (s, "yyyy-MM-dd", CultureInfo.InvariantCulture)` in `Shared/Coders.fs` and
+    reuse it for the query parameters; `DateOnly.Parse` depends on the current culture and accepts non-ISO formats.
+  - Add an index on `Transactions(UserId, Date)` in migration 001 for range queries. `DATE` values are stored as
+    `yyyy-MM-dd` text, so range comparisons are lexical and only correct while every write uses that format.
+
 ## Backlog
 
-- Instead of saving `DateOnly` (e.g. transaction dates), use UTC time everywhere except for display on the client or
-  filtering by date range on the server (e.g. calculating net income for last 28 days). The server CLI should set a
-  default timezone and the client should allow the user to set their own timezone via a settings page
-
-  Can use the following code to init a timezone object:
-  ```fsharp
-  let timezone = TimeZoneInfo.FindSystemTimeZoneById "Pacific/Auckland"
-  ```
+- Dates after the dashboard MVP.
+  - Server-side timezone, needed only once the server works out periods without a client request (e.g. the regular
+    snapshots on the roadmap): a configured default IANA timezone (e.g. `Pacific/Auckland`), validated at startup with
+    the other config sections, `tzdata` in the runtime image so `TimeZoneInfo.FindSystemTimeZoneById` resolves it, and
+    `today` derived from `Clock` plus that zone.
+  - Per-user timezone: start with the browser's zone (`Intl.DateTimeFormat().resolvedOptions().timeZone`); add a
+    settings page once there are other preferences to store.
+  - The balance sheet subtitle converts `StatementDate` with today's offset (`calendar.local_offset()`), so an instant
+    from the other side of a DST change can show the wrong date within an hour of midnight. Convert with the offset at
+    that instant (e.g. via a JS `Date` FFI) or the user's IANA timezone.
+  - `Accounts.CurrentAsOf` needs no work: `Accounts` is only used as the target of `Transactions.AccountId` and may be
+    replaced by the balance sheet. Revisit when CSV imports decide what an account is.
 - Kiwibank statements have enough info to auto tag internal transfers without dedicated rule
   - If the both the source and target account numbers are in the user's accounts, then you can tag as an internal
     transfer.
