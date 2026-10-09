@@ -65,8 +65,8 @@ Use only when the procedure above is not decisive.
 ## Decisions
 
 - Each behaviour is asserted at one layer only, unless the boundary itself is the failure mode. Server integration is
-  hermetic (in-memory SQLite on localhost); E2E is non-hermetic and needs the dev-only `/api/test/*` reset endpoints for
-  isolation.
+  hermetic (in-memory SQLite on localhost); E2E is non-hermetic and isolates tests with a user per worker plus the
+  dev-only `DELETE /api/test/user-data` reset before each test.
 - Assert state and effect targets, never interactions or serialised payload bytes. Exact-body assertions are change
   detectors.
 - Test impact analysis and predictive selection are not adopted: the suite runs in seconds, and selection trades

@@ -1,15 +1,7 @@
-import { test, expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
 
+import { test, expect } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
-
-// The tagging page reads from both localStorage and the server. Each test gets
-// a fresh browser context (so empty localStorage), and the dev-only reset
-// endpoint clears the server's tags/rules, so every test starts from the empty
-// state.
-test.beforeEach(async ({ page }) => {
-  const response = await page.request.delete('/api/test/tagging');
-  expect(response.status()).toBe(204);
-});
 
 const colorTestId = (hex: string) => `tag-color-hex${hex.replace('#', '')}`;
 
@@ -27,8 +19,8 @@ const ruleRow = (page: Page, pattern: string) =>
 const toast = (page: Page, text: string) =>
   page.getByTestId('toast').filter({ hasText: text });
 
-/// Navigate to the tagging page and wait for the empty state. The reset in
-/// `beforeEach` guarantees there are no tags, so this is deterministic.
+/// Navigate to the tagging page and wait for the empty state. Each test starts
+/// with no data (see support/fixtures.ts), so this is deterministic.
 async function gotoEmptyTagging(page: Page) {
   await page.goto('/tagging');
   await expect(page.getByTestId('no-tags-empty-state')).toBeVisible();

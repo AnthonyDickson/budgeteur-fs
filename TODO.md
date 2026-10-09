@@ -17,12 +17,8 @@
 
 ## Current Tasks
 
-- Balances page:
-  - Review
-  - Consider renaming balance sheet _item_ to balance sheet _entry_.
-- Consider reworking constraints: Rather than eagerly checking constraints, run the DB query and catch any exceptions.
-  If the exception is related to a DB constraint, run the existing checks against the database to create a descriptive
-  error message.
+- BUG: From the transactions modal with no tags, click link to create new tag, client navigates to the tagging page, an
+  empty dialog is visible.
 
 ## Backlog
 
@@ -34,8 +30,6 @@
   ```fsharp
   let timezone = TimeZoneInfo.FindSystemTimeZoneById "Pacific/Auckland"
   ```
-- BUG: From the transactions modal with no tags, click link to create new tag, client navigates to the tagging page, an
-  empty dialog is visible.
 - Kiwibank statements have enough info to auto tag internal transfers without dedicated rule
   - If the both the source and target account numbers are in the user's accounts, then you can tag as an internal
     transfer.

@@ -77,8 +77,7 @@
 
     <Compile Include="Feature/GetStatus.fs" />
 
-    <Compile Include="Feature/TestSupport/ResetTagging.fs" />
-    <Compile Include="Feature/TestSupport/ResetBalanceSheet.fs" />
+    <Compile Include="Feature/TestSupport/ResetUserData.fs" />
 
     <Compile Include="Program.fs" />
   </ItemGroup>

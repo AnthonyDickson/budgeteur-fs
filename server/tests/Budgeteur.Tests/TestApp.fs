@@ -78,6 +78,15 @@ module TestAppConfig =
             CleanTables = "BalanceSheetItems" :: "BalanceSheets" :: config.CleanTables
     }
 
+    let withResetUserData (config : TestAppConfig) = {
+        config with
+            EndpointProviders =
+                (fun connStr ->
+                    let queryContext = QueryContextFactory.Create connStr
+                    [ DELETE [ Budgeteur.Feature.TestSupport.ResetUserData.endpoint queryContext ] ])
+                :: config.EndpointProviders
+    }
+
 type TestApp = {
     Client : HttpClient
     /// A second client authenticated as a different user against the same database.

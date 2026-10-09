@@ -1,22 +1,14 @@
-import { test, expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
 
 import { expectAmount } from '../support/amount';
+import { test, expect } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
 
-/// Create a tag through the tagging UI. The database persists across the run,
-/// so the tagging page may show either the empty state or an existing tag
-/// list; handle both.
-async function createTag(page: Page, name: string) {
+/// Create the first tag through the tagging UI. Each test starts with no data
+/// (see support/fixtures.ts), so the tagging page shows the empty state.
+async function createFirstTag(page: Page, name: string) {
   await page.goto('/tagging');
-  await expect(
-    page.getByTestId('no-tags-empty-state').or(page.getByTestId('new-tag-button')),
-  ).toBeVisible();
-
-  if (await page.getByTestId('no-tags-empty-state').isVisible()) {
-    await page.getByTestId('create-first-tag-button').click();
-  } else {
-    await page.getByTestId('new-tag-button').click();
-  }
+  await page.getByTestId('create-first-tag-button').click();
 
   const modal = page.getByTestId('tag-modal');
   await expect(modal).toBeVisible();
@@ -27,12 +19,10 @@ async function createTag(page: Page, name: string) {
 
 test.describe('transactions', () => {
   test('full CRUD flow for a transaction', async ({ page }, testInfo) => {
-    // Unique names keep retries independent: the database persists across
-    // attempts within a single `just e2e-test` run.
-    const description = `E2E transaction ${Date.now()}`;
-    const tagName = `E2E tag ${Date.now()}`;
+    const description = 'Coffee';
+    const tagName = 'Groceries';
 
-    await createTag(page, tagName);
+    await createFirstTag(page, tagName);
     await page.goto('/transactions');
 
     // ── Create ───────────────────────────────────────────────────────────────

@@ -1,16 +1,8 @@
-import { test, expect, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
 
 import { expectAmount } from '../support/amount';
+import { test, expect } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
-
-// The balance sheet page reads from both localStorage and the server. Each test
-// gets a fresh browser context (so empty localStorage), and the dev-only reset
-// endpoint clears the server's sheet and items, so every test starts from the
-// "no sheet yet" state.
-test.beforeEach(async ({ page }) => {
-  const response = await page.request.delete('/api/test/balance-sheet');
-  expect(response.status()).toBe(204);
-});
 
 const modal = (page: Page) => page.getByTestId('balance-sheet-item-modal');
 

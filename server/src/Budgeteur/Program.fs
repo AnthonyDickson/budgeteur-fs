@@ -279,8 +279,7 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
     let testEndpoints =
         if app.Environment.IsDevelopment () then
             [
-                DELETE [ ResetTagging.endpoint queryContext ]
-                DELETE [ ResetBalanceSheet.endpoint queryContext ]
+                DELETE [ ResetUserData.endpoint queryContext ]
                 GET [
                     ReadBalanceSheetItem.endpoint queryContext
                     ReadAllBalanceSheetItems.endpoint queryContext

@@ -256,9 +256,10 @@ Three layers. Each has a dedicated doc:
   message, then assert on the returned model and inspect the `Effect` payload. No browser or DOM. See
   [docs/architecture.md](docs/architecture.md).
 - **E2E** — Playwright (`just e2e-test`), the full stack in Docker Compose with host networking (Authelia → server →
-  Vite → Playwright) and a fresh database per run. Tests log in once in global setup and capture screenshots. Use
-  `data-testid` attributes for selectors — add them to feature page views when introducing new interactive elements. See
-  [docs/e2e-tests.md](docs/e2e-tests.md).
+  Vite → Playwright) and a fresh database per run. Each worker logs in as its own user and each test starts with no
+  data, so tests are independent of order and parallelism; specs import `test` from `support/fixtures.ts`. Tests capture
+  screenshots. Use `data-testid` attributes for selectors — add them to feature page views when introducing new
+  interactive elements. See [docs/e2e-tests.md](docs/e2e-tests.md).
 
 ### Static Assets
 

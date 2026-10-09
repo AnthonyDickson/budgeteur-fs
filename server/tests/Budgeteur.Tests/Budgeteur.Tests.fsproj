@@ -20,6 +20,7 @@
     <Compile Include="BalanceSheet/EndpointTests.fs" />
     <Compile Include="Transactions/EndpointTests.fs" />
     <Compile Include="Transactions/TransactionDescriptionPropertyTests.fs" />
+    <Compile Include="TestSupport/ResetUserDataTests.fs" />
     <Compile Include="MoneyTests.fs" />
   </ItemGroup>
 
