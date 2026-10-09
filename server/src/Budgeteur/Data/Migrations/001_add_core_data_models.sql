@@ -21,7 +21,6 @@ CREATE TABLE Accounts (
     -- The amount of money held in the account. Positive values indicate credit whereas negative values indicate debit.
     Balance     CURRENCY NOT NULL,
     -- When the balance snapshot was taken (the date the balance is accurate as of).
-    -- TODO: Change this column to UTC DATETIME to ensure the local date can be reconstructed from it
     CurrentAsOf DATE     NOT NULL
 );
 
@@ -72,8 +71,7 @@ CREATE TABLE Transactions (
     Amount      CURRENCY NOT NULL,
     -- A text description of the transaction either manually entered by the user or derived from a CSV row.
     Description TEXT     NOT NULL,
-    -- When the transaction occurred.
-    -- TODO: Change this column to UTC DATETIME to ensure the local date can be reconstructed from it
+    -- The calendar date the transaction occurred, as given by the bank statement or the user (not an instant).
     Date        DATE     NOT NULL,
     -- Whether the transaction represents an internal transfer between a user's own accounts.
     -- If true, the transaction should only be shown in the transactions table, but not anywhere else.
@@ -90,7 +88,7 @@ CREATE TABLE Transactions (
     FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE SET NULL
 );
 
-CREATE INDEX IX_Transactions_UserId ON Transactions(UserId);
+CREATE INDEX IX_Transactions_UserId_Date ON Transactions(UserId, Date);
 CREATE INDEX IX_Transactions_UserId_TagId ON Transactions(UserId, TagId);
 
 -- Auto-tagging rules
