@@ -12,6 +12,7 @@ import budgeteur/shared/form_modal.{
   Active, Create, Edit, Hidden, NoChange, Post, Put, Submitting,
 }
 import gleam/int
+import gleam/option.{None, Some}
 import gleam/string
 import gleeunit/should
 import youid/uuid.{type Uuid}
@@ -57,7 +58,7 @@ fn active_form(state: item_modal.Modal) -> item_modal.Form {
 }
 
 pub fn blank_name_is_reported_on_submit_test() {
-  let #(state, requests, outcome) =
+  let #(state, request, outcome) =
     item_modal.update(create_modal(Asset), item_modal.SaveRequested, [])
 
   let assert Active(
@@ -67,7 +68,7 @@ pub fn blank_name_is_reported_on_submit_test() {
     ),
     ..,
   ) = state
-  requests |> should.equal([])
+  request |> should.equal(None)
   outcome |> should.equal(NoChange)
 }
 
@@ -101,7 +102,7 @@ pub fn duplicate_requires_the_name_kind_and_term_to_all_match_test() {
     |> run(item_modal.TermChanged(term), [existing])
   }
 
-  let assert #(duplicate, [], NoChange) =
+  let assert #(duplicate, None, NoChange) =
     item_modal.update(
       filled(create_modal(Asset), "Chequing", "Current"),
       item_modal.SaveRequested,
@@ -116,21 +117,21 @@ pub fn duplicate_requires_the_name_kind_and_term_to_all_match_test() {
     ..,
   ) = duplicate
 
-  let assert #(_, [Post(_)], NoChange) =
+  let assert #(_, Some(Post(_)), NoChange) =
     item_modal.update(
       filled(create_modal(Asset), "Chequing", "NonCurrent"),
       item_modal.SaveRequested,
       [existing],
     )
 
-  let assert #(_, [Post(_)], NoChange) =
+  let assert #(_, Some(Post(_)), NoChange) =
     item_modal.update(
       filled(create_modal(Liability), "Chequing", "Current"),
       item_modal.SaveRequested,
       [existing],
     )
 
-  let assert #(_, [Post(_)], NoChange) =
+  let assert #(_, Some(Post(_)), NoChange) =
     item_modal.update(
       filled(create_modal(Asset), "Savings", "Current"),
       item_modal.SaveRequested,
@@ -146,7 +147,7 @@ pub fn editing_an_item_does_not_count_it_as_its_own_duplicate_test() {
   let state =
     run(item_modal.hidden(), item_modal.EditRequested(existing), [existing])
 
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     item_modal.update(state, item_modal.SaveRequested, [])
 
   let assert Submitting(mode: Edit(id), ..) = submitting
@@ -212,7 +213,7 @@ pub fn create_builds_a_post_with_the_chosen_kind_test() {
     |> run(item_modal.BalanceChanged("300000"), [])
     |> run(item_modal.TermChanged("NonCurrent"), [])
 
-  let assert #(Submitting(mode: Create, ..), [request], NoChange) =
+  let assert #(Submitting(mode: Create, ..), Some(request), NoChange) =
     item_modal.update(state, item_modal.SaveRequested, [])
 
   request
@@ -226,17 +227,12 @@ pub fn create_builds_a_post_with_the_chosen_kind_test() {
   )
 }
 
-pub fn cancelling_and_dismissing_both_close_the_dialog_test() {
+pub fn cancelling_hides_the_modal_test() {
   let filled =
     create_modal(Asset) |> run(item_modal.NameChanged("Chequing"), [])
 
-  let assert #(Hidden, [_], NoChange) =
+  let assert #(Hidden, None, NoChange) =
     item_modal.update(filled, item_modal.CancelRequested, [])
-
-  // A browser dismissal (Esc or the backdrop) is already closed on screen, so
-  // no close effect is needed.
-  let assert #(Hidden, [], NoChange) =
-    item_modal.update(filled, item_modal.DialogDismissed, [])
 }
 
 pub fn opening_the_form_always_starts_fresh_test() {

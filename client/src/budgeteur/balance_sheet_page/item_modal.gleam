@@ -9,7 +9,6 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/money
-import gleam/dynamic/decode
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -21,13 +20,6 @@ import lustre/event
 
 /// Max length of an item name. Mirrors the server's `ItemName.MaxLength`.
 pub const max_name_length = 128
-
-const dom_id = "balance_sheet_item_modal"
-
-/// The CSS selector for the modal dialog element. The `#` hash prefix is
-/// composed here so callers (e.g. the show/close dialog effects) never have to
-/// remember it.
-pub const dom_id_selector = "#" <> dom_id
 
 const input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
   <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
@@ -83,44 +75,44 @@ pub type Msg {
   // outcome variant is chosen from the `mode` in the `Submitting` state.
   // Transport timeouts surface here as `Error(NetworkError(...))`.
   SaveCompleted(result: Result(BalanceSheetItem, ApiError))
-  // Cancel button (dialog stays open until page closes it)
+  // Cancel button, or the browser dismissed the dialog (Esc / outside click)
   CancelRequested
-  // browser dismissed the dialog (Esc / backdrop click)
-  DialogDismissed
 }
 
 pub fn update(
   state: Modal,
   msg: Msg,
   items: List(BalanceSheetItem),
-) -> #(Modal, List(Request), Outcome) {
+) -> #(Modal, Option(Request), Outcome) {
   case msg {
     CreateRequested(kind:) ->
       case state {
-        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
-        _ -> #(create_modal(kind), [form_modal.ShowDialog], form_modal.NoChange)
+        form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
+        _ -> #(create_modal(kind), None, form_modal.NoChange)
       }
     EditRequested(item:) ->
       case state {
-        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
-        _ -> #(edit_modal(item), [form_modal.ShowDialog], form_modal.NoChange)
+        form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
+        _ -> #(edit_modal(item), None, form_modal.NoChange)
       }
-    NameChanged(value:) -> #(set_name(state, value), [], form_modal.NoChange)
-    TermChanged(value:) -> #(set_term(state, value), [], form_modal.NoChange)
+    NameChanged(value:) -> #(set_name(state, value), None, form_modal.NoChange)
+    TermChanged(value:) -> #(set_term(state, value), None, form_modal.NoChange)
     BalanceChanged(value:) -> #(
       set_balance(state, value),
-      [],
+      None,
       form_modal.NoChange,
     )
     SaveRequested -> save(state, items)
-    SaveCompleted(result: Ok(item)) -> on_save_succeeded(state, item)
+    SaveCompleted(result: Ok(item)) -> {
+      let #(modal, outcome) = form_modal.succeeded(state, item)
+      #(modal, None, outcome)
+    }
     SaveCompleted(result: Error(error)) -> #(
       form_modal.failed(state, error),
-      [],
+      None,
       form_modal.NoChange,
     )
-    CancelRequested -> cancel(state)
-    DialogDismissed -> #(form_modal.dismissed(state), [], form_modal.NoChange)
+    CancelRequested -> #(form_modal.cancel(state), None, form_modal.NoChange)
   }
 }
 
@@ -179,46 +171,19 @@ fn set_balance(state: Modal, value: String) -> Modal {
 fn save(
   state: Modal,
   items: List(BalanceSheetItem),
-) -> #(Modal, List(Request), Outcome) {
+) -> #(Modal, Option(Request), Outcome) {
   case form_modal.mode(state) {
-    None -> #(state, [], form_modal.NoChange)
+    None -> #(state, None, form_modal.NoChange)
     Some(mode) -> {
       let other_items = case mode {
         form_modal.Create -> items
         form_modal.Edit(id:) -> list.filter(items, fn(item) { item.id != id })
       }
 
-      case
+      let #(modal, request) =
         form_modal.submit(state, fn(form) { validate_form(form, other_items) })
-      {
-        #(modal, Some(request)) -> #(modal, [request], form_modal.NoChange)
-        #(modal, None) -> #(modal, [], form_modal.NoChange)
-      }
+      #(modal, request, form_modal.NoChange)
     }
-  }
-}
-
-fn on_save_succeeded(
-  state: Modal,
-  item: BalanceSheetItem,
-) -> #(Modal, List(Request), Outcome) {
-  case form_modal.succeeded(state, item) {
-    #(modal, outcome) ->
-      case outcome {
-        form_modal.NoChange -> #(modal, [], form_modal.NoChange)
-        form_modal.Created(_) | form_modal.Updated(_) -> #(
-          modal,
-          [form_modal.CloseDialog],
-          outcome,
-        )
-      }
-  }
-}
-
-fn cancel(state: Modal) -> #(Modal, List(Request), Outcome) {
-  case form_modal.cancel(state) {
-    #(modal, True) -> #(modal, [form_modal.CloseDialog], form_modal.NoChange)
-    #(modal, False) -> #(modal, [], form_modal.NoChange)
   }
 }
 
@@ -328,35 +293,30 @@ fn is_balance_required(error: BalanceError) -> Bool {
 
 // View
 
-/// Always renders the `<dialog>` element so the show/close dialog effects can
-/// find it. The dialog is `closedby="none"` while a request is in flight,
-/// locking it so it cannot be dismissed mid-request. The `on("close")` handler
-/// covers browser-initiated dismissals (Esc / backdrop click) while open.
+/// Renders nothing while `Hidden`, otherwise the open dialog. The dialog is
+/// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
-  let submitting = case state {
-    form_modal.Submitting(..) -> True
-    _ -> False
+  let open = fn(children, submitting) {
+    modal_ui.dialog(
+      testid: "balance-sheet-item-modal",
+      busy: submitting,
+      on_dismiss: CancelRequested,
+      children:,
+    )
   }
 
-  html.dialog(
-    [
-      event.on("close", decode.success(DialogDismissed)),
-      ..modal_ui.dialog_attributes(
-        dom_id,
-        "balance-sheet-item-modal",
-        submitting,
+  case state {
+    form_modal.Hidden -> element.none()
+    form_modal.Active(form:, mode:) ->
+      open(view_form(form, mode, api_error: None, submitting: False), False)
+    form_modal.Submitting(form:, mode:) ->
+      open(view_form(form, mode, api_error: None, submitting: True), True)
+    form_modal.Errored(form:, mode:, error:) ->
+      open(
+        view_form(form, mode, api_error: Some(error), submitting: False),
+        False,
       )
-    ],
-    case state {
-      form_modal.Hidden -> []
-      form_modal.Active(form:, mode:) ->
-        view_form(form, mode, api_error: None, submitting: False)
-      form_modal.Submitting(form:, mode:) ->
-        view_form(form, mode, api_error: None, submitting: True)
-      form_modal.Errored(form:, mode:, error:) ->
-        view_form(form, mode, api_error: Some(error), submitting: False)
-    },
-  )
+  }
 }
 
 fn view_form(

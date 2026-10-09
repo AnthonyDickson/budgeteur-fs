@@ -1,14 +1,14 @@
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{
-  Active, CloseDialog, Create, Created, Edit, Errored, Hidden, NoChange, Post,
-  Put, ShowDialog, Submitting, Updated,
+  Active, Create, Created, Edit, Errored, Hidden, NoChange, Post, Put,
+  Submitting, Updated,
 }
 import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_modal.{
-  type Modal, CancelRequested, CreateRequested, DialogDismissed, Duplicate,
-  EditRequested, Form, InvalidTag, PatternChanged, PatternRequired,
-  SaveCompleted, SaveRequested, TagChanged, TooLong, ValidTag,
+  type Modal, CancelRequested, CreateRequested, Duplicate, EditRequested, Form,
+  InvalidTag, PatternChanged, PatternRequired, SaveCompleted, SaveRequested,
+  TagChanged, TooLong, ValidTag,
 }
 import budgeteur/tagging_page/rule_write_request.{RuleWriteRequest}
 import gleam/int
@@ -54,20 +54,20 @@ fn api_error(message: String) -> ApiError {
 }
 
 pub fn opening_create_seeds_empty_pattern_and_selected_tag_test() {
-  let #(state, requests, outcome) =
+  let #(state, request, outcome) =
     rule_modal.update(rule_modal.hidden(), CreateRequested(make_id(1)), [])
   state
   |> should.equal(Active(
     form: Form(pattern: field.Empty(""), tag_id: ValidTag(make_id(1))),
     mode: Create,
   ))
-  requests |> should.equal([ShowDialog])
+  request |> should.equal(None)
   outcome |> should.equal(NoChange)
 }
 
 pub fn opening_edit_prefills_pattern_and_tag_test() {
   let existing = make_rule(make_id(3), "STARBUCKS", make_id(1))
-  let #(state, requests, _) =
+  let #(state, request, _) =
     rule_modal.update(rule_modal.hidden(), EditRequested(existing), [])
   state
   |> should.equal(Active(
@@ -77,7 +77,7 @@ pub fn opening_edit_prefills_pattern_and_tag_test() {
     ),
     mode: Edit(existing.id),
   ))
-  requests |> should.equal([ShowDialog])
+  request |> should.equal(None)
 }
 
 pub fn typing_keeps_the_space_the_user_just_typed_test() {
@@ -105,7 +105,7 @@ pub fn validate_trims_the_request_pattern_but_not_the_field_test() {
   // The field keeps showing exactly what the user typed (trimming the field
   // on submit would make the shown value jump around); the request carries
   // the trimmed pattern.
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(modal, SaveRequested, [])
   request |> should.equal(Post(RuleWriteRequest("STARBUCKS", make_id(1))))
 
@@ -118,9 +118,9 @@ pub fn validate_trims_the_request_pattern_but_not_the_field_test() {
 }
 
 pub fn submitting_a_blank_pattern_marks_it_required_test() {
-  let assert #(state, requests, NoChange) =
+  let assert #(state, request, NoChange) =
     rule_modal.update(make_create_modal(), SaveRequested, [])
-  requests |> should.equal([])
+  request |> should.equal(None)
   let assert Active(
     form: Form(pattern: field.Invalid(error: PatternRequired, ..), ..),
     ..,
@@ -156,9 +156,9 @@ pub fn selecting_an_invalid_tag_blocks_save_test() {
   let #(changed, _, _) = rule_modal.update(modal, TagChanged("not-a-uuid"), [])
   let assert Active(form: Form(tag_id: InvalidTag, ..), ..) = changed
 
-  let assert #(state, requests, NoChange) =
+  let assert #(state, request, NoChange) =
     rule_modal.update(changed, SaveRequested, [])
-  requests |> should.equal([])
+  request |> should.equal(None)
   let assert Active(form: Form(tag_id: InvalidTag, ..), ..) = state
 }
 
@@ -167,16 +167,16 @@ pub fn selecting_an_invalid_tag_blocks_save_test() {
 pub fn create_rule_workflow_test() {
   let modal = make_create_modal() |> modal_with_pattern("STARBUCKS")
 
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(modal, SaveRequested, [])
   let assert Submitting(mode: Create, ..) = submitting
   request |> should.equal(Post(RuleWriteRequest("STARBUCKS", make_id(1))))
 
   let saved = make_rule(make_id(3), "STARBUCKS", make_id(1))
-  let #(final_state, requests, outcome) =
+  let #(final_state, request, outcome) =
     rule_modal.update(submitting, SaveCompleted(Ok(saved)), [])
   final_state |> should.equal(Hidden)
-  requests |> should.equal([CloseDialog])
+  request |> should.equal(None)
   outcome |> should.equal(Created(saved))
 }
 
@@ -186,7 +186,7 @@ pub fn edit_rule_workflow_keeps_own_pattern_test() {
 
   // Editing without changing the pattern is not a duplicate: the rule being
   // edited is excluded from the other-patterns check.
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(modal, SaveRequested, [existing])
   let assert Submitting(mode: Edit(id), ..) = submitting
   id |> should.equal(existing.id)
@@ -194,10 +194,10 @@ pub fn edit_rule_workflow_keeps_own_pattern_test() {
   |> should.equal(Put(existing.id, RuleWriteRequest("STARBUCKS", make_id(1))))
 
   let saved = make_rule(make_id(3), "7-ELEVEN", make_id(2))
-  let #(final_state, requests, outcome) =
+  let #(final_state, request, outcome) =
     rule_modal.update(submitting, SaveCompleted(Ok(saved)), [existing])
   final_state |> should.equal(Hidden)
-  requests |> should.equal([CloseDialog])
+  request |> should.equal(None)
   outcome |> should.equal(Updated(saved))
 }
 
@@ -208,9 +208,9 @@ pub fn duplicate_pattern_in_same_tag_marks_form_and_emits_no_request_test() {
   let existing = make_rule(make_id(4), "STARBUCKS", make_id(1))
   let modal = make_create_modal() |> modal_with_pattern("starbucks")
 
-  let assert #(state, requests, NoChange) =
+  let assert #(state, request, NoChange) =
     rule_modal.update(modal, SaveRequested, [existing])
-  requests |> should.equal([])
+  request |> should.equal(None)
   let assert Active(
     form: Form(pattern: field.Invalid(error: Duplicate, ..), ..),
     ..,
@@ -224,7 +224,7 @@ pub fn same_pattern_under_another_tag_is_allowed_test() {
   let other = make_rule(make_id(4), "STARBUCKS", make_id(2))
   let modal = make_create_modal() |> modal_with_pattern("STARBUCKS")
 
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(modal, SaveRequested, [other])
   let assert Submitting(mode: Create, ..) = submitting
   request |> should.equal(Post(RuleWriteRequest("STARBUCKS", make_id(1))))
@@ -241,9 +241,9 @@ pub fn moving_a_rule_to_a_tag_with_the_same_pattern_is_rejected_test() {
   let #(moved, _, _) =
     rule_modal.update(modal, TagChanged(uuid.to_string(make_id(2))), [])
 
-  let assert #(state, requests, NoChange) =
+  let assert #(state, request, NoChange) =
     rule_modal.update(moved, SaveRequested, [starbucks, in_destination])
-  requests |> should.equal([])
+  request |> should.equal(None)
   let assert Active(
     form: Form(pattern: field.Invalid(error: Duplicate, ..), ..),
     ..,
@@ -257,7 +257,7 @@ pub fn moving_a_rule_to_a_tag_without_the_pattern_is_allowed_test() {
   let #(moved, _, _) =
     rule_modal.update(modal, TagChanged(uuid.to_string(make_id(2))), [])
 
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(moved, SaveRequested, [in_destination, starbucks])
   let assert Submitting(mode: Edit(id), ..) = submitting
   id |> should.equal(starbucks.id)
@@ -267,14 +267,14 @@ pub fn moving_a_rule_to_a_tag_without_the_pattern_is_allowed_test() {
 
 pub fn save_failure_then_fix_then_retry_test() {
   let modal = make_create_modal() |> modal_with_pattern("STARBUCKS")
-  let assert #(submitting, [Post(_)], NoChange) =
+  let assert #(submitting, Some(Post(_)), NoChange) =
     rule_modal.update(modal, SaveRequested, [])
 
   // The failure surfaces the API error as the banner message.
   let message = "The rule pattern 'STARBUCKS' for tag 2 already exists"
-  let assert #(errored, requests, NoChange) =
+  let assert #(errored, request, NoChange) =
     rule_modal.update(submitting, SaveCompleted(Error(api_error(message))), [])
-  requests |> should.equal([])
+  request |> should.equal(None)
   let assert Errored(mode: Create, error:, ..) = errored
   error |> should.equal(message)
 
@@ -287,19 +287,14 @@ pub fn save_failure_then_fix_then_retry_test() {
   error |> should.equal(message)
 
   // Retry is legal from the errored state.
-  let assert #(submitting_again, [Post(_)], NoChange) =
+  let assert #(submitting_again, Some(Post(_)), NoChange) =
     rule_modal.update(still_errored, SaveRequested, [])
   let assert Submitting(..) = submitting_again
 }
 
-pub fn cancel_requests_dialog_close_but_dismiss_does_not_test() {
-  let assert #(state, requests, NoChange) =
+pub fn cancel_hides_the_modal_test() {
+  let assert #(state, request, NoChange) =
     rule_modal.update(make_create_modal(), CancelRequested, [])
   state |> should.equal(Hidden)
-  requests |> should.equal([CloseDialog])
-
-  let assert #(state, requests, NoChange) =
-    rule_modal.update(make_create_modal(), DialogDismissed, [])
-  state |> should.equal(Hidden)
-  requests |> should.equal([])
+  request |> should.equal(None)
 }

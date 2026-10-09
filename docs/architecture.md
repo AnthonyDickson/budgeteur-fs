@@ -157,10 +157,17 @@ requesting shell-level behaviours — currently used for toast notifications, bu
 
 The same layering repeats inside a page: stateful modals (`transaction_modal`, `tag_modal`, `rule_modal`, plus the
 delete confirmations) keep their modal state in the page model, raise their own `Msg`s (lifted with `element.map`), and
-return the new modal plus a list of `Request`s and an `Outcome`, which the page turns into effects and data changes. The
-underlying state machines are generic (`shared/form_modal.gleam`, `shared/delete_modal.gleam`); feature modules alias
-their `Modal`/`Request`/ `Outcome` types, and `shared/modal_ui.gleam` owns the dialog chrome (dialog element, buttons,
-banners, field error styling).
+return the new modal plus an optional write `Request` and an `Outcome`, which the page turns into effects and data
+changes. The underlying state machines are generic (`shared/form_modal.gleam`, `shared/delete_modal.gleam`); feature
+modules alias their `Modal`/`Request`/`Outcome` types, and `shared/modal_ui.gleam` owns the dialog chrome (dialog
+element, buttons, banners, field error styling).
+
+Whether a dialog is open is derived from the model alone: a modal's view renders `modal_ui.dialog` for every state
+except `Hidden`, and renders nothing while `Hidden`. `modal_ui.dialog` renders a `<modal-dialog>` custom element
+(`shared/modal_dialog_ffi.mjs`, registered in `main`) around a native `<dialog>`; the element calls `showModal()` when
+it is inserted, and removing it closes the dialog. When the browser closes the dialog itself (Escape, or a click outside
+it), the element dispatches a `dismiss` event, which the modal handles as a cancel. No effect opens or closes a dialog,
+so the dialog on screen cannot drift from the model.
 
 ### Effect system
 
@@ -173,7 +180,7 @@ The `Effect` type in `shared/effect.gleam` is the source of truth for the full l
 - HTTP requests (via `http_effect.send`)
 - localStorage load/save
 - Navigation: client-side history push/replace, hard redirects
-- Browser chrome: document title, native `<dialog>` show/close
+- Browser chrome: document title
 - Timers and generic message dispatch
 - Batching and no-ops
 

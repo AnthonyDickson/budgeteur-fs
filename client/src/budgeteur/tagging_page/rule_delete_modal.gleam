@@ -4,13 +4,6 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 
-const dom_id = "rule_delete_modal"
-
-/// The CSS selector for the modal dialog element. The `#` hash prefix is
-/// composed here so callers (e.g. the show/close dialog effects) never have to
-/// remember it.
-pub const dom_id_selector = "#" <> dom_id
-
 pub type DeleteModalState =
   delete_modal.State(Rule, String)
 
@@ -32,7 +25,6 @@ pub fn view(
   delete_modal.view(
     state,
     delete_modal.Options(
-      dialog_id: dom_id,
       title: "Delete Rule",
       modal_testid: "delete-rule-modal",
       error_testid: "rule-delete-error",

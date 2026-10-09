@@ -1,4 +1,5 @@
-import lustre/attribute.{type Attribute}
+import gleam/dynamic/decode
+import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
@@ -6,8 +7,8 @@ import lustre/event
 /// Stateless Tailwind chrome shared by the feature modal dialogs. Scoped to
 /// what a modal dialog needs: the `<dialog>` element, its buttons, and its
 /// message banners. Field widgets stay per-feature.
-/// Classes for a modal `<dialog>` element.
-pub const dialog_class = "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50"
+/// Classes for the `<dialog>` element of `dialog`.
+const dialog_class = "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50"
 
 /// Classes for a modal dialog's secondary (cancel) button.
 const cancel_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
@@ -24,31 +25,44 @@ const delete_button_class = "inline-flex items-center justify-center gap-2 round
   <> "text-white hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 "
   <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400"
 
-/// The `closedby` value for a modal dialog: "any" allows dismissal via
-/// Escape or an outside click, while "none" locks the dialog while a request
-/// is in flight so it cannot be dismissed mid-request.
-pub fn closedby_value(busy: Bool) -> String {
-  case busy {
+/// Define the `<modal-dialog>` custom element that `dialog` renders. Call once
+/// before the app starts.
+@external(javascript, "./modal_dialog_ffi.mjs", "registerModalDialog")
+pub fn register() -> Nil
+
+/// A modal dialog, open for as long as the view renders it: render it while
+/// the modal is open and `element.none()` otherwise. The dialog opens as a
+/// modal when it is inserted and closes when it is removed, so the model is
+/// the only source of truth for whether it is open.
+///
+/// `on_dismiss` is sent when the browser closes the dialog itself (Escape or
+/// an outside click). While `busy` (a request is in flight) the dialog cannot
+/// be dismissed.
+pub fn dialog(
+  testid testid: String,
+  busy busy: Bool,
+  on_dismiss on_dismiss: msg,
+  children children: List(Element(msg)),
+) -> Element(msg) {
+  let closedby = case busy {
     True -> "none"
     False -> "any"
   }
-}
 
-/// Attributes shared by every feature modal dialog: its id (which the
-/// show/close dialog effects target), its `data-testid`, the shared dialog
-/// classes, and the `closedby` value derived from whether a request is in
-/// flight.
-pub fn dialog_attributes(
-  id: String,
-  testid: String,
-  busy: Bool,
-) -> List(Attribute(msg)) {
-  [
-    attribute.id(id),
-    attribute.attribute("data-testid", testid),
-    attribute.class(dialog_class),
-    attribute.attribute("closedby", closedby_value(busy)),
-  ]
+  element.element(
+    "modal-dialog",
+    [event.on("dismiss", decode.success(on_dismiss))],
+    [
+      html.dialog(
+        [
+          attribute.attribute("data-testid", testid),
+          attribute.class(dialog_class),
+          attribute.attribute("closedby", closedby),
+        ],
+        children,
+      ),
+    ],
+  )
 }
 
 /// The inline spinner shown inside a busy button.

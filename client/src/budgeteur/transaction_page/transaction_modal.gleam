@@ -11,7 +11,6 @@ import budgeteur/transaction_page/create_transaction_request.{
   type CreateTransactionRequest,
 }
 import budgeteur/transaction_page/transaction.{type Transaction, Transaction}
-import gleam/dynamic/decode
 import gleam/float
 import gleam/int
 import gleam/list
@@ -25,13 +24,6 @@ import lustre/event
 import youid/uuid.{type Uuid}
 
 pub const max_description_length = 256
-
-const dom_id = "transaction_modal"
-
-/// The CSS selector for the modal dialog element. The `#` hash prefix is
-/// composed here so callers (e.g. the show/close dialog effects) never have to
-/// remember it.
-pub const dom_id_selector = "#" <> dom_id
 
 pub type TransactionType {
   Debit
@@ -105,56 +97,51 @@ pub type Msg {
   // outcome variant is chosen from the `mode` in the `Submitting` state.
   // Transport timeouts surface here as `Error(NetworkError(...))`.
   SaveCompleted(result: Result(Transaction, ApiError))
-  // Cancel button (dialog stays open until page closes it)
+  // Cancel button, or the browser dismissed the dialog (Esc / outside click)
   CancelRequested
-  // browser dismissed the dialog (Esc / backdrop click)
-  DialogDismissed
 }
 
-pub fn update(state: Modal, msg: Msg) -> #(Modal, List(Request), Outcome) {
+pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
   case msg {
     CreateRequested ->
       case state {
-        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
-        _ -> #(create_modal(), [form_modal.ShowDialog], form_modal.NoChange)
+        form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
+        _ -> #(create_modal(), None, form_modal.NoChange)
       }
     EditRequested(transaction:) ->
       case state {
-        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
-        _ -> #(
-          edit_modal(transaction),
-          [form_modal.ShowDialog],
-          form_modal.NoChange,
-        )
+        form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
+        _ -> #(edit_modal(transaction), None, form_modal.NoChange)
       }
     AmountChanged(value:) -> #(
       set_amount(state, value),
-      [],
+      None,
       form_modal.NoChange,
     )
-    TypeChanged(type_:) -> #(set_type(state, type_), [], form_modal.NoChange)
+    TypeChanged(type_:) -> #(set_type(state, type_), None, form_modal.NoChange)
     IsTransferChanged(is_transfer:) -> #(
       set_is_transfer(state, is_transfer),
-      [],
+      None,
       form_modal.NoChange,
     )
     DescriptionChanged(value:) -> #(
       set_description(state, value),
-      [],
+      None,
       form_modal.NoChange,
     )
-    DateChanged(value:) -> #(set_date(state, value), [], form_modal.NoChange)
-    TagChanged(value:) -> #(set_tag(state, value), [], form_modal.NoChange)
+    DateChanged(value:) -> #(set_date(state, value), None, form_modal.NoChange)
+    TagChanged(value:) -> #(set_tag(state, value), None, form_modal.NoChange)
     SaveRequested -> save(state)
-    SaveCompleted(result: Ok(transaction)) ->
-      on_save_succeeded(state, transaction)
+    SaveCompleted(result: Ok(transaction)) -> {
+      let #(modal, outcome) = form_modal.succeeded(state, transaction)
+      #(modal, None, outcome)
+    }
     SaveCompleted(result: Error(error)) -> #(
       form_modal.failed(state, error),
-      [],
+      None,
       form_modal.NoChange,
     )
-    CancelRequested -> cancel(state)
-    DialogDismissed -> #(form_modal.dismissed(state), [], form_modal.NoChange)
+    CancelRequested -> #(form_modal.cancel(state), None, form_modal.NoChange)
   }
 }
 
@@ -353,35 +340,9 @@ fn validate_date(date_string: String) -> Result(Date, DateError) {
   }
 }
 
-fn save(state: Modal) -> #(Modal, List(Request), Outcome) {
-  case form_modal.submit(state, validate_form) {
-    #(modal, Some(request)) -> #(modal, [request], form_modal.NoChange)
-    #(modal, None) -> #(modal, [], form_modal.NoChange)
-  }
-}
-
-fn on_save_succeeded(
-  state: Modal,
-  transaction: Transaction,
-) -> #(Modal, List(Request), Outcome) {
-  case form_modal.succeeded(state, transaction) {
-    #(modal, outcome) ->
-      case outcome {
-        form_modal.NoChange -> #(modal, [], form_modal.NoChange)
-        form_modal.Created(_) | form_modal.Updated(_) -> #(
-          modal,
-          [form_modal.CloseDialog],
-          outcome,
-        )
-      }
-  }
-}
-
-fn cancel(state: Modal) -> #(Modal, List(Request), Outcome) {
-  case form_modal.cancel(state) {
-    #(modal, True) -> #(modal, [form_modal.CloseDialog], form_modal.NoChange)
-    #(modal, False) -> #(modal, [], form_modal.NoChange)
-  }
+fn save(state: Modal) -> #(Modal, Option(Request), Outcome) {
+  let #(modal, request) = form_modal.submit(state, validate_form)
+  #(modal, request, form_modal.NoChange)
 }
 
 // Validation
@@ -435,27 +396,33 @@ fn finalize(form: Form) -> Form {
 
 // View
 
+/// Renders nothing while `Hidden`, otherwise the open dialog. The dialog is
+/// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal, tags: List(Tag)) -> Element(Msg) {
-  let submitting = case state {
-    form_modal.Submitting(..) -> True
-    _ -> False
+  let open = fn(children, submitting) {
+    modal_ui.dialog(
+      testid: "transaction-modal",
+      busy: submitting,
+      on_dismiss: CancelRequested,
+      children:,
+    )
   }
 
-  html.dialog(
-    [
-      event.on("close", decode.success(DialogDismissed)),
-      ..modal_ui.dialog_attributes(dom_id, "transaction-modal", submitting)
-    ],
-    case state {
-      form_modal.Hidden -> []
-      form_modal.Active(form:, mode:) ->
-        view_form(form, mode, tags, api_error: None, submitting: False)
-      form_modal.Submitting(form:, mode:) ->
-        view_form(form, mode, tags, api_error: None, submitting: True)
-      form_modal.Errored(form:, mode:, error:) ->
-        view_form(form, mode, tags, api_error: Some(error), submitting: False)
-    },
-  )
+  case state {
+    form_modal.Hidden -> element.none()
+    form_modal.Active(form:, mode:) ->
+      open(
+        view_form(form, mode, tags, api_error: None, submitting: False),
+        False,
+      )
+    form_modal.Submitting(form:, mode:) ->
+      open(view_form(form, mode, tags, api_error: None, submitting: True), True)
+    form_modal.Errored(form:, mode:, error:) ->
+      open(
+        view_form(form, mode, tags, api_error: Some(error), submitting: False),
+        False,
+      )
+  }
 }
 
 fn view_form(

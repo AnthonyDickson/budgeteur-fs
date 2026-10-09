@@ -1,14 +1,14 @@
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{
-  Active, CloseDialog, Create, Created, Edit, Errored, Hidden, NoChange, Post,
-  Put, Submitting, Updated,
+  Active, Create, Created, Edit, Errored, Hidden, NoChange, Post, Put,
+  Submitting, Updated,
 }
 import budgeteur/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag_modal.{
-  type Modal, CancelRequested, ColorChosen, CreateRequested, DialogDismissed,
-  Duplicate, EditRequested, Form, NameChanged, NameRequired, SaveCompleted,
-  SaveRequested, TooLong,
+  type Modal, CancelRequested, ColorChosen, CreateRequested, Duplicate,
+  EditRequested, Form, NameChanged, NameRequired, SaveCompleted, SaveRequested,
+  TooLong,
 }
 import budgeteur/tagging_page/tag_write_request.{TagWriteRequest}
 import gleam/option.{None, Some}
@@ -77,7 +77,7 @@ pub fn validate_trims_the_request_name_but_not_the_field_test() {
   // The field keeps showing exactly what the user typed (trimming the field
   // on submit would make the shown value jump around); the request carries
   // the trimmed name.
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     tag_modal.update(modal, SaveRequested, [])
   request
   |> should.equal(Post(TagWriteRequest("Coffee", tag_modal.default_color)))
@@ -158,16 +158,16 @@ pub fn create_tag_workflow_test() {
   let assert #(colored, _, NoChange) =
     tag_modal.update(named, ColorChosen("#EF4444"), [])
 
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     tag_modal.update(colored, SaveRequested, [])
   let assert Submitting(mode: Create, ..) = submitting
   request |> should.equal(Post(TagWriteRequest("Coffee", "#EF4444")))
 
   let new_tag = tag_named(id, "Coffee")
-  let #(final_state, requests, outcome) =
+  let #(final_state, request, outcome) =
     tag_modal.update(submitting, SaveCompleted(Ok(new_tag)), [])
   final_state |> should.equal(Hidden)
-  requests |> should.equal([CloseDialog])
+  request |> should.equal(None)
   outcome |> should.equal(Created(new_tag))
 }
 
@@ -176,7 +176,7 @@ pub fn edit_tag_workflow_keeps_own_name_test() {
   let existing = tag_named(id, "Coffee")
   let modal = make_edit_modal(existing)
 
-  let assert #(submitting, [request], NoChange) =
+  let assert #(submitting, Some(request), NoChange) =
     tag_modal.update(modal, SaveRequested, [
       existing,
     ])
@@ -185,10 +185,10 @@ pub fn edit_tag_workflow_keeps_own_name_test() {
   request |> should.equal(Put(id, TagWriteRequest("Coffee", "#6366F1")))
 
   let saved = tag_named(make_id(), "Coffee & Drink")
-  let #(final_state, requests, outcome) =
+  let #(final_state, request, outcome) =
     tag_modal.update(submitting, SaveCompleted(Ok(saved)), [existing])
   final_state |> should.equal(Hidden)
-  requests |> should.equal([CloseDialog])
+  request |> should.equal(None)
   outcome |> should.equal(Updated(saved))
 }
 
@@ -197,9 +197,9 @@ pub fn submit_duplicate_name_marks_invalid_and_emits_no_request_test() {
   let #(named, _, _) =
     tag_modal.update(make_create_modal(), NameChanged("Coffee"), [])
 
-  let assert #(new_state, requests, NoChange) =
+  let assert #(new_state, request, NoChange) =
     tag_modal.update(named, SaveRequested, [existing])
-  requests |> should.equal([])
+  request |> should.equal(None)
   let assert Active(
     form: Form(name: field.Invalid(error: Duplicate, ..), ..),
     ..,
@@ -209,11 +209,11 @@ pub fn submit_duplicate_name_marks_invalid_and_emits_no_request_test() {
 pub fn save_failure_then_fix_then_retry_test() {
   let #(named, _, _) =
     tag_modal.update(make_create_modal(), NameChanged("Coffee"), [])
-  let assert #(submitting, [Post(_)], NoChange) =
+  let assert #(submitting, Some(Post(_)), NoChange) =
     tag_modal.update(named, SaveRequested, [])
 
   // The failure surfaces the API error as the banner message.
-  let assert #(errored, requests, NoChange) =
+  let assert #(errored, request, NoChange) =
     tag_modal.update(
       submitting,
       tag_modal.SaveCompleted(
@@ -221,7 +221,7 @@ pub fn save_failure_then_fix_then_retry_test() {
       ),
       [],
     )
-  requests |> should.equal([])
+  request |> should.equal(None)
   let assert Errored(mode: Create, error:, ..) = errored
   error |> should.equal("A tag named Coffee already exists")
 
@@ -233,19 +233,14 @@ pub fn save_failure_then_fix_then_retry_test() {
   error |> should.equal("A tag named Coffee already exists")
 
   // Retry is legal from the errored state.
-  let assert #(submitting_again, [Post(_)], NoChange) =
+  let assert #(submitting_again, Some(Post(_)), NoChange) =
     tag_modal.update(still_errored, SaveRequested, [])
   let assert Submitting(..) = submitting_again
 }
 
-pub fn cancel_requests_dialog_close_but_dismiss_does_not_test() {
-  let assert #(state, requests, NoChange) =
+pub fn cancel_hides_the_modal_test() {
+  let assert #(state, request, NoChange) =
     tag_modal.update(make_create_modal(), CancelRequested, [])
   state |> should.equal(Hidden)
-  requests |> should.equal([CloseDialog])
-
-  let assert #(state, requests, NoChange) =
-    tag_modal.update(make_create_modal(), DialogDismissed, [])
-  state |> should.equal(Hidden)
-  requests |> should.equal([])
+  request |> should.equal(None)
 }

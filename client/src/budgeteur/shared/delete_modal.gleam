@@ -1,21 +1,13 @@
 //// Generic delete-confirmation dialog shared by the transactions, tags, and
 //// rules features.
 ////
-//// The dialog element is always rendered by `view` so the show/close dialog
-//// effects can find it; visibility is driven by effects rather than by adding
-//// or removing the element from the DOM (which would reset its state). The
+//// `view` renders the dialog (`modal_ui.dialog`) for every state except
+//// `Hidden`, so the dialog is open exactly while the state says so. The
 //// feature-specific bits (title, test ids, body copy) are handed in through
-//// `Options`.
-////
-//// Deliberate tradeoff: the DOM dialog can be dismissed without a Msg (Escape
-//// key, or `closedby="any"` outside-click), so the state here can drift out of
-//// sync with what is on screen while a dialog is open. We accept this because
-//// any stale state is benign: `open` overwrites the state on the next Delete
-//// click, and the caller only ever re-shows the dialog by going through
-//// `open`. We do not listen for the dialog's `cancel`/`close` events to keep
-//// the state in sync, as that would add machinery to fix a state that
-//// self-heals. While a request is in flight the dialog is locked
-//// (`closedby="none"`), so a response can never race a newer modal session.
+//// `Options`. The browser dismissing the dialog (Escape or an outside click)
+//// sends the same `on_cancel` message as the Cancel button. While a request is
+//// in flight the dialog is locked (`closedby="none"`), so a response can never
+//// race a newer modal session.
 
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/modal_ui
@@ -29,7 +21,7 @@ import lustre/element/html
 pub const delete_timeout_ms = 10_000
 
 pub type State(target, context) {
-  /// Dialog is closed. The dialog element is still rendered, just inert.
+  /// Dialog is closed and not rendered.
   Hidden
   /// Dialog is open, awaiting the user's confirmation.
   Confirming(target: target, context: context)
@@ -79,7 +71,6 @@ pub fn fail(
 
 pub type Options(target, context, msg) {
   Options(
-    dialog_id: String,
     title: String,
     modal_testid: String,
     error_testid: String,
@@ -90,70 +81,39 @@ pub type Options(target, context, msg) {
   )
 }
 
-/// Always renders the `<dialog>` element (so the show/close effects can find
-/// it); its children are empty while `Hidden`. `closedby` is "none" while
-/// `Deleting`, locking the dialog so it cannot be dismissed mid-request. The
-/// buttons emit `on_cancel`/`on_confirm` and are disabled while a delete is in
-/// flight, with a spinner in the confirm button.
+/// Renders nothing while `Hidden`, otherwise the open dialog. `closedby` is
+/// "none" while `Deleting`, locking the dialog so it cannot be dismissed
+/// mid-request. The buttons emit `on_cancel`/`on_confirm` and are disabled
+/// while a delete is in flight, with a spinner in the confirm button.
 pub fn view(
   state: State(target, context),
   options: Options(target, context, msg),
   on_cancel on_cancel: msg,
   on_confirm on_confirm: msg,
 ) -> Element(msg) {
-  let deleting = case state {
-    Deleting(..) -> True
-    _ -> False
+  let open = fn(target, context, error, deleting) {
+    modal_ui.dialog(
+      testid: options.modal_testid,
+      busy: deleting,
+      on_dismiss: on_cancel,
+      children: dialog_content(
+        options,
+        target,
+        context,
+        error:,
+        deleting:,
+        on_cancel:,
+        on_confirm:,
+      ),
+    )
   }
 
-  html.dialog(
-    modal_ui.dialog_attributes(
-      options.dialog_id,
-      options.modal_testid,
-      deleting,
-    ),
-    content(state, options, on_cancel:, on_confirm:),
-  )
-}
-
-fn content(
-  state: State(target, context),
-  options: Options(target, context, msg),
-  on_cancel on_cancel: msg,
-  on_confirm on_confirm: msg,
-) -> List(Element(msg)) {
   case state {
-    Hidden -> []
-    Confirming(target:, context:) ->
-      dialog_content(
-        options,
-        target,
-        context,
-        error: None,
-        deleting: False,
-        on_cancel:,
-        on_confirm:,
-      )
-    Deleting(target:, context:) ->
-      dialog_content(
-        options,
-        target,
-        context,
-        error: None,
-        deleting: True,
-        on_cancel:,
-        on_confirm:,
-      )
+    Hidden -> element.none()
+    Confirming(target:, context:) -> open(target, context, None, False)
+    Deleting(target:, context:) -> open(target, context, None, True)
     Errored(target:, context:, error:) ->
-      dialog_content(
-        options,
-        target,
-        context,
-        error: Some(error),
-        deleting: False,
-        on_cancel:,
-        on_confirm:,
-      )
+      open(target, context, Some(error), False)
   }
 }
 

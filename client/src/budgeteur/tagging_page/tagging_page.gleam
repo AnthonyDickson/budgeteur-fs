@@ -207,7 +207,7 @@ fn update_inner(
         rule_view.rules_for_tag(tag.id, model.rules) |> list.length
       #(
         Model(..model, tag_delete_modal: tag_delete_modal.open(tag, rule_count)),
-        effect.ShowDialog(selector: tag_delete_modal.dom_id_selector),
+        effect.none(),
         None,
       )
     }
@@ -227,7 +227,7 @@ fn update_inner(
 
     UserCancelledTagDelete -> #(
       Model(..model, tag_delete_modal: tag_delete_modal.empty()),
-      effect.CloseDialog(selector: tag_delete_modal.dom_id_selector),
+      effect.none(),
       None,
     )
 
@@ -256,7 +256,7 @@ fn update_inner(
 
     UserRequestedRuleDelete(rule, tag_name) -> #(
       Model(..model, rule_delete_modal: rule_delete_modal.open(rule, tag_name)),
-      effect.ShowDialog(selector: rule_delete_modal.dom_id_selector),
+      effect.none(),
       None,
     )
 
@@ -275,7 +275,7 @@ fn update_inner(
 
     UserCancelledRuleDelete -> #(
       Model(..model, rule_delete_modal: rule_delete_modal.empty()),
-      effect.CloseDialog(selector: rule_delete_modal.dom_id_selector),
+      effect.none(),
       None,
     )
   }
@@ -330,7 +330,7 @@ fn on_tag_delete_succeeded(
       selected_tag:,
       tag_delete_modal: tag_delete_modal.empty(),
     ),
-    effect.CloseDialog(selector: tag_delete_modal.dom_id_selector),
+    effect.none(),
     Some(out_msg.success_toast("Deleted tag " <> tag.name)),
   )
 }
@@ -392,7 +392,7 @@ fn on_rule_delete_succeeded(
   let rules = list.filter(model.rules, fn(r) { r.id != rule.id })
   #(
     Model(..model, rules:, rule_delete_modal: rule_delete_modal.empty()),
-    effect.CloseDialog(selector: rule_delete_modal.dom_id_selector),
+    effect.none(),
     Some(out_msg.success_toast("Deleted rule " <> rule.pattern)),
   )
 }
@@ -417,7 +417,7 @@ fn run_tag_modal(
   model: Model,
   msg: tag_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let #(tag_modal, requests, outcome) =
+  let #(tag_modal, request, outcome) =
     tag_modal.update(model.tag_modal, msg, model.tags)
   let model = Model(..model, tag_modal:)
   let error_effect = case msg {
@@ -427,7 +427,7 @@ fn run_tag_modal(
   }
   fold_form(
     model,
-    requests,
+    request,
     outcome,
     error_effect,
     apply_tag_outcome,
@@ -463,10 +463,6 @@ fn apply_tag_outcome(
 
 fn interpret_tag_modal_request(request: tag_modal.Request) -> Effect(Msg) {
   case request {
-    form_modal.ShowDialog ->
-      effect.ShowDialog(selector: tag_modal.dom_id_selector)
-    form_modal.CloseDialog ->
-      effect.CloseDialog(selector: tag_modal.dom_id_selector)
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateTag |> api_route.to_string,
@@ -504,7 +500,7 @@ fn run_rule_modal(
   model: Model,
   msg: rule_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let #(rule_modal, requests, outcome) =
+  let #(rule_modal, request, outcome) =
     rule_modal.update(model.rule_modal, msg, model.rules)
   let model = Model(..model, rule_modal:)
   let error_effect = case msg {
@@ -514,7 +510,7 @@ fn run_rule_modal(
   }
   fold_form(
     model,
-    requests,
+    request,
     outcome,
     error_effect,
     apply_rule_outcome,
@@ -549,10 +545,6 @@ fn apply_rule_outcome(
 
 fn interpret_rule_modal_request(request: rule_modal.Request) -> Effect(Msg) {
   case request {
-    form_modal.ShowDialog ->
-      effect.ShowDialog(selector: rule_modal.dom_id_selector)
-    form_modal.CloseDialog ->
-      effect.CloseDialog(selector: rule_modal.dom_id_selector)
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateRule |> api_route.to_string,
@@ -586,20 +578,23 @@ fn handle_rule_response(result) {
   }
 }
 
-/// Fold a form's `#(modal, requests, outcome)` triple into page state: store
-/// the modal, apply the outcome to the lists (with a toast), turn the requests
-/// into effects, and log the API error when the triggering message was a save
+/// Fold a form's `#(modal, request, outcome)` triple into page state: store
+/// the modal, apply the outcome to the lists (with a toast), turn the request
+/// into an effect, and log the API error when the triggering message was a save
 /// failure. Shared by the tag and rule slices; the differences are passed in.
 fn fold_form(
   model: Model,
-  requests: List(request),
+  request: Option(request),
   outcome: outcome,
   error_effect: Option(Effect(Msg)),
   apply_outcome: fn(Model, outcome) -> #(Model, Option(OutMsg)),
   interpret: fn(request) -> Effect(Msg),
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let #(model, out_msg) = apply_outcome(model, outcome)
-  let effects = list.map(requests, interpret)
+  let effects = case request {
+    Some(request) -> [interpret(request)]
+    None -> []
+  }
   let effects = case error_effect {
     Some(error_effect) -> [error_effect, ..effects]
     None -> effects

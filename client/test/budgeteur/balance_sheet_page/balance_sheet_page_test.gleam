@@ -240,11 +240,7 @@ pub fn saving_an_item_closes_the_dialog_refetches_and_toasts_test() {
 
   // The save response carries only the item, so the page refetches the sheet
   // rather than recomputing the totals.
-  let assert effect.Batch([
-    effect.CloseDialog(selector: selector),
-    effect.HttpRequest(method: method, url: url, ..),
-  ]) = effect
-  selector |> should.equal(item_modal.dom_id_selector)
+  let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Get)
   url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
 }
@@ -271,14 +267,13 @@ pub fn confirming_a_delete_arms_a_delete_request_test() {
   let target =
     item(id: 1, name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
 
-  let #(opened, show_effect, _) =
+  let #(opened, _, _) =
     balance_sheet_page.update(
       loaded_model(sample_sheet()),
       balance_sheet_page.UserRequestedItemDelete(target),
     )
 
-  let assert effect.ShowDialog(selector: show_selector) = show_effect
-  show_selector |> should.equal(item_delete_modal.dom_id_selector)
+  let assert delete_modal.Confirming(..) = opened.item_delete_modal
 
   let #(deleting, effect, _) =
     balance_sheet_page.update(
@@ -298,7 +293,7 @@ pub fn confirming_a_delete_arms_a_delete_request_test() {
   timeout |> should.equal(Some(delete_modal.delete_timeout_ms))
 }
 
-pub fn a_deleted_item_closes_the_dialog_refetches_and_toasts_test() {
+pub fn a_deleted_item_hides_the_dialog_refetches_and_toasts_test() {
   let target =
     item(id: 1, name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
 
@@ -312,11 +307,7 @@ pub fn a_deleted_item_closes_the_dialog_refetches_and_toasts_test() {
 
   after.item_delete_modal |> should.equal(item_delete_modal.empty())
 
-  let assert effect.Batch([
-    effect.CloseDialog(selector: selector),
-    effect.HttpRequest(method: method, url: url, ..),
-  ]) = effect
-  selector |> should.equal(item_delete_modal.dom_id_selector)
+  let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Get)
   url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
 
@@ -355,7 +346,7 @@ pub fn a_delete_failure_shows_inline_and_logs_test() {
   out_msg |> should.equal(None)
 }
 
-pub fn cancelling_the_item_form_closes_the_dialog_test() {
+pub fn cancelling_the_item_form_hides_it_test() {
   let #(after, effect, out_msg) =
     balance_sheet_page.update(
       loaded_model(sample_sheet())
@@ -372,8 +363,7 @@ pub fn cancelling_the_item_form_closes_the_dialog_test() {
     )
 
   after.item_modal |> should.equal(item_modal.hidden())
-  let assert effect.CloseDialog(selector: selector) = effect
-  selector |> should.equal(item_modal.dom_id_selector)
+  effect |> should.equal(effect.none())
   out_msg |> should.equal(None)
 }
 

@@ -1,15 +1,14 @@
 import budgeteur/shared/api_error.{ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{
-  Active, CloseDialog, Create, Edit, Errored, Hidden, NoChange, Post, Put,
-  Submitting,
+  Active, Create, Edit, Errored, Hidden, NoChange, Post, Put, Submitting,
 }
 import budgeteur/transaction_page/transaction
 import budgeteur/transaction_page/transaction_modal.{
   AmountChanged, AmountRequired, CancelRequested, CreateRequested, Credit,
   DateChanged, DateRequired, Debit, DescriptionChanged, DescriptionRequired,
-  DialogDismissed, EditRequested, IsTransferChanged, NotADate, NotANumber,
-  NotPositive, SaveCompleted, SaveRequested, TagChanged, TooLong, TypeChanged,
+  EditRequested, IsTransferChanged, NotADate, NotANumber, NotPositive,
+  SaveCompleted, SaveRequested, TagChanged, TooLong, TypeChanged,
 }
 import gleam/option.{None, Some}
 import gleam/string
@@ -132,7 +131,7 @@ pub fn tag_changed_with_unparseable_value_clears_tag_id_test() {
 }
 
 pub fn validate_includes_is_transfer_test() {
-  let assert #(submitting, [Post(request)], NoChange) =
+  let assert #(submitting, Some(Post(request)), NoChange) =
     transaction_modal.update(
       opened()
         |> send(AmountChanged("12.5"))
@@ -146,7 +145,7 @@ pub fn validate_includes_is_transfer_test() {
 }
 
 pub fn validate_negates_debit_amounts_test() {
-  let assert #(_, [Post(request)], NoChange) =
+  let assert #(_, Some(Post(request)), NoChange) =
     transaction_modal.update(
       opened()
         |> send(AmountChanged("12.5"))
@@ -158,7 +157,7 @@ pub fn validate_negates_debit_amounts_test() {
 }
 
 pub fn validate_keeps_credit_amounts_positive_test() {
-  let assert #(_, [Post(request)], NoChange) =
+  let assert #(_, Some(Post(request)), NoChange) =
     transaction_modal.update(
       opened()
         |> send(TypeChanged(Credit))
@@ -172,7 +171,7 @@ pub fn validate_keeps_credit_amounts_positive_test() {
 
 pub fn validate_includes_selected_tag_test() {
   let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-00000000000a")
-  let assert #(_, [Post(request)], NoChange) =
+  let assert #(_, Some(Post(request)), NoChange) =
     transaction_modal.update(
       opened()
         |> send(AmountChanged("12.5"))
@@ -185,12 +184,12 @@ pub fn validate_includes_selected_tag_test() {
 }
 
 pub fn validate_returns_all_errors_test() {
-  let assert #(modal, requests, NoChange) =
+  let assert #(modal, request, NoChange) =
     transaction_modal.update(
       opened() |> send(AmountChanged("abc")) |> send(DateChanged("")),
       SaveRequested,
     )
-  requests |> should.equal([])
+  request |> should.equal(None)
   let form = form_of(modal)
   let assert field.Invalid(error: NotANumber, ..) = form.amount
   let assert field.Invalid(error: DescriptionRequired, ..) = form.description
@@ -198,12 +197,12 @@ pub fn validate_returns_all_errors_test() {
 }
 
 pub fn validate_reports_required_errors_for_blank_fields_test() {
-  let assert #(modal, requests, NoChange) =
+  let assert #(modal, request, NoChange) =
     transaction_modal.update(
       opened() |> send(DateChanged("2026-01-02")),
       SaveRequested,
     )
-  requests |> should.equal([])
+  request |> should.equal(None)
   let form = form_of(modal)
   let assert field.Invalid(error: AmountRequired, ..) = form.amount
   let assert field.Invalid(error: DescriptionRequired, ..) = form.description
@@ -298,7 +297,7 @@ pub fn editing_negates_debit_amounts_in_the_update_request_test() {
       account_id: None,
       tag_id: None,
     )
-  let assert #(_, [Put(put_id, request)], NoChange) =
+  let assert #(_, Some(Put(put_id, request)), NoChange) =
     transaction_modal.update(
       send(opened(), EditRequested(transaction))
         |> send(AmountChanged("20")),
@@ -326,23 +325,18 @@ pub fn save_failure_moves_the_modal_to_errored_test() {
       status_code: Some(409),
       request_id: None,
     )
-  let assert #(modal, requests, NoChange) =
+  let assert #(modal, request, NoChange) =
     transaction_modal.update(submitting, SaveCompleted(Error(error)))
-  requests |> should.equal([])
+  request |> should.equal(None)
   let assert Errored(mode: Create, error: message, ..) = modal
   message |> should.equal("boom")
 }
 
-pub fn cancel_requests_dialog_close_but_dismiss_does_not_test() {
-  let assert #(modal, requests, NoChange) =
+pub fn cancel_hides_the_modal_test() {
+  let assert #(modal, request, NoChange) =
     transaction_modal.update(opened(), CancelRequested)
   modal |> should.equal(Hidden)
-  requests |> should.equal([CloseDialog])
-
-  let assert #(modal, requests, NoChange) =
-    transaction_modal.update(opened(), DialogDismissed)
-  modal |> should.equal(Hidden)
-  requests |> should.equal([])
+  request |> should.equal(None)
 }
 
 pub fn double_submit_while_submitting_is_a_no_op_test() {
@@ -357,9 +351,9 @@ pub fn double_submit_while_submitting_is_a_no_op_test() {
   let assert Submitting(..) = submitting
 
   // A second SaveRequested while the first is in flight emits nothing.
-  let #(still, requests, outcome) =
+  let #(still, request, outcome) =
     transaction_modal.update(submitting, SaveRequested)
   still |> should.equal(submitting)
-  requests |> should.equal([])
+  request |> should.equal(None)
   outcome |> should.equal(NoChange)
 }

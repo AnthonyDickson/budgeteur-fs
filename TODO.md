@@ -46,6 +46,8 @@
   not clickable.
 - Consider a loading state for the transactions page to avoid flashing when loading localstorage backup and then
   replacing it with the server data.
+- For modals, ensure that focus is returned to the element focused before opening the modal. This is needed due to the
+  custom dialog wrapped deleting the wrapping DOM element instead of calling `.close()` on the native dialog.
 - Authelia: Check why Authelia keeps showing consents screen
 - Scalar docs: refresh tokens for Authelia
 

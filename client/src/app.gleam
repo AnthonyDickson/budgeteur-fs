@@ -4,6 +4,7 @@ import budgeteur/shared/auth_route
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/guard
 import budgeteur/shared/http_effect
+import budgeteur/shared/modal_ui
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/route
 import budgeteur/shared/toast.{type Toast}
@@ -281,6 +282,7 @@ fn view_not_found() -> Element(Msg) {
 // ---------
 
 pub fn main() {
+  modal_ui.register()
   let #(init_model, init_effect) = init(Nil) |> with_auth_redirect
 
   let app =

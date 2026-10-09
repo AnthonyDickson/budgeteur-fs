@@ -179,7 +179,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
   url |> should.equal("/api/tags/" <> uuid.to_string(coffee.id))
   timeout |> should.equal(Some(delete_modal.delete_timeout_ms))
 
-  // Server success cascades the tag's rules, reselects the next tag, closes
+  // Server success cascades the tag's rules, reselects the next tag, hides
   // the modal and toasts.
   let #(new_model, delete_effect, out_msg) =
     tagging_page.update(
@@ -194,7 +194,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
   // The lists changed, so the page persists them to the store.
-  let assert effect.Batch([effect.CloseDialog(..), effect.SaveToStore(..)]) =
+  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(..)]) =
     delete_effect
 }
 
@@ -456,7 +456,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
   let assert effect.LogError(_) = fail_effect
 }
 
-pub fn cancelling_the_rule_modal_closes_it_without_changes_test() {
+pub fn cancelling_the_rule_modal_hides_it_without_changes_test() {
   let coffee = tag_named(tag_id(1), "Coffee")
   let model =
     tagging_page.Model(
@@ -465,7 +465,7 @@ pub fn cancelling_the_rule_modal_closes_it_without_changes_test() {
       selected_tag: Some(coffee.id),
     )
   let opened = run(model, tagging_page.UserRequestedRuleCreation)
-  let #(closed, close_effect, _) =
+  let #(closed, effect, _) =
     tagging_page.update(
       opened,
       tagging_page.RuleModalMsg(rule_modal.CancelRequested),
@@ -473,7 +473,7 @@ pub fn cancelling_the_rule_modal_closes_it_without_changes_test() {
 
   closed.rule_modal |> should.equal(rule_modal.hidden())
   closed.rules |> should.equal(model.rules)
-  let assert effect.CloseDialog(_) = close_effect
+  effect |> should.equal(effect.none())
 }
 
 pub fn editing_an_unknown_rule_is_a_noop_test() {
@@ -626,10 +626,10 @@ pub fn editing_an_unknown_tag_is_a_noop_test() {
   let assert effect.NoEffect = noop_effect
 }
 
-pub fn cancelling_the_tag_modal_closes_it_without_changes_test() {
+pub fn cancelling_the_tag_modal_hides_it_without_changes_test() {
   let model = model_with([tag_named(tag_id(1), "Coffee")])
   let opened = run(model, tagging_page.UserRequestedTagCreation)
-  let #(closed, close_effect, _) =
+  let #(closed, effect, _) =
     tagging_page.update(
       opened,
       tagging_page.TagModalMsg(tag_modal.CancelRequested),
@@ -637,7 +637,7 @@ pub fn cancelling_the_tag_modal_closes_it_without_changes_test() {
 
   closed.tag_modal |> should.equal(tag_modal.hidden())
   closed.tags |> should.equal(model.tags)
-  let assert effect.CloseDialog(_) = close_effect
+  effect |> should.equal(effect.none())
 }
 
 fn then_confirm(

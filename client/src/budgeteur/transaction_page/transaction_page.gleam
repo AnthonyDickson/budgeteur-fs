@@ -238,7 +238,7 @@ fn update_inner(
 
     UserRequestedDeleteForm(transaction) -> #(
       Model(..model, delete_modal: transaction_delete_modal.open(transaction)),
-      effect.ShowDialog(selector: transaction_delete_modal.dom_id_selector),
+      effect.none(),
       None,
     )
 
@@ -265,7 +265,7 @@ fn update_inner(
 
     UserCancelledDeleteModal -> #(
       Model(..model, delete_modal: transaction_delete_modal.empty()),
-      effect.CloseDialog(selector: transaction_delete_modal.dom_id_selector),
+      effect.none(),
       None,
     )
   }
@@ -275,7 +275,7 @@ fn run_transaction_modal(
   model: Model,
   msg: transaction_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let #(modal, requests, outcome) = transaction_modal.update(model.modal, msg)
+  let #(modal, request, outcome) = transaction_modal.update(model.modal, msg)
   let model = Model(..model, modal:)
   let error_effect = case msg {
     transaction_modal.SaveCompleted(result: Error(error)) ->
@@ -284,7 +284,7 @@ fn run_transaction_modal(
   }
   fold_form(
     model,
-    requests,
+    request,
     outcome,
     error_effect,
     apply_outcome,
@@ -323,10 +323,6 @@ fn interpret_transaction_request(
   request: transaction_modal.Request,
 ) -> Effect(Msg) {
   case request {
-    form_modal.ShowDialog ->
-      effect.ShowDialog(selector: transaction_modal.dom_id_selector)
-    form_modal.CloseDialog ->
-      effect.CloseDialog(selector: transaction_modal.dom_id_selector)
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateTransaction |> api_route.to_string,
@@ -360,20 +356,23 @@ fn handle_save_response(result) {
   }
 }
 
-/// Fold a form's `#(modal, requests, outcome)` triple into page state: store
+/// Fold a form's `#(modal, request, outcome)` triple into page state: store
 /// the modal, apply the outcome to the transactions list (with a toast), turn
-/// the requests into effects, and log the API error when the triggering
+/// the request into an effect, and log the API error when the triggering
 /// message was a save failure.
 fn fold_form(
   model: Model,
-  requests: List(request),
+  request: Option(request),
   outcome: outcome,
   error_effect: Option(Effect(Msg)),
   apply_outcome: fn(Model, outcome) -> #(Model, Option(OutMsg)),
   interpret: fn(request) -> Effect(Msg),
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let #(model, out_msg) = apply_outcome(model, outcome)
-  let effects = list.map(requests, interpret)
+  let effects = case request {
+    Some(request) -> [interpret(request)]
+    None -> []
+  }
   let effects = case error_effect {
     Some(error_effect) -> [error_effect, ..effects]
     None -> effects
@@ -400,7 +399,7 @@ fn on_delete_succeeded(
       }),
       delete_modal: transaction_delete_modal.empty(),
     ),
-    effect.CloseDialog(selector: transaction_delete_modal.dom_id_selector),
+    effect.none(),
     Some(out_msg.success_toast(
       "Deleted transaction " <> transaction.description,
     )),

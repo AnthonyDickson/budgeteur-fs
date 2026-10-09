@@ -7,7 +7,6 @@ import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
 }
-import gleam/dynamic/decode
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -20,13 +19,6 @@ import youid/uuid.{type Uuid}
 
 /// Max length of a rule pattern. Mirrored by the server.
 pub const max_pattern_length = 128
-
-const dom_id = "rule_modal"
-
-/// The CSS selector for the modal dialog element. The `#` hash prefix is
-/// composed here so callers (e.g. the show/close dialog effects) never have to
-/// remember it.
-pub const dom_id_selector = "#" <> dom_id
 
 pub type PatternError {
   PatternRequired
@@ -91,47 +83,43 @@ pub type Msg {
   // outcome variant is chosen from the `mode` in the `Submitting` state.
   // Transport timeouts surface here as `Error(NetworkError(...))`.
   SaveCompleted(result: Result(Rule, ApiError))
-  // Cancel button (dialog stays open until page closes it)
+  // Cancel button, or the browser dismissed the dialog (Esc / outside click)
   CancelRequested
-  // browser dismissed the dialog (Esc / backdrop click)
-  DialogDismissed
 }
 
 pub fn update(
   state: Modal,
   msg: Msg,
   rules: List(Rule),
-) -> #(Modal, List(Request), Outcome) {
+) -> #(Modal, Option(Request), Outcome) {
   case msg {
     CreateRequested(default_tag_id:) ->
       case state {
-        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
-        _ -> #(
-          create_modal(default_tag_id),
-          [form_modal.ShowDialog],
-          form_modal.NoChange,
-        )
+        form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
+        _ -> #(create_modal(default_tag_id), None, form_modal.NoChange)
       }
     EditRequested(rule:) ->
       case state {
-        form_modal.Submitting(..) -> #(state, [], form_modal.NoChange)
-        _ -> #(edit_modal(rule), [form_modal.ShowDialog], form_modal.NoChange)
+        form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
+        _ -> #(edit_modal(rule), None, form_modal.NoChange)
       }
     PatternChanged(value:) -> #(
       set_pattern(state, value),
-      [],
+      None,
       form_modal.NoChange,
     )
-    TagChanged(value:) -> #(set_tag(state, value), [], form_modal.NoChange)
+    TagChanged(value:) -> #(set_tag(state, value), None, form_modal.NoChange)
     SaveRequested -> save(state, rules)
-    SaveCompleted(result: Ok(rule)) -> on_save_succeeded(state, rule)
+    SaveCompleted(result: Ok(rule)) -> {
+      let #(modal, outcome) = form_modal.succeeded(state, rule)
+      #(modal, None, outcome)
+    }
     SaveCompleted(result: Error(error)) -> #(
       form_modal.failed(state, error),
-      [],
+      None,
       form_modal.NoChange,
     )
-    CancelRequested -> cancel(state)
-    DialogDismissed -> #(form_modal.dismissed(state), [], form_modal.NoChange)
+    CancelRequested -> #(form_modal.cancel(state), None, form_modal.NoChange)
   }
 }
 
@@ -197,9 +185,9 @@ fn selected_tag_id(state: Modal) -> Option(Uuid) {
   }
 }
 
-fn save(state: Modal, rules: List(Rule)) -> #(Modal, List(Request), Outcome) {
+fn save(state: Modal, rules: List(Rule)) -> #(Modal, Option(Request), Outcome) {
   case form_modal.mode(state) {
-    None -> #(state, [], form_modal.NoChange)
+    None -> #(state, None, form_modal.NoChange)
     Some(mode) -> {
       let other_patterns = case selected_tag_id(state) {
         // Patterns are unique per tag, mirroring the server's
@@ -220,39 +208,12 @@ fn save(state: Modal, rules: List(Rule)) -> #(Modal, List(Request), Outcome) {
           |> list.map(fn(rule) { rule.pattern })
       }
 
-      case
+      let #(modal, request) =
         form_modal.submit(state, fn(form) {
           validate_form(form, other_patterns)
         })
-      {
-        #(modal, Some(request)) -> #(modal, [request], form_modal.NoChange)
-        #(modal, None) -> #(modal, [], form_modal.NoChange)
-      }
+      #(modal, request, form_modal.NoChange)
     }
-  }
-}
-
-fn on_save_succeeded(
-  state: Modal,
-  rule: Rule,
-) -> #(Modal, List(Request), Outcome) {
-  case form_modal.succeeded(state, rule) {
-    #(modal, outcome) ->
-      case outcome {
-        form_modal.NoChange -> #(modal, [], form_modal.NoChange)
-        form_modal.Created(_) | form_modal.Updated(_) -> #(
-          modal,
-          [form_modal.CloseDialog],
-          outcome,
-        )
-      }
-  }
-}
-
-fn cancel(state: Modal) -> #(Modal, List(Request), Outcome) {
-  case form_modal.cancel(state) {
-    #(modal, True) -> #(modal, [form_modal.CloseDialog], form_modal.NoChange)
-    #(modal, False) -> #(modal, [], form_modal.NoChange)
   }
 }
 
@@ -329,33 +290,33 @@ fn is_required(error: PatternError) -> Bool {
 
 // View
 
-/// Always renders the `<dialog>` element so the show/close dialog effects can
-/// find it. The dialog is `closedby="none"` while a request is in flight,
-/// locking it so it cannot be dismissed mid-request. The `on("close")` handler
-/// covers browser-initiated dismissals (Esc / backdrop click) while open; a
-/// close event can only fire when the dialog was open, so a stale one cannot
-/// arrive while `Hidden` is shown.
+/// Renders nothing while `Hidden`, otherwise the open dialog. The dialog is
+/// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal, tags: List(Tag)) -> Element(Msg) {
-  let submitting = case state {
-    form_modal.Submitting(..) -> True
-    _ -> False
+  let open = fn(children, submitting) {
+    modal_ui.dialog(
+      testid: "rule-modal",
+      busy: submitting,
+      on_dismiss: CancelRequested,
+      children:,
+    )
   }
 
-  html.dialog(
-    [
-      event.on("close", decode.success(DialogDismissed)),
-      ..modal_ui.dialog_attributes(dom_id, "rule-modal", submitting)
-    ],
-    case state {
-      form_modal.Hidden -> []
-      form_modal.Active(form:, mode:) ->
-        view_form(form, mode, tags, api_error: None, submitting: False)
-      form_modal.Submitting(form:, mode:) ->
-        view_form(form, mode, tags, api_error: None, submitting: True)
-      form_modal.Errored(form:, mode:, error:) ->
-        view_form(form, mode, tags, api_error: Some(error), submitting: False)
-    },
-  )
+  case state {
+    form_modal.Hidden -> element.none()
+    form_modal.Active(form:, mode:) ->
+      open(
+        view_form(form, mode, tags, api_error: None, submitting: False),
+        False,
+      )
+    form_modal.Submitting(form:, mode:) ->
+      open(view_form(form, mode, tags, api_error: None, submitting: True), True)
+    form_modal.Errored(form:, mode:, error:) ->
+      open(
+        view_form(form, mode, tags, api_error: Some(error), submitting: False),
+        False,
+      )
+  }
 }
 
 fn view_form(

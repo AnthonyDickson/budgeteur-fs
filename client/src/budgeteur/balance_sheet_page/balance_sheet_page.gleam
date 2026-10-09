@@ -216,7 +216,7 @@ fn update_inner(
 
     UserRequestedItemDelete(item) -> #(
       Model(..model, item_delete_modal: item_delete_modal.open(item)),
-      effect.ShowDialog(selector: item_delete_modal.dom_id_selector),
+      effect.none(),
       None,
     )
 
@@ -235,7 +235,7 @@ fn update_inner(
 
     UserCancelledItemDelete -> #(
       Model(..model, item_delete_modal: item_delete_modal.empty()),
-      effect.CloseDialog(selector: item_delete_modal.dom_id_selector),
+      effect.none(),
       None,
     )
   }
@@ -277,11 +277,14 @@ fn run_item_modal(
   model: Model,
   msg: item_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let #(item_modal, requests, outcome) =
+  let #(item_modal, request, outcome) =
     item_modal.update(model.item_modal, msg, model_items(model))
   let model = Model(..model, item_modal:)
   let #(model, out_msg) = apply_item_outcome(model, outcome)
-  let effects = list.map(requests, interpret_item_modal_request)
+  let effects = case request {
+    Some(request) -> [interpret_item_modal_request(request)]
+    None -> []
+  }
   let effects = case msg {
     item_modal.SaveCompleted(result: Error(error)) -> [
       effect.LogError(api_error.describe(error)),
@@ -326,10 +329,6 @@ fn apply_item_outcome(
 
 fn interpret_item_modal_request(request: item_modal.Request) -> Effect(Msg) {
   case request {
-    form_modal.ShowDialog ->
-      effect.ShowDialog(selector: item_modal.dom_id_selector)
-    form_modal.CloseDialog ->
-      effect.CloseDialog(selector: item_modal.dom_id_selector)
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateBalanceSheetItem |> api_route.to_string,
@@ -397,10 +396,7 @@ fn on_item_delete_succeeded(
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   #(
     Model(..model, item_delete_modal: item_delete_modal.empty()),
-    effect.batch([
-      effect.CloseDialog(selector: item_delete_modal.dom_id_selector),
-      fetch_sheet(),
-    ]),
+    fetch_sheet(),
     Some(out_msg.success_toast("Deleted item '" <> item.name <> "'")),
   )
 }

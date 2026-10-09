@@ -147,8 +147,7 @@ pub fn opening_the_create_form_starts_fresh_test() {
   let assert field.Empty("") = form.amount
   let assert field.Empty("") = form.description
   let assert field.Empty("") = form.date
-  let assert effect.ShowDialog(selector: selector) = effect
-  selector |> should.equal(transaction_modal.dom_id_selector)
+  effect |> should.equal(effect.none())
 }
 
 pub fn submitting_edit_issues_put_request_test() {
@@ -217,11 +216,9 @@ pub fn server_created_transaction_closes_modal_and_updates_list_test() {
   new_model.modal |> should.equal(transaction_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
-  // The list changed, so the page closes the dialog and persists.
-  let assert effect.Batch([
-    effect.CloseDialog(..),
-    effect.SaveToStore(key:, value:),
-  ]) = effect
+  // The list changed, so the page persists it.
+  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
+    effect
   key |> should.equal("budgeteur.transactions")
   value |> string.starts_with("{\"transactions\":[") |> should.be_true
 }
@@ -302,7 +299,7 @@ pub fn cancelling_the_form_after_a_failed_save_keeps_the_list_test() {
       ),
     )
 
-  let #(closed, close_effect, _) =
+  let #(closed, effect, _) =
     transaction_page.update(
       failed,
       transaction_page.TransactionModalMsg(transaction_modal.CancelRequested),
@@ -310,8 +307,7 @@ pub fn cancelling_the_form_after_a_failed_save_keeps_the_list_test() {
 
   closed.modal |> should.equal(transaction_modal.hidden())
   closed.transactions |> should.equal([transaction])
-  let assert effect.CloseDialog(selector: selector) = close_effect
-  selector |> should.equal(transaction_modal.dom_id_selector)
+  effect |> should.equal(effect.none())
 }
 
 pub fn user_requested_delete_form_sets_target_and_opens_test() {
@@ -326,8 +322,7 @@ pub fn user_requested_delete_form_sets_target_and_opens_test() {
 
   let assert delete_modal.Confirming(target:, ..) = new_model.delete_modal
   target |> should.equal(transaction)
-  let assert effect.ShowDialog(selector: selector) = effect
-  selector |> should.equal(transaction_delete_modal.dom_id_selector)
+  effect |> should.equal(effect.none())
 }
 
 pub fn confirming_delete_issues_delete_request_test() {
@@ -455,8 +450,7 @@ pub fn user_cancelled_delete_modal_closes_test() {
     transaction_page.update(model, transaction_page.UserCancelledDeleteModal)
 
   let assert delete_modal.Hidden = new_model.delete_modal
-  let assert effect.CloseDialog(selector: selector) = effect
-  selector |> should.equal(transaction_delete_modal.dom_id_selector)
+  effect |> should.equal(effect.none())
 }
 
 // ── Local backup ─────────────────────────────────────────────────────────────
@@ -520,10 +514,8 @@ pub fn server_created_transaction_persists_to_store_test() {
     )
 
   new_model.transactions |> should.equal([transaction])
-  let assert effect.Batch([
-    effect.CloseDialog(..),
-    effect.SaveToStore(key:, value:),
-  ]) = effect
+  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
+    effect
   key |> should.equal("budgeteur.transactions")
   value |> string.starts_with("{\"transactions\":[") |> should.be_true
 }
@@ -543,10 +535,8 @@ pub fn server_updated_transaction_persists_to_store_test() {
     )
 
   new_model.transactions |> should.equal([updated])
-  let assert effect.Batch([
-    effect.CloseDialog(..),
-    effect.SaveToStore(key:, value:),
-  ]) = effect
+  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
+    effect
   key |> should.equal("budgeteur.transactions")
   value |> string.starts_with("{\"transactions\":[") |> should.be_true
 }

@@ -197,11 +197,13 @@ model and effect — a child-to-parent channel for shell-level behaviours (curre
 single place child requests become shell effects.
 
 Stateful modals (`transaction_modal`, `tag_modal`, `rule_modal`, delete confirmations) live in the page model, raise
-their own `Msg`s (lifted with `element.map`), and return the new modal plus its `Request`s and `Outcome`, which the page
-turns into effects and data changes. The underlying state machines are generic: `shared/field.gleam` (tri-state field),
-`shared/form_modal.gleam` (create/update reducer), `shared/delete_modal.gleam` (delete confirmation), and
-`shared/modal_ui.gleam` (dialog chrome: buttons, banners, error styling). Feature modules alias the shared types and
-keep their own entities, forms, and list mutations.
+their own `Msg`s (lifted with `element.map`), and return the new modal plus its optional write `Request` and `Outcome`,
+which the page turns into effects and data changes. A modal renders `modal_ui.dialog` while open and nothing while
+`Hidden`; the `<modal-dialog>` custom element (`shared/modal_dialog_ffi.mjs`) opens the native `<dialog>` when inserted
+and reports browser dismissals (Escape, outside click) as a cancel, so no effect opens or closes dialogs. The underlying
+state machines are generic: `shared/field.gleam` (tri-state field), `shared/form_modal.gleam` (create/update reducer),
+`shared/delete_modal.gleam` (delete confirmation), and `shared/modal_ui.gleam` (dialog chrome: buttons, banners, error
+styling). Feature modules alias the shared types and keep their own entities, forms, and list mutations.
 
 #### Effect system
 
@@ -209,17 +211,16 @@ keep their own entities, forms, and list mutations.
 the real browser, wired into Lustre via `lustre_effect.from(fn(dispatch) { effect.run(effect, dispatch) })`. Because
 effects are plain values, unit tests assert on them without a browser or HTTP mocking. The `Effect` type in
 `shared/effect.gleam` is the source of truth; variants cover HTTP requests, localStorage load/save, navigation (history
-push/replace, hard redirects), browser chrome (document title, native `<dialog>` show/close), timers, generic message
-dispatch, batching, and no-ops. Thin per-method constructors (`effect.get`/`post`/`put`/`patch`/`delete`) cover the
-common HTTP cases. Pages own their localStorage persistence: each serialises its own data after updates and restores it
-in `init`.
+push/replace, hard redirects), browser chrome (document title), timers, generic message dispatch, batching, and no-ops.
+Thin per-method constructors (`effect.get`/`post`/`put`/`patch`/`delete`) cover the common HTTP cases. Pages own their
+localStorage persistence: each serialises its own data after updates and restores it in `init`.
 
 Supporting modules:
 
 - `shared/http_effect.gleam` — `HttpMethod`, `HttpError`, and `send`. Returns the raw body: 2xx as `Ok`, anything else
   as `Error(HttpError(status, body))`, transport failures as `NetworkError`. `HttpRequest` carries a `transform` hook
   for per-request customisation (auth headers).
-- `shared/effect_ffi.mjs` — thin JS wrappers for localStorage, redirects, dialog controls, and client-side navigation.
+- `shared/effect_ffi.mjs` — thin JS wrappers for localStorage, redirects, and client-side navigation.
 - `shared/guard.gleam` — `use`-compatible early-return helpers for `Option`/`Result` (strict and lazy), mirroring
   `gleam/bool.lazy_guard`.
 - `shared/response.gleam` — 2xx body → typed `Result` and `HttpError` → `ApiError` decoding.

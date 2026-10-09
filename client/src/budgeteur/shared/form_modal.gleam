@@ -10,8 +10,7 @@
 ////
 //// The module is a pure reducer: transitions take the current `Modal` and
 //// return the next one plus whatever the caller must act on (`submit` returns
-//// the request to send, `cancel` says whether the dialog should be closed by
-//// the parent). Request/outcome types are shared so the feature modules can
+//// the request to send). Request/outcome types are shared so the feature modules can
 //// alias them (`pub type Request = form_modal.Request(TagWriteRequest)`) and
 //// the pages can interpret them uniformly.
 ////
@@ -21,10 +20,10 @@
 //// newer modal session. The double-submit guard falls out of `submit` being a
 //// no-op while `Submitting`.
 ////
-//// The dialog element itself is always rendered by the feature's `view`, so
-//// the show/close dialog effects can find it. While a request is in flight the
-//// dialog is locked (`closedby="none"`), so a response can never race a newer
-//// modal session.
+//// The feature's `view` renders the dialog (`modal_ui.dialog`) for every state
+//// except `Hidden`, so the dialog is open exactly while the modal is. While a
+//// request is in flight the dialog is locked (`closedby="none"`), so a response
+//// can never race a newer modal session.
 
 import budgeteur/shared/api_error.{type ApiError}
 import gleam/option.{type Option, None, Some}
@@ -55,13 +54,9 @@ pub type Modal(form) {
   Errored(form: form, mode: Mode, error: String)
 }
 
-/// An effect a form's `update` asks its page to perform, plus the create or
-/// update request to send. `ShowDialog`/`CloseDialog` carry no payload; the
-/// create (`Post`) and update (`Put`) requests carry the write request the
-/// page serialises.
+/// A write request a form's `update` asks its page to send. The create
+/// (`Post`) and update (`Put`) requests carry the payload the page serialises.
 pub type Request(payload) {
-  ShowDialog
-  CloseDialog
   /// POST the payload to the collection endpoint.
   Post(payload)
   /// PUT the payload to the item endpoint.
@@ -166,20 +161,10 @@ pub fn failed(modal: Modal(a), error: ApiError) -> Modal(a) {
   }
 }
 
-/// The Cancel button was clicked. `Active` and `Errored` modals close; the
-/// `Bool` tells the caller whether to emit a `CloseDialog` effect. No-op while
-/// `Hidden`/`Submitting`.
-pub fn cancel(modal: Modal(a)) -> #(Modal(a), Bool) {
-  case modal {
-    Active(..) | Errored(..) -> #(Hidden, True)
-    Hidden | Submitting(..) -> #(modal, False)
-  }
-}
-
-/// The browser dismissed the dialog (Esc / backdrop click), so it is already
-/// closed on screen and no `CloseDialog` effect is needed. No-op while
-/// `Hidden`/`Submitting`.
-pub fn dismissed(modal: Modal(a)) -> Modal(a) {
+/// The user cancelled: the Cancel button, or the browser dismissed the dialog
+/// (Escape or an outside click). `Active` and `Errored` modals close. No-op
+/// while `Hidden`/`Submitting`, so a request in flight is never abandoned.
+pub fn cancel(modal: Modal(a)) -> Modal(a) {
   case modal {
     Active(..) | Errored(..) -> Hidden
     Hidden | Submitting(..) -> modal

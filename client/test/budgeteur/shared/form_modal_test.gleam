@@ -248,40 +248,10 @@ pub fn failed_is_a_no_op_outside_submitting_test() {
   form_modal.failed(hidden, api_error("boom")) |> should.equal(hidden)
 }
 
-// ── cancel / dismissed ────────────────────────────────────────────────────────
+// ── cancel ────────────────────────────────────────────────────────────────────
 
-pub fn cancel_closes_active_and_errored_and_asks_to_close_the_dialog_test() {
-  let #(modal, close) = form_modal.cancel(form_modal.create(form("Tea")))
-  modal |> should.equal(form_modal.Hidden)
-  close |> should.be_true
-
-  let errored =
-    form_modal.Errored(
-      form: form("Tea"),
-      mode: form_modal.Create,
-      error: "boom",
-    )
-  let #(modal, close) = form_modal.cancel(errored)
-  modal |> should.equal(form_modal.Hidden)
-  close |> should.be_true
-}
-
-pub fn cancel_is_a_no_op_when_hidden_or_submitting_test() {
-  let #(modal, close) = form_modal.cancel(form_modal.hidden())
-  modal |> should.equal(form_modal.Hidden)
-  close |> should.be_false
-
-  let submitting =
-    form_modal.Submitting(form: form("Tea"), mode: form_modal.Create)
-  let #(modal, close) = form_modal.cancel(submitting)
-  modal |> should.equal(submitting)
-  close |> should.be_false
-}
-
-pub fn dismissed_hides_without_asking_to_close_the_dialog_test() {
-  // The browser already closed the dialog (Esc / backdrop), so no
-  // CloseDialog effect is needed.
-  form_modal.dismissed(form_modal.create(form("Tea")))
+pub fn cancel_closes_active_and_errored_test() {
+  form_modal.cancel(form_modal.create(form("Tea")))
   |> should.equal(form_modal.Hidden)
 
   let errored =
@@ -290,13 +260,13 @@ pub fn dismissed_hides_without_asking_to_close_the_dialog_test() {
       mode: form_modal.Create,
       error: "boom",
     )
-  form_modal.dismissed(errored) |> should.equal(form_modal.Hidden)
+  form_modal.cancel(errored) |> should.equal(form_modal.Hidden)
 }
 
-pub fn dismissed_is_a_no_op_when_hidden_or_submitting_test() {
-  form_modal.hidden() |> form_modal.dismissed |> should.equal(form_modal.Hidden)
+pub fn cancel_is_a_no_op_when_hidden_or_submitting_test() {
+  form_modal.hidden() |> form_modal.cancel |> should.equal(form_modal.Hidden)
 
   let submitting =
     form_modal.Submitting(form: form("Tea"), mode: form_modal.Create)
-  form_modal.dismissed(submitting) |> should.equal(submitting)
+  form_modal.cancel(submitting) |> should.equal(submitting)
 }
