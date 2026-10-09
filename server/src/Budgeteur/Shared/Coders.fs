@@ -1,6 +1,7 @@
 namespace Budgeteur.Shared.Coders
 
 open System
+open System.Globalization
 open Thoth.Json.Net
 
 module Extra =
@@ -9,15 +10,20 @@ module Extra =
             // Format as ISO-8601, e.g. 2026-08-09
             Encode.string (date.ToString "O")
 
+        /// Parse an ISO-8601 date (e.g. 2026-08-09) regardless of the server's culture.
+        let tryParse (dateString : string) =
+            match
+                DateOnly.TryParseExact (dateString, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None)
+            with
+            | true, date -> Some date
+            | false, _ -> None
+
         let decoder : Decoder<DateOnly> =
             Decode.string
             |> Decode.andThen (fun dateString ->
-                try
-                    DateOnly.Parse dateString |> Decode.succeed
-                with
-                | :? System.ArgumentNullException as ex -> Decode.fail "Got a null date string"
-                | :? System.FormatException as ex ->
-                    Decode.fail $"Expected a date in the ISO-8601 format, got {dateString}")
+                match tryParse dateString with
+                | Some date -> Decode.succeed date
+                | None -> Decode.fail $"Expected a date in the ISO-8601 format, got {dateString}")
 
     let extra =
         Extra.empty

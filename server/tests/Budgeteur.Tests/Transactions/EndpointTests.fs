@@ -18,7 +18,6 @@ module EndpointTests =
     let private request (description : string) (amount : decimal) : CreateTransaction.CreateTransactionRequest = {
         Amount = amount
         Description = description
-        // Aligned to whole seconds, matching the epoch-second precision used for storage.
         Date = DateOnly (2026, 3, 8)
         IsTransfer = false
         TagId = None
@@ -122,6 +121,24 @@ module EndpointTests =
                     Expect.equal input.Amount created.Amount "amount should match"
                     Expect.equal input.Date created.Date "date should match"
                 | Error err -> failtest err
+            }
+
+            testCaseAsync "POST /api/transactions rejects a date that is not ISO-8601"
+            <| async {
+                use app = newApp ()
+
+                let json =
+                    Encode.toStringAuto (request "Groceries" 42.50m)
+                    |> fun json -> json.Replace ("\"2026-03-08\"", "\"03/08/2026\"")
+
+                Expect.stringContains json "03/08/2026" "the payload should carry the non-ISO date"
+
+                let content =
+                    new Net.Http.StringContent (json, Text.Encoding.UTF8, "application/json")
+
+                let! response = app.Client.PostAsync (CreateTransaction.Path, content) |> Async.AwaitTask
+
+                Expect.equal response.StatusCode HttpStatusCode.BadRequest "status code should be 400"
             }
 
             testCaseAsync "POST /api/transactions trims and stores the description"
