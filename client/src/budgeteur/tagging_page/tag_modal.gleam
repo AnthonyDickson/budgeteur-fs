@@ -2,7 +2,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
-import budgeteur/tag.{type Tag, Tag}
+import budgeteur/tag.{type Tag, type TagKind, Expense, Income, Tag}
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
 }
@@ -16,6 +16,9 @@ import lustre/element/html
 import lustre/event
 
 pub const max_name_length = 64
+
+/// Default kind selected in the create form. Most tags are expenses.
+pub const default_kind = Expense
 
 /// Default color selected in the create form.
 pub const default_color = "#6366F1"
@@ -43,7 +46,7 @@ pub type NameField =
   field.Field(String, NameError)
 
 pub type Form {
-  Form(name: NameField, color: String)
+  Form(name: NameField, color: String, kind: TagKind)
 }
 
 pub type Modal =
@@ -66,6 +69,7 @@ pub type Msg {
   EditRequested(tag: Tag)
   NameChanged(value: String)
   ColorChosen(value: String)
+  KindChosen(value: String)
   SaveRequested
   // Response to the in-flight create or update; the `Created`/`Updated`
   // outcome variant is chosen from the `mode` in the `Submitting` state.
@@ -93,6 +97,7 @@ pub fn update(
       }
     NameChanged(value:) -> #(set_name(state, value), None, form_modal.NoChange)
     ColorChosen(value:) -> #(set_color(state, value), None, form_modal.NoChange)
+    KindChosen(value:) -> #(set_kind(state, value), None, form_modal.NoChange)
     SaveRequested -> save(state, tags)
     SaveCompleted(result: Ok(tag)) -> {
       let #(modal, outcome) = form_modal.succeeded(state, tag)
@@ -109,7 +114,11 @@ pub fn update(
 
 /// An empty modal for creating a new tag.
 fn create_modal() -> Modal {
-  form_modal.create(Form(name: field.Empty(""), color: default_color))
+  form_modal.create(Form(
+    name: field.Empty(""),
+    color: default_color,
+    kind: default_kind,
+  ))
 }
 
 /// A modal pre-filled with an existing tag, ready for renaming.
@@ -117,7 +126,11 @@ fn edit_modal(tag: Tag) -> Modal {
   let Tag(id:, ..) = tag
   form_modal.edit(
     id,
-    Form(name: field.Valid(value: tag.name, input: tag.name), color: tag.color),
+    Form(
+      name: field.Valid(value: tag.name, input: tag.name),
+      color: tag.color,
+      kind: tag.kind,
+    ),
   )
 }
 
@@ -131,6 +144,15 @@ fn set_name(state: Modal, name: String) -> Modal {
 /// Validate and set the color field. No op for Hidden and Submitting states.
 fn set_color(state: Modal, color: String) -> Modal {
   form_modal.set_form(state, fn(form) { Form(..form, color:) })
+}
+
+/// Set the kind from a radio value. An unrecognised value leaves the form
+/// unchanged. No op for Hidden and Submitting states.
+fn set_kind(state: Modal, value: String) -> Modal {
+  case tag.parse_kind(value) {
+    Ok(kind) -> form_modal.set_form(state, fn(form) { Form(..form, kind:) })
+    Error(Nil) -> state
+  }
 }
 
 fn save(state: Modal, tags: List(Tag)) -> #(Modal, Option(Request), Outcome) {
@@ -166,7 +188,7 @@ fn validate_form(
   let form = finalize(form, other_tag_names)
 
   case field.value(form.name) {
-    Some(name) -> Ok(#(TagWriteRequest(name, form.color), form))
+    Some(name) -> Ok(#(TagWriteRequest(name, form.color, form.kind), form))
     None -> Error(form)
   }
 }
@@ -246,7 +268,7 @@ fn view_form(
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
-  let Form(name:, color:) = form
+  let Form(name:, color:, kind:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
     form_modal.Create -> #("Create Tag", "Create tag", "Creating tag...")
@@ -301,6 +323,25 @@ fn view_form(
           html.p([attribute.class("mt-1 text-xs text-gray-500")], [
             html.text("Prefer broad categories, e.g. Food & Drink over Coffee."),
           ]),
+        ]),
+        modal_ui.radio_group(
+          legend: "Kind",
+          testid: "tag-kind",
+          disabled: submitting,
+          options: [
+            #(
+              tag.kind_to_string(Expense),
+              "Expense",
+              kind == Expense,
+              KindChosen,
+            ),
+            #(tag.kind_to_string(Income), "Income", kind == Income, KindChosen),
+          ],
+        ),
+        html.p([attribute.class("-mt-3 text-xs text-gray-500")], [
+          html.text(
+            "Refunds stay on the tag's side: they reduce its expenses rather than count as income.",
+          ),
         ]),
         html.fieldset([attribute.class("block")], [
           html.legend(

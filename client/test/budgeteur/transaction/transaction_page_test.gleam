@@ -34,7 +34,7 @@ fn sample_transaction() -> transaction.Transaction {
 
 fn sample_tag() -> tag.Tag {
   let assert Ok(id) = uuid.from_string("00000000-0000-0000-1000-000000000001")
-  tag.Tag(id:, name: "Food", color: "#012345")
+  tag.Tag(id:, name: "Food", color: "#012345", kind: tag.Expense)
 }
 
 fn sample_page_data() -> transaction_page_data.TransactionPageData {

@@ -2,19 +2,25 @@ namespace Budgeteur.Feature.TaggingPage
 
 open System
 
+open Budgeteur.Domain.Tag
+open Budgeteur.Shared.OpenApi
+
 type TagDto = {
     Id : Guid
     Name : string
     Color : string
+
+    /// <summary>Which side of the income statement the tag's transactions are on.</summary>
+    [<SchemaHint.Enum(typeof<TagKind>)>]
+    Kind : string
 }
 
 module TagDto =
-    open Budgeteur.Domain.Tag
-
     let fromDomain (tag : Tag) : TagDto = {
         Id = tag.Id
         Name = TagName.value tag.Name
         Color = TagColor.value tag.Color
+        Kind = TagKind.toString tag.Kind
     }
 
 type RuleDto = {

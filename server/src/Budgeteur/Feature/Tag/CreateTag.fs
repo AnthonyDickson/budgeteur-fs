@@ -16,12 +16,21 @@ module CreateTag =
     open Budgeteur.Domain.Tag
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
+    open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
+    open Budgeteur.Shared.OpenApi
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for creating a tag. The id is generated server-side.</summary>
-    type CreateTagRequest = { Name : string; Color : string }
+    type CreateTagRequest = {
+        Name : string
+        Color : string
+
+        /// <summary>Which side of the income statement the tag's transactions are on.</summary>
+        [<SchemaHint.Enum(typeof<TagKind>)>]
+        Kind : string
+    }
 
     [<Literal>]
     let Path = "/api/tags"
@@ -68,12 +77,14 @@ module CreateTag =
 
                 let! tagName = TagName.create req.Name
                 let! tagColor = TagColor.create req.Color
+                let! tagKind = TagKind.parse req.Kind |> Result.mapError ValidationFailed
                 do! Constraints.requireOne (requireNameIsUnique queryContext userId tagName)
 
                 let tag : Tag = {
                     Id = Guid.CreateVersion7 ()
                     Name = tagName
                     Color = tagColor
+                    Kind = tagKind
                 }
 
                 let! () = insert queryContext userId tag

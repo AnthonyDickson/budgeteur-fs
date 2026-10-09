@@ -54,6 +54,8 @@ CREATE TABLE Tags (
     UserId TEXT NOT NULL,
     Name   TEXT NOT NULL,
     Color  Text NOT NULL,
+    -- Which side of the income statement the tag's transactions are on, see docs/dashboard.md.
+    Kind   TEXT NOT NULL CHECK (Kind IN ('Income', 'Expense')),
     UNIQUE(UserId, Name)
 );
 

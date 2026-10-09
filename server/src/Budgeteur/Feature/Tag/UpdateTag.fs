@@ -19,10 +19,19 @@ module UpdateTag =
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
+    open Budgeteur.Shared.OpenApi
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for updating a tag.</summary>
-    type UpdateTagRequest = { Name : string; Color : string }
+    type UpdateTagRequest = {
+        Name : string
+        Color : string
+
+        /// <summary>Which side of the income statement the tag's transactions are on. Changing it
+        /// reclassifies the tag in every period.</summary>
+        [<SchemaHint.Enum(typeof<TagKind>)>]
+        Kind : string
+    }
 
     [<Literal>]
     let Path = "/api/tags/{%O:guid}"
@@ -102,7 +111,14 @@ module UpdateTag =
                 do! requireTagExists queryContext userId id
                 let! name = TagName.create req.Name
                 let! color = TagColor.create req.Color
-                let tag : Tag = { Id = id; Name = name; Color = color }
+                let! kind = TagKind.parse req.Kind |> Result.mapError ValidationFailed
+
+                let tag : Tag = {
+                    Id = id
+                    Name = name
+                    Color = color
+                    Kind = kind
+                }
 
                 do! Constraints.requireOne (requireTagIsUnique queryContext userId tag)
                 let! updated = update queryContext userId tag

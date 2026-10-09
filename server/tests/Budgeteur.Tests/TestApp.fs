@@ -58,6 +58,25 @@ module TestAppConfig =
             CleanTables = "Transactions" :: config.CleanTables
     }
 
+    let withTags (config : TestAppConfig) = {
+        config with
+            EndpointProviders =
+                (fun connStr ->
+                    let queryContext = QueryContextFactory.Create connStr
+
+                    [
+                        GET [
+                            Budgeteur.Feature.Tag.ReadTag.endpoint queryContext
+                            Budgeteur.Feature.Tag.ReadAllTags.endpoint queryContext
+                        ]
+                        POST [ Budgeteur.Feature.Tag.CreateTag.endpoint queryContext ]
+                        PUT [ Budgeteur.Feature.Tag.UpdateTag.endpoint queryContext ]
+                        DELETE [ Budgeteur.Feature.Tag.DeleteTag.endpoint queryContext ]
+                    ])
+                :: config.EndpointProviders
+            CleanTables = "Tags" :: config.CleanTables
+    }
+
     let withBalanceSheet (clock : Clock) (config : TestAppConfig) = {
         config with
             EndpointProviders =

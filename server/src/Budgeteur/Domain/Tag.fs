@@ -52,8 +52,27 @@ module TagColor =
     /// An escape hatch for the smart constructor for reading trusted values from the database.
     let internal unsafeFromString color = TagColor color
 
+/// <summary>Which side of the income statement a tag's transactions are on. The user states it, so a
+/// tag stays on the same side in every period, whatever the sign of its amounts.</summary>
+type TagKind =
+    | Income
+    | Expense
+
+module TagKind =
+    let toString kind =
+        match kind with
+        | Income -> "Income"
+        | Expense -> "Expense"
+
+    let parse string =
+        match string with
+        | "Income" -> Ok Income
+        | "Expense" -> Ok Expense
+        | other -> Error $"\"{other}\" is not a valid value for TagKind, expecting one of \"Income\" or \"Expense\"."
+
 type Tag = {
     Id : Guid
     Name : TagName
     Color : TagColor
+    Kind : TagKind
 }

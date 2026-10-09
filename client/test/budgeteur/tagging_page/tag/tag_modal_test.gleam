@@ -7,8 +7,8 @@ import budgeteur/shared/form_modal.{
 import budgeteur/tag.{type Tag, Tag}
 import budgeteur/tagging_page/tag_modal.{
   type Modal, CancelRequested, ColorChosen, CreateRequested, Duplicate,
-  EditRequested, Form, NameChanged, NameRequired, SaveCompleted, SaveRequested,
-  TooLong,
+  EditRequested, Form, KindChosen, NameChanged, NameRequired, SaveCompleted,
+  SaveRequested, TooLong,
 }
 import budgeteur/tagging_page/tag_write_request.{TagWriteRequest}
 import gleam/option.{None, Some}
@@ -17,7 +17,12 @@ import gleeunit/should
 import youid/uuid.{type Uuid}
 
 fn make_tag(name: String) -> Tag {
-  Tag(id: uuid.v7(), name:, color: tag_modal.default_color)
+  Tag(
+    id: uuid.v7(),
+    name:,
+    color: tag_modal.default_color,
+    kind: tag_modal.default_kind,
+  )
 }
 
 fn make_create_modal() -> Modal {
@@ -80,10 +85,16 @@ pub fn validate_trims_the_request_name_but_not_the_field_test() {
   let assert #(submitting, Some(request), NoChange) =
     tag_modal.update(modal, SaveRequested, [])
   request
-  |> should.equal(Post(TagWriteRequest("Coffee", tag_modal.default_color)))
+  |> should.equal(
+    Post(TagWriteRequest(
+      "Coffee",
+      tag_modal.default_color,
+      tag_modal.default_kind,
+    )),
+  )
 
   let assert Submitting(
-    form: Form(name: field.Valid(value: _, input:), color:),
+    form: Form(name: field.Valid(value: _, input:), color:, ..),
     ..,
   ) = submitting
   input |> should.equal("  Coffee  ")
@@ -137,7 +148,7 @@ fn make_id() -> Uuid {
 }
 
 fn tag_named(id: Uuid, name: String) -> tag.Tag {
-  Tag(id:, name:, color: tag_modal.default_color)
+  Tag(id:, name:, color: tag_modal.default_color, kind: tag_modal.default_kind)
 }
 
 fn api_error(message: String) -> ApiError {
@@ -161,7 +172,8 @@ pub fn create_tag_workflow_test() {
   let assert #(submitting, Some(request), NoChange) =
     tag_modal.update(colored, SaveRequested, [])
   let assert Submitting(mode: Create, ..) = submitting
-  request |> should.equal(Post(TagWriteRequest("Coffee", "#EF4444")))
+  request
+  |> should.equal(Post(TagWriteRequest("Coffee", "#EF4444", tag.Expense)))
 
   let new_tag = tag_named(id, "Coffee")
   let #(final_state, request, outcome) =
@@ -182,7 +194,8 @@ pub fn edit_tag_workflow_keeps_own_name_test() {
     ])
   let assert Submitting(mode: Edit(id), ..) = submitting
   id |> should.equal(existing.id)
-  request |> should.equal(Put(id, TagWriteRequest("Coffee", "#6366F1")))
+  request
+  |> should.equal(Put(id, TagWriteRequest("Coffee", "#6366F1", tag.Expense)))
 
   let saved = tag_named(make_id(), "Coffee & Drink")
   let #(final_state, request, outcome) =
@@ -243,4 +256,29 @@ pub fn cancel_hides_the_modal_test() {
     tag_modal.update(make_create_modal(), CancelRequested, [])
   state |> should.equal(Hidden)
   request |> should.equal(None)
+}
+
+pub fn chosen_kind_is_sent_with_the_request_test() {
+  let #(named, _, _) =
+    tag_modal.update(make_create_modal(), NameChanged("Salary"), [])
+  let #(income, _, _) = tag_modal.update(named, KindChosen("Income"), [])
+
+  let assert #(_, Some(request), NoChange) =
+    tag_modal.update(income, SaveRequested, [])
+  request
+  |> should.equal(
+    Post(TagWriteRequest("Salary", tag_modal.default_color, tag.Income)),
+  )
+}
+
+pub fn edit_keeps_the_tag_kind_test() {
+  let existing = Tag(..tag_named(make_id(), "Salary"), kind: tag.Income)
+
+  let assert #(_, Some(request), NoChange) =
+    tag_modal.update(make_edit_modal(existing), SaveRequested, [existing])
+  request
+  |> should.equal(Put(
+    existing.id,
+    TagWriteRequest("Salary", tag_modal.default_color, tag.Income),
+  ))
 }

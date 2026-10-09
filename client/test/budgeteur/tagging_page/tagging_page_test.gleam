@@ -27,7 +27,7 @@ fn tag_id(n: Int) -> uuid.Uuid {
 }
 
 fn tag_named(id: uuid.Uuid, name: String) -> tag.Tag {
-  tag.Tag(id:, name:, color: "#6366F1")
+  tag.Tag(id:, name:, color: "#6366F1", kind: tag.Expense)
 }
 
 fn make_rule_for(for_tag: uuid.Uuid) -> rule.Rule {
