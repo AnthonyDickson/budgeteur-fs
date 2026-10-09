@@ -17,8 +17,7 @@
 
 ## Current Tasks
 
-- BUG: From the transactions modal with no tags, click link to create new tag, client navigates to the tagging page, an
-  empty dialog is visible.
+- Add view for empty transactions table, currently it just shows the header and a blank page
 
 ## Backlog
 
@@ -36,7 +35,6 @@
   - This should only apply on import, manual imports must be manually categorised.
   - May want user setting around which category to use for internal transfer, or hardcode and force user to use it.
   - Initial imports will be missed if the accounts are not added beforehand
-- Add view for empty transactions table, currently it just shows the header and a blank page
 - Page transactions in table view
   - Next page should append to list, search should replace paging many times.
   - Response could include path with query params to get next page or none if at last page.

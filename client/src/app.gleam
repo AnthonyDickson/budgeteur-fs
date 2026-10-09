@@ -18,6 +18,7 @@ import lustre/attribute
 import lustre/effect as lustre_effect
 import lustre/element.{type Element}
 import lustre/element/html
+import lustre/element/keyed
 import youid/uuid.{type Uuid}
 
 // Consts and Types
@@ -243,10 +244,14 @@ pub fn view(model: Model) -> Element(Msg) {
   }
 
   let toasts = toast.view_with_container(model.toasts, ToastDismissed)
+  let route = current_route(model.page)
 
   html.div([], [
-    header.view(current_route(model.page)),
-    page,
+    header.view(route),
+    // Keyed by route so a page change replaces the page's DOM rather than
+    // patching the previous page's elements in place. Otherwise browser-held
+    // state leaks between pages, e.g. an open modal `<dialog>` stays open.
+    keyed.fragment([#(route.to_string(route), page)]),
     toasts,
   ])
 }
