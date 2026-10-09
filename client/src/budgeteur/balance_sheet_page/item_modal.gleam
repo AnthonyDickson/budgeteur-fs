@@ -430,7 +430,7 @@ fn view_form(
 fn term_field(kind: ItemKind, term: Term, submitting: Bool) -> Element(Msg) {
   let #(current_label, non_current_label) = term_labels(kind)
 
-  radio_group(
+  modal_ui.radio_group(
     legend: "Term",
     testid: "item-term",
     disabled: submitting,
@@ -444,62 +444,6 @@ fn term_field(kind: ItemKind, term: Term, submitting: Bool) -> Element(Msg) {
       ),
     ],
   )
-}
-
-/// A radio group for a closed set of two options. Kept local to this modal;
-/// promote it to `modal_ui` when a second form needs one.
-fn radio_group(
-  legend legend: String,
-  testid testid: String,
-  disabled disabled: Bool,
-  options options: List(#(String, String, Bool, fn(String) -> Msg)),
-) -> Element(Msg) {
-  html.fieldset([attribute.class("block")], [
-    html.legend(
-      [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-      [html.text(legend)],
-    ),
-    html.div(
-      [attribute.class("grid grid-cols-2 gap-2")],
-      list.map(options, fn(option) {
-        let #(value, label, selected, on_change) = option
-
-        let option_class = case selected {
-          True -> "border-indigo-600 bg-indigo-50 font-medium text-indigo-700"
-          False -> "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-        }
-
-        let option_class = case disabled {
-          True -> option_class <> " cursor-not-allowed opacity-60"
-          False -> option_class
-        }
-
-        html.label(
-          [
-            attribute.class(
-              "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm "
-              <> option_class,
-            ),
-          ],
-          [
-            html.input([
-              attribute.type_("radio"),
-              attribute.name(testid),
-              attribute.value(value),
-              attribute.checked(selected),
-              attribute.attribute("data-testid", testid <> "-" <> value),
-              attribute.class(
-                "h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed",
-              ),
-              attribute.disabled(disabled),
-              event.on_change(on_change),
-            ]),
-            html.text(label),
-          ],
-        )
-      }),
-    ),
-  ])
 }
 
 /// The term labels that read best for the selected kind: assets are liquid or

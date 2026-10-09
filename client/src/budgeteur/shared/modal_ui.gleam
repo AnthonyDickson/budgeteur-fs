@@ -1,4 +1,5 @@
 import gleam/dynamic/decode
+import gleam/list
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -172,3 +173,58 @@ pub fn form_error_message(text: String) -> Element(msg) {
 /// `attribute.classes`, e.g.
 /// `[attribute.classes([#(modal_ui.error_border_style, field.has_error(f))])]`.
 pub const error_border_style = "border-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+
+/// A radio group for a closed set of options, e.g. an item's term or a tag's kind.
+pub fn radio_group(
+  legend legend: String,
+  testid testid: String,
+  disabled disabled: Bool,
+  options options: List(#(String, String, Bool, fn(String) -> msg)),
+) -> Element(msg) {
+  html.fieldset([attribute.class("block")], [
+    html.legend(
+      [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
+      [html.text(legend)],
+    ),
+    html.div(
+      [attribute.class("grid grid-cols-2 gap-2")],
+      list.map(options, fn(option) {
+        let #(value, label, selected, on_change) = option
+
+        let option_class = case selected {
+          True -> "border-indigo-600 bg-indigo-50 font-medium text-indigo-700"
+          False -> "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+        }
+
+        let option_class = case disabled {
+          True -> option_class <> " cursor-not-allowed opacity-60"
+          False -> option_class
+        }
+
+        html.label(
+          [
+            attribute.class(
+              "flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm "
+              <> option_class,
+            ),
+          ],
+          [
+            html.input([
+              attribute.type_("radio"),
+              attribute.name(testid),
+              attribute.value(value),
+              attribute.checked(selected),
+              attribute.attribute("data-testid", testid <> "-" <> value),
+              attribute.class(
+                "h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:cursor-not-allowed",
+              ),
+              attribute.disabled(disabled),
+              event.on_change(on_change),
+            ]),
+            html.text(label),
+          ],
+        )
+      }),
+    ),
+  ])
+}
