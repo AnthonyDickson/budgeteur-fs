@@ -17,14 +17,13 @@
 
 ## Current Tasks
 
-- Dates for the dashboard MVP. Conventions are in `docs/dates.md`.
-  - Dashboard endpoints take an explicit inclusive date range (`?from=YYYY-MM-DD&to=YYYY-MM-DD`) and filter
-    `Transactions.Date` on it. The client works out the range from its local date (the `GetLocalDate` effect), so the
-    server needs no timezone for the MVP and the endpoints are deterministic to test. Exclude `IsInternalTransfer` rows.
-  - Put period arithmetic (last N days, calendar month, week, financial year starting 1 April) in a pure client module
-    that takes `today` and returns `from`/`to`, with unit tests for month ends, leap years and year boundaries.
-  - Validate the range on the server: both dates ISO (`Coders.Extra.DateOnly.tryParse`), `from <= to`, and a maximum
-    span, returning `400` otherwise.
+Dashboard MVP. Design and rationale are in `docs/dashboard.md`; date conventions in `docs/dates.md`.
+
+1. Tag kind (own commit): `Tags.Kind` (`Income`/`Expense`) in migration `001`, `TagKind` in `Domain/Tag.fs`, tag codec
+   and endpoints, client tag type and modal, tests.
+2. Income statement slice: `IncomeStatement.compute`, `GET /api/income-statement?from=&to=`, OpenAPI metadata, tests.
+3. Client period module (`today` + preset → `from`/`to`) and tests.
+4. Dashboard page at `/`, header link, `update` tests, E2E test.
 
 ## Backlog
 

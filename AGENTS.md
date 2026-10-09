@@ -21,7 +21,8 @@ roadmap).
 The `Transaction` slice is the reference implementation of the architecture patterns below. Deeper design detail lives
 in [docs/architecture.md](docs/architecture.md); database, test, and deployment specifics live in their linked docs. The
 balance sheet feature (assets and liabilities) records its domain decisions, rationale, and glossary in
-[docs/balance-sheet.md](docs/balance-sheet.md).
+[docs/balance-sheet.md](docs/balance-sheet.md); the dashboard MVP (income statement, tag kinds, periods) does the same
+in [docs/dashboard.md](docs/dashboard.md).
 
 ## Essential Commands
 
