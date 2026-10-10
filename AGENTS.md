@@ -70,16 +70,18 @@ Broadly:
 
 - Make the right thing easy: architecture and design should push developers
   toward correct, clear, concise code.
-- Prefer simple, direct code and systemic fixes over workarounds. When code is
-  convoluted, ask whether the design is wrong and fix at the right level, so
-  code churn reduces accidental complexity.
+- Prefer simple and direct code, where simple is defined as not "complected" as
+  per Hickey's "Simple made easy" talk.
+- Prefer systemic fixes over workarounds. When code is convoluted, ask whether
+  the design is wrong and fix at the right level, so code churn reduces
+  accidental complexity.
 - Only add abstractions when there is a clear advantage; avoid over-engineering.
 
 More specifically:
 
-- **Functional programming** — push I/O to the edges, make illegal states
-  unrepresentable, functions as the default abstraction, programs as data (the
-  effect system).
+- **Functional programming** — push I/O to the edges (functional core,
+  imperative shell, ports and adapters), make illegal states unrepresentable,
+  functions as the default abstraction, programs as data (the effect system).
 - **Domain-Driven Design** (Wlaschin, _Domain Modeling Made Functional_) — start
   from the pure domain; everything else follows. Focus on _strategic_ DDD
   (ubiquitous language, bounded contexts) over tactical DDD.
