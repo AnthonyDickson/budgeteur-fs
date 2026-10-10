@@ -37,24 +37,6 @@ module UpdateTransaction =
     [<Literal>]
     let Path = "/api/transactions/{%O:guid}"
 
-    /// <summary>Ensure the transaction exists before updating it.</summary>
-    let private requireTransactionExists (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
-        task {
-            let! rowCount =
-                selectTask queryContext {
-                    for t in main.Transactions do
-                        where (t.Id = id && t.UserId = userId)
-                        count
-                }
-
-            return
-                if rowCount > 0 then
-                    Ok ()
-                else
-                    Error (NotFound $"The transaction {id} could not be found")
-
-        }
-
     /// <summary>Verify that the referenced account exists and belongs to the user. Skips the
     /// check when no account is referenced (<c>None</c> succeeds).</summary>
     let private requireAccountExists (queryContext : QueryContextFactory) (userId : string) (accountId : Guid option) =
@@ -76,15 +58,14 @@ module UpdateTransaction =
             | None -> return Ok ()
         }
 
+    /// <summary>Replace the user's transaction. Fails with <c>NotFound</c> when the user has no
+    /// transaction with the id.</summary>
     let private update (queryContext : QueryContextFactory) (userId : string) (transaction : Transaction) =
         task {
-            use! shared = queryContext.OpenContextAsync ()
-            shared.BeginTransaction ()
-
             let row = TransactionCodec.toRow transaction userId None
 
-            let! _rowsAffected =
-                updateTask shared {
+            let! rowsAffected =
+                updateTask queryContext {
                     for t in main.Transactions do
                         entity row
                         excludeColumn t.Id
@@ -93,18 +74,10 @@ module UpdateTransaction =
                         where (t.Id = transaction.Id && t.UserId = userId)
                 }
 
-            let! result =
-                selectTask shared {
-                    for t in main.Transactions do
-                        where (t.Id = transaction.Id && t.UserId = userId)
-                        tryHead
-                }
-
-            shared.CommitTransaction ()
-
-            let transaction = result |> Option.map TransactionCodec.fromRow
-
-            return transaction
+            if rowsAffected = 0 then
+                return Error (NotFound $"Transaction %O{transaction.Id} not found")
+            else
+                return Ok ()
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
@@ -114,7 +87,6 @@ module UpdateTransaction =
                 let! (req : UpdateTransactionRequest) = Json.read ctx
                 let! userId = Auth.getUserId ctx
 
-                do! requireTransactionExists queryContext userId id
                 let! description = TransactionDescription.create req.Description
 
                 do!
@@ -133,15 +105,10 @@ module UpdateTransaction =
                     TagId = req.TagId
                 }
 
-                let! updated = update queryContext userId transaction
+                do! update queryContext userId transaction
 
-                match updated with
-                | Some updated ->
-                    log.Info ($"Updated transaction %O{id}", LogProp.prop "transactionId" (id.ToString ()))
-                    do! Json.write ctx (TransactionResponse.fromDomain updated)
-                | None ->
-                    log.Warn ($"Transaction %O{id} not found", LogProp.prop "transactionId" (id.ToString ()))
-                    return! Error (NotFound $"Transaction %O{id} not found")
+                log.Info ($"Updated transaction %O{id}", LogProp.prop "transactionId" (id.ToString ()))
+                do! Json.write ctx (TransactionResponse.fromDomain transaction)
             })
 
     let endpoint (queryContext : QueryContextFactory) =

@@ -36,24 +36,6 @@ module UpdateTag =
     [<Literal>]
     let Path = "/api/tags/{%O:guid}"
 
-    /// <summary>Ensure the tag exists before updating it.</summary>
-    let private requireTagExists (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
-        task {
-            let! rowCount =
-                selectTask queryContext {
-                    for t in main.Tags do
-                        where (t.Id = id && t.UserId = userId)
-                        count
-                }
-
-            return
-                if rowCount > 0 then
-                    Ok ()
-                else
-                    Error (NotFound $"The tag {id} could not be found")
-
-        }
-
     /// <summary>Verify that no other tag with the same name exists for this user, excluding the
     /// tag being updated (the <c>UNIQUE(UserId, Name)</c> constraint).</summary>
     let private requireTagIsUnique (queryContext : QueryContextFactory) (userId : string) (tag : Tag) =
@@ -74,31 +56,24 @@ module UpdateTag =
                     Error (ConstraintError $"A tag with the name '{name}' already exists")
         }
 
+    /// <summary>Replace the user's tag. Fails with <c>NotFound</c> when the user has no tag with
+    /// the id.</summary>
     let private update (queryContext : QueryContextFactory) (userId : string) (tag : Tag) =
         task {
-            use! shared = queryContext.OpenContextAsync ()
-            shared.BeginTransaction ()
-
             let row = TagCodec.toRow tag userId
 
-            let! _rowsAffected =
-                updateTask shared {
+            let! rowsAffected =
+                updateTask queryContext {
                     for t in main.Tags do
                         entity row
                         excludeColumn t.Id
                         where (t.Id = tag.Id && t.UserId = userId)
                 }
 
-            let! result =
-                selectTask shared {
-                    for t in main.Tags do
-                        where (t.Id = tag.Id && t.UserId = userId)
-                        tryHead
-                }
-
-            shared.CommitTransaction ()
-
-            return Option.map TagCodec.fromRow result
+            if rowsAffected = 0 then
+                return Error (NotFound $"Tag %O{tag.Id} not found")
+            else
+                return Ok ()
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
@@ -108,7 +83,6 @@ module UpdateTag =
                 let! (req : UpdateTagRequest) = Json.read ctx
                 let! userId = Auth.getUserId ctx
 
-                do! requireTagExists queryContext userId id
                 let! name = TagName.create req.Name
                 let! color = TagColor.create req.Color
                 let! kind = TagKind.parse req.Kind |> Result.mapError ValidationFailed
@@ -121,15 +95,10 @@ module UpdateTag =
                 }
 
                 do! Constraints.requireOne (requireTagIsUnique queryContext userId tag)
-                let! updated = update queryContext userId tag
+                do! update queryContext userId tag
 
-                match updated with
-                | Some updated ->
-                    log.Info ($"Updated tag %O{id}", LogProp.prop "tagId" (id.ToString ()))
-                    do! Json.write ctx (TagResponse.fromDomain updated)
-                | None ->
-                    log.Warn ($"Tag %O{id} not found", LogProp.prop "tagId" (id.ToString ()))
-                    return! Error (NotFound $"Tag %O{id} not found")
+                log.Info ($"Updated tag %O{id}", LogProp.prop "tagId" (id.ToString ()))
+                do! Json.write ctx (TagResponse.fromDomain tag)
             })
 
     let endpoint (queryContext : QueryContextFactory) =

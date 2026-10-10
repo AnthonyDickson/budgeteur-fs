@@ -206,6 +206,20 @@ module EndpointTests =
                 | Error err -> failtest err
             }
 
+            testCaseAsync "PUT /api/transactions/{id} returns 404 for missing transaction"
+            <| async {
+                use app = newApp ()
+
+                let! response =
+                    TestHttp.putJson
+                        app.Client
+                        (routefPath UpdateTransaction.Path (Guid.CreateVersion7 ()))
+                        (request "Missing" 1.00m)
+                    |> Async.AwaitTask
+
+                Expect.equal response.StatusCode HttpStatusCode.NotFound "status code should be 404"
+            }
+
             testCaseAsync "PUT /api/transactions/{id} keeps the import hash"
             <| async {
                 use app = newApp ()

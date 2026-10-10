@@ -28,24 +28,6 @@ module UpdateRule =
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
-    /// <summary>Ensure the rule exists before updating it.</summary>
-    let private requireRuleExists (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
-        task {
-            let! rowCount =
-                selectTask queryContext {
-                    for r in main.Rules do
-                        where (r.Id = id && r.UserId = userId)
-                        count
-                }
-
-            return
-                if rowCount > 0 then
-                    Ok ()
-                else
-                    Error (NotFound $"The rule {id} could not be found")
-
-        }
-
     /// <summary>Verify that no other rule with the same pattern and tag exists for this user,
     /// excluding the rule being updated (the <c>UNIQUE(UserId, Pattern, TagId)</c> constraint).</summary>
     let private requireRuleIsUnique (queryContext : QueryContextFactory) (userId : string) (rule : Rule) =
@@ -72,33 +54,24 @@ module UpdateRule =
                     Error (ConstraintError $"The rule pattern '{pattern}' for tag {rule.TagId} already exists")
         }
 
+    /// <summary>Replace the user's rule. Fails with <c>NotFound</c> when the user has no rule with
+    /// the id.</summary>
     let private update (queryContext : QueryContextFactory) (userId : string) (rule : Rule) =
         task {
-            use! shared = queryContext.OpenContextAsync ()
-            shared.BeginTransaction ()
-
             let row = RuleCodec.toRow rule userId
 
-            let! _rowsAffected =
-                updateTask shared {
+            let! rowsAffected =
+                updateTask queryContext {
                     for t in main.Rules do
                         entity row
                         excludeColumn t.Id
                         where (t.Id = rule.Id && t.UserId = userId)
                 }
 
-            let! result =
-                selectTask shared {
-                    for t in main.Rules do
-                        where (t.Id = rule.Id && t.UserId = userId)
-                        tryHead
-                }
-
-            shared.CommitTransaction ()
-
-            let rule = result |> Option.map RuleCodec.fromRow
-
-            return rule
+            if rowsAffected = 0 then
+                return Error (NotFound $"Rule %O{rule.Id} not found")
+            else
+                return Ok ()
         }
 
     let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
@@ -107,8 +80,6 @@ module UpdateRule =
                 let log = RequestLog.fromContext ctx
                 let! (req : UpdateRuleRequest) = Json.read ctx
                 let! userId = Auth.getUserId ctx
-
-                do! requireRuleExists queryContext userId id
 
                 let! pattern = RulePattern.create req.Pattern
 
@@ -124,15 +95,10 @@ module UpdateRule =
                         requireRuleIsUnique queryContext userId rule
                     ]
 
-                let! updated = update queryContext userId rule
+                do! update queryContext userId rule
 
-                match updated with
-                | Some updated ->
-                    log.Info ($"Updated rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))
-                    do! Json.write ctx (RuleResponse.fromDomain updated)
-                | None ->
-                    log.Warn ($"Rule %O{id} not found", LogProp.prop "ruleId" (id.ToString ()))
-                    return! Error (NotFound $"Rule %O{id} not found")
+                log.Info ($"Updated rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))
+                do! Json.write ctx (RuleResponse.fromDomain rule)
             })
 
     let endpoint (queryContext : QueryContextFactory) =
