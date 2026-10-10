@@ -65,6 +65,19 @@ async function createRule(page: Page, pattern: string) {
   await expect(ruleRow(page, pattern)).toBeVisible();
 }
 
+/// Record an untagged transaction from the transactions page.
+async function recordTransaction(page: Page, description: string) {
+  await page.goto('/transactions');
+  await page.getByTestId('record-transaction-button').click();
+  const modal = page.getByTestId('transaction-modal');
+  await expect(modal).toBeVisible();
+  await modal.getByTestId('transaction-amount-input').fill('10.00');
+  await modal.getByTestId('transaction-description-input').fill(description);
+  await modal.getByTestId('transaction-date-input').fill('2026-10-01');
+  await modal.getByTestId('transaction-submit-button').click();
+  await expect(modal).toBeHidden();
+}
+
 test.describe('tagging', () => {
   test('creates the first tag from the empty state', async ({ page }, testInfo) => {
     await gotoEmptyTagging(page);
@@ -258,19 +271,8 @@ test.describe('tagging', () => {
   });
 
   test('the rule modal counts what a pattern matches', async ({ page }) => {
-    await page.goto('/transactions');
-    for (const description of ['PAY Countdown Ponsonby', 'Rent']) {
-      await page.getByTestId('record-transaction-button').click();
-      const transactionModal = page.getByTestId('transaction-modal');
-      await expect(transactionModal).toBeVisible();
-      await transactionModal.getByTestId('transaction-amount-input').fill('10.00');
-      await transactionModal
-        .getByTestId('transaction-description-input')
-        .fill(description);
-      await transactionModal.getByTestId('transaction-date-input').fill('2026-10-01');
-      await transactionModal.getByTestId('transaction-submit-button').click();
-      await expect(transactionModal).toBeHidden();
-    }
+    await recordTransaction(page, 'PAY Countdown Ponsonby');
+    await recordTransaction(page, 'Rent');
 
     await gotoEmptyTagging(page);
     await createFirstTag(page, 'Groceries');
@@ -294,6 +296,34 @@ test.describe('tagging', () => {
     await pattern.press('Enter');
     await expect(modal).toBeHidden();
     await expect(ruleRow(page, 'Countdown')).toBeVisible();
+  });
+
+  test('runs rules over untagged transactions', async ({ page }) => {
+    await recordTransaction(page, 'PAY Countdown Ponsonby');
+    await gotoEmptyTagging(page);
+    await createFirstTag(page, 'Groceries');
+    await createRule(page, 'Countdown');
+
+    await page.getByTestId('tag-untagged-button').click();
+    await expect(toast(page, 'Tagged 1 untagged transaction')).toBeVisible();
+
+    // Re-tag runs only once confirmed; the rule still wins, so nothing changes.
+    await page.getByTestId('retag-all-button').click();
+    const retagModal = page.getByTestId('retag-modal');
+    await expect(retagModal).toBeVisible();
+    await retagModal.getByTestId('retag-confirm-button').click();
+    await expect(retagModal).toBeHidden();
+    await expect(
+      toast(page, 'Tagged 0, changed 0, and cleared 0 transactions'),
+    ).toBeVisible();
+
+    await page.goto('/transactions');
+    const row = page
+      .locator('[data-testid="transaction-row"]')
+      .filter({ hasText: 'PAY Countdown Ponsonby' });
+    await expect(row).toContainText('Groceries');
+    await row.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.getByTestId('transaction-rule-tag-hint')).toBeVisible();
   });
 
   test('editing a rule can move it to another tag', async ({ page }) => {
