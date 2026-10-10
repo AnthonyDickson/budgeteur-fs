@@ -2,6 +2,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
+import budgeteur/shared/number
 import budgeteur/tag.{type Tag}
 import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
@@ -545,12 +546,18 @@ fn view_match_count(
     None, _ | Some(_), NotCounted -> element.none()
     Some(_), Counting(..) -> status("Counting matches...")
     Some(_), CountFailed(..) -> status("Could not count matches")
-    Some(_), Counted(matches: RuleMatches(count:, samples:), ..) ->
+    Some(_), Counted(matches: RuleMatches(count:, total:, samples:), ..) ->
       html.div([], [
-        status(case count {
-          1 -> "1 match"
-          _ -> int.to_string(count) <> " matches"
-        }),
+        status(
+          "Matches "
+          <> number.format_int(count)
+          <> " of "
+          <> number.format_int(total)
+          <> case total {
+            1 -> " transaction"
+            _ -> " transactions"
+          },
+        ),
         html.ul(
           [
             attribute.attribute("data-testid", "rule-match-samples"),

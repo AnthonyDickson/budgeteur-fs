@@ -281,13 +281,13 @@ test.describe('tagging', () => {
     const count = modal.getByTestId('rule-match-count');
 
     await pattern.fill('countdown');
-    await expect(count).toHaveText('1 match');
+    await expect(count).toHaveText('Matches 1 of 2 transactions');
     await expect(modal.getByTestId('rule-match-samples')).toHaveText(
       'PAY Countdown Ponsonby',
     );
 
     await pattern.fill('nothing like this');
-    await expect(count).toHaveText('0 matches');
+    await expect(count).toHaveText('Matches 0 of 2 transactions');
 
     // Enter saves the typed pattern straight away; the count is not awaited.
     await pattern.fill('Countdown');

@@ -54,6 +54,8 @@ type Counts = {
 type Matches = {
     /// <summary>How many transactions the pattern matches.</summary>
     Count : int
+    /// <summary>How many transactions there are to match.</summary>
+    Total : int
     /// <summary>Distinct descriptions from the most recent matches, most recent
     /// first, so a recurring merchant does not fill the samples with
     /// copies.</summary>
@@ -129,5 +131,6 @@ module AutoTag =
 
         {
             Count = List.length matching
+            Total = List.length descriptions
             Samples = matching |> List.distinct |> List.truncate MaxSamples
         }

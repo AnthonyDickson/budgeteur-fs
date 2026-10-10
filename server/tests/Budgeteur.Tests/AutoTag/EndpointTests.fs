@@ -207,6 +207,7 @@ module EndpointTests =
                     matches
                     {
                         Count = 3
+                        Total = 4
                         Samples = [
                             "Countdown Grey Lynn"
                             "Countdown Ponsonby"

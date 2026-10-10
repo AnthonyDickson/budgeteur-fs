@@ -12,8 +12,13 @@ module MatchesTests =
             (RulePattern.unsafeFromString pattern)
             (List.map TransactionDescription.unsafeFromString descriptions)
 
-    let private expected (count : int) (samples : string list) : Matches = {
+    let private expected
+        (count : int)
+        (total : int)
+        (samples : string list)
+        : Matches = {
         Count = count
+        Total = total
         Samples = List.map TransactionDescription.unsafeFromString samples
     }
 
@@ -29,7 +34,10 @@ module MatchesTests =
                         "COUNTDOWN Grey Lynn"
                         "Countdown Ponsonby"
                     ])
-                    (expected 3 [ "Countdown Ponsonby"; "COUNTDOWN Grey Lynn" ])
+                    (expected 3 4 [
+                        "Countdown Ponsonby"
+                        "COUNTDOWN Grey Lynn"
+                    ])
                     "samples should keep the most recent first"
 
             testCase "keeps at most five samples"
@@ -38,13 +46,13 @@ module MatchesTests =
 
                 Expect.equal
                     (matches "Countdown" descriptions)
-                    (expected 7 (List.truncate 5 descriptions))
+                    (expected 7 7 (List.truncate 5 descriptions))
                     "only the five most recent should be sampled"
 
             testCase "a pattern that matches nothing has no samples"
             <| fun () ->
                 Expect.equal
                     (matches "Countdown" [ "Rent"; "Pak'nSave" ])
-                    (expected 0 [])
+                    (expected 0 2 [])
                     "nothing should match"
         ]

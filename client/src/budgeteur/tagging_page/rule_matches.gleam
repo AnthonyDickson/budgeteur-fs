@@ -5,6 +5,8 @@ pub type RuleMatches {
   RuleMatches(
     // How many of the user's non-transfer transactions the pattern matches.
     count: Int,
+    // How many non-transfer transactions the user has.
+    total: Int,
     // Distinct descriptions from the most recent matches, most recent first.
     samples: List(String),
   )
@@ -12,6 +14,7 @@ pub type RuleMatches {
 
 pub fn rule_matches_decoder() -> decode.Decoder(RuleMatches) {
   use count <- decode.field("count", decode.int)
+  use total <- decode.field("total", decode.int)
   use samples <- decode.field("samples", decode.list(decode.string))
-  decode.success(RuleMatches(count:, samples:))
+  decode.success(RuleMatches(count:, total:, samples:))
 }

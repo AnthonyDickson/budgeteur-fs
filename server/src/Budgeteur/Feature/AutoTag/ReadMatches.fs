@@ -6,6 +6,10 @@ type MatchesResponse = {
     /// matches.</summary>
     Count : int
 
+    /// <summary>How many non-transfer transactions the user has, so the count
+    /// can be read as a share.</summary>
+    Total : int
+
     /// <summary>Up to five distinct descriptions from the most recent matches,
     /// most recent first.</summary>
     Samples : string list
@@ -76,6 +80,7 @@ module ReadMatches =
                 do!
                     Json.write ctx {
                         Count = matches.Count
+                        Total = matches.Total
                         Samples =
                             List.map
                                 TransactionDescription.value
@@ -88,8 +93,9 @@ module ReadMatches =
 
         op.Description <-
             "Returns how many of the user's transactions a rule pattern \
-            matches, ignoring case, with sample descriptions. Transfers are \
-            excluded. The pattern is validated like a rule pattern."
+            matches, ignoring case, out of how many there are, with sample \
+            descriptions. Transfers are excluded. The pattern is validated \
+            like a rule pattern."
 
         op.Parameters <-
             ResizeArray [

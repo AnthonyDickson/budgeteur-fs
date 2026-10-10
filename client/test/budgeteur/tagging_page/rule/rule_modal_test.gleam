@@ -307,7 +307,8 @@ pub fn a_settled_blank_pattern_clears_the_count_test() {
 
 pub fn the_count_for_the_current_pattern_is_shown_test() {
   let modal = make_edit_modal(make_rule(make_id(3), "STARBUCKS", make_id(1)))
-  let matches = RuleMatches(count: 2, samples: ["Starbucks Ponsonby"])
+  let matches =
+    RuleMatches(count: 2, total: 10, samples: ["Starbucks Ponsonby"])
 
   modal
   |> send(MatchesCounted("STARBUCKS", Ok(matches)))
@@ -321,7 +322,7 @@ pub fn the_count_for_the_current_pattern_is_shown_test() {
 }
 
 pub fn an_outdated_count_is_ignored_test() {
-  let matches = RuleMatches(count: 9, samples: [])
+  let matches = RuleMatches(count: 9, total: 10, samples: [])
   let counting =
     make_create_modal()
     |> modal_with_pattern("COUNT")
