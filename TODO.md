@@ -7,7 +7,7 @@
 - [x] Tagging rules CRUD
 - [x] Balances (Assets, Liabilities) CRUD
 - [x] Dashboard MVP
-- [ ] Auto-tagging
+- [x] Auto-tagging
 - [ ] CSV Imports
 - [ ] Quick-tagging
 - [ ] Full dashboard w/ charts
@@ -17,13 +17,8 @@
 
 ## Current Tasks
 
-Auto-tagging. Design and rationale are in `docs/auto-tagging.md`.
-
-Done: the matcher, rule uniqueness, tag assignments, `POST /api/auto-tag`,
-transfers without tags, and the match count in the rule modal.
-
-Next: "Tag untagged" and "Re-tag all" on the tagging page, with a confirmation
-modal for re-tag and result toasts. Client `update` tests, E2E test.
+None. Auto-tagging is done; its deferred work (e.g. auto-tagging on CSV import)
+is listed in `docs/auto-tagging.md`.
 
 ## Backlog
 
