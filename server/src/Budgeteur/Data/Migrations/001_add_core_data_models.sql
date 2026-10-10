@@ -104,10 +104,11 @@ CREATE TABLE Rules (
     -- The tag to apply when the pattern matches the transaction description
     TagId      GUID NOT NULL,
     FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE CASCADE,
-    UNIQUE(UserId, Pattern, TagId)
+    -- Unique per user, ignoring case, whatever the tag. NOCASE folds ASCII only; the server
+    -- checks uniqueness first with ordinal case-insensitive comparison, see docs/auto-tagging.md.
+    -- Also serves as the index for reading a user's rules.
+    UNIQUE(UserId, Pattern COLLATE NOCASE)
 );
-
-CREATE INDEX IX_Rules_UserId ON Rules(UserId);
 
 -- Tagging Queue
 

@@ -28,40 +28,37 @@ module CreateRule =
     [<Literal>]
     let Path = "/api/rules"
 
-    /// <summary>Verify that no rule with the same pattern and tag already
-    /// exists for this user (the <c>UNIQUE(UserId, Pattern, TagId)</c>
-    /// constraint). Used on create, where the rule does not exist yet, so no
+    /// <summary>Verify that the user has no rule with the same pattern under
+    /// the comparison, whatever its tag. The database's <c>UNIQUE(UserId,
+    /// Pattern COLLATE NOCASE)</c> folds ASCII case only, so the patterns are
+    /// compared here. Used on create, where the rule does not exist yet, so no
     /// existing rule is excluded from the check.</summary>
-    let private requireRuleIsUnique
+    let private requirePatternIsUnique
         (queryContext : QueryContextFactory)
         (userId : string)
         (pattern : RulePattern)
-        (tagId : Guid)
         =
         task {
-            let pattern = RulePattern.value pattern
-
-            let! rowCount =
+            let! rows =
                 selectTask queryContext {
                     for r in main.Rules do
-                        where (
-                            r.Pattern = pattern
-                            && r.TagId = tagId
-                            && r.UserId = userId
-                        )
-
-                        count
+                        where (r.UserId = userId)
                 }
 
+            let exists =
+                rows
+                |> Seq.exists (fun row ->
+                    RulePattern.same (RuleCodec.fromRow row).Pattern pattern)
+
             return
-                if rowCount = 0 then
-                    Ok ()
-                else
+                if exists then
                     Error (
                         ConstraintError
-                            $"The rule pattern '{pattern}' for tag {tagId} \
-                            already exists"
+                            $"A rule with the pattern \
+                            '{RulePattern.value pattern}' already exists"
                     )
+                else
+                    Ok ()
         }
 
     let private insert
@@ -96,11 +93,7 @@ module CreateRule =
                             queryContext
                             userId
                             req.TagId
-                        requireRuleIsUnique
-                            queryContext
-                            userId
-                            pattern
-                            req.TagId
+                        requirePatternIsUnique queryContext userId pattern
                     ]
 
                 let rule : Rule = {

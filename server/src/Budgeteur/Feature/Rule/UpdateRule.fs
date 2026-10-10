@@ -28,39 +28,38 @@ module UpdateRule =
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
-    /// <summary>Verify that no other rule with the same pattern and tag exists
-    /// for this user, excluding the rule being updated (the <c>UNIQUE(UserId,
-    /// Pattern, TagId)</c> constraint).</summary>
-    let private requireRuleIsUnique
+    /// <summary>Verify that the user has no other rule with the same pattern
+    /// under the comparison, whatever its tag, excluding the rule being
+    /// updated. The database's <c>UNIQUE(UserId, Pattern COLLATE NOCASE)</c>
+    /// folds ASCII case only, so the patterns are compared here.</summary>
+    let private requirePatternIsUnique
         (queryContext : QueryContextFactory)
         (userId : string)
         (rule : Rule)
         =
         task {
-            let pattern = RulePattern.value rule.Pattern
-
-            let! rowCount =
+            let! rows =
                 selectTask queryContext {
                     for r in main.Rules do
-                        where (
-                            r.Id <> rule.Id
-                            && r.Pattern = pattern
-                            && r.TagId = rule.TagId
-                            && r.UserId = userId
-                        )
-
-                        count
+                        where (r.Id <> rule.Id && r.UserId = userId)
                 }
 
+            let exists =
+                rows
+                |> Seq.exists (fun row ->
+                    RulePattern.same
+                        (RuleCodec.fromRow row).Pattern
+                        rule.Pattern)
+
             return
-                if rowCount = 0 then
-                    Ok ()
-                else
+                if exists then
                     Error (
                         ConstraintError
-                            $"The rule pattern '{pattern}' for tag \
-                            {rule.TagId} already exists"
+                            $"A rule with the pattern \
+                            '{RulePattern.value rule.Pattern}' already exists"
                     )
+                else
+                    Ok ()
         }
 
     /// <summary>Replace the user's rule. Fails with <c>NotFound</c> when the
@@ -111,7 +110,7 @@ module UpdateRule =
                             queryContext
                             userId
                             req.TagId
-                        requireRuleIsUnique queryContext userId rule
+                        requirePatternIsUnique queryContext userId rule
                     ]
 
                 do! update queryContext userId rule
