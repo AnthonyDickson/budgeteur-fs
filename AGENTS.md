@@ -57,7 +57,7 @@ changes, update the doc in the same change.
 | `just client-test`         | Client gleeunit tests                                 |
 | `just e2e-test`            | Playwright E2E tests in Docker                        |
 | `just db-update`           | Apply migrations and regenerate `Db.fs`               |
-| `just format`              | Format markdown + TypeScript (dprint), Gleam, F#      |
+| `just format`              | Format with dprint (see `dprint.json`), Gleam, F#     |
 | `just lint`                | Lint F# with fsharplint + [custom lints](./justfile)  |
 
 Dev environment via Nix: `nix develop` (or `direnv allow`). The justfile is the
@@ -145,11 +145,11 @@ Each rule is explained in the linked doc.
 
 ## Verification & CI
 
-CI runs server tests, client tests, E2E tests, Gleam/F#/markdown/TypeScript
-format checks, and a check that `Db.fs` matches the migrations. Before finishing
-work, run the relevant tests plus `just lint` and `just format`; after schema
-changes run `just db-update` and commit the regenerated `Db.fs`. When a CI check
-fails, its log message names the local command to reproduce it.
+CI runs server tests, client tests, E2E tests, Gleam/F#/dprint format checks,
+and a check that `Db.fs` matches the migrations. Before finishing work, run the
+relevant tests plus `just lint` and `just format`; after schema changes run
+`just db-update` and commit the regenerated `Db.fs`. When a CI check fails, its
+log message names the local command to reproduce it.
 
 ## Gotchas
 
