@@ -45,7 +45,9 @@ module TransactionDescription =
     let internal unsafeFromString description =
         TransactionDescription description
 
-/// <summary>A transaction stored in the database.</summary>
+/// <summary>A transaction stored in the database: the facts of what happened.
+/// Its tag is a <c>TagAssignment</c>, kept apart so tagging never changes the
+/// facts.</summary>
 type Transaction = {
     /// <summary>Unique identifier for the transaction item.</summary>
     Id : Guid
@@ -66,7 +68,4 @@ type Transaction = {
 
     /// <summary>The bank account associated with this transaction.</summary>
     AccountId : Guid option
-
-    /// <summary>The category of transaction.</summary>
-    TagId : Guid option
 }

@@ -94,18 +94,20 @@ module main =
     let SchemaVersions = table<SchemaVersions>
 
     [<CLIMutable>]
-    type TaggingQueue =
+    type TagAssignments =
         { TransactionId: System.Guid
           UserId: string
-          CreatedAt: System.DateTime }
+          TagId: System.Guid
+          Source: string }
 
         interface IWriteColumns with
             member this.WriteColumns =
                 [ { WriteColumn.Name = "TransactionId"; Value = box this.TransactionId; ProviderDbType = None }
                   { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
-                  { WriteColumn.Name = "CreatedAt"; Value = box this.CreatedAt; ProviderDbType = None } ]
+                  { WriteColumn.Name = "TagId"; Value = box this.TagId; ProviderDbType = None }
+                  { WriteColumn.Name = "Source"; Value = box this.Source; ProviderDbType = None } ]
 
-    let TaggingQueue = table<TaggingQueue>
+    let TagAssignments = table<TagAssignments>
 
     [<CLIMutable>]
     type Tags =
@@ -134,8 +136,7 @@ module main =
           Date: System.DateOnly
           IsTransfer: bool
           AccountId: Option<System.Guid>
-          ImportHash: Option<string>
-          TagId: Option<System.Guid> }
+          ImportHash: Option<string> }
 
         interface IWriteColumns with
             member this.WriteColumns =
@@ -146,10 +147,229 @@ module main =
                   { WriteColumn.Name = "Date"; Value = box this.Date; ProviderDbType = None }
                   { WriteColumn.Name = "IsTransfer"; Value = box this.IsTransfer; ProviderDbType = None }
                   { WriteColumn.Name = "AccountId"; Value = box this.AccountId; ProviderDbType = None }
-                  { WriteColumn.Name = "ImportHash"; Value = box this.ImportHash; ProviderDbType = None }
-                  { WriteColumn.Name = "TagId"; Value = box this.TagId; ProviderDbType = None } ]
+                  { WriteColumn.Name = "ImportHash"; Value = box this.ImportHash; ProviderDbType = None } ]
 
     let Transactions = table<Transactions>
+
+    /// Left-views for `leftJoin`: each table record with every column in its nullable form,
+    /// so an unmatched row reads as None per column instead of one Option around the record.
+    module LeftJoined =
+        type private ``Accounts (base)`` = Accounts
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type Accounts =
+            { Id: Option<System.Guid>
+              UserId: Option<string>
+              Number: Option<string>
+              Name: Option<string>
+              Balance: Option<decimal>
+              CurrentAsOf: Option<System.DateOnly> }
+
+            interface ILeftViewOf<``Accounts (base)``>
+
+        let Accounts = leftTable<``Accounts (base)``, Accounts>
+
+        type private ``BalanceSheetItems (base)`` = BalanceSheetItems
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type BalanceSheetItems =
+            { Id: Option<System.Guid>
+              UserId: Option<string>
+              Name: Option<string>
+              Kind: Option<string>
+              Term: Option<string>
+              Balance: Option<decimal> }
+
+            interface ILeftViewOf<``BalanceSheetItems (base)``>
+
+        let BalanceSheetItems = leftTable<``BalanceSheetItems (base)``, BalanceSheetItems>
+
+        type private ``BalanceSheets (base)`` = BalanceSheets
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type BalanceSheets =
+            { UserId: Option<string>
+              StatementDate: Option<System.DateTime> }
+
+            interface ILeftViewOf<``BalanceSheets (base)``>
+
+        let BalanceSheets = leftTable<``BalanceSheets (base)``, BalanceSheets>
+
+        type private ``Rules (base)`` = Rules
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type Rules =
+            { Id: Option<System.Guid>
+              UserId: Option<string>
+              Pattern: Option<string>
+              TagId: Option<System.Guid> }
+
+            interface ILeftViewOf<``Rules (base)``>
+
+        let Rules = leftTable<``Rules (base)``, Rules>
+
+        type private ``SchemaVersions (base)`` = SchemaVersions
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type SchemaVersions =
+            { SchemaVersionID: Option<int64>
+              ScriptName: Option<string>
+              Applied: Option<System.DateTime> }
+
+            interface ILeftViewOf<``SchemaVersions (base)``>
+
+        let SchemaVersions = leftTable<``SchemaVersions (base)``, SchemaVersions>
+
+        type private ``TagAssignments (base)`` = TagAssignments
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type TagAssignments =
+            { TransactionId: Option<System.Guid>
+              UserId: Option<string>
+              TagId: Option<System.Guid>
+              Source: Option<string> }
+
+            interface ILeftViewOf<``TagAssignments (base)``>
+
+        let TagAssignments = leftTable<``TagAssignments (base)``, TagAssignments>
+
+        type private ``Tags (base)`` = Tags
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type Tags =
+            { Id: Option<System.Guid>
+              UserId: Option<string>
+              Name: Option<string>
+              Color: Option<string>
+              Kind: Option<string> }
+
+            interface ILeftViewOf<``Tags (base)``>
+
+        let Tags = leftTable<``Tags (base)``, Tags>
+
+        type private ``Transactions (base)`` = Transactions
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type Transactions =
+            { Id: Option<System.Guid>
+              UserId: Option<string>
+              Amount: Option<decimal>
+              Description: Option<string>
+              Date: Option<System.DateOnly>
+              IsTransfer: Option<bool>
+              AccountId: Option<System.Guid>
+              ImportHash: Option<string> }
+
+            interface ILeftViewOf<``Transactions (base)``>
+
+        let Transactions = leftTable<``Transactions (base)``, Transactions>
+
+
+[<AutoOpen>]
+module LeftViewExtensions =
+    type main.LeftJoined.Accounts with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.Accounts option =
+            match this.Id with
+            | Some value ->
+                let record: main.Accounts =
+                    { Id = value; UserId = this.UserId.Value; Number = this.Number.Value; Name = this.Name.Value; Balance = this.Balance.Value; CurrentAsOf = this.CurrentAsOf.Value }
+
+                Some record
+            | None -> None
+
+    type main.LeftJoined.BalanceSheetItems with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.BalanceSheetItems option =
+            match this.Id with
+            | Some value ->
+                let record: main.BalanceSheetItems =
+                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Kind = this.Kind.Value; Term = this.Term.Value; Balance = this.Balance.Value }
+
+                Some record
+            | None -> None
+
+    type main.LeftJoined.BalanceSheets with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.BalanceSheets option =
+            match this.UserId with
+            | Some value ->
+                let record: main.BalanceSheets =
+                    { UserId = value; StatementDate = this.StatementDate.Value }
+
+                Some record
+            | None -> None
+
+    type main.LeftJoined.Rules with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.Rules option =
+            match this.Id with
+            | Some value ->
+                let record: main.Rules =
+                    { Id = value; UserId = this.UserId.Value; Pattern = this.Pattern.Value; TagId = this.TagId.Value }
+
+                Some record
+            | None -> None
+
+    type main.LeftJoined.SchemaVersions with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.SchemaVersions option =
+            match this.SchemaVersionID with
+            | Some value ->
+                let record: main.SchemaVersions =
+                    { SchemaVersionID = value; ScriptName = this.ScriptName.Value; Applied = this.Applied.Value }
+
+                Some record
+            | None -> None
+
+    type main.LeftJoined.TagAssignments with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.TagAssignments option =
+            match this.TransactionId with
+            | Some value ->
+                let record: main.TagAssignments =
+                    { TransactionId = value; UserId = this.UserId.Value; TagId = this.TagId.Value; Source = this.Source.Value }
+
+                Some record
+            | None -> None
+
+    type main.LeftJoined.Tags with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.Tags option =
+            match this.Id with
+            | Some value ->
+                let record: main.Tags =
+                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Color = this.Color.Value; Kind = this.Kind.Value }
+
+                Some record
+            | None -> None
+
+    type main.LeftJoined.Transactions with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.Transactions option =
+            match this.Id with
+            | Some value ->
+                let record: main.Transactions =
+                    { Id = value
+                      UserId = this.UserId.Value
+                      Amount = this.Amount.Value
+                      Description = this.Description.Value
+                      Date = this.Date.Value
+                      IsTransfer = this.IsTransfer.Value
+                      AccountId = this.AccountId
+                      ImportHash = this.ImportHash }
+
+                Some record
+            | None -> None
+
 
 
 

@@ -85,13 +85,10 @@ CREATE TABLE Transactions (
     -- The hash of the CSV row that uniquely identifies a transaction imported from a CSV file.
     -- NULL for transactions directly created by the user.
     ImportHash  TEXT,
-    TagId  GUID,
-    FOREIGN KEY(AccountId) REFERENCES Accounts(Id) ON UPDATE CASCADE ON DELETE SET NULL,
-    FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE SET NULL
+    FOREIGN KEY(AccountId) REFERENCES Accounts(Id) ON UPDATE CASCADE ON DELETE SET NULL
 );
 
 CREATE INDEX IX_Transactions_UserId_Date ON Transactions(UserId, Date);
-CREATE INDEX IX_Transactions_UserId_TagId ON Transactions(UserId, TagId);
 
 -- Auto-tagging rules
 
@@ -110,21 +107,22 @@ CREATE TABLE Rules (
     UNIQUE(UserId, Pattern COLLATE NOCASE)
 );
 
--- Tagging Queue
+-- Tag assignments
 
-CREATE TABLE TaggingQueue (
-    TransactionId GUID     NOT NULL PRIMARY KEY,
-    UserId        TEXT     NOT NULL,
-    -- When the transaction was added to the queue, used for sorting the queue.
-    CreatedAt     DATETIME NOT NULL,
-    FOREIGN KEY(TransactionId) REFERENCES Transactions(Id) ON DELETE CASCADE
+-- A transaction's tag and where it came from, kept apart from the transaction so tagging changes
+-- without touching its facts. One row per tagged transaction; an untagged transaction has none.
+-- See docs/auto-tagging.md.
+CREATE TABLE TagAssignments (
+    TransactionId GUID NOT NULL PRIMARY KEY,
+    UserId        TEXT NOT NULL,
+    TagId         GUID NOT NULL,
+    -- Whether the user set the tag or a rule did. Rules never change a manual tag.
+    Source        TEXT NOT NULL CHECK (Source IN ('Manual', 'Rule')),
+    -- Deleting the transaction or the tag removes the assignment, leaving the transaction untagged.
+    FOREIGN KEY(TransactionId) REFERENCES Transactions(Id) ON DELETE CASCADE,
+    FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
-CREATE INDEX IX_TaggingQueue_UserId ON TaggingQueue(UserId);
-
-CREATE TRIGGER RemoveTransactionFromTaggingQueueWhenTagSet
-AFTER UPDATE OF TagId ON Transactions
-WHEN OLD.TagId IS NULL AND NEW.TagId IS NOT NULL
-BEGIN
-    DELETE FROM TaggingQueue WHERE TransactionId = NEW.Id;
-END;
+CREATE INDEX IX_TagAssignments_UserId ON TagAssignments(UserId);
+-- Lets deleting a tag find its assignments without a table scan.
+CREATE INDEX IX_TagAssignments_TagId ON TagAssignments(TagId);

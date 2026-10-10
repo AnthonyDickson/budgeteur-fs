@@ -7,6 +7,7 @@ module EndpointTests =
     open Expecto
     open Microsoft.Data.Sqlite
 
+    open Budgeteur.Feature.Tag
     open Budgeteur.Feature.Transaction
     open Budgeteur.Shared.Coders
     open Budgeteur.Tests
@@ -27,6 +28,13 @@ module EndpointTests =
 
     let newApp () =
         TestApp.create (TestAppConfig.empty |> TestAppConfig.withTransactions)
+
+    let private newAppWithTags () =
+        TestApp.create (
+            TestAppConfig.empty
+            |> TestAppConfig.withTransactions
+            |> TestAppConfig.withTags
+        )
 
     /// Create a transaction and return the created representation.
     let private create
@@ -246,12 +254,7 @@ module EndpointTests =
 
             testCaseAsync "a transaction cannot use another user's tag"
             <| async {
-                use app =
-                    TestApp.create (
-                        TestAppConfig.empty
-                        |> TestAppConfig.withTransactions
-                        |> TestAppConfig.withTags
-                    )
+                use app = newAppWithTags ()
 
                 use otherUser = app.ClientForUser "other-user"
 
@@ -268,6 +271,111 @@ module EndpointTests =
                     response.StatusCode
                     HttpStatusCode.BadRequest
                     "another user's tag should be rejected"
+            }
+
+            testCaseAsync "the tag source follows the user's edits"
+            <| async {
+                use app = newAppWithTags ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+                let! dining = Seed.tag app.Client "Dining" "Expense"
+
+                let! created =
+                    create app.Client {
+                        request "Countdown" -42.50m with
+                            TagId = Some groceries
+                    }
+
+                Expect.equal
+                    created.Tag
+                    (Some { Id = groceries; Source = "Manual" })
+                    "a tag set on create should be manual"
+
+                let! all =
+                    app.Client.GetAsync ReadAllTransactions.Path
+                    |> Async.AwaitTask
+
+                let! all = TestHttp.readJson<TransactionResponse list> all
+                Expect.equal all [ created ] "the list should carry the tag"
+
+                // Rule tags come from auto-tagging, which is another slice.
+                do
+                    use conn = new SqliteConnection (app.ConnectionString)
+                    conn.Open ()
+                    use cmd = conn.CreateCommand ()
+
+                    cmd.CommandText <-
+                        "UPDATE TagAssignments SET Source = 'Rule'"
+
+                    cmd.ExecuteNonQuery () |> ignore
+
+                let update tagId =
+                    async {
+                        let! response =
+                            TestHttp.putJson
+                                app.Client
+                                (TestHttp.itemPath
+                                    UpdateTransaction.Path
+                                    created.Id)
+                                {
+                                    request "Countdown" -43.00m with
+                                        TagId = tagId
+                                }
+                            |> Async.AwaitTask
+
+                        let! updated =
+                            TestHttp.readJson<TransactionResponse> response
+
+                        return updated.Tag
+                    }
+
+                let! sameTag = update (Some groceries)
+
+                Expect.equal
+                    sameTag
+                    (Some { Id = groceries; Source = "Rule" })
+                    "keeping the tag should keep its source"
+
+                let! otherTag = update (Some dining)
+
+                Expect.equal
+                    otherTag
+                    (Some { Id = dining; Source = "Manual" })
+                    "a different tag should be manual"
+
+                let! cleared = update None
+                Expect.isNone cleared "clearing the tag should untag"
+            }
+
+            testCaseAsync "deleting a tag untags its transactions"
+            <| async {
+                use app = newAppWithTags ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+
+                let! created =
+                    create app.Client {
+                        request "Countdown" -42.50m with
+                            TagId = Some groceries
+                    }
+
+                let! deleted =
+                    app.Client.DeleteAsync (
+                        TestHttp.itemPath DeleteTag.Path groceries
+                    )
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    deleted.StatusCode
+                    HttpStatusCode.NoContent
+                    "the tag should be deleted"
+
+                let! read =
+                    app.Client.GetAsync (
+                        TestHttp.itemPath ReadTransaction.Path created.Id
+                    )
+                    |> Async.AwaitTask
+
+                let! read = TestHttp.readJson<TransactionResponse> read
+                Expect.isNone read.Tag "the transaction should be untagged"
             }
 
             testCaseAsync

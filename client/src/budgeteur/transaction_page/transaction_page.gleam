@@ -433,9 +433,9 @@ fn tag_name(
   transaction: Transaction,
   tag_names_by_id: dict.Dict(Uuid, String),
 ) -> Option(String) {
-  transaction.tag_id
+  transaction.tag
   |> option.to_result(Nil)
-  |> result.try(fn(tag_id) { dict.get(tag_names_by_id, tag_id) })
+  |> result.try(fn(tag) { dict.get(tag_names_by_id, tag.id) })
   |> option.from_result
 }
 

@@ -218,7 +218,7 @@ pub fn edit_modal_prefills_transaction_test() {
       date: calendar.Date(2026, calendar.January, 2),
       is_transfer: False,
       account_id: None,
-      tag_id: None,
+      tag: None,
     )
   let #(modal, _, _) =
     transaction_modal.update(
@@ -247,7 +247,10 @@ pub fn edit_modal_prefills_tag_id_test() {
       date: calendar.Date(2026, calendar.January, 2),
       is_transfer: False,
       account_id: None,
-      tag_id: Some(tag_id),
+      tag: Some(transaction.TransactionTag(
+        id: tag_id,
+        source: transaction.Manual,
+      )),
     )
   let #(modal, _, _) =
     transaction_modal.update(
@@ -268,7 +271,7 @@ pub fn edit_modal_maps_credit_transaction_test() {
       date: calendar.Date(2026, calendar.March, 15),
       is_transfer: False,
       account_id: None,
-      tag_id: None,
+      tag: None,
     )
   let #(modal, _, _) =
     transaction_modal.update(
@@ -295,7 +298,7 @@ pub fn editing_negates_debit_amounts_in_the_update_request_test() {
       date: calendar.Date(2026, calendar.January, 2),
       is_transfer: False,
       account_id: None,
-      tag_id: None,
+      tag: None,
     )
   let assert #(_, Some(Put(put_id, request)), NoChange) =
     transaction_modal.update(

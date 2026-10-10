@@ -13,6 +13,7 @@ module CreateTransaction =
 
     open Budgeteur.Data
     open Budgeteur.Data.Db
+    open Budgeteur.Domain.TagAssignment
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
     open Budgeteur.Shared.ApiError
@@ -36,21 +37,28 @@ module CreateTransaction =
     [<Literal>]
     let Path = "/api/transactions"
 
+    /// <summary>Insert the transaction and its assignment in one database
+    /// transaction.</summary>
     let private insert
         (queryContext : QueryContextFactory)
-        (transaction : Transaction)
         (userId : string)
+        (transaction : Transaction)
+        (assignment : TagAssignment option)
         =
         task {
             let row = TransactionCodec.toRow transaction userId None
 
+            use! ctx = queryContext.OpenContextAsync ()
+            ctx.BeginTransaction ()
+
             let! _ =
-                insertTask queryContext {
+                insertTask ctx {
                     for t in main.Transactions do
                         entity row
                 }
 
-            ()
+            do! TagAssignmentStore.save ctx userId transaction.Id assignment
+            ctx.CommitTransaction ()
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -82,10 +90,10 @@ module CreateTransaction =
                     Date = req.Date
                     IsTransfer = req.IsTransfer
                     AccountId = req.AccountId
-                    TagId = req.TagId
                 }
 
-                let! () = insert queryContext transaction userId
+                let assignment = TagAssignment.onCreate req.TagId
+                do! insert queryContext userId transaction assignment
 
                 log.Info (
                     $"Created transaction %O{transaction.Id}",
@@ -93,7 +101,11 @@ module CreateTransaction =
                 )
 
                 ctx.SetStatusCode 201
-                do! Json.write ctx (TransactionResponse.fromDomain transaction)
+
+                do!
+                    Json.write
+                        ctx
+                        (TransactionResponse.fromDomain transaction assignment)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

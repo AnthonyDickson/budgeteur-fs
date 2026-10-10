@@ -26,14 +26,15 @@ module ReadAllTransactions =
             let! rows =
                 selectTask queryContext {
                     for t in main.Transactions do
-                        select t
+                        leftJoin a in main.LeftJoined.TagAssignments
+                                          on
+                                          (t.Id = a.TransactionId)
+
                         where (t.UserId = userId)
+                        select (t, a)
                 }
 
-            let transactions =
-                rows |> List.ofSeq |> List.map TransactionCodec.fromRow
-
-            return transactions
+            return rows |> Seq.map TransactionCodec.fromJoinedRow |> List.ofSeq
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -50,7 +51,12 @@ module ReadAllTransactions =
                 )
 
                 let response =
-                    List.map TransactionResponse.fromDomain transactions
+                    List.map
+                        (fun (transaction, assignment) ->
+                            TransactionResponse.fromDomain
+                                transaction
+                                assignment)
+                        transactions
 
                 do! Json.write ctx response
             })

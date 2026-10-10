@@ -180,7 +180,7 @@ fn from_transaction(transaction: Transaction) -> Form {
     date:,
     is_transfer:,
     account_id: _,
-    tag_id:,
+    tag:,
   ) = transaction
 
   let type_ = case amount <. 0.0 {
@@ -196,7 +196,7 @@ fn from_transaction(transaction: Transaction) -> Form {
     is_transfer:,
     description: field.Valid(value: description, input: description),
     date: field.Valid(value: date, input: date.format(date)),
-    tag_id:,
+    tag_id: option.map(tag, fn(tag) { tag.id }),
   )
 }
 

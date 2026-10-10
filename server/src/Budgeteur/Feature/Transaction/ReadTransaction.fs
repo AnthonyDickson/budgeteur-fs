@@ -30,16 +30,19 @@ module ReadTransaction =
         (id : Guid)
         =
         task {
-            let! result =
+            let! row =
                 selectTask queryContext {
                     for t in main.Transactions do
+                        leftJoin a in main.LeftJoined.TagAssignments
+                                          on
+                                          (t.Id = a.TransactionId)
+
                         where (t.Id = id && t.UserId = userId)
+                        select (t, a)
                         tryHead
                 }
 
-            let transaction = result |> Option.map TransactionCodec.fromRow
-
-            return transaction
+            return Option.map TransactionCodec.fromJoinedRow row
         }
 
     let private handler
@@ -53,7 +56,7 @@ module ReadTransaction =
                 let log = RequestLog.fromContext ctx
 
                 match transaction with
-                | Some transaction ->
+                | Some (transaction, assignment) ->
                     log.Info (
                         $"Returned transaction %O{id}",
                         LogProp.prop "transactionId" (id.ToString ())
@@ -62,7 +65,9 @@ module ReadTransaction =
                     do!
                         Json.write
                             ctx
-                            (TransactionResponse.fromDomain transaction)
+                            (TransactionResponse.fromDomain
+                                transaction
+                                assignment)
                 | None ->
                     log.Warn (
                         $"Transaction %O{id} not found",

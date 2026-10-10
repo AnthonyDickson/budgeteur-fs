@@ -183,12 +183,18 @@ module ReadIncomeStatement =
             let! transactions =
                 selectTask queryContext {
                     for t in main.Transactions do
+                        leftJoin a in main.LeftJoined.TagAssignments
+                                          on
+                                          (t.Id = a.TransactionId)
+
                         where (
                             t.UserId = userId
                             && t.Date >= fromDate
                             && t.Date <= toDate
                             && not t.IsTransfer
                         )
+
+                        select (t.Amount, a.TagId)
                 }
 
             and! tags =
@@ -206,10 +212,10 @@ module ReadIncomeStatement =
 
             return
                 transactions
-                |> Seq.map (fun t -> {
-                    Entry.Amount = t.Amount
+                |> Seq.map (fun (amount, tagId) -> {
+                    Entry.Amount = amount
                     Tag =
-                        t.TagId
+                        tagId
                         |> Option.bind (fun id -> Map.tryFind id tagsById)
                 })
                 |> List.ofSeq

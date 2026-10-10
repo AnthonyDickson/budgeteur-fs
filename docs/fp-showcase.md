@@ -91,7 +91,6 @@ the same (`Domain/Transaction.fs`):
 type Transaction = {
     // ...
     AccountId : Guid option // linked to a bank account, or not
-    TagId : Guid option // tagged, or not
 }
 ```
 
