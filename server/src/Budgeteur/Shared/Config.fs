@@ -82,7 +82,13 @@ module Config =
         (config : IConfiguration)
         (sectionName : string)
         : 'T =
-        let value = config.GetSection(sectionName).Get<'T>()
+        let section = config.GetSection sectionName
+
+        // `Get` returns null for an absent section, which the validator rejects with an exception.
+        if not (section.Exists ()) then
+            raise (OptionsValidationException (sectionName, typeof<'T>, [ $"{sectionName} is required" ]))
+
+        let value = section.Get<'T>()
         let validator = DataAnnotationValidateOptions<'T> Options.DefaultName
         let result = validator.Validate (Options.DefaultName, value)
 
