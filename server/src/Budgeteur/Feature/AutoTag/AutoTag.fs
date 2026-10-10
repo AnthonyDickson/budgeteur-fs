@@ -49,7 +49,21 @@ type Counts = {
     Cleared : int
 }
 
+/// <summary>What a pattern matches among a user's transactions. See decision
+/// 7 in docs/auto-tagging.md.</summary>
+type Matches = {
+    /// <summary>How many transactions the pattern matches.</summary>
+    Count : int
+    /// <summary>Distinct descriptions from the most recent matches, most recent
+    /// first, so a recurring merchant does not fill the samples with
+    /// copies.</summary>
+    Samples : TransactionDescription list
+}
+
 module AutoTag =
+    [<Literal>]
+    let MaxSamples = 5
+
     /// <summary>The assignment changes a run makes: each candidate goes through
     /// the action's transition with the winning rule's tag, and only the
     /// candidates whose assignment differs are returned.</summary>
@@ -100,3 +114,20 @@ module AutoTag =
               }
 
         List.fold add { Tagged = 0; Changed = 0; Cleared = 0 } changes
+
+    /// <summary>What the pattern matches among the descriptions, which are
+    /// ordered most recent first. Counts matches, not wins: whether the rule
+    /// would win depends on the other rules.</summary>
+    let matches
+        (pattern : RulePattern)
+        (descriptions : TransactionDescription list)
+        : Matches =
+        let matching =
+            descriptions
+            |> List.filter (fun description ->
+                RulePattern.matches description pattern)
+
+        {
+            Count = List.length matching
+            Samples = matching |> List.distinct |> List.truncate MaxSamples
+        }

@@ -86,6 +86,7 @@
 
     <Compile Include="Feature/AutoTag/AutoTag.fs" />
     <Compile Include="Feature/AutoTag/RunAutoTag.fs" />
+    <Compile Include="Feature/AutoTag/ReadMatches.fs" />
     <Compile Include="Feature/AutoTag/AutoTagEndpoints.fs" />
 
     <Compile Include="Feature/GetStatus.fs" />

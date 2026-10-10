@@ -37,21 +37,22 @@ module EndpointTests =
                 "creating a rule should return 201"
         }
 
-    let private createUntaggedWith
-        (client : HttpClient)
-        (isTransfer : bool)
+    let private untagged
         description
+        : CreateTransaction.CreateTransactionRequest = {
+        Amount = -42.50m
+        Description = description
+        Date = DateOnly (2026, 10, 1)
+        IsTransfer = false
+        TagId = None
+        AccountId = None
+    }
+
+    let private create
+        (client : HttpClient)
+        (request : CreateTransaction.CreateTransactionRequest)
         =
         async {
-            let request : CreateTransaction.CreateTransactionRequest = {
-                Amount = -42.50m
-                Description = description
-                Date = DateOnly (2026, 10, 1)
-                IsTransfer = isTransfer
-                TagId = None
-                AccountId = None
-            }
-
             let! response =
                 TestHttp.postJson client CreateTransaction.Path request
                 |> Async.AwaitTask
@@ -61,7 +62,7 @@ module EndpointTests =
         }
 
     let private createUntagged (client : HttpClient) description =
-        createUntaggedWith client false description
+        create client (untagged description)
 
     let private run (client : HttpClient) (action : string) =
         TestHttp.postJson client RunAutoTag.Path { Action = action }
@@ -78,6 +79,9 @@ module EndpointTests =
 
             return! TestHttp.readJson<RunAutoTagResponse> response
         }
+
+    let private readMatches (client : HttpClient) (query : string) =
+        client.GetAsync (ReadMatches.Path + query) |> Async.AwaitTask
 
     let private readTag (client : HttpClient) (id : Guid) =
         async {
@@ -119,7 +123,12 @@ module EndpointTests =
                 use app = newApp ()
                 let! savings = Seed.tag app.Client "Savings" "Expense"
                 do! createRule app.Client "SAVINGS" savings
-                let! id = createUntaggedWith app.Client true "To savings"
+
+                let! id =
+                    create app.Client {
+                        untagged "To savings" with
+                            IsTransfer = true
+                    }
 
                 let! counts = runOk app.Client "Retag"
 
@@ -159,6 +168,64 @@ module EndpointTests =
 
                 let! tag = readTag otherUser othersId
                 Expect.isNone tag "another user's transaction stays untagged"
+            }
+
+            testCaseAsync
+                "matches counts the caller's transactions, not transfers"
+            <| async {
+                use app = newApp ()
+                use otherUser = app.ClientForUser "other-user"
+
+                let on day description = {
+                    untagged description with
+                        Date = DateOnly (2026, 10, day)
+                }
+
+                let! _ = create app.Client (on 1 "Countdown Ponsonby")
+                let! _ = create app.Client (on 3 "Countdown Grey Lynn")
+                let! _ = create app.Client (on 2 "Countdown Ponsonby")
+                let! _ = create app.Client (on 4 "Rent")
+
+                let! _ =
+                    create app.Client {
+                        on 5 "Countdown savings" with
+                            IsTransfer = true
+                    }
+
+                let! _ = create otherUser (on 6 "Countdown")
+
+                let! response = readMatches app.Client "?pattern=countdown"
+
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.OK
+                    "matches should return 200"
+
+                let! matches = TestHttp.readJson<MatchesResponse> response
+
+                Expect.equal
+                    matches
+                    {
+                        Count = 3
+                        Samples = [
+                            "Countdown Grey Lynn"
+                            "Countdown Ponsonby"
+                        ]
+                    }
+                    "the most recent distinct descriptions should be sampled"
+            }
+
+            testCaseAsync "matches rejects a missing or blank pattern"
+            <| async {
+                use app = newApp ()
+
+                for query in [ ""; "?pattern=%20" ] do
+                    let! response = readMatches app.Client query
+
+                    Expect.equal
+                        response.StatusCode
+                        HttpStatusCode.BadRequest
+                        $"the query '{query}' should be rejected"
             }
 
             testCaseAsync "an unknown action is a bad request"

@@ -10,4 +10,5 @@ module AutoTagEndpoints =
 
     let all (queryContext : QueryContextFactory) = [
         POST [ RunAutoTag.endpoint queryContext ]
+        GET [ ReadMatches.endpoint queryContext ]
     ]

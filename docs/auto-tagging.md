@@ -194,11 +194,11 @@ decision.
 ### 7. The rule modal shows a match count
 
 - **Decision**: while the pattern field is valid, the rule modal shows how many
-  of the user's transactions the pattern matches and up to five distinct
-  descriptions from the most recent matches, so a recurring merchant does not
-  fill the samples with copies. It counts matches, not wins, because whether the
-  rule wins depends on the other rules. Requests are debounced, and a response
-  for a pattern that is no longer in the field is ignored.
+  of the user's non-transfer transactions the pattern matches and up to five
+  distinct descriptions from the most recent matches, so a recurring merchant
+  does not fill the samples with copies. It counts matches, not wins, because
+  whether the rule wins depends on the other rules. Requests are debounced, and
+  a response for a pattern that is no longer in the field is ignored.
 - **Why**: substring patterns over-match, and seeing example matches before
   saving is the main guard against that. The previous project offered no
   feedback until after a run.
