@@ -85,8 +85,9 @@ trade-offs.
   (private single-case unions with `create`/`value`).
 - **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`, `ReadTransaction.fs`,
   `ReadAllTransactions.fs`, `UpdateTransaction.fs`, `DeleteTransaction.fs`, …), each exposing a `Path` literal and an
-  `endpoint (queryContext)` function. A slice's `Codec.fs` holds the `toRow`/`fromRow` DB mapping and moves to `Data/`
-  once a second slice needs it (e.g. `Data/TagCodec.fs`); `<Name>Response.fs` holds the wire DTO.
+  `endpoint (queryContext)` function; `<Name>Endpoints.fs` groups them by HTTP method for `Program.fs` and the test
+  host. A slice's `Codec.fs` holds the `toRow`/`fromRow` DB mapping and moves to `Data/` once a second slice needs it
+  (e.g. `Data/TagCodec.fs`); `<Name>Response.fs` holds the wire DTO.
 
 Handlers run through `Endpoint.handler`, which executes a `Task<Result<unit, DomainError>>` body and composes with
 FsToolkit's `taskResult` CE. Routes are `/api/<resource>` (collections) and `/api/<resource>/{id}` (items); every
@@ -253,10 +254,10 @@ the SPA itself. This is why no CORS is configured anywhere.
 Three layers. Each has a dedicated doc:
 
 - **Server** — Expecto via the Expecto test adapter (`just server-test`, i.e. `dotnet test server/Budgeteur.slnx`) — the
-  same mechanism IDE test explorers use. An in-memory SQLite `TestApp` (via `HostBuilder` + `TestServer`) wires each
-  feature's `GET`/`POST`/`PUT`/`DELETE` endpoint lists directly — the same grouping as `Program.fs`, minus the auth
-  middleware that needs the full OIDC/JWT setup — and injects a fake `ClaimsPrincipal` with a `sub` claim. A fresh app
-  per test gives an empty database. See [docs/server-tests.md](docs/server-tests.md).
+  same mechanism IDE test explorers use. An in-memory SQLite `TestApp` (via `HostBuilder` + `TestServer`) routes each
+  slice's `<Name>Endpoints` groups — the same values `Program.fs` uses, minus the auth middleware that needs the full
+  OIDC/JWT setup — and injects a fake `ClaimsPrincipal` with a `sub` claim. A fresh app per test gives an empty
+  database. See [docs/server-tests.md](docs/server-tests.md).
 - **Client** — gleeunit (`just client-test`), pure `update` unit tests in `client/test/`: call `update` with a model and
   message, then assert on the returned model and inspect the `Effect` payload. No browser or DOM. See
   [docs/architecture.md](docs/architecture.md).

@@ -25,13 +25,18 @@ module private TestClaims =
         ClaimsPrincipal identity
 
 type TestAppConfig = {
-    EndpointProviders : (string -> Oxpecker.RoutingTypes.Endpoint seq) list
+    EndpointProviders : (Budgeteur.Data.Db.QueryContextFactory -> Oxpecker.RoutingTypes.Endpoint list) list
     CleanTables : string list
 }
 
+/// Each `with*` routes a slice's production endpoint groups, minus the auth filter.
 module TestAppConfig =
     open Budgeteur.Data.Db
     open Budgeteur.Feature.BalanceSheet
+    open Budgeteur.Feature.IncomeStatement
+    open Budgeteur.Feature.Rule
+    open Budgeteur.Feature.Tag
+    open Budgeteur.Feature.TestSupport
     open Budgeteur.Feature.Transaction
 
     let empty = {
@@ -39,103 +44,31 @@ module TestAppConfig =
         CleanTables = []
     }
 
-    let withTransactions (config : TestAppConfig) = {
-        config with
-            EndpointProviders =
-                (fun connStr ->
-                    let queryContext = QueryContextFactory.Create connStr
-
-                    [
-                        GET [
-                            ReadTransaction.endpoint queryContext
-                            ReadAllTransactions.endpoint queryContext
-                        ]
-                        POST [ CreateTransaction.endpoint queryContext ]
-                        PUT [ UpdateTransaction.endpoint queryContext ]
-                        DELETE [ DeleteTransaction.endpoint queryContext ]
-                    ])
-                :: config.EndpointProviders
-            CleanTables = "Transactions" :: config.CleanTables
+    let private withEndpoints
+        (tables : string list)
+        (provider : QueryContextFactory -> Oxpecker.RoutingTypes.Endpoint list)
+        (config : TestAppConfig)
+        = {
+        EndpointProviders = provider :: config.EndpointProviders
+        CleanTables = tables @ config.CleanTables
     }
 
-    let withTags (config : TestAppConfig) = {
-        config with
-            EndpointProviders =
-                (fun connStr ->
-                    let queryContext = QueryContextFactory.Create connStr
+    let withTransactions = withEndpoints [ "Transactions" ] TransactionEndpoints.all
 
-                    [
-                        GET [
-                            Budgeteur.Feature.Tag.ReadTag.endpoint queryContext
-                            Budgeteur.Feature.Tag.ReadAllTags.endpoint queryContext
-                        ]
-                        POST [ Budgeteur.Feature.Tag.CreateTag.endpoint queryContext ]
-                        PUT [ Budgeteur.Feature.Tag.UpdateTag.endpoint queryContext ]
-                        DELETE [ Budgeteur.Feature.Tag.DeleteTag.endpoint queryContext ]
-                    ])
-                :: config.EndpointProviders
-            CleanTables = "Tags" :: config.CleanTables
-    }
+    let withTags = withEndpoints [ "Tags" ] TagEndpoints.all
 
-    let withRules (config : TestAppConfig) = {
-        config with
-            EndpointProviders =
-                (fun connStr ->
-                    let queryContext = QueryContextFactory.Create connStr
+    let withRules = withEndpoints [ "Rules" ] RuleEndpoints.all
 
-                    [
-                        GET [
-                            Budgeteur.Feature.Rule.ReadRule.endpoint queryContext
-                            Budgeteur.Feature.Rule.ReadAllRules.endpoint queryContext
-                        ]
-                        POST [ Budgeteur.Feature.Rule.CreateRule.endpoint queryContext ]
-                        PUT [ Budgeteur.Feature.Rule.UpdateRule.endpoint queryContext ]
-                        DELETE [ Budgeteur.Feature.Rule.DeleteRule.endpoint queryContext ]
-                    ])
-                :: config.EndpointProviders
-            CleanTables = "Rules" :: config.CleanTables
-    }
+    let withIncomeStatement = withEndpoints [] IncomeStatementEndpoints.all
 
-    let withIncomeStatement (config : TestAppConfig) = {
-        config with
-            EndpointProviders =
-                (fun connStr ->
-                    let queryContext = QueryContextFactory.Create connStr
+    /// Includes the development-only item reads, which the tests use to observe item state.
+    let withBalanceSheet (clock : Clock) =
+        withEndpoints [ "BalanceSheetItems"; "BalanceSheets" ] (fun queryContext ->
+            BalanceSheetEndpoints.all queryContext clock
+            @ BalanceSheetEndpoints.developmentOnly queryContext)
 
-                    [
-                        GET [ Budgeteur.Feature.IncomeStatement.ReadIncomeStatement.endpoint queryContext ]
-                    ])
-                :: config.EndpointProviders
-    }
-
-    let withBalanceSheet (clock : Clock) (config : TestAppConfig) = {
-        config with
-            EndpointProviders =
-                (fun connStr ->
-                    let queryContext = QueryContextFactory.Create connStr
-
-                    [
-                        GET [ ReadBalanceSheet.endpoint queryContext ]
-                        POST [ CreateBalanceSheetItem.endpoint queryContext clock ]
-                        GET [
-                            ReadBalanceSheetItem.endpoint queryContext
-                            ReadAllBalanceSheetItems.endpoint queryContext
-                        ]
-                        PUT [ UpdateBalanceSheetItem.endpoint queryContext clock ]
-                        DELETE [ DeleteBalanceSheetItem.endpoint queryContext clock ]
-                    ])
-                :: config.EndpointProviders
-            CleanTables = "BalanceSheetItems" :: "BalanceSheets" :: config.CleanTables
-    }
-
-    let withResetUserData (config : TestAppConfig) = {
-        config with
-            EndpointProviders =
-                (fun connStr ->
-                    let queryContext = QueryContextFactory.Create connStr
-                    [ DELETE [ Budgeteur.Feature.TestSupport.ResetUserData.endpoint queryContext ] ])
-                :: config.EndpointProviders
-    }
+    let withResetUserData =
+        withEndpoints [] (fun queryContext -> [ DELETE [ ResetUserData.endpoint queryContext ] ])
 
 type TestApp = {
     Client : HttpClient
@@ -151,6 +84,7 @@ type TestApp = {
         member this.Dispose () = this.Dispose ()
 
 module TestApp =
+    open Budgeteur.Data.Db
     open Budgeteur.Shared.RequestLogging
     open Budgeteur.Domain.Transaction
 
@@ -207,9 +141,10 @@ module TestApp =
         let keeper = new SqliteConnection (connectionString)
         keeper.Open ()
 
+        let queryContext = QueryContextFactory.Create connectionString
+
         let endpoints =
-            config.EndpointProviders
-            |> Seq.collect (fun provider -> provider connectionString)
+            config.EndpointProviders |> Seq.collect (fun provider -> provider queryContext)
 
         let result =
             DbUp.DeployChanges.To

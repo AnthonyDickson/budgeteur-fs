@@ -2,6 +2,8 @@ namespace Budgeteur.Tests
 
 open System.Net.Http
 open System.Text
+open Expecto
+
 open Budgeteur.Shared.Coders
 
 /// JSON helpers for driving the test HTTP client. Each builds a UTF-8 JSON body
@@ -22,6 +24,43 @@ module TestHttp =
         let json = Encode.toStringAuto value
         let content = new StringContent (json, Encoding.UTF8, "application/json")
         client.PatchAsync (url, content)
+
+    /// Fill the Oxpecker routef `{%O:guid}` placeholder in an item path with a concrete id.
+    let itemPath (path : string) (id : System.Guid) =
+        path.Replace ("{%O:guid}", id.ToString ())
+
+    /// Decode a JSON response body, failing the test with the decoder's message rather than an
+    /// opaque null.
+    let readJson<'T> (response : HttpResponseMessage) : Async<'T> =
+        async {
+            let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+            match Decode.fromStringAuto<'T> body with
+            | Ok value -> return value
+            | Error error -> return failtest error
+        }
+
+/// Data that tests in several slices need to set up.
+module Seed =
+    open System
+    open System.Net
+
+    open Budgeteur.Feature.Tag
+
+    /// Create a tag and return its server-assigned id.
+    let tag (client : HttpClient) (name : string) (kind : string) : Async<Guid> =
+        async {
+            let request : CreateTag.CreateTagRequest = {
+                Name = name
+                Color = "#22C55E"
+                Kind = kind
+            }
+
+            let! response = TestHttp.postJson client CreateTag.Path request |> Async.AwaitTask
+            Expect.equal response.StatusCode HttpStatusCode.Created "creating a tag should return 201"
+            let! tag = TestHttp.readJson<TagResponse> response
+            return tag.Id
+        }
 
 /// Assertions for user scoping: every query must filter by the `sub` claim.
 module Scoping =

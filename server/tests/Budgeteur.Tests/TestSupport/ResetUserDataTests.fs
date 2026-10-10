@@ -9,7 +9,6 @@ module ResetUserDataTests =
     open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Feature.TestSupport
     open Budgeteur.Feature.Transaction
-    open Budgeteur.Shared.Coders
     open Budgeteur.Tests
 
     let private newApp () =
@@ -53,11 +52,8 @@ module ResetUserDataTests =
     let private transactionCount (client : HttpClient) =
         async {
             let! response = client.GetAsync ReadAllTransactions.Path |> Async.AwaitTask
-            let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
-
-            match Decode.fromStringAuto<TransactionResponse list> body with
-            | Ok transactions -> return List.length transactions
-            | Error error -> return failtest error
+            let! transactions = TestHttp.readJson<TransactionResponse list> response
+            return List.length transactions
         }
 
     let private sheetStatus (client : HttpClient) =

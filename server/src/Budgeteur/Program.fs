@@ -226,83 +226,30 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
         ]
     ]
 
-    let balanceSheetEndpoints =
-        [ GET [ ReadBalanceSheet.endpoint queryContext ] ] |> withAuth
-
-    let balanceSheetItemEndpoints =
-        [
-            POST [ CreateBalanceSheetItem.endpoint queryContext Clock.system ]
-            PUT [ UpdateBalanceSheetItem.endpoint queryContext Clock.system ]
-            DELETE [ DeleteBalanceSheetItem.endpoint queryContext Clock.system ]
+    let featureEndpoints =
+        Seq.concat [
+            BalanceSheetEndpoints.all queryContext Clock.system
+            IncomeStatementEndpoints.all queryContext
+            RuleEndpoints.all queryContext
+            TransactionEndpoints.all queryContext
+            TagEndpoints.all queryContext
+            [ GET [ ReadTaggingData.endpoint queryContext ] ]
         ]
         |> withAuth
-
-    let incomeStatementEndpoints =
-        [ GET [ ReadIncomeStatement.endpoint queryContext ] ] |> withAuth
-
-    let transactionEndpoints =
-        [
-            POST [ CreateTransaction.endpoint queryContext ]
-            GET [
-                ReadTransaction.endpoint queryContext
-                ReadAllTransactions.endpoint queryContext
-            ]
-            PUT [ UpdateTransaction.endpoint queryContext ]
-            DELETE [ DeleteTransaction.endpoint queryContext ]
-        ]
-        |> withAuth
-
-    let tagEndpoints =
-        [
-            POST [ CreateTag.endpoint queryContext ]
-            GET [ ReadTag.endpoint queryContext; ReadAllTags.endpoint queryContext ]
-            PUT [ UpdateTag.endpoint queryContext ]
-            DELETE [ DeleteTag.endpoint queryContext ]
-        ]
-        |> withAuth
-
-    let ruleEndpoints =
-        [
-            POST [ CreateRule.endpoint queryContext ]
-            GET [ ReadRule.endpoint queryContext; ReadAllRules.endpoint queryContext ]
-            PUT [ UpdateRule.endpoint queryContext ]
-            DELETE [ DeleteRule.endpoint queryContext ]
-        ]
-        |> withAuth
-
-    let taggingPageEndpoints =
-        [ GET [ ReadTaggingData.endpoint queryContext ] ] |> withAuth
 
     // Test-only helpers, available in Development only (mirrors the Scalar
     // docs gating below) so they can never be reached against real data.
-    // The balance sheet item reads exist for manual inspection; keeping them
-    // out of the production route table stops them being advertised as
-    // supported API.
     let testEndpoints =
         if app.Environment.IsDevelopment () then
-            [
-                DELETE [ ResetUserData.endpoint queryContext ]
-                GET [
-                    ReadBalanceSheetItem.endpoint queryContext
-                    ReadAllBalanceSheetItems.endpoint queryContext
-                ]
+            Seq.concat [
+                [ DELETE [ ResetUserData.endpoint queryContext ] ]
+                BalanceSheetEndpoints.developmentOnly queryContext
             ]
             |> withAuth
         else
             Seq.empty
 
-    Seq.concat [
-        authEndpoints
-        balanceSheetEndpoints
-        balanceSheetItemEndpoints
-        incomeStatementEndpoints
-        ruleEndpoints
-        statusEndpoints
-        transactionEndpoints
-        tagEndpoints
-        taggingPageEndpoints
-        testEndpoints
-    ]
+    Seq.concat [ authEndpoints; statusEndpoints; featureEndpoints; testEndpoints ]
 
 
 let private configureBuilder (builder : WebApplicationBuilder) (config : AppConfig) : unit =

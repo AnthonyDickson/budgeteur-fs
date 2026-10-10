@@ -16,14 +16,14 @@ The server is split across three folders, and `Feature/Transaction/` is the refe
 - **`Domain/`** — one file per domain type (`Transaction.fs`, `Tag.fs`, `Rule.fs`).
 - **`Feature/<Name>/`** — one file per HTTP operation (`CreateTransaction.fs`, `ReadTransaction.fs`,
   `ReadAllTransactions.fs`, `UpdateTransaction.fs`, `DeleteTransaction.fs`, …), each exposing a `Path` literal and an
-  `endpoint (queryContext)` function. A slice's `Codec.fs` holds the `toRow` / `fromRow` DB mapping and moves to `Data/`
-  once a second slice needs it (e.g. `Data/TagCodec.fs`, shared by `Tag` and `TaggingPage`); value invariants live with
-  the type in `Domain/`.
+  `endpoint (queryContext)` function; `<Name>Endpoints.fs` groups them by HTTP method for `Program.fs` and the test
+  host. A slice's `Codec.fs` holds the `toRow` / `fromRow` DB mapping and moves to `Data/` once a second slice needs it
+  (e.g. `Data/TagCodec.fs`, shared by `Tag` and `TaggingPage`); value invariants live with the type in `Domain/`.
 
 The `QueryContextFactory` (from the generated `Data/Db.fs`) is created once in `Program.fs` and threaded into each
-operation's `endpoint` function; there, endpoints are grouped by HTTP method (`GET` / `POST` / `PUT` / `DELETE`) and
-feature lists are wrapped with `Auth.requireAuth`. Routes use `/api/<resource>` for collections and
-`/api/<resource>/{id}` for items. IDs are v7 UUIDs generated server-side — create requests carry no id.
+operation's `endpoint` function. Each slice's `<Name>Endpoints` module groups its endpoints by HTTP method (`GET` /
+`POST` / `PUT` / `DELETE`), and `Program.fs` wraps those lists with `Auth.requireAuth`. Routes use `/api/<resource>` for
+collections and `/api/<resource>/{id}` for items. IDs are v7 UUIDs generated server-side — create requests carry no id.
 
 ### Domain invariants and wire types
 

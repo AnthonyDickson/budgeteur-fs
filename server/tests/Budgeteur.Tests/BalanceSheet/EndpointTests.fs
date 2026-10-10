@@ -7,12 +7,7 @@ module EndpointTests =
     open Expecto
 
     open Budgeteur.Feature.BalanceSheet
-    open Budgeteur.Shared.Coders
     open Budgeteur.Tests
-
-    /// Fill the Oxpecker routef `{%O:guid}` placeholder in an item path with a concrete id.
-    let private routefPath (path : string) (id : Guid) =
-        path.Replace ("{%O:guid}", id.ToString ())
 
     /// A valid create or update payload. No id is supplied, matching the server-owned-id contract.
     let private request
@@ -36,21 +31,6 @@ module EndpointTests =
         let instant = ref start
         (fun () -> instant.Value), (fun next -> instant.Value <- next)
 
-    /// Fail the test with the decoder's message rather than an opaque null.
-    let private orFail (result : Result<'T, string>) : Async<'T> =
-        async {
-            match result with
-            | Ok value -> return value
-            | Error error -> return failtest error
-        }
-
-    let private itemId (response : HttpResponseMessage) : Async<Guid> =
-        async {
-            let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
-            let! item = Decode.fromStringAuto<BalanceSheetItemResponse> body |> orFail
-            return item.Id
-        }
-
     /// Create an item and return its server-assigned id.
     let private createItem (client : HttpClient) (payload : WriteBalanceSheetItemRequest) : Async<Guid> =
         async {
@@ -58,7 +38,8 @@ module EndpointTests =
                 TestHttp.postJson client CreateBalanceSheetItem.Path payload |> Async.AwaitTask
 
             Expect.equal response.StatusCode HttpStatusCode.Created "create should return 201"
-            return! itemId response
+            let! item = TestHttp.readJson<BalanceSheetItemResponse> response
+            return item.Id
         }
 
     let private getSheet (client : HttpClient) : Async<HttpResponseMessage> =
@@ -68,8 +49,7 @@ module EndpointTests =
         async {
             let! response = getSheet client
             Expect.equal response.StatusCode HttpStatusCode.OK "read should return 200"
-            let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
-            return! Decode.fromStringAuto<ReadBalanceSheet.BalanceSheetResponse> body |> orFail
+            return! TestHttp.readJson<ReadBalanceSheet.BalanceSheetResponse> response
         }
 
     let private statusOf (response : HttpResponseMessage) = response.StatusCode
@@ -77,7 +57,7 @@ module EndpointTests =
     let private deleteItem (client : HttpClient) (id : Guid) : Async<HttpStatusCode> =
         async {
             let! response =
-                client.DeleteAsync (routefPath DeleteBalanceSheetItem.Path id)
+                client.DeleteAsync (TestHttp.itemPath DeleteBalanceSheetItem.Path id)
                 |> Async.AwaitTask
 
             return statusOf response
@@ -90,7 +70,7 @@ module EndpointTests =
         : Async<HttpStatusCode> =
         async {
             let! response =
-                TestHttp.putJson client (routefPath UpdateBalanceSheetItem.Path id) payload
+                TestHttp.putJson client (TestHttp.itemPath UpdateBalanceSheetItem.Path id) payload
                 |> Async.AwaitTask
 
             return statusOf response
@@ -99,7 +79,8 @@ module EndpointTests =
     let private getItem (client : HttpClient) (id : Guid) : Async<HttpStatusCode> =
         async {
             let! response =
-                client.GetAsync (routefPath ReadBalanceSheetItem.Path id) |> Async.AwaitTask
+                client.GetAsync (TestHttp.itemPath ReadBalanceSheetItem.Path id)
+                |> Async.AwaitTask
 
             return statusOf response
         }
@@ -132,10 +113,7 @@ module EndpointTests =
                 let! ownedList = app.Client.GetAsync ReadAllBalanceSheetItems.Path |> Async.AwaitTask
                 Expect.equal ownedList.StatusCode HttpStatusCode.OK "the owner's item list should be 200"
 
-                let! listBody = ownedList.Content.ReadAsStringAsync () |> Async.AwaitTask
-
-                let! ownedItems =
-                    Decode.fromStringAuto<BalanceSheetItemResponse list> listBody |> orFail
+                let! ownedItems = TestHttp.readJson<BalanceSheetItemResponse list> ownedList
 
                 Expect.equal
                     (List.map (fun item -> item.Id) ownedItems)
@@ -152,10 +130,7 @@ module EndpointTests =
                 let! otherList = otherUser.GetAsync ReadAllBalanceSheetItems.Path |> Async.AwaitTask
                 Expect.equal otherList.StatusCode HttpStatusCode.OK "another user's item list should still be 200"
 
-                let! otherListBody = otherList.Content.ReadAsStringAsync () |> Async.AwaitTask
-
-                let! otherItems =
-                    Decode.fromStringAuto<BalanceSheetItemResponse list> otherListBody |> orFail
+                let! otherItems = TestHttp.readJson<BalanceSheetItemResponse list> otherList
 
                 Expect.equal otherItems [] "another user's item list should be empty"
 
@@ -184,8 +159,7 @@ module EndpointTests =
                 Expect.equal response.StatusCode HttpStatusCode.OK "the sheet should be readable"
                 let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
 
-                let! sheet =
-                    Decode.fromStringAuto<ReadBalanceSheet.BalanceSheetResponse> body |> orFail
+                let! sheet = TestHttp.readJson<ReadBalanceSheet.BalanceSheetResponse> response
 
                 // Then: the statement date and every item are present.
                 Expect.isTrue
@@ -246,7 +220,7 @@ module EndpointTests =
                 let! collision =
                     TestHttp.putJson
                         app.Client
-                        (routefPath UpdateBalanceSheetItem.Path existing)
+                        (TestHttp.itemPath UpdateBalanceSheetItem.Path existing)
                         (request "Chequing" "Asset" "NonCurrent" 1m)
                     |> Async.AwaitTask
 
@@ -259,7 +233,7 @@ module EndpointTests =
                 let! self =
                     TestHttp.putJson
                         app.Client
-                        (routefPath UpdateBalanceSheetItem.Path existing)
+                        (TestHttp.itemPath UpdateBalanceSheetItem.Path existing)
                         (request "Chequing" "Asset" "Current" 2500m)
                     |> Async.AwaitTask
 
@@ -295,31 +269,14 @@ module EndpointTests =
             <| async {
                 use app = newApp ()
 
-                let post (payload : WriteBalanceSheetItemRequest) =
-                    async {
-                        let! response =
-                            TestHttp.postJson app.Client CreateBalanceSheetItem.Path payload
-                            |> Async.AwaitTask
+                // The validation rules themselves are covered by the domain tests.
+                let! response =
+                    TestHttp.postJson app.Client CreateBalanceSheetItem.Path (request "Chequing" "Asset" "Current" -1m)
+                    |> Async.AwaitTask
 
-                        return statusOf response
-                    }
+                Expect.equal response.StatusCode HttpStatusCode.BadRequest "a negative balance should be rejected"
 
-                // A negative balance (the magnitude is directionless).
-                let! negative = post (request "Chequing" "Asset" "Current" -1m)
-
-                Expect.equal negative HttpStatusCode.BadRequest "a negative balance should be rejected"
-
-                // A name longer than the domain maximum.
-                let! tooLong = post (request (String.replicate 129 "a") "Asset" "Current" 1m)
-
-                Expect.equal tooLong HttpStatusCode.BadRequest "an over-long name should be rejected"
-
-                // An unrecognised kind.
-                let! unknownKind = post (request "Chequing" "Equity" "Current" 1m)
-
-                Expect.equal unknownKind HttpStatusCode.BadRequest "an unknown kind should be rejected"
-
-                // Nothing above was written, so the sheet was never created.
+                // Nothing was written, so the sheet was never created.
                 let! sheet = getSheet app.Client
 
                 Expect.equal sheet.StatusCode HttpStatusCode.NotFound "rejected writes should not create the sheet"

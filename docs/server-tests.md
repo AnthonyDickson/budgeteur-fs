@@ -11,15 +11,21 @@ The host contains only what the feature under test needs, declared per-test via 
 - **In-memory SQLite** (shared-cache mode). A "keeper" connection holds the database open for the app's lifetime — each
   query opens its own connection, and the DB would be dropped when the last one closes.
 - Routing + Oxpecker middleware.
-- **The feature's endpoint lists directly** — the same `GET` / `POST` / `PUT` / `DELETE` groups as `Program.fs`, minus
-  the auth middleware. See below.
+- **The slice's endpoint groups** — the same `<Name>Endpoints` values `Program.fs` uses, minus the auth middleware. See
+  below.
 - A fake `ClaimsPrincipal` with a `sub` claim, so handlers that read the user id work without an OIDC round-trip.
 
-### Why the endpoint lists and not the production wiring
+### Why the endpoint groups and not the production wiring
 
-`Program.fs` wraps every feature's endpoint lists with `Auth.requireAuth`, which needs the full OIDC/JWT setup. Tests
-build the same lists (e.g. `TestAppConfig.withTransactions`) and skip the middleware entirely. Production adds the auth
-filter on top of the same endpoints.
+`Program.fs` wraps every slice's endpoint groups with `Auth.requireAuth`, which needs the full OIDC/JWT setup. Tests
+route the same groups (e.g. `TestAppConfig.withTransactions` uses `TransactionEndpoints.all`) and skip the middleware
+entirely, so a route added to a slice is reachable from both without editing the test host.
+
+### Helpers
+
+`TestHttp` holds the JSON request helpers, `itemPath` (fills an item route's `{%O:guid}` placeholder), and `readJson`
+(decodes a body or fails the test with the decoder's message). `Seed` creates data that tests in several slices need,
+such as a tag. `Scoping.expectHiddenFrom` asserts that another user can neither read, list, replace, nor delete an item.
 
 ### Fixture lifecycle
 
