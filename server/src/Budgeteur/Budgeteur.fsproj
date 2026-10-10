@@ -77,8 +77,6 @@
     <Compile Include="Feature/Transaction/DeleteTransaction.fs" />
     <Compile Include="Feature/Transaction/TransactionEndpoints.fs" />
 
-    <Compile Include="Feature/TaggingPage/ReadTaggingData.fs" />
-
     <Compile Include="Feature/IncomeStatement/IncomeStatement.fs" />
     <Compile Include="Feature/IncomeStatement/ReadIncomeStatement.fs" />
     <Compile Include="Feature/IncomeStatement/IncomeStatementEndpoints.fs" />

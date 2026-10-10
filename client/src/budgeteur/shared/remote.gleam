@@ -18,6 +18,17 @@ pub fn map(remote: Remote(a), f: fn(a) -> b) -> Remote(b) {
   }
 }
 
+/// Combine two fetches into one. `Loading` until both have settled, so a retry
+/// offered on failure never overlaps a fetch still in flight; then `Failed` if
+/// either failed.
+pub fn both(a: Remote(a), b: Remote(b)) -> Remote(#(a, b)) {
+  case a, b {
+    Loaded(a), Loaded(b) -> Loaded(#(a, b))
+    Loading, _ | _, Loading -> Loading
+    Failed, _ | _, Failed -> Failed
+  }
+}
+
 /// The loaded data, or `default` while loading or after a failure.
 pub fn unwrap(remote: Remote(a), or default: a) -> a {
   case remote {

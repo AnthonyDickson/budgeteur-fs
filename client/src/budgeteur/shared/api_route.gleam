@@ -8,12 +8,12 @@ pub type ApiRoute {
   CreateTransaction
   UpdateTransaction(id: Uuid)
   DeleteTransaction(id: Uuid)
-  GetTaggingData
   CreateTag
   GetAllTags
   UpdateTag(id: Uuid)
   DeleteTag(id: Uuid)
   CreateRule
+  GetAllRules
   UpdateRule(id: Uuid)
   DeleteRule(id: Uuid)
   GetBalanceSheet
@@ -30,11 +30,10 @@ pub fn to_string(route: ApiRoute) -> String {
     GetAllTransactions | CreateTransaction -> api_prefix <> "/transactions"
     GetTransaction(id:) | UpdateTransaction(id:) | DeleteTransaction(id:) ->
       api_prefix <> "/transactions/" <> uuid.to_string(id)
-    GetTaggingData -> api_prefix <> "/tagging"
     CreateTag | GetAllTags -> api_prefix <> "/tags"
     UpdateTag(id:) | DeleteTag(id:) ->
       api_prefix <> "/tags/" <> uuid.to_string(id)
-    CreateRule -> api_prefix <> "/rules"
+    CreateRule | GetAllRules -> api_prefix <> "/rules"
     UpdateRule(id:) | DeleteRule(id:) ->
       api_prefix <> "/rules/" <> uuid.to_string(id)
     GetBalanceSheet -> api_prefix <> "/balance-sheet"

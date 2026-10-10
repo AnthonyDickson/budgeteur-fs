@@ -14,9 +14,6 @@ import budgeteur/tagging_page/rule_modal
 import budgeteur/tagging_page/tag_delete_modal
 import budgeteur/tagging_page/tag_modal
 import budgeteur/tagging_page/tagging_page
-import budgeteur/tagging_page/tagging_page_data.{
-  type TaggingPageData, TaggingPageData,
-}
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import gleeunit/should
@@ -36,18 +33,11 @@ fn make_rule_for(for_tag: uuid.Uuid) -> rule.Rule {
   rule.Rule(id: tag_id(9), pattern: "STARBUCKS", tag_id: for_tag)
 }
 
-/// Loaded tags and rules.
-fn data(
-  tags: List(tag.Tag),
-  rules: List(rule.Rule),
-) -> remote.Remote(TaggingPageData) {
-  remote.Loaded(TaggingPageData(tags:, rules:))
-}
-
 /// A loaded page with no tags or rules.
 fn empty_model() -> tagging_page.Model {
   tagging_page.Model(
-    data: data([], []),
+    tags: remote.Loaded([]),
+    rules: remote.Loaded([]),
     selected_tag: None,
     tag_modal: tag_modal.hidden(),
     tag_delete_modal: tag_delete_modal.empty(),
@@ -61,17 +51,17 @@ fn model_with(tags: List(tag.Tag)) -> tagging_page.Model {
     [first, ..] -> Some(first.id)
     _ -> None
   }
-  tagging_page.Model(..empty_model(), data: data(tags, []), selected_tag:)
+  tagging_page.Model(..empty_model(), tags: remote.Loaded(tags), selected_tag:)
 }
 
 fn tags(model: tagging_page.Model) -> List(tag.Tag) {
-  let assert remote.Loaded(data) = model.data
-  data.tags
+  let assert remote.Loaded(tags) = model.tags
+  tags
 }
 
 fn rules(model: tagging_page.Model) -> List(rule.Rule) {
-  let assert remote.Loaded(data) = model.data
-  data.rules
+  let assert remote.Loaded(rules) = model.rules
+  rules
 }
 
 /// Apply a page message, keeping only the resulting model.
@@ -94,52 +84,73 @@ fn server_error() -> api_error.ApiError {
 pub fn init_fetches_tags_and_rules_test() {
   let #(model, effect) = tagging_page.init()
 
-  model.data |> should.equal(remote.Loading)
-  let assert effect.HttpRequest(method: method, url: url, ..) = effect
-  method |> should.equal(http_effect.Get)
-  url |> should.equal(api_route.to_string(api_route.GetTaggingData))
+  model.tags |> should.equal(remote.Loading)
+  model.rules |> should.equal(remote.Loading)
+  let assert effect.Batch([
+    effect.HttpRequest(method: http_effect.Get, url: tags_url, ..),
+    effect.HttpRequest(method: http_effect.Get, url: rules_url, ..),
+  ]) = effect
+  tags_url |> should.equal(api_route.to_string(api_route.GetAllTags))
+  rules_url |> should.equal(api_route.to_string(api_route.GetAllRules))
 }
 
-pub fn fetched_data_sorts_and_selects_first_tag_test() {
-  let fetched =
-    TaggingPageData(
-      tags: [tag_named(tag_id(2), "Rent"), tag_named(tag_id(1), "Coffee")],
-      rules: [make_rule_for(tag_id(1))],
-    )
+pub fn fetched_tags_are_sorted_and_the_first_selected_test() {
   let #(model, _) = tagging_page.init()
 
   let #(new_model, effect, out_msg) =
-    tagging_page.update(model, tagging_page.ClientFetchedData(Ok(fetched)))
+    tagging_page.update(
+      model,
+      tagging_page.ClientFetchedTags(
+        Ok([tag_named(tag_id(2), "Rent"), tag_named(tag_id(1), "Coffee")]),
+      ),
+    )
 
   tags(new_model)
   |> should.equal([
     tag_named(tag_id(1), "Coffee"),
     tag_named(tag_id(2), "Rent"),
   ])
-  rules(new_model) |> should.equal(fetched.rules)
   new_model.selected_tag |> should.equal(Some(tag_id(1)))
   effect |> should.equal(effect.none())
   out_msg |> should.equal(None)
 }
 
+pub fn fetched_rules_keep_their_order_test() {
+  let fetched = [make_rule_for(tag_id(2)), make_rule_for(tag_id(1))]
+  let #(model, _) = tagging_page.init()
+
+  let model = run(model, tagging_page.ClientFetchedRules(Ok(fetched)))
+
+  rules(model) |> should.equal(fetched)
+}
+
 pub fn a_failed_first_load_offers_a_retry_test() {
   let #(model, _) = tagging_page.init()
+
+  let model =
+    run(model, tagging_page.ClientFetchedTags(Ok([tag_named(tag_id(1), "A")])))
+  // Still loading until the rules settle too.
+  remote.both(model.tags, model.rules) |> should.equal(remote.Loading)
 
   let #(failed, effect, out_msg) =
     tagging_page.update(
       model,
-      tagging_page.ClientFetchedData(Error(server_error())),
+      tagging_page.ClientFetchedRules(Error(server_error())),
     )
 
-  failed.data |> should.equal(remote.Failed)
+  remote.both(failed.tags, failed.rules) |> should.equal(remote.Failed)
   let assert effect.LogError(_) = effect
   out_msg |> should.equal(None)
 
   let #(retrying, effect, _) =
     tagging_page.update(failed, tagging_page.UserRequestedReload)
 
-  retrying.data |> should.equal(remote.Loading)
-  let assert effect.HttpRequest(method: http_effect.Get, ..) = effect
+  retrying.tags |> should.equal(remote.Loading)
+  retrying.rules |> should.equal(remote.Loading)
+  let assert effect.Batch([
+    effect.HttpRequest(method: http_effect.Get, ..),
+    effect.HttpRequest(method: http_effect.Get, ..),
+  ]) = effect
 }
 
 pub fn a_failed_refetch_keeps_the_loaded_data_and_toasts_test() {
@@ -148,7 +159,7 @@ pub fn a_failed_refetch_keeps_the_loaded_data_and_toasts_test() {
   let #(new_model, effect, out_msg) =
     tagging_page.update(
       model,
-      tagging_page.ClientFetchedData(Error(server_error())),
+      tagging_page.ClientFetchedTags(Error(server_error())),
     )
 
   new_model |> should.equal(model)
@@ -162,7 +173,8 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee, rent], [make_rule_for(coffee.id)]),
+      tags: remote.Loaded([coffee, rent]),
+      rules: remote.Loaded([make_rule_for(coffee.id)]),
       selected_tag: Some(coffee.id),
     )
 
@@ -202,7 +214,8 @@ pub fn deleting_rule_arms_request_then_removes_it_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee], [starbucks]),
+      tags: remote.Loaded([coffee]),
+      rules: remote.Loaded([starbucks]),
       selected_tag: Some(coffee.id),
     )
 
@@ -236,7 +249,8 @@ pub fn failed_tag_delete_shows_inline_error_and_allows_retry_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee], []),
+      tags: remote.Loaded([coffee]),
+      rules: remote.Loaded([]),
       selected_tag: Some(coffee.id),
       tag_delete_modal: delete_modal.Deleting(target: coffee, context: 0),
     )
@@ -274,7 +288,8 @@ pub fn tag_delete_404_is_treated_as_success_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee], []),
+      tags: remote.Loaded([coffee]),
+      rules: remote.Loaded([]),
       selected_tag: Some(coffee.id),
       tag_delete_modal: delete_modal.Deleting(target: coffee, context: 0),
     )
@@ -311,7 +326,8 @@ pub fn stale_delete_error_when_not_deleting_is_a_noop_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee], []),
+      tags: remote.Loaded([coffee]),
+      rules: remote.Loaded([]),
       selected_tag: Some(coffee.id),
     )
 
@@ -341,7 +357,8 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee], [existing]),
+      tags: remote.Loaded([coffee]),
+      rules: remote.Loaded([existing]),
       selected_tag: Some(coffee.id),
     )
 
@@ -383,7 +400,8 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee, rent], [starbucks]),
+      tags: remote.Loaded([coffee, rent]),
+      rules: remote.Loaded([starbucks]),
       selected_tag: Some(coffee.id),
     )
 
@@ -421,7 +439,8 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee], [starbucks]),
+      tags: remote.Loaded([coffee]),
+      rules: remote.Loaded([starbucks]),
       selected_tag: Some(coffee.id),
     )
   let opened = run(model, tagging_page.UserRequestedRuleEdit(starbucks.id))
@@ -455,7 +474,8 @@ pub fn cancelling_the_rule_modal_hides_it_without_changes_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      data: data([coffee], []),
+      tags: remote.Loaded([coffee]),
+      rules: remote.Loaded([]),
       selected_tag: Some(coffee.id),
     )
   let opened = run(model, tagging_page.UserRequestedRuleCreation)

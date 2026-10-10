@@ -16,9 +16,7 @@ import budgeteur/tagging_page/tag_delete_modal
 import budgeteur/tagging_page/tag_modal
 import budgeteur/tagging_page/tag_view
 import budgeteur/tagging_page/tag_write_request
-import budgeteur/tagging_page/tagging_page_data.{
-  type TaggingPageData, TaggingPageData,
-}
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -32,7 +30,10 @@ import youid/uuid.{type Uuid}
 
 pub type Model {
   Model(
-    data: Remote(TaggingPageData),
+    /// Sorted by name.
+    tags: Remote(List(Tag)),
+    /// In evaluation order.
+    rules: Remote(List(Rule)),
     selected_tag: Option(Uuid),
     tag_modal: tag_modal.Modal,
     tag_delete_modal: tag_delete_modal.DeleteModalState,
@@ -43,7 +44,8 @@ pub type Model {
 
 pub type Msg {
   // API responses
-  ClientFetchedData(Result(TaggingPageData, ApiError))
+  ClientFetchedTags(Result(List(Tag), ApiError))
+  ClientFetchedRules(Result(List(Rule), ApiError))
   // Retry after a failed first load.
   UserRequestedReload
 
@@ -74,16 +76,30 @@ pub type Msg {
 }
 
 // TODO: See if there's a common pattern among the API request effect helpers and refactor
-fn fetch_page_data() -> Effect(Msg) {
-  effect.get(api_route.GetTaggingData |> api_route.to_string, fn(result) {
+fn fetch_tags() -> Effect(Msg) {
+  effect.get(api_route.GetAllTags |> api_route.to_string, fn(result) {
     case result {
       Ok(body) ->
-        ClientFetchedData(response.decode_success(
+        ClientFetchedTags(response.decode_success(
           body,
-          tagging_page_data.data_decoder(),
+          decode.list(tag.tag_decoder()),
         ))
       Error(http_error) ->
-        ClientFetchedData(Error(response.http_error_to_api_error(http_error)))
+        ClientFetchedTags(Error(response.http_error_to_api_error(http_error)))
+    }
+  })
+}
+
+fn fetch_rules() -> Effect(Msg) {
+  effect.get(api_route.GetAllRules |> api_route.to_string, fn(result) {
+    case result {
+      Ok(body) ->
+        ClientFetchedRules(response.decode_success(
+          body,
+          decode.list(rule.rule_decoder()),
+        ))
+      Error(http_error) ->
+        ClientFetchedRules(Error(response.http_error_to_api_error(http_error)))
     }
   })
 }
@@ -91,14 +107,15 @@ fn fetch_page_data() -> Effect(Msg) {
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
-      data: Loading,
+      tags: Loading,
+      rules: Loading,
       selected_tag: None,
       tag_modal: tag_modal.hidden(),
       tag_delete_modal: tag_delete_modal.empty(),
       rule_modal: rule_modal.hidden(),
       rule_delete_modal: rule_delete_modal.empty(),
     ),
-    fetch_page_data(),
+    effect.batch([fetch_tags(), fetch_rules()]),
   )
 }
 
@@ -106,14 +123,46 @@ fn sort_tags(tags: List(Tag)) -> List(Tag) {
   list.sort(tags, by: fn(a, b) { string.compare(a.name, b.name) })
 }
 
-/// The loaded tags and rules; empty while loading or after a failed load.
-fn loaded(model: Model) -> TaggingPageData {
-  remote.unwrap(model.data, or: TaggingPageData(tags: [], rules: []))
+/// The loaded tags; empty while loading or after a failed load.
+fn loaded_tags(model: Model) -> List(Tag) {
+  remote.unwrap(model.tags, or: [])
 }
 
-/// Apply `f` to the loaded tags and rules. No-op unless loaded.
-fn map_data(model: Model, f: fn(TaggingPageData) -> TaggingPageData) -> Model {
-  Model(..model, data: remote.map(model.data, f))
+/// The loaded rules; empty while loading or after a failed load.
+fn loaded_rules(model: Model) -> List(Rule) {
+  remote.unwrap(model.rules, or: [])
+}
+
+/// Apply `f` to the loaded tags. No-op unless loaded.
+fn map_tags(model: Model, f: fn(List(Tag)) -> List(Tag)) -> Model {
+  Model(..model, tags: remote.map(model.tags, f))
+}
+
+/// Apply `f` to the loaded rules. No-op unless loaded.
+fn map_rules(model: Model, f: fn(List(Rule)) -> List(Rule)) -> Model {
+  Model(..model, rules: remote.map(model.rules, f))
+}
+
+/// A failed fetch of one list. A refetch (e.g. on returning to the page) keeps
+/// the loaded list, still the latest the page has seen, and toasts; a failed
+/// first load marks the list `Failed` so the page offers a retry.
+fn fetch_failed(
+  fetched: Remote(a),
+  error: ApiError,
+  noun: String,
+) -> #(Remote(a), Effect(Msg), Option(OutMsg)) {
+  let log = effect.LogError(api_error.describe(error))
+  case fetched {
+    Loaded(_) -> #(
+      fetched,
+      log,
+      Some(out_msg.error_toast(
+        "Could not refresh " <> noun,
+        "Showing the " <> noun <> " loaded earlier",
+      )),
+    )
+    Loading | Failed -> #(Failed, log, None)
+  }
 }
 
 fn first_tag_id(tags: List(Tag)) -> Option(Uuid) {
@@ -124,46 +173,39 @@ fn first_tag_id(tags: List(Tag)) -> Option(Uuid) {
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   case msg {
-    ClientFetchedData(Ok(data)) -> {
-      let tags = sort_tags(data.tags)
+    ClientFetchedTags(Ok(tags)) -> {
+      let tags = sort_tags(tags)
       let model =
-        Model(
-          ..model,
-          data: Loaded(TaggingPageData(tags:, rules: data.rules)),
-          selected_tag: first_tag_id(tags),
-        )
+        Model(..model, tags: Loaded(tags), selected_tag: first_tag_id(tags))
       #(model, effect.none(), None)
     }
 
-    ClientFetchedData(Error(error)) ->
-      case model.data {
-        // A refetch failed (e.g. on returning to the page); the loaded data is
-        // still the latest the page has seen.
-        Loaded(_) -> #(
-          model,
-          effect.LogError(api_error.describe(error)),
-          Some(out_msg.error_toast(
-            "Could not refresh tags and rules",
-            "Showing the tags and rules loaded earlier",
-          )),
-        )
-        Loading | Failed -> #(
-          Model(..model, data: Failed),
-          effect.LogError(api_error.describe(error)),
-          None,
-        )
-      }
+    ClientFetchedTags(Error(error)) -> {
+      let #(tags, effect, out_msg) = fetch_failed(model.tags, error, "tags")
+      #(Model(..model, tags:), effect, out_msg)
+    }
+
+    ClientFetchedRules(Ok(rules)) -> #(
+      Model(..model, rules: Loaded(rules)),
+      effect.none(),
+      None,
+    )
+
+    ClientFetchedRules(Error(error)) -> {
+      let #(rules, effect, out_msg) = fetch_failed(model.rules, error, "rules")
+      #(Model(..model, rules:), effect, out_msg)
+    }
 
     UserRequestedReload -> #(
-      Model(..model, data: Loading),
-      fetch_page_data(),
+      Model(..model, tags: Loading, rules: Loading),
+      effect.batch([fetch_tags(), fetch_rules()]),
       None,
     )
 
     UserRequestedTagCreation -> run_tag_modal(model, tag_modal.CreateRequested)
 
     UserRequestedTagEdit(id) -> {
-      case list.find(loaded(model).tags, fn(tag) { tag.id == id }) {
+      case list.find(loaded_tags(model), fn(tag) { tag.id == id }) {
         Ok(tag) -> run_tag_modal(model, tag_modal.EditRequested(tag))
 
         Error(Nil) -> #(model, effect.none(), None)
@@ -174,7 +216,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
     UserRequestedTagDelete(tag) -> {
       let rule_count =
-        rule_view.rules_for_tag(tag.id, loaded(model).rules) |> list.length
+        rule_view.rules_for_tag(tag.id, loaded_rules(model)) |> list.length
       #(
         Model(..model, tag_delete_modal: tag_delete_modal.open(tag, rule_count)),
         effect.none(),
@@ -216,7 +258,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     }
 
     UserRequestedRuleEdit(id) -> {
-      case list.find(loaded(model).rules, fn(rule) { rule.id == id }) {
+      case list.find(loaded_rules(model), fn(rule) { rule.id == id }) {
         Ok(rule) -> run_rule_modal(model, rule_modal.EditRequested(rule))
         Error(Nil) -> #(model, effect.none(), None)
       }
@@ -283,14 +325,11 @@ fn on_tag_delete_succeeded(
   tag: Tag,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let model =
-    map_data(model, fn(data) {
-      TaggingPageData(
-        tags: list.filter(data.tags, fn(t) { t.id != tag.id }),
-        rules: list.filter(data.rules, fn(r) { r.tag_id != tag.id }),
-      )
-    })
+    model
+    |> map_tags(list.filter(_, fn(t) { t.id != tag.id }))
+    |> map_rules(list.filter(_, fn(r) { r.tag_id != tag.id }))
   let selected_tag = case model.selected_tag {
-    Some(id) if id == tag.id -> first_tag_id(loaded(model).tags)
+    Some(id) if id == tag.id -> first_tag_id(loaded_tags(model))
     other -> other
   }
   #(
@@ -354,13 +393,7 @@ fn on_rule_delete_succeeded(
   model: Model,
   rule: Rule,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let model =
-    map_data(model, fn(data) {
-      TaggingPageData(
-        ..data,
-        rules: list.filter(data.rules, fn(r) { r.id != rule.id }),
-      )
-    })
+  let model = map_rules(model, list.filter(_, fn(r) { r.id != rule.id }))
   #(
     Model(..model, rule_delete_modal: rule_delete_modal.empty()),
     effect.none(),
@@ -389,7 +422,7 @@ fn run_tag_modal(
   msg: tag_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let #(tag_modal, request, outcome) =
-    tag_modal.update(model.tag_modal, msg, loaded(model).tags)
+    tag_modal.update(model.tag_modal, msg, loaded_tags(model))
   let model = Model(..model, tag_modal:)
   let error_effect = case msg {
     tag_modal.SaveCompleted(result: Error(error)) ->
@@ -413,25 +446,20 @@ fn apply_tag_outcome(
   case outcome {
     form_modal.NoChange -> #(model, None)
     form_modal.Created(entity: tag) -> {
-      let model =
-        map_data(model, fn(data) {
-          TaggingPageData(..data, tags: [tag, ..data.tags] |> sort_tags)
-        })
+      let model = map_tags(model, fn(tags) { [tag, ..tags] |> sort_tags })
       let model = Model(..model, selected_tag: Some(tag.id))
       #(model, Some(out_msg.success_toast("Created tag '" <> tag.name <> "'")))
     }
     form_modal.Updated(entity: tag) -> {
       let model =
-        map_data(model, fn(data) {
-          let tags =
-            list.map(data.tags, fn(t) {
-              case t.id == tag.id {
-                True -> tag
-                False -> t
-              }
-            })
-            |> sort_tags
-          TaggingPageData(..data, tags:)
+        map_tags(model, fn(tags) {
+          list.map(tags, fn(t) {
+            case t.id == tag.id {
+              True -> tag
+              False -> t
+            }
+          })
+          |> sort_tags
         })
       #(model, Some(out_msg.success_toast("Updated tag '" <> tag.name <> "'")))
     }
@@ -478,7 +506,7 @@ fn run_rule_modal(
   msg: rule_modal.Msg,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let #(rule_modal, request, outcome) =
-    rule_modal.update(model.rule_modal, msg, loaded(model).rules)
+    rule_modal.update(model.rule_modal, msg, loaded_rules(model))
   let model = Model(..model, rule_modal:)
   let error_effect = case msg {
     rule_modal.SaveCompleted(result: Error(error)) ->
@@ -503,23 +531,18 @@ fn apply_rule_outcome(
     form_modal.NoChange -> #(model, None)
     form_modal.Created(entity: rule) -> {
       // New rules append so insertion order equals rule evaluation order.
-      let model =
-        map_data(model, fn(data) {
-          TaggingPageData(..data, rules: list.append(data.rules, [rule]))
-        })
+      let model = map_rules(model, list.append(_, [rule]))
       #(model, Some(out_msg.success_toast("Created rule " <> rule.pattern)))
     }
     form_modal.Updated(entity: rule) -> {
       let model =
-        map_data(model, fn(data) {
-          let rules =
-            list.map(data.rules, fn(r) {
-              case r.id == rule.id {
-                True -> rule
-                False -> r
-              }
-            })
-          TaggingPageData(..data, rules:)
+        map_rules(model, fn(rules) {
+          list.map(rules, fn(r) {
+            case r.id == rule.id {
+              True -> rule
+              False -> r
+            }
+          })
         })
       #(model, Some(out_msg.success_toast("Updated rule " <> rule.pattern)))
     }
@@ -597,14 +620,14 @@ pub fn view(model: Model) -> Element(Msg) {
     html.h1([attribute.class("mb-6 text-2xl font-semibold text-gray-900")], [
       html.text("Tags & Rules"),
     ]),
-    case model.data {
+    case remote.both(model.tags, model.rules) {
       Loading -> loading_state()
       Failed -> failed_state()
-      Loaded(data) ->
-        case list.is_empty(data.tags) {
+      Loaded(#(tags, rules)) ->
+        case list.is_empty(tags) {
           True ->
             tag_view.no_tags_empty_state(on_create: UserRequestedTagCreation)
-          False -> master_detail(data, model.selected_tag)
+          False -> master_detail(tags, rules, model.selected_tag)
         }
     },
     tag_modal.view(model.tag_modal)
@@ -614,7 +637,7 @@ pub fn view(model: Model) -> Element(Msg) {
       on_cancel: UserCancelledTagDelete,
       on_confirm: UserConfirmedTagDelete,
     ),
-    rule_modal.view(model.rule_modal, loaded(model).tags)
+    rule_modal.view(model.rule_modal, loaded_tags(model))
       |> element.map(RuleModalMsg),
     rule_delete_modal.view(
       model.rule_delete_modal,
@@ -625,7 +648,8 @@ pub fn view(model: Model) -> Element(Msg) {
 }
 
 fn master_detail(
-  data: TaggingPageData,
+  tags: List(Tag),
+  rules: List(Rule),
   selected_tag: Option(Uuid),
 ) -> Element(Msg) {
   html.div(
@@ -637,7 +661,7 @@ fn master_detail(
     [
       html.div([attribute.class("flex h-full")], [
         tag_view.panel(
-          data.tags,
+          tags,
           selected_tag,
           on_select: UserSelectedTag,
           on_edit: UserRequestedTagEdit,
@@ -645,8 +669,8 @@ fn master_detail(
           on_create: UserRequestedTagCreation,
         ),
         rule_view.panel(
-          data.tags,
-          data.rules,
+          tags,
+          rules,
           selected_tag,
           on_create_rule: UserRequestedRuleCreation,
           on_edit_rule: UserRequestedRuleEdit,

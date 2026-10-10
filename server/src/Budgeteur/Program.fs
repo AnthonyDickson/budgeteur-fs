@@ -36,7 +36,6 @@ open Budgeteur.Feature.IncomeStatement
 open Budgeteur.Feature.Rule
 open Budgeteur.Feature.Status
 open Budgeteur.Feature.Tag
-open Budgeteur.Feature.TaggingPage
 open Budgeteur.Feature.TestSupport
 open Budgeteur.Feature.Transaction
 
@@ -233,7 +232,6 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
             RuleEndpoints.all queryContext
             TransactionEndpoints.all queryContext
             TagEndpoints.all queryContext
-            [ GET [ ReadTaggingData.endpoint queryContext ] ]
         ]
         |> withAuth
 
