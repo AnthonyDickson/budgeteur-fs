@@ -230,32 +230,33 @@ test.describe('tagging', () => {
     await expect(modal).toBeHidden();
   });
 
-  test('rule patterns are unique per tag', async ({ page }) => {
+  test('rule patterns are unique per user, ignoring case', async ({ page }) => {
     await gotoEmptyTagging(page);
     await createFirstTag(page, 'Groceries');
     await createRule(page, 'STARBUCKS');
 
-    // The same pattern under the same tag is rejected.
+    // The same pattern in another case is rejected under the same tag.
     await page.getByTestId('new-rule-button').click();
     const modal = ruleModal(page);
     await expect(modal).toBeVisible();
-    await modal.getByTestId('rule-pattern-input').fill('STARBUCKS');
+    await modal.getByTestId('rule-pattern-input').fill('starbucks');
     await modal.getByTestId('rule-submit-button').click();
-    await expect(modal).toContainText(
-      'A rule with this pattern already exists for this tag',
-    );
+    await expect(modal).toContainText('A rule with this pattern already exists');
     await modal.getByTestId('rule-cancel-button').click();
     await expect(modal).toBeHidden();
 
-    // The same pattern under a different tag is allowed.
+    // And under a different tag.
     await createTag(page, 'Transport');
-    await createRule(page, 'STARBUCKS');
-    await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(1);
-
-    // Groceries still owns its own rule.
-    await tagRow(page, 'Groceries').click();
-    await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(1);
+    await page.getByTestId('new-rule-button').click();
+    await expect(modal).toBeVisible();
+    await modal.getByTestId('rule-pattern-input').fill('STARBUCKS');
+    await modal.getByTestId('rule-submit-button').click();
+    await expect(modal).toContainText('A rule with this pattern already exists');
+    await modal.getByTestId('rule-cancel-button').click();
+    await expect(modal).toBeHidden();
+    await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(0);
   });
+
 
   test('editing a rule can move it to another tag', async ({ page }) => {
     await gotoEmptyTagging(page);
