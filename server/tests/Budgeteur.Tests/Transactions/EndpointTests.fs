@@ -261,6 +261,65 @@ module EndpointTests =
                 Expect.equal (importHash ()) (box "row-hash") "the import hash should be unchanged"
             }
 
+            testCaseAsync "a transaction is scoped to the owning user"
+            <| async {
+                use app = newApp ()
+                use otherUser = app.ClientForUser "other-user"
+
+                let! created =
+                    TestHttp.postJson app.Client CreateTransaction.Path (request "Salary" 2500.00m)
+                    |> Async.AwaitTask
+
+                let! createdBody = created.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+                let id =
+                    match Decode.fromStringAuto<TransactionResponse> createdBody with
+                    | Ok item -> item.Id
+                    | Error err -> failtest err
+
+                do!
+                    Scoping.expectHiddenFrom
+                        app.Client
+                        otherUser
+                        ReadAllTransactions.Path
+                        (routefPath ReadTransaction.Path id)
+                        (request "Hijacked" 1.00m)
+            }
+
+            testCaseAsync "a transaction cannot use another user's tag"
+            <| async {
+                use app =
+                    TestApp.create (TestAppConfig.empty |> TestAppConfig.withTransactions |> TestAppConfig.withTags)
+
+                use otherUser = app.ClientForUser "other-user"
+
+                let tag : Budgeteur.Feature.Tag.CreateTag.CreateTagRequest = {
+                    Name = "Salary"
+                    Color = "#22C55E"
+                    Kind = "Income"
+                }
+
+                let! createdTag =
+                    TestHttp.postJson app.Client Budgeteur.Feature.Tag.CreateTag.Path tag
+                    |> Async.AwaitTask
+
+                let! tagBody = createdTag.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+                let tagId =
+                    match Decode.fromStringAuto<Budgeteur.Feature.Tag.TagResponse> tagBody with
+                    | Ok tag -> tag.Id
+                    | Error err -> failtest err
+
+                let! response =
+                    TestHttp.postJson otherUser CreateTransaction.Path {
+                        request "Salary" 2500.00m with
+                            TagId = Some tagId
+                    }
+                    |> Async.AwaitTask
+
+                Expect.equal response.StatusCode HttpStatusCode.BadRequest "another user's tag should be rejected"
+            }
+
             testCaseAsync "DELETE /api/transactions/{id} removes the transaction"
             <| async {
                 use app = newApp ()

@@ -77,6 +77,25 @@ module TestAppConfig =
             CleanTables = "Tags" :: config.CleanTables
     }
 
+    let withRules (config : TestAppConfig) = {
+        config with
+            EndpointProviders =
+                (fun connStr ->
+                    let queryContext = QueryContextFactory.Create connStr
+
+                    [
+                        GET [
+                            Budgeteur.Feature.Rule.ReadRule.endpoint queryContext
+                            Budgeteur.Feature.Rule.ReadAllRules.endpoint queryContext
+                        ]
+                        POST [ Budgeteur.Feature.Rule.CreateRule.endpoint queryContext ]
+                        PUT [ Budgeteur.Feature.Rule.UpdateRule.endpoint queryContext ]
+                        DELETE [ Budgeteur.Feature.Rule.DeleteRule.endpoint queryContext ]
+                    ])
+                :: config.EndpointProviders
+            CleanTables = "Rules" :: config.CleanTables
+    }
+
     let withIncomeStatement (config : TestAppConfig) = {
         config with
             EndpointProviders =

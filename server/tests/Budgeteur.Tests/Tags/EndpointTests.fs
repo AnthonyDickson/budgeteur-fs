@@ -70,6 +70,26 @@ module EndpointTests =
                 Expect.equal read.Kind "Expense" "the stored kind should be the updated one"
             }
 
+            testCaseAsync "a tag is scoped to the owning user"
+            <| async {
+                use app = newApp ()
+                use otherUser = app.ClientForUser "other-user"
+
+                let! created =
+                    TestHttp.postJson app.Client CreateTag.Path (createRequest "Salary" "Income")
+                    |> Async.AwaitTask
+
+                let! created = decodeBody<TagResponse> created
+
+                do!
+                    Scoping.expectHiddenFrom
+                        app.Client
+                        otherUser
+                        ReadAllTags.Path
+                        (routefPath ReadTag.Path created.Id)
+                        (updateRequest "Hijacked" "Expense")
+            }
+
             testCaseAsync "an unknown kind is reported as a bad request"
             <| async {
                 use app = newApp ()
