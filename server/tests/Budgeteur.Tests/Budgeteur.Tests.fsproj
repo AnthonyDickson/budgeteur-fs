@@ -4,6 +4,8 @@
     <RootNamespace>Budgeteur.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Microsoft.NET.Test.Sdk generates the entry point. Do not set GenerateProgramFile to false: without an entry
+         point the F# assembly is not initialised and Expecto discovers every [<Tests>] value as null. -->
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 

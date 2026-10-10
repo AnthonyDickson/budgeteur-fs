@@ -1,8 +1,8 @@
 # Balance sheet
 
 Design brief for the assets and liabilities feature. It records what we decided, why, and what each decision is meant to
-achieve, so later work (codec, slice, page) has one written source of intent. It is not a tutorial and it is not frozen;
-change it when the reasoning changes.
+achieve, so later changes have one written source of intent. It is not a tutorial and it is not frozen; change it when
+the reasoning changes.
 
 ## Goal
 
@@ -69,7 +69,7 @@ reads best (`liquid`, `fixed`, `short-term`, `long-term`); the model always stor
   so it means "these balances are accurate as of the last update".
 - **Why**: the roadmap calls for a current view, and users should not have to pick a valuation date. Storing the date
   and bumping it on writes makes accuracy a property of the data rather than a function of when the page happened to
-  load. Keeping `StatementDate` on the aggregate is also the seam periodic reporting will need.
+  load. Keeping `StatementDate` on the aggregate is also where periodic reporting will attach.
 - **Goal**: the simplest correct model today, with a date that is honest about when the snapshot was last taken, and a
   place for dated snapshots to slot in later without reshaping items (items carry no date; the sheet does).
 - **Name**: the field is `StatementDate`, the standard term for the date a financial statement is drawn as of. It is a
@@ -88,8 +88,8 @@ reads best (`liquid`, `fixed`, `short-term`, `long-term`); the model always stor
 ### 6. Totals are computed server-side
 
 - **Decision**: totals and net worth come from the API; the client renders them and never sums.
-- **Why**: `client/src/budgeteur/shared/money.gleam` documents the rule that the frontend only displays money and never
-  aggregates it, because JavaScript floats drift. All money math uses the backend `decimal`.
+- **Why**: the client only displays money and never aggregates it, because JavaScript numbers are doubles. All money
+  arithmetic uses the backend `decimal` ([architecture](architecture.md#money)).
 - **Goal**: one source of truth for money arithmetic. The read response carries the computed figures.
 
 ### 7. `Term` follows the practitioner liquid test
@@ -129,8 +129,6 @@ reads best (`liquid`, `fixed`, `short-term`, `long-term`); the model always stor
 
 ## Consequences
 
-- **Domain gap closed.** The domain computes the current-only totals and working capital
-  (`BalanceSheet.totalCurrentAssets`, `totalCurrentLiabilities`, `workingCapital`), pinned by tests.
 - **Read DTO.** The response carries `StatementDate` plus the computed totals (total assets, total liabilities, net
   worth, current and non-current subtotals for each side, working capital) and the items. The client derives nothing.
 - **Missing sheet is not an error.** The sheet row is created on the first item write, so a user who has never written
@@ -138,8 +136,8 @@ reads best (`liquid`, `fixed`, `short-term`, `long-term`); the model always stor
   whose items were all deleted, and `404` carries no error toast.
 - **Item shape.** `Id`, `Name`, `Kind`, `Term`, `Balance`. No date, no account reference, no currency.
 - **Kind is fixed at creation.** The page creates assets and liabilities from separate entry points, so `Kind` is never
-  a field in the form and a value cannot silently land on the wrong side of the sheet. Moving an item to the other side
-  means deleting it and recreating it, which keeps `Kind` immutable like the rest of the model.
+  a field in the form and a value cannot silently end up on the wrong side of the sheet. Moving an item to the other
+  side means deleting it and recreating it, which keeps `Kind` immutable like the rest of the model.
 - **Classification edges.** Under the liquid test a car is `NonCurrent` (a use asset), and a 3-year term deposit is
   `NonCurrent` unless it is genuinely liquid. The two-value axis collapses the planner three-bucket asset split (liquid,
   investment, use); that is enough for working capital.

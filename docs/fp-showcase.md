@@ -130,7 +130,7 @@ server's error type keeps failure explicit: `DomainError` (stop 3) carries the u
 database error can be logged with its cause.
 
 F# keeps `null` around for .NET interop, because any library on the platform can hand one back. Idiomatic F# routes
-around it with the same `Option` type, and nullable-reference-type checking, where enabled, flags the seam where a .NET
+around it with the same `Option` type, and nullable-reference-type checking, where enabled, flags the call where a .NET
 call might still return one.
 
 Why it matters: with `null`, "does this need a check?" is a question about memory, documentation, and hope. With
@@ -224,7 +224,7 @@ skipped and the `Error` becomes the whole block's result. Because every layer sh
 `get` is the one step in that handler that isn't a value: it's a database call, and SQLite doesn't speak `Result`. Those
 platform exceptions are folded into this same type at the boundary, in exactly one place, so they never reach the value
 world (see stop 7). For the failures the app's own code produces, `Endpoint.handler` (`Shared/Endpoint.fs`) awaits the
-handler's `Result` and one match decides what each case becomes on the wire:
+handler's `Result` and one match decides what each case becomes in the response:
 
 ```fsharp
 match result with
@@ -235,9 +235,9 @@ match result with
 | ...all other cases...
 ```
 
-The match also fixes the wire shape once: every endpoint emits the same machine-readable `{ Error, Details, StatusCode,
-RequestId }`. And because it is exhaustive, adding a case to `DomainError` makes the compiler point at every place that
-must handle it. An unhandled failure is a compile error, not a 500.
+The match also fixes the response shape once: every endpoint emits the same machine-readable `{ Error, Details,
+StatusCode, RequestId }`. And because it is exhaustive, adding a case to `DomainError` makes the compiler point at every
+place that must handle it. An unhandled failure is a compile error, not a 500.
 
 Because the error is a _value_, it behaves like one. The `match` in the handler snippet translates `None` into
 `NotFound` in plain code, and the tests in `server/tests/` drive error paths with real inputs: nothing is mocked into
@@ -374,7 +374,7 @@ let! result =
 ```
 
 SQLite's constraint violation still arrives as a .NET exception. `try/with` and type-test patterns are fine here: the
-seam is the one place where platform exceptions become `DomainError` values, and feature slices never see them.
+boundary is the one place where platform exceptions become `DomainError` values, and feature slices never see them.
 Everywhere else, errors are values.
 
 And configuration is the plain .NET way (`Config.fs`):
@@ -658,8 +658,8 @@ doesn't transfer directly.
 **Performance is a consideration, not a given.** Immutability and pure data structures bring allocation and GC pressure,
 and structural equality on records is easy to trigger in hot paths. The repo shows both sides: the logging buffer is a
 mutable `ResizeArray` (stop 8) precisely because immutable accumulation was the wrong tool, and amounts are `decimal`
-serialised as strings: correct, but not the cheapest wire format. For a database-backed, network-bound app like this
-one, the costs rarely matter; they're the whole story in real-time graphics, tight numeric loops, or anything with hard
+serialised as strings: correct, but not the cheapest encoding. For a database-backed, network-bound app like this one,
+the costs rarely matter; they're the whole story in real-time graphics, tight numeric loops, or anything with hard
 latency limits.
 
 **Cleverness is a hazard.** FP rewards abstraction, from monads and type-level gymnastics to generic pipelines, and it's

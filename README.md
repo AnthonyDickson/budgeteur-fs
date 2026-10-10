@@ -64,21 +64,17 @@ See the [Justfile](./justfile) for all targets.
 
 ## How It Works
 
-Budgetetur is a full-stack web app with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI) and a Gleam/Lustre SPA
+Budgeteur is a full-stack web app with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI) and a Gleam/Lustre SPA
 frontend (Tailwind CSS v4, Vite).
 
 - **Backend** — Oxpecker on .NET 10 with OIDC auth (cookie + JWT bearer). Endpoints live in vertical slices (one folder
-  per domain). SQLite with DbUp migrations and SqlHydra type-safe queries. OpenAPI spec at `/openapi/v1.json` and
-  interactive docs at `/scalar/v1` (dev only). See [Database](docs/database.md).
+  per feature). SQLite with DbUp migrations and SqlHydra type-safe queries. OpenAPI spec at `/openapi/v1.json` and
+  interactive docs at `/scalar/v1` (dev only).
 - **Frontend** — Gleam/Lustre SPA with nested MVU. A custom `Effect` type keeps `update` pure — all I/O (HTTP,
-  localStorage, navigation) runs through one interpreter. See [Architecture](docs/architecture.md).
-- **Auth** — Dev OIDC via Authelia (`docker compose -f docker/docker-compose.yml up -d`, test user
-  `dev`/`dev-password`). See [Production OIDC Setup](docs/prod-oidc-setup.md).
-- **Testing** — Expecto server tests, gleeunit client unit tests, Playwright E2E tests via Docker Compose. See
-  `docs/server-tests.md`, `docs/architecture.md#client-tests`, and `docs/e2e-tests.md`.
-- **Deployment** — Single-file publish (`just publish`) or Docker (`docker build -f docker/Dockerfile .` + `docker
-  compose -f docker/docker-compose.prod.yml up -d`). Intended to be hosted behind a reverse proxy. See
-  [Deployment](docs/deployment.md).
+  localStorage, navigation) runs through one interpreter.
+- **Auth** — Dev OIDC via Authelia (test user `dev`/`dev-password`). Production needs your own OIDC provider.
+- **Testing** — Expecto server tests, gleeunit client unit tests, Playwright E2E tests via Docker Compose.
+- **Deployment** — Single-file publish (`just publish`) or a Docker image. Intended to be hosted behind a reverse proxy.
 
 ## Dev Environment
 
@@ -87,10 +83,10 @@ Central Package Management — versions in `Directory.Packages.props`.
 
 ## Docs
 
-- [Architecture](docs/architecture.md)
-- [Functional Programming in Practice](docs/fp-showcase.md)
-- [Database](docs/database.md)
-- [Deployment](docs/deployment.md)
-- [Production OIDC Setup](docs/prod-oidc-setup.md)
-- [Server Tests](docs/server-tests.md)
-- [E2E Tests](docs/e2e-tests.md)
+- [Architecture](docs/architecture.md) — requirements, server and client design
+- [Database](docs/database.md) and [Dates and Timestamps](docs/dates.md)
+- [OpenAPI Schemas](docs/openapi.md)
+- [Testing Strategy](docs/testing-strategy.md), [Server Tests](docs/server-tests.md), [E2E Tests](docs/e2e-tests.md)
+- [Deployment](docs/deployment.md) and [Production OIDC Setup](docs/prod-oidc-setup.md)
+- Design briefs: [Balance Sheet](docs/balance-sheet.md), [Dashboard](docs/dashboard.md)
+- [Functional Programming in Practice](docs/fp-showcase.md) — a tour of the codebase for FP newcomers

@@ -1,8 +1,19 @@
 # Testing Strategy
 
 How we decide what to test, at which layer, and how much. The procedure is the operative part; the framework table and
-sources are there for cases it does not settle. Mechanics live in [Server Tests](server-tests.md),
-[E2E Tests](e2e-tests.md), and [Architecture](architecture.md).
+sources are there for cases it does not settle.
+
+## Layers
+
+| Layer              | Runs                                                           | Command            | Details                         |
+| ------------------ | -------------------------------------------------------------- | ------------------ | ------------------------------- |
+| Server unit        | Domain functions and refined types, no I/O                     | `just server-test` | —                               |
+| Server integration | A slice's real endpoints against in-memory SQLite              | `just server-test` | [Server Tests](server-tests.md) |
+| Client unit        | `update` with a model and message; assert on model and effects | `just client-test` | —                               |
+| E2E                | The full stack in Docker, driven by Playwright                 | `just e2e-test`    | [E2E Tests](e2e-tests.md)       |
+
+Client tests need no browser or DOM: effects are data, so a test inspects the effect `update` returns instead of mocking
+HTTP ([architecture](architecture.md#effect-system)).
 
 ## Decide
 

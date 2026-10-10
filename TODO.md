@@ -17,12 +17,6 @@
 
 ## Current Tasks
 
-- Clean up AGENTS.md and docs
-  - Move details out of AGENTS.md into docs/
-  - Document key design requirements and decisions in docs/. These should be a high-level spec to record design intent
-    and requirements.
-  - Ensure documentation for implementation details stays in the code.
-
 ## Backlog
 
 - Dates after the dashboard MVP.

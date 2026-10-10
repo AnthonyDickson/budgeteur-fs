@@ -1,7 +1,7 @@
 # Dashboard
 
-Design brief for the dashboard MVP. It records what we decided, why, and what each decision is meant to achieve, so the
-tag, income statement, and page work has one written source of intent. Change it when the reasoning changes.
+Design brief for the dashboard MVP. It records what we decided, why, and what each decision is meant to achieve, so
+later changes have one written source of intent. Change it when the reasoning changes.
 
 The previous Rust project (`budgeteur`, `server/src/dashboard/`) built two dashboards: an HTML page with charts, summary
 tables, and expenses-by-tag cards, and a JSON/TUI view with net worth history, net income, spending pace, and savings
@@ -53,9 +53,6 @@ The MVP shows figures and tables only. Charts, comparisons against a baseline, a
 - **Goal**: the income statement classifies by a fact the user stated, so a tag is on the same side in every period.
 - **Changing the kind**: allowed. It reclassifies past periods in every report; the stored transactions do not change.
   This matches the tools above.
-- **Schema**: `Tags.Kind TEXT NOT NULL CHECK (Kind IN ('Income', 'Expense'))`. Migration `001` has not been released (no
-  version tag contains it), so the column is added in place.
-- **Delivery**: its own commit, before the income statement.
 
 ### 3. Lines net per tag; the kind decides the side
 
@@ -79,15 +76,14 @@ The MVP shows figures and tables only. Charts, comparisons against a baseline, a
   `today` (the `GetLocalDate` effect).
 - **Why**: covered in [dates.md](dates.md). The previous project derived `today` on the server and needed a configured
   timezone to do it.
-- **Validation**: both dates parse with `Coders.Extra.DateOnly.tryParse`, `from <= to`, and the span is at most 366
-  days. Failures are combined with FsToolkit's `validation` into one `400`. (`requireAll` is for checks that mirror
-  database constraints.)
+- **Validation**: both dates must be `yyyy-MM-dd`, `from <= to`, and the span is at most 366 days. Every failure is
+  reported in one `400`.
 - **Goal**: no server timezone for the MVP, and endpoint tests are deterministic.
 
 ### 5. Aggregation runs in F# on `decimal`
 
 - **Decision**: load the user's non-transfer transactions in the period (joined to their tags) and aggregate with a pure
-  function, `IncomeStatement.compute`. Do not use SQL `SUM`.
+  function. Do not use SQL `SUM`.
 - **Why**: SQLite sums in floating point, and the money rule is that all aggregation uses the backend `decimal`. A year
   of personal transactions is small enough to load.
 - **Goal**: one tested function owns the income statement rules; the handler only queries and maps.
@@ -126,40 +122,18 @@ The MVP shows figures and tables only. Charts, comparisons against a baseline, a
 
 ## Consequences
 
-- **Tag API.** Tag create, update, and read requests and responses carry `Kind`. The tag modal gets a kind select;
-  tag-creating test helpers and E2E specs supply one.
-- **Response shape** (`ReadIncomeStatement.fs` holds the field docs):
-
-  ```text
-  IncomeStatement {
-    From; To;
-    Income; Expenses; NetIncome;
-    IncomeLines:  [ Line ];
-    ExpenseLines: [ Line & { Share: decimal option } ];
-    UntaggedCount
-  }
-  Line { TagId: Guid option; Name; Color: option; Amount }
-  ```
-
-  Untagged lines have no `TagId` or colour. Lines are sorted by amount, largest first, with the untagged line last.
+- **Tag kind is required.** Every tag has a `Kind`; the tag form asks for it.
+- **Response shape.** The income statement carries its period, the three totals, the income and expense lines, and the
+  number of untagged transactions. Expense lines also carry their share. Untagged lines have no tag id or colour. Lines
+  are sorted by amount, largest first, with the untagged line last. Field docs are in the OpenAPI document.
 - **Empty states.** A period with no transactions shows a link to the transactions page. A missing balance sheet (`404`)
-  is an empty state with a link to the balance sheet page, as on that page. A non-zero `UntaggedCount` shows a link to
-  the transactions page.
-- **Route.** The dashboard is the `/` route, which currently renders the 404 page.
+  is an empty state with a link to the balance sheet page, as on that page. Untagged transactions in the period show a
+  link to the transactions page.
+- **Route.** The dashboard is the `/` route.
 - **Client read shapes.** The dashboard page decodes only the balance sheet fields it shows, with its own decoder,
   rather than importing the balance sheet page's.
-- **Tests.**
-  - Server: unit tests for `IncomeStatement.compute` (refunds, negative expense lines, clawbacks, untagged split, empty
-    period, shares, rounding); endpoint tests for the happy path, validation, transfer exclusion, and user scoping.
-  - Client: unit tests for the period module; `update` tests for load, period change, and error/retry.
-  - E2E: create tagged transactions, open `/`, and assert the totals.
-
-## Implementation order
-
-1. Tag kind (own commit): schema, `Domain/Tag.fs`, tag codec and endpoints, client tag type and modal, tests.
-2. Income statement slice: `compute`, `ReadIncomeStatement.fs`, OpenAPI metadata, tests.
-3. Client period module and tests.
-4. Dashboard page, `/` route, header link, `update` tests, E2E test.
+- **Highest-value tests.** The income statement rules (refunds, negative expense lines, clawbacks, the untagged split,
+  shares, rounding) and the period arithmetic (month ends, leap years, year boundaries).
 
 ## Deferred
 
