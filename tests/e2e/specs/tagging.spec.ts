@@ -257,6 +257,44 @@ test.describe('tagging', () => {
     await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(0);
   });
 
+  test('the rule modal counts what a pattern matches', async ({ page }) => {
+    await page.goto('/transactions');
+    for (const description of ['PAY Countdown Ponsonby', 'Rent']) {
+      await page.getByTestId('record-transaction-button').click();
+      const transactionModal = page.getByTestId('transaction-modal');
+      await expect(transactionModal).toBeVisible();
+      await transactionModal.getByTestId('transaction-amount-input').fill('10.00');
+      await transactionModal
+        .getByTestId('transaction-description-input')
+        .fill(description);
+      await transactionModal.getByTestId('transaction-date-input').fill('2026-10-01');
+      await transactionModal.getByTestId('transaction-submit-button').click();
+      await expect(transactionModal).toBeHidden();
+    }
+
+    await gotoEmptyTagging(page);
+    await createFirstTag(page, 'Groceries');
+    await page.getByTestId('new-rule-button').click();
+    const modal = ruleModal(page);
+    await expect(modal).toBeVisible();
+    const pattern = modal.getByTestId('rule-pattern-input');
+    const count = modal.getByTestId('rule-match-count');
+
+    await pattern.fill('countdown');
+    await expect(count).toHaveText('1 match');
+    await expect(modal.getByTestId('rule-match-samples')).toHaveText(
+      'PAY Countdown Ponsonby',
+    );
+
+    await pattern.fill('nothing like this');
+    await expect(count).toHaveText('0 matches');
+
+    // Enter saves the typed pattern straight away; the count is not awaited.
+    await pattern.fill('Countdown');
+    await pattern.press('Enter');
+    await expect(modal).toBeHidden();
+    await expect(ruleRow(page, 'Countdown')).toBeVisible();
+  });
 
   test('editing a rule can move it to another tag', async ({ page }) => {
     await gotoEmptyTagging(page);

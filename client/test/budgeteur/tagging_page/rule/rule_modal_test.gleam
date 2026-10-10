@@ -5,10 +5,12 @@ import budgeteur/shared/form_modal.{
   Submitting, Updated,
 }
 import budgeteur/tagging_page/rule.{type Rule, Rule}
+import budgeteur/tagging_page/rule_matches.{RuleMatches}
 import budgeteur/tagging_page/rule_modal.{
-  type Modal, CancelRequested, CreateRequested, Duplicate, EditRequested, Form,
-  InvalidTag, PatternChanged, PatternRequired, SaveCompleted, SaveRequested,
-  TagChanged, TooLong, ValidTag,
+  type Modal, CancelRequested, CountFailed, CountMatches, Counted, Counting,
+  CreateRequested, Duplicate, EditRequested, Form, InvalidTag, MatchesCounted,
+  NotCounted, PatternChanged, PatternRequired, PatternSettled, Save,
+  SaveCompleted, SaveRequested, TagChanged, TooLong, ValidTag,
 }
 import budgeteur/tagging_page/rule_write_request.{RuleWriteRequest}
 import gleam/int
@@ -58,14 +60,18 @@ pub fn opening_create_seeds_empty_pattern_and_selected_tag_test() {
     rule_modal.update(rule_modal.hidden(), CreateRequested(make_id(1)), [])
   state
   |> should.equal(Active(
-    form: Form(pattern: field.Empty(""), tag_id: ValidTag(make_id(1))),
+    form: Form(
+      pattern: field.Empty(""),
+      tag_id: ValidTag(make_id(1)),
+      match_count: NotCounted,
+    ),
     mode: Create,
   ))
   request |> should.equal(None)
   outcome |> should.equal(NoChange)
 }
 
-pub fn opening_edit_prefills_pattern_and_tag_test() {
+pub fn opening_edit_prefills_pattern_and_tag_and_counts_matches_test() {
   let existing = make_rule(make_id(3), "STARBUCKS", make_id(1))
   let #(state, request, _) =
     rule_modal.update(rule_modal.hidden(), EditRequested(existing), [])
@@ -74,10 +80,11 @@ pub fn opening_edit_prefills_pattern_and_tag_test() {
     form: Form(
       pattern: field.Valid(value: "STARBUCKS", input: "STARBUCKS"),
       tag_id: ValidTag(make_id(1)),
+      match_count: Counting("STARBUCKS"),
     ),
     mode: Edit(existing.id),
   ))
-  request |> should.equal(None)
+  request |> should.equal(Some(CountMatches("STARBUCKS")))
 }
 
 pub fn typing_keeps_the_space_the_user_just_typed_test() {
@@ -107,10 +114,10 @@ pub fn validate_trims_the_request_pattern_but_not_the_field_test() {
   // the trimmed pattern.
   let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(modal, SaveRequested, [])
-  request |> should.equal(Post(RuleWriteRequest("STARBUCKS", make_id(1))))
+  request |> should.equal(Save(Post(RuleWriteRequest("STARBUCKS", make_id(1)))))
 
   let assert Submitting(
-    form: Form(pattern: field.Valid(value: _, input:), tag_id:),
+    form: Form(pattern: field.Valid(value: _, input:), tag_id:, ..),
     ..,
   ) = submitting
   input |> should.equal("  STARBUCKS  ")
@@ -170,7 +177,7 @@ pub fn create_rule_workflow_test() {
   let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(modal, SaveRequested, [])
   let assert Submitting(mode: Create, ..) = submitting
-  request |> should.equal(Post(RuleWriteRequest("STARBUCKS", make_id(1))))
+  request |> should.equal(Save(Post(RuleWriteRequest("STARBUCKS", make_id(1)))))
 
   let saved = make_rule(make_id(3), "STARBUCKS", make_id(1))
   let #(final_state, request, outcome) =
@@ -191,7 +198,9 @@ pub fn edit_rule_workflow_keeps_own_pattern_test() {
   let assert Submitting(mode: Edit(id), ..) = submitting
   id |> should.equal(existing.id)
   request
-  |> should.equal(Put(existing.id, RuleWriteRequest("STARBUCKS", make_id(1))))
+  |> should.equal(
+    Save(Put(existing.id, RuleWriteRequest("STARBUCKS", make_id(1)))),
+  )
 
   let saved = make_rule(make_id(3), "7-ELEVEN", make_id(2))
   let #(final_state, request, outcome) =
@@ -229,12 +238,14 @@ pub fn moving_a_rule_to_a_tag_without_the_pattern_is_allowed_test() {
   let assert Submitting(mode: Edit(id), ..) = submitting
   id |> should.equal(starbucks.id)
   request
-  |> should.equal(Put(starbucks.id, RuleWriteRequest("STARBUCKS", make_id(2))))
+  |> should.equal(
+    Save(Put(starbucks.id, RuleWriteRequest("STARBUCKS", make_id(2)))),
+  )
 }
 
 pub fn save_failure_then_fix_then_retry_test() {
   let modal = make_create_modal() |> modal_with_pattern("STARBUCKS")
-  let assert #(submitting, Some(Post(_)), NoChange) =
+  let assert #(submitting, Some(Save(Post(_))), NoChange) =
     rule_modal.update(modal, SaveRequested, [])
 
   // The failure surfaces the API error as the banner message.
@@ -254,7 +265,7 @@ pub fn save_failure_then_fix_then_retry_test() {
   error |> should.equal(message)
 
   // Retry is legal from the errored state.
-  let assert #(submitting_again, Some(Post(_)), NoChange) =
+  let assert #(submitting_again, Some(Save(Post(_))), NoChange) =
     rule_modal.update(still_errored, SaveRequested, [])
   let assert Submitting(..) = submitting_again
 }
@@ -264,4 +275,70 @@ pub fn cancel_hides_the_modal_test() {
     rule_modal.update(make_create_modal(), CancelRequested, [])
   state |> should.equal(Hidden)
   request |> should.equal(None)
+}
+
+fn send(state: Modal, msg: rule_modal.Msg) -> Modal {
+  let #(state, _, _) = rule_modal.update(state, msg, [])
+  state
+}
+
+fn match_count_of(state: Modal) -> rule_modal.MatchCount {
+  let assert Active(form:, ..) = state
+  form.match_count
+}
+
+pub fn a_settled_pattern_counts_matches_test() {
+  let modal = make_create_modal() |> modal_with_pattern("  COUNTDOWN ")
+
+  let assert #(counting, Some(CountMatches("COUNTDOWN")), NoChange) =
+    rule_modal.update(modal, PatternSettled("  COUNTDOWN "), [])
+  match_count_of(counting) |> should.equal(Counting("COUNTDOWN"))
+}
+
+pub fn a_settled_blank_pattern_clears_the_count_test() {
+  let modal =
+    make_edit_modal(make_rule(make_id(3), "STARBUCKS", make_id(1)))
+    |> modal_with_pattern("  ")
+
+  let assert #(cleared, None, NoChange) =
+    rule_modal.update(modal, PatternSettled("  "), [])
+  match_count_of(cleared) |> should.equal(NotCounted)
+}
+
+pub fn the_count_for_the_current_pattern_is_shown_test() {
+  let modal = make_edit_modal(make_rule(make_id(3), "STARBUCKS", make_id(1)))
+  let matches = RuleMatches(count: 2, samples: ["Starbucks Ponsonby"])
+
+  modal
+  |> send(MatchesCounted("STARBUCKS", Ok(matches)))
+  |> match_count_of
+  |> should.equal(Counted(pattern: "STARBUCKS", matches:))
+
+  modal
+  |> send(MatchesCounted("STARBUCKS", Error(api_error("boom"))))
+  |> match_count_of
+  |> should.equal(CountFailed("STARBUCKS"))
+}
+
+pub fn an_outdated_count_is_ignored_test() {
+  let matches = RuleMatches(count: 9, samples: [])
+  let counting =
+    make_create_modal()
+    |> modal_with_pattern("COUNT")
+    |> send(PatternSettled("COUNT"))
+    |> modal_with_pattern("COUNTDOWN")
+    |> send(PatternSettled("COUNTDOWN"))
+
+  // A newer count was requested.
+  counting
+  |> send(MatchesCounted("COUNT", Ok(matches)))
+  |> match_count_of
+  |> should.equal(Counting("COUNTDOWN"))
+
+  // The pattern changed again before the count arrived.
+  counting
+  |> modal_with_pattern("COUNTDOWN FUEL")
+  |> send(MatchesCounted("COUNTDOWN", Ok(matches)))
+  |> match_count_of
+  |> should.equal(Counting("COUNTDOWN"))
 }

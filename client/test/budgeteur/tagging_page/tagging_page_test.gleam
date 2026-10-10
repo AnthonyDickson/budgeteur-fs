@@ -433,6 +433,21 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
     out_msg
 }
 
+pub fn counting_rule_matches_requests_the_encoded_pattern_test() {
+  let model =
+    model_with([tag_named(tag_id(1), "Coffee")])
+    |> run(tagging_page.UserRequestedRuleCreation)
+
+  let #(_, count_effect, _) =
+    tagging_page.update(
+      model,
+      tagging_page.RuleModalMsg(rule_modal.PatternSettled("A+B & C")),
+    )
+  let assert effect.HttpRequest(method: http_effect.Get, url:, ..) =
+    count_effect
+  url |> should.equal("/api/auto-tag/matches?pattern=A%2BB%20%26%20C")
+}
+
 pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
   let coffee = tag_named(tag_id(1), "Coffee")
   let starbucks = make_rule_for(coffee.id)

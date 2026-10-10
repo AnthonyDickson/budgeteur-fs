@@ -1,5 +1,6 @@
 import budgeteur/shared/date
 import gleam/time/calendar.{type Date}
+import gleam/uri
 import youid/uuid.{type Uuid}
 
 pub type ApiRoute {
@@ -21,6 +22,7 @@ pub type ApiRoute {
   UpdateBalanceSheetItem(id: Uuid)
   DeleteBalanceSheetItem(id: Uuid)
   GetIncomeStatement(from: Date, to: Date)
+  GetRuleMatches(pattern: String)
 }
 
 const api_prefix = "/api"
@@ -46,5 +48,9 @@ pub fn to_string(route: ApiRoute) -> String {
       <> date.format(from)
       <> "&to="
       <> date.format(to)
+    GetRuleMatches(pattern:) ->
+      api_prefix
+      <> "/auto-tag/matches?"
+      <> uri.query_to_string([#("pattern", pattern)])
   }
 }

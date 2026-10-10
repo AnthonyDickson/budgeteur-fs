@@ -4,6 +4,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/tag.{type Tag}
 import budgeteur/tagging_page/rule.{type Rule, Rule}
+import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
 }
@@ -20,6 +21,10 @@ import youid/uuid.{type Uuid}
 /// Max length of a rule pattern. Mirrored by the server.
 pub const max_pattern_length = 128
 
+/// How long the pattern field must go without input before the modal counts
+/// what the pattern matches.
+const match_count_delay_ms = 300
+
 pub type PatternError {
   PatternRequired
   TooLong
@@ -35,15 +40,31 @@ pub type TagField {
   InvalidTag
 }
 
+/// What the pattern matches, shown below the pattern field. Not an input: it
+/// follows the pattern once typing pauses.
+pub type MatchCount {
+  /// Nothing to show: a new rule, or a blank or invalid pattern.
+  NotCounted
+  /// Waiting for the count for `pattern`.
+  Counting(pattern: String)
+  Counted(pattern: String, matches: RuleMatches)
+  CountFailed(pattern: String)
+}
+
 pub type Form {
-  Form(pattern: PatternField, tag_id: TagField)
+  Form(pattern: PatternField, tag_id: TagField, match_count: MatchCount)
 }
 
 pub type Modal =
   form_modal.Modal(Form)
 
-pub type Request =
-  form_modal.Request(RuleWriteRequest)
+/// A request the modal asks its page to send.
+pub type Request {
+  /// Create or update the rule.
+  Save(form_modal.Request(RuleWriteRequest))
+  /// Count what the pattern matches.
+  CountMatches(pattern: String)
+}
 
 pub type Outcome =
   form_modal.Outcome(Rule)
@@ -76,6 +97,10 @@ pub type Msg {
   // the list.
   EditRequested(rule: Rule)
   PatternChanged(value: String)
+  // The pattern field went `match_count_delay_ms` without input.
+  PatternSettled(value: String)
+  // Response to `CountMatches`.
+  MatchesCounted(pattern: String, result: Result(RuleMatches, ApiError))
   // Tag select changed; the value is a uuid string (or ""), parsed here.
   TagChanged(value: String)
   SaveRequested
@@ -101,10 +126,20 @@ pub fn update(
     EditRequested(rule:) ->
       case state {
         form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
-        _ -> #(edit_modal(rule), None, form_modal.NoChange)
+        _ -> #(
+          edit_modal(rule),
+          Some(CountMatches(rule.pattern)),
+          form_modal.NoChange,
+        )
       }
     PatternChanged(value:) -> #(
       set_pattern(state, value),
+      None,
+      form_modal.NoChange,
+    )
+    PatternSettled(value:) -> count_matches(state, value)
+    MatchesCounted(pattern:, result:) -> #(
+      set_match_count(state, pattern, result),
       None,
       form_modal.NoChange,
     )
@@ -128,6 +163,7 @@ fn create_modal(default_tag_id: Uuid) -> Modal {
   form_modal.create(Form(
     pattern: field.Empty(""),
     tag_id: ValidTag(default_tag_id),
+    match_count: NotCounted,
   ))
 }
 
@@ -139,6 +175,7 @@ fn edit_modal(rule: Rule) -> Modal {
     Form(
       pattern: field.Valid(value: rule.pattern, input: rule.pattern),
       tag_id: ValidTag(rule.tag_id),
+      match_count: Counting(rule.pattern),
     ),
   )
 }
@@ -150,6 +187,52 @@ fn set_pattern(state: Modal, pattern: String) -> Modal {
       ..form,
       pattern: field.validate(pattern, validate_pattern, is_required),
     )
+  })
+}
+
+/// Count what the settled pattern matches, when it is valid. A blank or invalid
+/// pattern clears the count instead. No op for Hidden and Submitting states.
+fn count_matches(
+  state: Modal,
+  value: String,
+) -> #(Modal, Option(Request), Outcome) {
+  case form_modal.mode(state), validate_pattern(value) {
+    None, _ -> #(state, None, form_modal.NoChange)
+    Some(_), Ok(pattern) -> #(
+      form_modal.set_form(state, fn(form) {
+        Form(..form, match_count: Counting(pattern))
+      }),
+      Some(CountMatches(pattern)),
+      form_modal.NoChange,
+    )
+    Some(_), Error(_) -> #(
+      form_modal.set_form(state, fn(form) {
+        Form(..form, match_count: NotCounted)
+      }),
+      None,
+      form_modal.NoChange,
+    )
+  }
+}
+
+/// Set the count for `pattern`, unless the response is outdated: a newer
+/// count was requested, or the pattern is no longer in the field. No op for
+/// Hidden and Submitting states.
+fn set_match_count(
+  state: Modal,
+  pattern: String,
+  result: Result(RuleMatches, ApiError),
+) -> Modal {
+  form_modal.set_form(state, fn(form) {
+    let current =
+      form.match_count == Counting(pattern)
+      && field.value(form.pattern) == Some(pattern)
+    case current, result {
+      False, _ -> form
+      True, Ok(matches) ->
+        Form(..form, match_count: Counted(pattern:, matches:))
+      True, Error(_) -> Form(..form, match_count: CountFailed(pattern))
+    }
   })
 }
 
@@ -191,7 +274,7 @@ fn save(state: Modal, rules: List(Rule)) -> #(Modal, Option(Request), Outcome) {
         form_modal.submit(state, fn(form) {
           validate_form(form, other_patterns)
         })
-      #(modal, request, form_modal.NoChange)
+      #(modal, option.map(request, Save), form_modal.NoChange)
     }
   }
 }
@@ -209,7 +292,7 @@ fn validate_form(
   let form = finalize(form, other_patterns)
 
   case form {
-    Form(pattern:, tag_id: ValidTag(id)) ->
+    Form(pattern:, tag_id: ValidTag(id), ..) ->
       case field.value(pattern) {
         Some(value) -> Ok(#(RuleWriteRequest(value, id), form))
         None -> Error(form)
@@ -223,7 +306,7 @@ fn validate_form(
 /// approximates the server's ordinal case-insensitive comparison, which
 /// remains authoritative.
 fn finalize(form: Form, other_patterns: List(String)) -> Form {
-  let Form(pattern:, tag_id:) = form
+  let Form(pattern:, tag_id:, ..) = form
   let pattern = field.finalize(pattern, fn() { PatternRequired })
   let pattern = case pattern {
     field.Valid(value:, ..) ->
@@ -241,7 +324,7 @@ fn finalize(form: Form, other_patterns: List(String)) -> Form {
     NoTag -> InvalidTag
     other -> other
   }
-  Form(pattern:, tag_id:)
+  Form(..form, pattern:, tag_id:)
 }
 
 fn validate_pattern(pattern: String) -> Result(String, PatternError) {
@@ -305,7 +388,7 @@ fn view_form(
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
-  let Form(pattern:, tag_id:) = form
+  let Form(pattern:, tag_id:, match_count:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
     form_modal.Create -> #("Create Rule", "Create rule", "Creating rule...")
@@ -335,43 +418,62 @@ fn view_form(
         attribute.class("space-y-4"),
       ],
       [
-        html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Pattern")],
+        html.div([], [
+          html.label(
+            [
+              attribute.class("block"),
+              // The input's own handler stays immediate, so validation and save
+              // always see the current value. Input events bubble to this label,
+              // which counts matches once typing pauses.
+              event.debounce(
+                event.on_input(PatternSettled),
+                match_count_delay_ms,
+              ),
+            ],
+            [
+              html.span(
+                [
+                  attribute.class(
+                    "mb-1 block text-sm font-medium text-gray-700",
+                  ),
+                ],
+                [html.text("Pattern")],
+              ),
+              html.input([
+                attribute.type_("text"),
+                attribute.attribute("data-testid", "rule-pattern-input"),
+                attribute.placeholder("e.g. STARBUCKS"),
+                attribute.class(
+                  "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
+                  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
+                  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
+                ),
+                attribute.classes([
+                  #(modal_ui.error_border_style, field.has_error(pattern)),
+                ]),
+                attribute.autofocus(True),
+                attribute.value(field.input(pattern)),
+                attribute.disabled(submitting),
+                event.on_input(PatternChanged),
+              ]),
+              case pattern_error {
+                Some(PatternRequired) ->
+                  modal_ui.form_error_message("Pattern cannot be empty")
+                Some(TooLong) ->
+                  modal_ui.form_error_message(
+                    "Pattern cannot be longer than "
+                    <> int.to_string(max_pattern_length)
+                    <> " characters",
+                  )
+                Some(Duplicate) ->
+                  modal_ui.form_error_message(
+                    "A rule with this pattern already exists",
+                  )
+                None -> element.none()
+              },
+            ],
           ),
-          html.input([
-            attribute.type_("text"),
-            attribute.attribute("data-testid", "rule-pattern-input"),
-            attribute.placeholder("e.g. STARBUCKS"),
-            attribute.class(
-              "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-              <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-              <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-            ),
-            attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(pattern)),
-            ]),
-            attribute.autofocus(True),
-            attribute.value(field.input(pattern)),
-            attribute.disabled(submitting),
-            event.on_input(PatternChanged),
-          ]),
-          case pattern_error {
-            Some(PatternRequired) ->
-              modal_ui.form_error_message("Pattern cannot be empty")
-            Some(TooLong) ->
-              modal_ui.form_error_message(
-                "Pattern cannot be longer than "
-                <> int.to_string(max_pattern_length)
-                <> " characters",
-              )
-            Some(Duplicate) ->
-              modal_ui.form_error_message(
-                "A rule with this pattern already exists",
-              )
-            None -> element.none()
-          },
+          view_match_count(pattern, match_count),
         ]),
         html.label([attribute.class("block")], [
           html.span(
@@ -422,4 +524,42 @@ fn view_form(
       ],
     ),
   ]
+}
+
+/// The count and samples below the pattern field, while the pattern is valid.
+fn view_match_count(
+  pattern: PatternField,
+  match_count: MatchCount,
+) -> Element(Msg) {
+  let status = fn(text) {
+    html.p(
+      [
+        attribute.attribute("data-testid", "rule-match-count"),
+        attribute.class("mt-1 text-xs text-gray-500"),
+      ],
+      [html.text(text)],
+    )
+  }
+
+  case field.value(pattern), match_count {
+    None, _ | Some(_), NotCounted -> element.none()
+    Some(_), Counting(..) -> status("Counting matches...")
+    Some(_), CountFailed(..) -> status("Could not count matches")
+    Some(_), Counted(matches: RuleMatches(count:, samples:), ..) ->
+      html.div([], [
+        status(case count {
+          1 -> "1 match"
+          _ -> int.to_string(count) <> " matches"
+        }),
+        html.ul(
+          [
+            attribute.attribute("data-testid", "rule-match-samples"),
+            attribute.class("mt-1 space-y-0.5 text-xs text-gray-500"),
+          ],
+          list.map(samples, fn(sample) {
+            html.li([attribute.class("truncate")], [html.text(sample)])
+          }),
+        ),
+      ])
+  }
 }

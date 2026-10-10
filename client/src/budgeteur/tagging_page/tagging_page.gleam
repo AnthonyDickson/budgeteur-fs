@@ -9,6 +9,7 @@ import budgeteur/shared/response
 import budgeteur/tag.{type Tag}
 import budgeteur/tagging_page/rule.{type Rule}
 import budgeteur/tagging_page/rule_delete_modal
+import budgeteur/tagging_page/rule_matches
 import budgeteur/tagging_page/rule_modal
 import budgeteur/tagging_page/rule_view
 import budgeteur/tagging_page/rule_write_request
@@ -509,7 +510,8 @@ fn run_rule_modal(
     rule_modal.update(model.rule_modal, msg, loaded_rules(model))
   let model = Model(..model, rule_modal:)
   let error_effect = case msg {
-    rule_modal.SaveCompleted(result: Error(error)) ->
+    rule_modal.SaveCompleted(result: Error(error))
+    | rule_modal.MatchesCounted(result: Error(error), ..) ->
       Some(effect.LogError(api_error.describe(error)))
     _ -> None
   }
@@ -551,7 +553,7 @@ fn apply_rule_outcome(
 
 fn interpret_rule_modal_request(request: rule_modal.Request) -> Effect(Msg) {
   case request {
-    form_modal.Post(payload) ->
+    rule_modal.Save(form_modal.Post(payload)) ->
       effect.post(
         api_route.CreateRule |> api_route.to_string,
         rule_write_request.to_json(payload)
@@ -560,7 +562,7 @@ fn interpret_rule_modal_request(request: rule_modal.Request) -> Effect(Msg) {
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
       |> effect.map(RuleModalMsg)
-    form_modal.Put(id:, payload:) ->
+    rule_modal.Save(form_modal.Put(id:, payload:)) ->
       effect.put(
         api_route.UpdateRule(id) |> api_route.to_string,
         rule_write_request.to_json(payload)
@@ -569,6 +571,25 @@ fn interpret_rule_modal_request(request: rule_modal.Request) -> Effect(Msg) {
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
       |> effect.map(RuleModalMsg)
+    rule_modal.CountMatches(pattern:) ->
+      effect.get(
+        api_route.GetRuleMatches(pattern) |> api_route.to_string,
+        handle_matches_response(pattern, _),
+      )
+      |> effect.map(RuleModalMsg)
+  }
+}
+
+fn handle_matches_response(pattern, result) {
+  case result {
+    Ok(body) ->
+      response.decode_success(body, rule_matches.rule_matches_decoder())
+      |> rule_modal.MatchesCounted(pattern, _)
+    Error(http_error) ->
+      rule_modal.MatchesCounted(
+        pattern,
+        Error(response.http_error_to_api_error(http_error)),
+      )
   }
 }
 

@@ -19,12 +19,11 @@
 
 Auto-tagging. Design and rationale are in `docs/auto-tagging.md`.
 
-Done: the matcher, rule uniqueness, tag assignments, and `POST /api/auto-tag`.
+Done: the matcher, rule uniqueness, tag assignments, `POST /api/auto-tag`,
+transfers without tags, and the match count in the rule modal.
 
-1. Match count: `GET /api/auto-tag/matches?pattern=` and the debounced preview
-   in the rule modal. Tests.
-2. "Tag untagged" and "Re-tag all" on the tagging page, with a confirmation
-   modal for re-tag and result toasts. Client `update` tests, E2E test.
+Next: "Tag untagged" and "Re-tag all" on the tagging page, with a confirmation
+modal for re-tag and result toasts. Client `update` tests, E2E test.
 
 ## Backlog
 

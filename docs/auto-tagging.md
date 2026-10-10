@@ -198,7 +198,9 @@ decision.
   distinct descriptions from the most recent matches, so a recurring merchant
   does not fill the samples with copies. It counts matches, not wins, because
   whether the rule wins depends on the other rules. Requests are debounced, and
-  a response for a pattern that is no longer in the field is ignored.
+  a response for a pattern that is no longer in the field is ignored. Only the
+  request waits: the field itself updates on every keystroke, so validation and
+  save never see an outdated pattern.
 - **Why**: substring patterns over-match, and seeing example matches before
   saving is the main guard against that. The previous project offered no
   feedback until after a run.
@@ -272,8 +274,10 @@ decision.
   - Deleting a tag that has assignments (the cascade in decision 3).
   - Both endpoints read and write only the caller's data.
   - Client: each button produces its request and result toast; re-tag sends no
-    request until confirmed and none when cancelled; the match count is
-    debounced and ignores outdated responses.
+    request until confirmed and none when cancelled; a settled pattern requests
+    a match count, and outdated counts are ignored. The debounce is a Lustre
+    event attribute, so only the E2E test exercises it.
+  - E2E: the rule modal shows the match count for a typed pattern.
   - E2E: create a tag, a rule, and a matching untagged transaction; "Tag
     untagged" tags it, and the transaction modal shows the rule callout.
 
