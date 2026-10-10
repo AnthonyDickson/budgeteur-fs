@@ -1,7 +1,7 @@
 import { type Page } from '@playwright/test';
 
 import { expectAmount } from '../support/amount';
-import { test, expect } from '../support/fixtures';
+import { expect, test } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
 
 const modal = (page: Page) => page.getByTestId('balance-sheet-item-modal');
@@ -10,7 +10,9 @@ const deleteModal = (page: Page) =>
   page.getByTestId('delete-balance-sheet-item-modal');
 
 const itemRow = (page: Page, name: string) =>
-  page.locator('[data-testid^="balance-sheet-item-"]').filter({ hasText: name });
+  page.locator('[data-testid^="balance-sheet-item-"]').filter({
+    hasText: name,
+  });
 
 /// The header row holding one term's subtotal, e.g. "Current assets $2000.00".
 /// The name must match exactly, or "Current assets" would also match
@@ -41,7 +43,9 @@ async function addItem(
     nonCurrent?: boolean;
   },
 ) {
-  const button = args.kind === 'asset' ? 'add-asset-button' : 'add-liability-button';
+  const button = args.kind === 'asset'
+    ? 'add-asset-button'
+    : 'add-liability-button';
   await page.getByTestId(button).click();
   await expect(modal(page)).toBeVisible();
   await modal(page).getByTestId('item-name-input').fill(args.name);
@@ -65,86 +69,95 @@ async function deleteItem(page: Page, name: string) {
 }
 
 test.describe('balance sheet', () => {
-  test('tracks items, totals, and the empty state', async ({ page }, testInfo) => {
-    await gotoNewBalanceSheet(page);
+  test(
+    'tracks items, totals, and the empty state',
+    async ({ page }, testInfo) => {
+      await gotoNewBalanceSheet(page);
 
-    // ── Create: one item per kind and term ───────────────────────────────────
-    await addItem(page, { kind: 'asset', name: 'Chequing', balance: '2000.00' });
-    await addItem(page, {
-      kind: 'asset',
-      name: 'House',
-      balance: '400000.00',
-      nonCurrent: true,
-    });
-    await addItem(page, {
-      kind: 'liability',
-      name: 'Credit card',
-      balance: '1500.00',
-    });
-    await addItem(page, {
-      kind: 'liability',
-      name: 'Mortgage',
-      balance: '300000.00',
-      nonCurrent: true,
-    });
+      // ── Create: one item per kind and term ───────────────────────────────────
+      await addItem(page, {
+        kind: 'asset',
+        name: 'Chequing',
+        balance: '2000.00',
+      });
+      await addItem(page, {
+        kind: 'asset',
+        name: 'House',
+        balance: '400000.00',
+        nonCurrent: true,
+      });
+      await addItem(page, {
+        kind: 'liability',
+        name: 'Credit card',
+        balance: '1500.00',
+      });
+      await addItem(page, {
+        kind: 'liability',
+        name: 'Mortgage',
+        balance: '300000.00',
+        nonCurrent: true,
+      });
 
-    await expect(page.getByTestId('no-items-empty-state')).toBeHidden();
+      await expect(page.getByTestId('no-items-empty-state')).toBeHidden();
 
-    // Every item is filed under its term, with the term's subtotal.
-    await expectAmount(itemGroup(page, 'Current assets'), 2000);
-    await expectAmount(itemGroup(page, 'Non-current assets'), 400000);
-    await expectAmount(itemGroup(page, 'Current liabilities'), 1500);
-    await expectAmount(itemGroup(page, 'Non-current liabilities'), 300000);
+      // Every item is filed under its term, with the term's subtotal.
+      await expectAmount(itemGroup(page, 'Current assets'), 2000);
+      await expectAmount(itemGroup(page, 'Non-current assets'), 400000);
+      await expectAmount(itemGroup(page, 'Current liabilities'), 1500);
+      await expectAmount(itemGroup(page, 'Non-current liabilities'), 300000);
 
-    // The server's totals are rendered as received, not recomputed by the page.
-    await expectAmount(summaryCard(page, 'total-assets'), 402000);
-    await expectAmount(summaryCard(page, 'total-liabilities'), 301500);
-    await expectAmount(summaryCard(page, 'net-worth'), 100500);
-    await expectAmount(summaryCard(page, 'working-capital'), 500);
+      // The server's totals are rendered as received, not recomputed by the page.
+      await expectAmount(summaryCard(page, 'total-assets'), 402000);
+      await expectAmount(summaryCard(page, 'total-liabilities'), 301500);
+      await expectAmount(summaryCard(page, 'net-worth'), 100500);
+      await expectAmount(summaryCard(page, 'working-capital'), 500);
 
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'items-added'),
-      fullPage: true,
-    });
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'items-added'),
+        fullPage: true,
+      });
 
-    // ── Update: a current asset moves every affected total ───────────────────
-    await itemRow(page, 'Chequing').getByRole('button', { name: 'Edit' }).click();
-    await expect(modal(page)).toBeVisible();
-    await modal(page).getByTestId('item-balance-input').fill('3000.00');
-    await modal(page).getByTestId('item-submit-button').click();
-    await expect(modal(page)).toBeHidden();
+      // ── Update: a current asset moves every affected total ───────────────────
+      await itemRow(page, 'Chequing').getByRole('button', { name: 'Edit' })
+        .click();
+      await expect(modal(page)).toBeVisible();
+      await modal(page).getByTestId('item-balance-input').fill('3000.00');
+      await modal(page).getByTestId('item-submit-button').click();
+      await expect(modal(page)).toBeHidden();
 
-    await expectAmount(itemGroup(page, 'Current assets'), 3000);
-    await expectAmount(summaryCard(page, 'total-assets'), 403000);
-    await expectAmount(summaryCard(page, 'net-worth'), 101500);
-    await expectAmount(summaryCard(page, 'working-capital'), 1500);
+      await expectAmount(itemGroup(page, 'Current assets'), 3000);
+      await expectAmount(summaryCard(page, 'total-assets'), 403000);
+      await expectAmount(summaryCard(page, 'net-worth'), 101500);
+      await expectAmount(summaryCard(page, 'working-capital'), 1500);
 
-    // ── Delete: a non-current item moves net worth but not working capital ───
-    await deleteItem(page, 'House');
+      // ── Delete: a non-current item moves net worth but not working capital ───
+      await deleteItem(page, 'House');
 
-    await expectAmount(summaryCard(page, 'net-worth'), -298500);
-    await expectAmount(summaryCard(page, 'working-capital'), 1500);
+      await expectAmount(summaryCard(page, 'net-worth'), -298500);
+      await expectAmount(summaryCard(page, 'working-capital'), 1500);
 
-    // ── Validation ───────────────────────────────────────────────────────────
-    await page.getByTestId('add-asset-button').click();
-    await expect(modal(page)).toBeVisible();
-    await modal(page).getByTestId('item-submit-button').click();
-    await expect(modal(page)).toContainText('Name cannot be empty');
-    await modal(page).getByTestId('item-cancel-button').click();
-    await expect(modal(page)).toBeHidden();
+      // ── Validation ───────────────────────────────────────────────────────────
+      await page.getByTestId('add-asset-button').click();
+      await expect(modal(page)).toBeVisible();
+      await modal(page).getByTestId('item-submit-button').click();
+      await expect(modal(page)).toContainText('Name cannot be empty');
+      await modal(page).getByTestId('item-cancel-button').click();
+      await expect(modal(page)).toBeHidden();
 
-    // ── Delete everything: the sheet survives, so the empty-items state shows ─
-    await deleteItem(page, 'Chequing');
-    await deleteItem(page, 'Credit card');
-    await deleteItem(page, 'Mortgage');
+      // ── Delete everything: the sheet survives, so the empty-items state shows ─
+      await deleteItem(page, 'Chequing');
+      await deleteItem(page, 'Credit card');
+      await deleteItem(page, 'Mortgage');
 
-    await expect(page.getByTestId('no-items-empty-state')).toBeVisible();
-    await expect(page.getByTestId('no-balance-sheet-empty-state')).toBeHidden();
-    await expectAmount(summaryCard(page, 'net-worth'), 0);
+      await expect(page.getByTestId('no-items-empty-state')).toBeVisible();
+      await expect(page.getByTestId('no-balance-sheet-empty-state'))
+        .toBeHidden();
+      await expectAmount(summaryCard(page, 'net-worth'), 0);
 
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'all-items-deleted'),
-      fullPage: true,
-    });
-  });
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'all-items-deleted'),
+        fullPage: true,
+      });
+    },
+  );
 });

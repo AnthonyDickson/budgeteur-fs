@@ -60,7 +60,7 @@ e2e-test:
 	docker compose -f docker/docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
 	docker compose -f docker/docker-compose.e2e.yml down
 
-# Format with fantomas + gleam format
+# Format with dprint (markdown, TypeScript) + gleam format + fantomas
 format:
 	dprint fmt
 	gleam format

@@ -8,36 +8,36 @@
 // hide the modal. A dialog with `closedby="none"` (a request is in flight)
 // cancels Escape, for browsers that do not support `closedby`.
 export function registerModalDialog() {
-  if (customElements.get("modal-dialog")) {
+  if (customElements.get('modal-dialog')) {
     return;
   }
 
   customElements.define(
-    "modal-dialog",
+    'modal-dialog',
     class extends HTMLElement {
       #listening = false;
 
       connectedCallback() {
-        const dialog = this.querySelector(":scope > dialog");
+        const dialog = this.querySelector(':scope > dialog');
 
         if (!dialog) {
-          console.warn("modal-dialog: Could not find a child <dialog>");
+          console.warn('modal-dialog: Could not find a child <dialog>');
           return;
         }
 
         // `connectedCallback` runs again if the element is moved.
         if (!this.#listening) {
           this.#listening = true;
-          dialog.addEventListener("cancel", (event) => {
-            if (dialog.getAttribute("closedby") === "none") {
+          dialog.addEventListener('cancel', (event) => {
+            if (dialog.getAttribute('closedby') === 'none') {
               event.preventDefault();
             }
           });
           // Only a close by the browser reaches here while connected: the
           // model closes the dialog by removing this element.
-          dialog.addEventListener("close", () => {
+          dialog.addEventListener('close', () => {
             if (this.isConnected) {
-              this.dispatchEvent(new Event("dismiss"));
+              this.dispatchEvent(new Event('dismiss'));
             }
           });
         }

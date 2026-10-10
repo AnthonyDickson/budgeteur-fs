@@ -3,7 +3,12 @@
     "lineWidth": 80,
     "textWrap": "always"
   },
+  "typescript": {
+    "lineWidth": 80,
+    "quoteStyle": "preferSingle"
+  },
   "plugins": [
-    "https://plugins.dprint.dev/markdown-0.24.0.wasm"
+    "https://plugins.dprint.dev/markdown-0.24.0.wasm",
+    "https://plugins.dprint.dev/typescript-0.96.1.wasm"
   ]
 }

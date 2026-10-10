@@ -1,7 +1,7 @@
 import { type Page } from '@playwright/test';
 
 import { expectAmount } from '../support/amount';
-import { test, expect } from '../support/fixtures';
+import { expect, test } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
 
 /// Create the first tag through the tagging UI. Each test starts with no data

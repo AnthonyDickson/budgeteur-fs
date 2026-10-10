@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { test as base, expect, type Browser } from '@playwright/test';
+import { type Browser, expect, test as base } from '@playwright/test';
 
 /// The number of Authelia users `e2e-0` … `e2e-<n-1>` in `authelia/users.yml`.
 /// Each parallel worker logs in as its own user, so this must be at least the
@@ -16,7 +16,10 @@ async function logIn(
   username: string,
   storagePath: string,
 ) {
-  const context = await browser.newContext({ baseURL, ignoreHTTPSErrors: true });
+  const context = await browser.newContext({
+    baseURL,
+    ignoreHTTPSErrors: true,
+  });
   const page = await context.newPage();
 
   try {
@@ -70,7 +73,10 @@ async function logIn(
 ///   data by user, so workers never see each other's data.
 /// - Each test starts by deleting its user's data, so tests in the same worker
 ///   (and retries) never see each other's data either.
-export const test = base.extend<{ resetUserData: void }, { workerStorageState: string }>({
+export const test = base.extend<
+  { resetUserData: void },
+  { workerStorageState: string }
+>({
   storageState: ({ workerStorageState }, use) => use(workerStorageState),
 
   workerStorageState: [
@@ -84,10 +90,19 @@ export const test = base.extend<{ resetUserData: void }, { workerStorageState: s
         );
       }
 
-      const storagePath = path.resolve(workerInfo.project.outputDir, '.auth', `${index}.json`);
+      const storagePath = path.resolve(
+        workerInfo.project.outputDir,
+        '.auth',
+        `${index}.json`,
+      );
       if (!fs.existsSync(storagePath)) {
         fs.mkdirSync(path.dirname(storagePath), { recursive: true });
-        await logIn(browser, workerInfo.project.use.baseURL!, `e2e-${index}`, storagePath);
+        await logIn(
+          browser,
+          workerInfo.project.use.baseURL!,
+          `e2e-${index}`,
+          storagePath,
+        );
       }
       await use(storagePath);
     },

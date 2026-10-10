@@ -1,6 +1,6 @@
 import { type Page } from '@playwright/test';
 
-import { test, expect } from '../support/fixtures';
+import { expect, test } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
 
 const colorTestId = (hex: string) => `tag-color-hex${hex.replace('#', '')}`;
@@ -79,24 +79,30 @@ async function recordTransaction(page: Page, description: string) {
 }
 
 test.describe('tagging', () => {
-  test('creates the first tag from the empty state', async ({ page }, testInfo) => {
-    await gotoEmptyTagging(page);
+  test(
+    'creates the first tag from the empty state',
+    async ({ page }, testInfo) => {
+      await gotoEmptyTagging(page);
 
-    await createFirstTag(page, 'Groceries', '#EF4444');
+      await createFirstTag(page, 'Groceries', '#EF4444');
 
-    await expect(page.getByTestId('no-tags-empty-state')).toBeHidden();
-    await expect(page.getByTestId('tags-panel')).toBeVisible();
+      await expect(page.getByTestId('no-tags-empty-state')).toBeHidden();
+      await expect(page.getByTestId('tags-panel')).toBeVisible();
 
-    // The newly created tag is selected and owns the rules panel.
-    await expect(tagRow(page, 'Groceries')).toHaveAttribute('aria-current', 'true');
-    await expect(page.getByTestId('rules-panel')).toContainText('Groceries');
-    await expect(toast(page, "Created tag 'Groceries'")).toBeVisible();
+      // The newly created tag is selected and owns the rules panel.
+      await expect(tagRow(page, 'Groceries')).toHaveAttribute(
+        'aria-current',
+        'true',
+      );
+      await expect(page.getByTestId('rules-panel')).toContainText('Groceries');
+      await expect(toast(page, "Created tag 'Groceries'")).toBeVisible();
 
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'first-tag-created'),
-      fullPage: true,
-    });
-  });
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'first-tag-created'),
+        fullPage: true,
+      });
+    },
+  );
 
   test('manages a full tag and rule lifecycle', async ({ page }, testInfo) => {
     await gotoEmptyTagging(page);
@@ -110,7 +116,8 @@ test.describe('tagging', () => {
     await expect(toast(page, 'Created rule STARBUCKS')).toBeVisible();
 
     // Edit the rule's pattern.
-    await ruleRow(page, 'STARBUCKS').getByRole('button', { name: 'Edit' }).click();
+    await ruleRow(page, 'STARBUCKS').getByRole('button', { name: 'Edit' })
+      .click();
     await expect(ruleModal(page)).toBeVisible();
     await ruleModal(page).getByTestId('rule-pattern-input').fill('LATTE');
     await ruleModal(page).getByTestId('rule-submit-button').click();
@@ -127,7 +134,8 @@ test.describe('tagging', () => {
 
     // Delete the rule.
     await tagRow(page, 'Transport').click();
-    await ruleRow(page, 'LATTE').getByRole('button', { name: 'Delete' }).click();
+    await ruleRow(page, 'LATTE').getByRole('button', { name: 'Delete' })
+      .click();
     const deleteRuleModal = page.getByTestId('delete-rule-modal');
     await expect(deleteRuleModal).toBeVisible();
     await deleteRuleModal.getByTestId('rule-delete-confirm-button').click();
@@ -152,7 +160,10 @@ test.describe('tagging', () => {
     await deleteTagModal.getByTestId('tag-delete-confirm-button').click();
     await expect(deleteTagModal).toBeHidden();
     await expect(tagRow(page, 'Travel')).toHaveCount(0);
-    await expect(tagRow(page, 'Groceries')).toHaveAttribute('aria-current', 'true');
+    await expect(tagRow(page, 'Groceries')).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
     await expect(toast(page, 'Deleted tag Travel')).toBeVisible();
 
     await page.screenshot({
@@ -176,7 +187,9 @@ test.describe('tagging', () => {
 
     // Over-long names are rejected as you type.
     await modal.getByTestId('tag-name-input').fill('x'.repeat(65));
-    await expect(modal).toContainText('Name cannot be longer than 64 characters');
+    await expect(modal).toContainText(
+      'Name cannot be longer than 64 characters',
+    );
     await page.screenshot({
       path: screenshotPath(testInfo, 'tag-name-too-long'),
       fullPage: true,
@@ -254,7 +267,9 @@ test.describe('tagging', () => {
     await expect(modal).toBeVisible();
     await modal.getByTestId('rule-pattern-input').fill('starbucks');
     await modal.getByTestId('rule-submit-button').click();
-    await expect(modal).toContainText('A rule with this pattern already exists');
+    await expect(modal).toContainText(
+      'A rule with this pattern already exists',
+    );
     await modal.getByTestId('rule-cancel-button').click();
     await expect(modal).toBeHidden();
 
@@ -264,7 +279,9 @@ test.describe('tagging', () => {
     await expect(modal).toBeVisible();
     await modal.getByTestId('rule-pattern-input').fill('STARBUCKS');
     await modal.getByTestId('rule-submit-button').click();
-    await expect(modal).toContainText('A rule with this pattern already exists');
+    await expect(modal).toContainText(
+      'A rule with this pattern already exists',
+    );
     await modal.getByTestId('rule-cancel-button').click();
     await expect(modal).toBeHidden();
     await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(0);
@@ -333,10 +350,13 @@ test.describe('tagging', () => {
     await createTag(page, 'Transport');
     await tagRow(page, 'Groceries').click();
 
-    await ruleRow(page, 'STARBUCKS').getByRole('button', { name: 'Edit' }).click();
+    await ruleRow(page, 'STARBUCKS').getByRole('button', { name: 'Edit' })
+      .click();
     const modal = ruleModal(page);
     await expect(modal).toBeVisible();
-    await modal.getByTestId('rule-tag-select').selectOption({ label: 'Transport' });
+    await modal.getByTestId('rule-tag-select').selectOption({
+      label: 'Transport',
+    });
     await modal.getByTestId('rule-submit-button').click();
     await expect(modal).toBeHidden();
 
