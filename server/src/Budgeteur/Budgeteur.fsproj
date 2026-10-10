@@ -85,6 +85,8 @@
     <Compile Include="Feature/IncomeStatement/IncomeStatementEndpoints.fs" />
 
     <Compile Include="Feature/AutoTag/AutoTag.fs" />
+    <Compile Include="Feature/AutoTag/RunAutoTag.fs" />
+    <Compile Include="Feature/AutoTag/AutoTagEndpoints.fs" />
 
     <Compile Include="Feature/GetStatus.fs" />
 

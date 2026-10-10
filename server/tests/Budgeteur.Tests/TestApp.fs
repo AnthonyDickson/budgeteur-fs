@@ -35,6 +35,7 @@ type TestAppConfig = {
 /// filter.
 module TestAppConfig =
     open Budgeteur.Data.Db
+    open Budgeteur.Feature.AutoTag
     open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Feature.IncomeStatement
     open Budgeteur.Feature.Rule
@@ -64,6 +65,8 @@ module TestAppConfig =
     let withRules = withEndpoints [ "Rules" ] RuleEndpoints.all
 
     let withIncomeStatement = withEndpoints [] IncomeStatementEndpoints.all
+
+    let withAutoTag = withEndpoints [ "TagAssignments" ] AutoTagEndpoints.all
 
     /// Includes the development-only item reads, which the tests use to observe
     /// item state.

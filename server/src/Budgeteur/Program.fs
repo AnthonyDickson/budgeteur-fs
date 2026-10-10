@@ -31,6 +31,7 @@ open Budgeteur.Shared.Json
 open Budgeteur.Shared.OpenApi
 open Budgeteur.Shared.RequestLogging
 open Budgeteur.Feature.Auth
+open Budgeteur.Feature.AutoTag
 open Budgeteur.Feature.BalanceSheet
 open Budgeteur.Feature.IncomeStatement
 open Budgeteur.Feature.Rule
@@ -258,6 +259,7 @@ let private buildEndpoints
 
     let featureEndpoints =
         Seq.concat [
+            AutoTagEndpoints.all queryContext
             BalanceSheetEndpoints.all queryContext Clock.system
             IncomeStatementEndpoints.all queryContext
             RuleEndpoints.all queryContext

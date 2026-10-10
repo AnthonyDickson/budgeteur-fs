@@ -173,18 +173,16 @@ decision.
   comparison it uses live with the `Rule` type in `Domain/`. A pure function
   takes the rules, the candidate transactions with their assignments, and the
   action, and returns the assignment changes. The handler loads the user's rules
-  and candidates, writes the changed assignments in one database transaction,
+  and candidates and writes the changed assignments in one database transaction,
   and returns how many transactions were tagged, changed, and cleared.
 - **Why**: the matcher defines what a rule means, so it lives with the type, as
   an invariant does. The Rule slice's uniqueness check uses the comparison, and
   CSV import will be the matcher's second consumer. SQLite's `LIKE` folds ASCII
   case only and cannot express the longest-wins choice clearly. Personal data
   volumes (thousands of transactions, tens of rules) load comfortably.
-- **Accepted risk**: candidates are loaded before the write transaction starts,
-  so a manual tag set between the load and the write can be overwritten by a
-  rule tag. Expected usage is one user on one device, which makes this unlikely.
-  Loading inside the write transaction, or writing only where the assignment is
-  still a rule tag or absent, would close it.
+- **Concurrency**: the load happens inside the write transaction, which takes
+  SQLite's write lock when it begins. A manual tag set during a run waits for
+  the run to finish, so a rule tag cannot overwrite it.
 - **Goal**: one tested function owns the matching rules, and handlers only query
   and write.
 
