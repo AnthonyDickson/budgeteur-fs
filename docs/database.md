@@ -64,6 +64,13 @@ other SQLite builds silently ignore foreign keys unless asked.
 `DATE` columns hold calendar dates and `DATETIME` columns hold UTC instants. See [Dates and Timestamps](dates.md) for
 how each is stored, read, and written.
 
+### Money columns
+
+`CURRENCY` columns have NUMERIC affinity, so SQLite stores the decimal Microsoft.Data.Sqlite sends as a `REAL` (an IEEE
+double) and reads it back as a `decimal` rounded to 15 significant digits. Amounts up to 15 significant digits (about
+$10 trillion in cents) round-trip exactly; beyond that they drift, e.g. `12345678901234.56` reads back as
+`12345678901234.561`. Aggregate money in F# on `decimal` after reading rows, never with SQL `SUM`, which adds doubles.
+
 ## Key Constraints
 
 - **Never modify a released migration.** A migration is released once a version tag (created by the Docker Publish
