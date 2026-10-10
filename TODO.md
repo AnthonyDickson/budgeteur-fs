@@ -17,6 +17,28 @@
 
 ## Current Tasks
 
+Auto-tagging. Design and rationale are in `docs/auto-tagging.md`.
+
+1. Matcher and rule uniqueness: in migration `001`, make rule patterns unique
+   per user ignoring case. Add the ordinal case-insensitive comparison and the
+   matcher to `Domain/`. Update the Rule slice's uniqueness check to use the
+   comparison, and the client rule modal's duplicate check to per user. Tests.
+2. Tag assignments: in migration `001`, add the assignment table with its user
+   id and tag id indexes, move `TagId` out of `Transactions`, and remove
+   `TaggingQueue` and its trigger; `just db-reset` and `just db-update`. Add the
+   assignment type and its transitions to `Domain/` and its mapping to `Data/`,
+   and remove the tag from the `Transaction` type. Transaction create and update
+   write facts and assignment in one database transaction; responses carry the
+   tag and source. Read assignments in the income statement. Client decoder and
+   the rule marker in the transactions table. Tests, including deleting a tag
+   that has assignments.
+3. `Feature/AutoTag/`: the pure application function and `POST /api/auto-tag`
+   for `TagUntagged` and `Retag`, with OpenAPI metadata. Tests.
+4. Match count: `GET /api/auto-tag/matches?pattern=` and the debounced preview
+   in the rule modal. Tests.
+5. "Tag untagged" and "Re-tag all" on the tagging page, with a confirmation
+   modal for re-tag and result toasts. Client `update` tests, E2E test.
+
 ## Backlog
 
 - Dates after the dashboard MVP.

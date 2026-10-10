@@ -3,7 +3,8 @@
 The requirements the system is built around, how the server and client are
 structured, and the rules that hold across both. Feature-level decisions live in
 their design briefs ([balance sheet](balance-sheet.md),
-[dashboard](dashboard.md)); storage, dates, and tests have their own docs.
+[dashboard](dashboard.md), [auto-tagging](auto-tagging.md)); storage, dates, and
+tests have their own docs.
 
 ## Requirements and constraints
 
@@ -54,6 +55,14 @@ created once at startup and passed to each endpoint; there is no DI container.
 - **Invariants live with the type in `Domain/`; use-case rules stay in the
   slice.** Intrinsic validity (non-empty, length, rounding) is domain;
   orchestration (auth, queries, uniqueness) is feature.
+- **Slices are workflows; a table has one owner of its rules, not one writer.**
+  Any slice may write a table, but only through the domain type that owns the
+  table's invariants and the table's mapping in the kernel. A user action that
+  changes several tables is one database transaction in one slice. Grouping
+  slices by the table they write would gather every workflow that touches a
+  central table, such as transactions, into one slice, and would split actions
+  that span tables. Schema-declared foreign-key actions and triggers, and the
+  test-support reset, also write across tables.
 - **Slices own their read shapes.** A feature needing a different shape (e.g. a
   dashboard aggregate) defines its own read model rather than growing the shared
   type.

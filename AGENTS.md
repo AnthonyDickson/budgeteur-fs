@@ -36,6 +36,7 @@ implementations of the patterns in [docs/architecture.md](docs/architecture.md).
 | [prod-oidc-setup.md](docs/prod-oidc-setup.md)   | Configuring an OIDC provider for production                    |
 | [balance-sheet.md](docs/balance-sheet.md)       | Balance sheet design brief: decisions, rationale, glossary     |
 | [dashboard.md](docs/dashboard.md)               | Dashboard and income statement design brief                    |
+| [auto-tagging.md](docs/auto-tagging.md)         | Auto-tagging design brief: matching, tag assignments, actions  |
 | [fp-showcase.md](docs/fp-showcase.md)           | Tour of the codebase's functional programming ideas (tutorial) |
 
 Docs record requirements, design decisions and their rationale, and conventions
