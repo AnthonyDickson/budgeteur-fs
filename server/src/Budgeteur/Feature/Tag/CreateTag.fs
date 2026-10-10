@@ -22,12 +22,14 @@ module CreateTag =
     open Budgeteur.Shared.OpenApi
     open Budgeteur.Shared.RequestLogging
 
-    /// <summary>Payload for creating a tag. The id is generated server-side.</summary>
+    /// <summary>Payload for creating a tag. The id is generated
+    /// server-side.</summary>
     type CreateTagRequest = {
         Name : string
         Color : string
 
-        /// <summary>Which side of the income statement the tag's transactions are on.</summary>
+        /// <summary>Which side of the income statement the tag's transactions
+        /// are on.</summary>
         [<SchemaHint.Enum(typeof<TagKind>)>]
         Kind : string
     }
@@ -37,7 +39,11 @@ module CreateTag =
 
     /// <summary>Verify that no tag with the same name exists for this user
     /// (the <c>UNIQUE(UserId, Name)</c> constraint).</summary>
-    let private requireNameIsUnique (queryContext : QueryContextFactory) (userId : string) (tagName : TagName) =
+    let private requireNameIsUnique
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (tagName : TagName)
+        =
         task {
             let name = TagName.value tagName
 
@@ -52,10 +58,17 @@ module CreateTag =
                 if rowCount = 0 then
                     Ok ()
                 else
-                    Error (ConstraintError $"A tag with the name '{name}' already exists")
+                    Error (
+                        ConstraintError
+                            $"A tag with the name '{name}' already exists"
+                    )
         }
 
-    let private insert (queryContext : QueryContextFactory) (userId : string) (tag : Tag) =
+    let private insert
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (tag : Tag)
+        =
         task {
             let row = TagCodec.toRow tag userId
 
@@ -77,8 +90,14 @@ module CreateTag =
 
                 let! tagName = TagName.create req.Name
                 let! tagColor = TagColor.create req.Color
-                let! tagKind = TagKind.parse req.Kind |> Result.mapError ValidationFailed
-                do! Constraints.requireOne (requireNameIsUnique queryContext userId tagName)
+
+                let! tagKind =
+                    TagKind.parse req.Kind |> Result.mapError ValidationFailed
+
+                do!
+                    Constraints.requireOne (
+                        requireNameIsUnique queryContext userId tagName
+                    )
 
                 let tag : Tag = {
                     Id = Guid.CreateVersion7 ()
@@ -89,11 +108,22 @@ module CreateTag =
 
                 let! () = insert queryContext userId tag
 
-                log.Info ($"Created tag %O{tag.Id}", LogProp.prop "tagId" (tag.Id.ToString ()))
+                log.Info (
+                    $"Created tag %O{tag.Id}",
+                    LogProp.prop "tagId" (tag.Id.ToString ())
+                )
 
                 ctx.SetStatusCode 201
                 do! Json.write ctx (TagResponse.fromDomain tag)
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Create a tag"
+
+        op.Description <- "Creates a new tag and returns it with status 201."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Tags" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         route Path (handler queryContext)
@@ -106,11 +136,6 @@ module CreateTag =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 409)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Create a tag"
-                        op.Description <- "Creates a new tag and returns it with status 201."
-                        op.Tags <- HashSet [ OpenApiTagReference "Tags" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

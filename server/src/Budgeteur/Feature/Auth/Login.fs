@@ -12,7 +12,9 @@ module Login =
                 if ctx.User.Identity.IsAuthenticated then
                     ctx.Response.Redirect "/"
                 else
-                    let props = AuthenticationProperties (RedirectUri = returnUrl)
+                    let props =
+                        AuthenticationProperties (RedirectUri = returnUrl)
+
                     return! ctx.ChallengeAsync (Auth.oidcScheme, props)
             }
 

@@ -15,19 +15,29 @@ module ComputeTests =
     }
 
     let private period =
-        match Period.create (DateOnly (2026, 10, 1)) (DateOnly (2026, 10, 31)) with
+        match
+            Period.create (DateOnly (2026, 10, 1)) (DateOnly (2026, 10, 31))
+        with
         | Ok period -> period
         | Error error -> failwith error
 
-    let private entry (amount : decimal) (tag : Tag option) : Entry = { Amount = amount; Tag = tag }
+    let private entry (amount : decimal) (tag : Tag option) : Entry = {
+        Amount = amount
+        Tag = tag
+    }
 
     let private lineAmounts (lines : Line list) =
         lines
-        |> List.map (fun line -> line.Tag |> Option.map (fun tag -> tag.Id), line.Amount)
+        |> List.map (fun line ->
+            line.Tag |> Option.map (fun tag -> tag.Id), line.Amount)
 
     let private expenseAmounts (lines : ExpenseLine list) =
         lines
-        |> List.map (fun line -> line.Tag |> Option.map (fun tag -> tag.Id), line.Amount)
+        |> List.map (fun line ->
+            line.Tag |> Option.map (fun tag -> tag.Id), line.Amount)
+
+    let private expenseShares (lines : ExpenseLine list) =
+        lines |> List.map (fun line -> line.Share)
 
     [<Tests>]
     let tests =
@@ -35,19 +45,34 @@ module ComputeTests =
             test "an empty period has no lines and zero totals" {
                 let statement = IncomeStatement.compute period []
 
-                Expect.isEmpty statement.IncomeLines "there should be no income lines"
-                Expect.isEmpty statement.ExpenseLines "there should be no expense lines"
+                Expect.isEmpty
+                    statement.IncomeLines
+                    "there should be no income lines"
+
+                Expect.isEmpty
+                    statement.ExpenseLines
+                    "there should be no expense lines"
+
                 Expect.equal statement.Income 0m "income should be zero"
                 Expect.equal statement.Expenses 0m "expenses should be zero"
                 Expect.equal statement.NetIncome 0m "net income should be zero"
-                Expect.equal statement.UntaggedCount 0 "there should be no untagged transactions"
+
+                Expect.equal
+                    statement.UntaggedCount
+                    0
+                    "there should be no untagged transactions"
             }
 
-            test "a refund reduces its expense tag rather than counting as income" {
+            test
+                "a refund reduces its expense tag rather than counting as \
+                income" {
                 let groceries = tag "Groceries" Expense
 
                 let statement =
-                    IncomeStatement.compute period [ entry -100m (Some groceries); entry 30m (Some groceries) ]
+                    IncomeStatement.compute period [
+                        entry -100m (Some groceries)
+                        entry 30m (Some groceries)
+                    ]
 
                 Expect.equal
                     (expenseAmounts statement.ExpenseLines)
@@ -55,39 +80,69 @@ module ComputeTests =
                     "spending should be net of the refund"
 
                 Expect.isEmpty statement.IncomeLines "a refund is not income"
-                Expect.equal statement.Expenses 70m "expenses should be net of the refund"
-                Expect.equal statement.NetIncome -70m "net income should be income minus expenses"
+
+                Expect.equal
+                    statement.Expenses
+                    70m
+                    "expenses should be net of the refund"
+
+                Expect.equal
+                    statement.NetIncome
+                    -70m
+                    "net income should be income minus expenses"
             }
 
-            test "an expense tag with more refunds than spending is a negative expense" {
+            test
+                "an expense tag with more refunds than spending is a \
+                negative expense" {
                 let electronics = tag "Electronics" Expense
                 let groceries = tag "Groceries" Expense
 
                 let statement =
-                    IncomeStatement.compute period [ entry 500m (Some electronics); entry -200m (Some groceries) ]
+                    IncomeStatement.compute period [
+                        entry 500m (Some electronics)
+                        entry -200m (Some groceries)
+                    ]
 
                 Expect.equal
                     (expenseAmounts statement.ExpenseLines)
                     [ Some groceries.Id, 200m; Some electronics.Id, -500m ]
-                    "the returned laptop should stay on the expense side as a negative line"
+                    "the returned laptop should stay on the expense side as a \
+                    negative line"
 
-                Expect.equal statement.Expenses -300m "expenses should be the sum of the lines"
-                Expect.equal statement.NetIncome 300m "net income should be income minus expenses"
+                Expect.equal
+                    statement.Expenses
+                    -300m
+                    "expenses should be the sum of the lines"
+
+                Expect.equal
+                    statement.NetIncome
+                    300m
+                    "net income should be income minus expenses"
             }
 
             test "a clawback reduces its income tag" {
                 let salary = tag "Salary" Income
 
                 let statement =
-                    IncomeStatement.compute period [ entry 5000m (Some salary); entry -250m (Some salary) ]
+                    IncomeStatement.compute period [
+                        entry 5000m (Some salary)
+                        entry -250m (Some salary)
+                    ]
 
                 Expect.equal
                     (lineAmounts statement.IncomeLines)
                     [ Some salary.Id, 4750m ]
                     "income should be net of the clawback"
 
-                Expect.isEmpty statement.ExpenseLines "a clawback is not an expense"
-                Expect.equal statement.Income 4750m "income should be net of the clawback"
+                Expect.isEmpty
+                    statement.ExpenseLines
+                    "a clawback is not an expense"
+
+                Expect.equal
+                    statement.Income
+                    4750m
+                    "income should be net of the clawback"
             }
 
             test "untagged transactions are split by sign and counted" {
@@ -106,17 +161,34 @@ module ComputeTests =
                 Expect.equal
                     (lineAmounts statement.IncomeLines)
                     [ Some salary.Id, 5000m; None, 50m ]
-                    "untagged inflows should be an income line, after the tagged lines"
+                    "untagged inflows should be an income line, after the \
+                    tagged lines"
 
                 Expect.equal
                     (expenseAmounts statement.ExpenseLines)
                     [ Some rent.Id, 2000m; None, 25m ]
-                    "untagged outflows should be an expense line, after the tagged lines"
+                    "untagged outflows should be an expense line, after the \
+                    tagged lines"
 
-                Expect.equal statement.Income 5050m "income should include untagged income"
-                Expect.equal statement.Expenses 2025m "expenses should include untagged expenses"
-                Expect.equal statement.NetIncome 3025m "net income should be income minus expenses"
-                Expect.equal statement.UntaggedCount 3 "every untagged transaction should be counted"
+                Expect.equal
+                    statement.Income
+                    5050m
+                    "income should include untagged income"
+
+                Expect.equal
+                    statement.Expenses
+                    2025m
+                    "expenses should include untagged expenses"
+
+                Expect.equal
+                    statement.NetIncome
+                    3025m
+                    "net income should be income minus expenses"
+
+                Expect.equal
+                    statement.UntaggedCount
+                    3
+                    "every untagged transaction should be counted"
             }
 
             test "lines are sorted largest first with the untagged line last" {
@@ -134,8 +206,14 @@ module ComputeTests =
 
                 Expect.equal
                     (expenseAmounts statement.ExpenseLines)
-                    [ Some rent.Id, 2000m; Some groceries.Id, 300m; Some fuel.Id, 80m; None, 1000m ]
-                    "lines should be ordered by amount, with the untagged line last"
+                    [
+                        Some rent.Id, 2000m
+                        Some groceries.Id, 300m
+                        Some fuel.Id, 80m
+                        None, 1000m
+                    ]
+                    "lines should be ordered by amount, with the untagged \
+                    line last"
             }
 
             test "each expense line carries its share of total expenses" {
@@ -143,10 +221,13 @@ module ComputeTests =
                 let groceries = tag "Groceries" Expense
 
                 let statement =
-                    IncomeStatement.compute period [ entry -750m (Some rent); entry -250m (Some groceries) ]
+                    IncomeStatement.compute period [
+                        entry -750m (Some rent)
+                        entry -250m (Some groceries)
+                    ]
 
                 Expect.equal
-                    (statement.ExpenseLines |> List.map (fun line -> line.Share))
+                    (expenseShares statement.ExpenseLines)
                     [ Some 75m; Some 25m ]
                     "shares should be percentages of total expenses"
             }
@@ -157,10 +238,14 @@ module ComputeTests =
                 let c = tag "C" Expense
 
                 let statement =
-                    IncomeStatement.compute period [ entry -10m (Some a); entry -10m (Some b); entry -10m (Some c) ]
+                    IncomeStatement.compute period [
+                        entry -10m (Some a)
+                        entry -10m (Some b)
+                        entry -10m (Some c)
+                    ]
 
                 Expect.equal
-                    (statement.ExpenseLines |> List.map (fun line -> line.Share))
+                    (expenseShares statement.ExpenseLines)
                     [ Some 33.33m; Some 33.33m; Some 33.33m ]
                     "a third should round to 33.33%"
             }
@@ -170,10 +255,13 @@ module ComputeTests =
                 let electronics = tag "Electronics" Expense
 
                 let statement =
-                    IncomeStatement.compute period [ entry -1000m (Some rent); entry 200m (Some electronics) ]
+                    IncomeStatement.compute period [
+                        entry -1000m (Some rent)
+                        entry 200m (Some electronics)
+                    ]
 
                 Expect.equal
-                    (statement.ExpenseLines |> List.map (fun line -> line.Share))
+                    (expenseShares statement.ExpenseLines)
                     [ Some 125m; Some -25m ]
                     "shares should be relative to net expenses"
             }
@@ -181,10 +269,13 @@ module ComputeTests =
             test "shares are omitted when total expenses are not positive" {
                 let electronics = tag "Electronics" Expense
 
-                let statement = IncomeStatement.compute period [ entry 200m (Some electronics) ]
+                let statement =
+                    IncomeStatement.compute period [
+                        entry 200m (Some electronics)
+                    ]
 
                 Expect.equal
-                    (statement.ExpenseLines |> List.map (fun line -> line.Share))
+                    (expenseShares statement.ExpenseLines)
                     [ None ]
                     "a share of a non-positive total is meaningless"
             }
@@ -206,15 +297,23 @@ module PeriodTests =
 
             test "from after to is rejected" {
                 Expect.isError
-                    (Period.create (DateOnly (2026, 10, 2)) (DateOnly (2026, 10, 1)))
+                    (Period.create
+                        (DateOnly (2026, 10, 2))
+                        (DateOnly (2026, 10, 1)))
                     "from > to should be rejected"
             }
 
             test "a leap year is the longest valid period" {
-                Expect.isOk (Period.create (DateOnly (2028, 1, 1)) (DateOnly (2028, 12, 31))) "366 days should be valid"
+                Expect.isOk
+                    (Period.create
+                        (DateOnly (2028, 1, 1))
+                        (DateOnly (2028, 12, 31)))
+                    "366 days should be valid"
 
                 Expect.isError
-                    (Period.create (DateOnly (2028, 1, 1)) (DateOnly (2029, 1, 1)))
+                    (Period.create
+                        (DateOnly (2028, 1, 1))
+                        (DateOnly (2029, 1, 1)))
                     "367 days should be rejected"
             }
         ]
@@ -226,7 +325,8 @@ module ValidatePeriodTests =
     open Budgeteur.Feature.IncomeStatement
     open Budgeteur.Shared.DomainError
 
-    /// The validation message, failing the test if the period was accepted or failed otherwise.
+    /// The validation message, failing the test if the period was accepted or
+    /// failed otherwise.
     let private failure (fromValue : string option) (toValue : string option) =
         match ReadIncomeStatement.validatePeriod fromValue toValue with
         | Error (ValidationFailed message) -> message
@@ -236,27 +336,57 @@ module ValidatePeriodTests =
     let tests =
         testList "ReadIncomeStatement.validatePeriod" [
             test "ISO-8601 dates make a period" {
-                match ReadIncomeStatement.validatePeriod (Some "2026-10-01") (Some "2026-10-31") with
+                match
+                    ReadIncomeStatement.validatePeriod
+                        (Some "2026-10-01")
+                        (Some "2026-10-31")
+                with
                 | Ok period ->
-                    Expect.equal (Period.fromDate period) (DateOnly (2026, 10, 1)) "from"
-                    Expect.equal (Period.toDate period) (DateOnly (2026, 10, 31)) "to"
+                    Expect.equal
+                        (Period.fromDate period)
+                        (DateOnly (2026, 10, 1))
+                        "from"
+
+                    Expect.equal
+                        (Period.toDate period)
+                        (DateOnly (2026, 10, 31))
+                        "to"
                 | Error error -> failtest $"expected a period, got %A{error}"
             }
 
             test "every missing parameter is reported" {
                 let message = failure None None
-                Expect.stringContains message "'from'" "the message should name 'from'"
-                Expect.stringContains message "'to'" "the message should name 'to'"
+
+                Expect.stringContains
+                    message
+                    "'from'"
+                    "the message should name 'from'"
+
+                Expect.stringContains
+                    message
+                    "'to'"
+                    "the message should name 'to'"
             }
 
             test "a date that is not ISO-8601 is reported by name" {
                 let message = failure (Some "2026-10-01") (Some "31/10/2026")
-                Expect.stringContains message "'to'" "the message should name 'to'"
-                Expect.isFalse (message.Contains "'from'") "the valid 'from' should not be reported"
+
+                Expect.stringContains
+                    message
+                    "'to'"
+                    "the message should name 'to'"
+
+                Expect.isFalse
+                    (message.Contains "'from'")
+                    "the valid 'from' should not be reported"
             }
 
             test "an invalid period is a validation failure" {
                 let message = failure (Some "2026-10-31") (Some "2026-10-01")
-                Expect.stringContains message "must not be after" "the period's rule should be reported"
+
+                Expect.stringContains
+                    message
+                    "must not be after"
+                    "the period's rule should be reported"
             }
         ]

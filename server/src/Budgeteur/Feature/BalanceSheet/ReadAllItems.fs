@@ -45,9 +45,20 @@ module ReadAllBalanceSheetItems =
                     LogProp.prop "count" (List.length items)
                 )
 
-                let response = List.map BalanceSheetItemResponse.fromDomain items
+                let response =
+                    List.map BalanceSheetItemResponse.fromDomain items
+
                 do! Json.write ctx response
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Get all balance sheet items"
+
+        op.Description <- "Returns all of the user's balance sheet items."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
+
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         route Path (handler queryContext)
@@ -57,11 +68,6 @@ module ReadAllBalanceSheetItems =
                     ResponseBody typeof<BalanceSheetItemResponse list>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Get all balance sheet items"
-                        op.Description <- "Returns all of the user's balance sheet items."
-                        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

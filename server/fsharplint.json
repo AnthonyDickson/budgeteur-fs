@@ -11,7 +11,7 @@
   "maxCharactersOnLine": {
     "enabled": true,
     "config": {
-      "maxCharactersOnLine": 120
+      "maxCharactersOnLine": 80
     }
   },
   "maxLinesInFile": {

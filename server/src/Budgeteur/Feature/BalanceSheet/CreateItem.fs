@@ -49,10 +49,17 @@ module CreateBalanceSheetItem =
                 if rowCount = 0 then
                     Ok ()
                 else
-                    Error (ConstraintError "An identical balance sheet item already exists.")
+                    Error (
+                        ConstraintError
+                            "An identical balance sheet item already exists."
+                    )
         }
 
-    let private insertBalanceSheetItem (queryContext : QueryContext) (item : BalanceSheetItem) (userId : string) =
+    let private insertBalanceSheetItem
+        (queryContext : QueryContext)
+        (item : BalanceSheetItem)
+        (userId : string)
+        =
         task {
             let row = BalanceSheetItemCodec.toRow item userId
 
@@ -65,20 +72,39 @@ module CreateBalanceSheetItem =
             return ()
         }
 
-    let private handler (queryContext : QueryContextFactory) (clock : Clock) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (clock : Clock)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
                 let! req = Json.read ctx
-                let! item = WriteBalanceSheetItemRequest.validate req (Guid.CreateVersion7 ())
 
-                do! Constraints.requireOne (requireBalanceSheetItemIsUnique queryContext item userId)
+                let! item =
+                    WriteBalanceSheetItemRequest.validate
+                        req
+                        (Guid.CreateVersion7 ())
+
+                do!
+                    Constraints.requireOne (
+                        requireBalanceSheetItemIsUnique
+                            queryContext
+                            item
+                            userId
+                    )
 
                 use! sharedCtx = queryContext.OpenContextAsync ()
                 sharedCtx.BeginTransaction ()
                 do! insertBalanceSheetItem sharedCtx item userId
-                do! BalanceSheetStore.updateOrCreate sharedCtx (clock ()) userId
+
+                do!
+                    BalanceSheetStore.updateOrCreate
+                        sharedCtx
+                        (clock ())
+                        userId
+
                 sharedCtx.CommitTransaction ()
 
                 log.Info (
@@ -90,24 +116,31 @@ module CreateBalanceSheetItem =
                 do! Json.write ctx (BalanceSheetItemResponse.fromDomain item)
             })
 
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Create a balance sheet item"
+
+        op.Description <-
+            "Creates a new balance sheet item, updates the balance sheet \
+            statement date"
+
+        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
+
+        Task.CompletedTask
+
     let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
         route Path (handler queryContext clock)
         |> addOpenApi (
             OpenApiConfig (
                 requestBody = RequestBody typeof<WriteBalanceSheetItemRequest>,
                 responseBodies = [|
-                    ResponseBody (typeof<BalanceSheetItemResponse>, statusCode = 201)
+                    ResponseBody (
+                        typeof<BalanceSheetItemResponse>,
+                        statusCode = 201
+                    )
                     ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 409)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Create a balance sheet item"
-
-                        op.Description <- "Creates a new balance sheet item, updates the balance sheet statement date"
-
-                        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

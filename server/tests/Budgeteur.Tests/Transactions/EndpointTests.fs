@@ -11,8 +11,12 @@ module EndpointTests =
     open Budgeteur.Shared.Coders
     open Budgeteur.Tests
 
-    /// A valid create request payload. No id is supplied, matching the server-owned-id contract.
-    let private request (description : string) (amount : decimal) : CreateTransaction.CreateTransactionRequest = {
+    /// A valid create request payload. No id is supplied, matching the
+    /// server-owned-id contract.
+    let private request
+        (description : string)
+        (amount : decimal)
+        : CreateTransaction.CreateTransactionRequest = {
         Amount = amount
         Description = description
         Date = DateOnly (2026, 3, 8)
@@ -25,12 +29,20 @@ module EndpointTests =
         TestApp.create (TestAppConfig.empty |> TestAppConfig.withTransactions)
 
     /// Create a transaction and return the created representation.
-    let private create (client : HttpClient) (input : CreateTransaction.CreateTransactionRequest) =
+    let private create
+        (client : HttpClient)
+        (input : CreateTransaction.CreateTransactionRequest)
+        =
         async {
             let! response =
-                TestHttp.postJson client CreateTransaction.Path input |> Async.AwaitTask
+                TestHttp.postJson client CreateTransaction.Path input
+                |> Async.AwaitTask
 
-            Expect.equal response.StatusCode HttpStatusCode.Created "create should return 201"
+            Expect.equal
+                response.StatusCode
+                HttpStatusCode.Created
+                "create should return 201"
+
             return! TestHttp.readJson<TransactionResponse> response
         }
 
@@ -41,7 +53,10 @@ module EndpointTests =
             <| async {
                 use app = newApp ()
 
-                let! empty = app.Client.GetAsync ReadAllTransactions.Path |> Async.AwaitTask
+                let! empty =
+                    app.Client.GetAsync ReadAllTransactions.Path
+                    |> Async.AwaitTask
+
                 let! empty = TestHttp.readJson<TransactionResponse list> empty
                 Expect.isEmpty empty "a new user should have no transactions"
 
@@ -54,37 +69,69 @@ module EndpointTests =
                     "create should return the stored fields"
 
                 let! read =
-                    app.Client.GetAsync (TestHttp.itemPath ReadTransaction.Path created.Id)
+                    app.Client.GetAsync (
+                        TestHttp.itemPath ReadTransaction.Path created.Id
+                    )
                     |> Async.AwaitTask
 
-                Expect.equal read.StatusCode HttpStatusCode.OK "read should return 200"
-                let! read = TestHttp.readJson<TransactionResponse> read
-                Expect.equal read created "read should return the created transaction"
+                Expect.equal
+                    read.StatusCode
+                    HttpStatusCode.OK
+                    "read should return 200"
 
-                let! all = app.Client.GetAsync ReadAllTransactions.Path |> Async.AwaitTask
+                let! read = TestHttp.readJson<TransactionResponse> read
+
+                Expect.equal
+                    read
+                    created
+                    "read should return the created transaction"
+
+                let! all =
+                    app.Client.GetAsync ReadAllTransactions.Path
+                    |> Async.AwaitTask
+
                 let! all = TestHttp.readJson<TransactionResponse list> all
-                Expect.equal all [ created ] "the list should hold the created transaction"
+
+                Expect.equal
+                    all
+                    [ created ]
+                    "the list should hold the created transaction"
             }
 
-            testCaseAsync "POST /api/transactions rejects a date that is not ISO-8601"
+            testCaseAsync
+                "POST /api/transactions rejects a date that is not ISO-8601"
             <| async {
                 use app = newApp ()
 
                 let json =
                     Encode.toStringAuto (request "Groceries" 42.50m)
-                    |> fun json -> json.Replace ("\"2026-03-08\"", "\"03/08/2026\"")
+                    |> fun json ->
+                        json.Replace ("\"2026-03-08\"", "\"03/08/2026\"")
 
-                Expect.stringContains json "03/08/2026" "the payload should carry the non-ISO date"
+                Expect.stringContains
+                    json
+                    "03/08/2026"
+                    "the payload should carry the non-ISO date"
 
-                let content = new StringContent (json, Text.Encoding.UTF8, "application/json")
+                let content =
+                    new StringContent (
+                        json,
+                        Text.Encoding.UTF8,
+                        "application/json"
+                    )
 
                 let! response =
-                    app.Client.PostAsync (CreateTransaction.Path, content) |> Async.AwaitTask
+                    app.Client.PostAsync (CreateTransaction.Path, content)
+                    |> Async.AwaitTask
 
-                Expect.equal response.StatusCode HttpStatusCode.BadRequest "status code should be 400"
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.BadRequest
+                    "status code should be 400"
             }
 
-            testCaseAsync "POST /api/transactions trims and stores the description"
+            testCaseAsync
+                "POST /api/transactions trims and stores the description"
             <| async {
                 use app = newApp ()
 
@@ -94,7 +141,10 @@ module EndpointTests =
                             Description = "  Rent  "
                     }
 
-                Expect.equal created.Description "Rent" "description should be trimmed"
+                Expect.equal
+                    created.Description
+                    "Rent"
+                    "description should be trimmed"
             }
 
             testCaseAsync "PUT /api/transactions/{id} updates a transaction"
@@ -102,20 +152,33 @@ module EndpointTests =
                 use app = newApp ()
 
                 // Given: an existing transaction.
-                let! original = create app.Client (request "Old description" 12.50m)
+                let! original =
+                    create app.Client (request "Old description" 12.50m)
 
                 // When: the transaction is updated with new fields.
                 let update = request "New description" 13.37m
 
                 let! response =
-                    TestHttp.putJson app.Client (TestHttp.itemPath UpdateTransaction.Path original.Id) update
+                    TestHttp.putJson
+                        app.Client
+                        (TestHttp.itemPath UpdateTransaction.Path original.Id)
+                        update
                     |> Async.AwaitTask
 
                 // Then: the updated transaction is returned.
-                Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.OK
+                    "status code should be 200"
+
                 let! updated = TestHttp.readJson<TransactionResponse> response
                 Expect.equal original.Id updated.Id "id should match the URL id"
-                Expect.equal update.Description updated.Description "description should match"
+
+                Expect.equal
+                    update.Description
+                    updated.Description
+                    "description should match"
+
                 Expect.equal update.Amount updated.Amount "amount should match"
             }
 
@@ -123,7 +186,8 @@ module EndpointTests =
             <| async {
                 use app = newApp ()
 
-                // Given: an imported transaction. Imports do not exist yet, so the hash is set directly.
+                // Given: an imported transaction. Imports do not exist yet, so
+                // the hash is set directly.
                 let! created = create app.Client (request "Imported" 12.50m)
 
                 let importHash () =
@@ -137,7 +201,10 @@ module EndpointTests =
                     use conn = new SqliteConnection (app.ConnectionString)
                     conn.Open ()
                     use cmd = conn.CreateCommand ()
-                    cmd.CommandText <- "UPDATE Transactions SET ImportHash = 'row-hash'"
+
+                    cmd.CommandText <-
+                        "UPDATE Transactions SET ImportHash = 'row-hash'"
+
                     cmd.ExecuteNonQuery () |> ignore
 
                 // When: the user edits it, e.g. to tag it.
@@ -148,10 +215,17 @@ module EndpointTests =
                         (request "Edited" 12.50m)
                     |> Async.AwaitTask
 
-                Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.OK
+                    "status code should be 200"
 
-                // Then: the hash survives, so a re-import still recognises the transaction.
-                Expect.equal (importHash ()) (box "row-hash") "the import hash should be unchanged"
+                // Then: the hash survives, so a re-import still recognises the
+                // transaction.
+                Expect.equal
+                    (importHash ())
+                    (box "row-hash")
+                    "the import hash should be unchanged"
             }
 
             testCaseAsync "a transaction is scoped to the owning user"
@@ -173,7 +247,11 @@ module EndpointTests =
             testCaseAsync "a transaction cannot use another user's tag"
             <| async {
                 use app =
-                    TestApp.create (TestAppConfig.empty |> TestAppConfig.withTransactions |> TestAppConfig.withTags)
+                    TestApp.create (
+                        TestAppConfig.empty
+                        |> TestAppConfig.withTransactions
+                        |> TestAppConfig.withTags
+                    )
 
                 use otherUser = app.ClientForUser "other-user"
 
@@ -186,10 +264,14 @@ module EndpointTests =
                     }
                     |> Async.AwaitTask
 
-                Expect.equal response.StatusCode HttpStatusCode.BadRequest "another user's tag should be rejected"
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.BadRequest
+                    "another user's tag should be rejected"
             }
 
-            testCaseAsync "DELETE /api/transactions/{id} removes the transaction"
+            testCaseAsync
+                "DELETE /api/transactions/{id} removes the transaction"
             <| async {
                 use app = newApp ()
 
@@ -198,17 +280,27 @@ module EndpointTests =
 
                 // When: the transaction is deleted.
                 let! deleteResponse =
-                    app.Client.DeleteAsync (TestHttp.itemPath DeleteTransaction.Path created.Id)
+                    app.Client.DeleteAsync (
+                        TestHttp.itemPath DeleteTransaction.Path created.Id
+                    )
                     |> Async.AwaitTask
 
                 // Then: deletion succeeds.
-                Expect.equal deleteResponse.StatusCode HttpStatusCode.NoContent "delete status should be 204"
+                Expect.equal
+                    deleteResponse.StatusCode
+                    HttpStatusCode.NoContent
+                    "delete status should be 204"
 
                 // Then: the transaction is no longer retrievable.
                 let! getResponse =
-                    app.Client.GetAsync (TestHttp.itemPath ReadTransaction.Path created.Id)
+                    app.Client.GetAsync (
+                        TestHttp.itemPath ReadTransaction.Path created.Id
+                    )
                     |> Async.AwaitTask
 
-                Expect.equal getResponse.StatusCode HttpStatusCode.NotFound "get after delete should be 404"
+                Expect.equal
+                    getResponse.StatusCode
+                    HttpStatusCode.NotFound
+                    "get after delete should be 404"
             }
         ]

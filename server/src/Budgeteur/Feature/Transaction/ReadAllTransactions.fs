@@ -30,7 +30,8 @@ module ReadAllTransactions =
                         where (t.UserId = userId)
                 }
 
-            let transactions = rows |> List.ofSeq |> List.map TransactionCodec.fromRow
+            let transactions =
+                rows |> List.ofSeq |> List.map TransactionCodec.fromRow
 
             return transactions
         }
@@ -48,9 +49,20 @@ module ReadAllTransactions =
                     LogProp.prop "count" (List.length transactions)
                 )
 
-                let response = List.map TransactionResponse.fromDomain transactions
+                let response =
+                    List.map TransactionResponse.fromDomain transactions
+
                 do! Json.write ctx response
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "List all transactions"
+
+        op.Description <- "Returns every transaction in the store."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
+
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         route Path (handler queryContext)
@@ -60,11 +72,6 @@ module ReadAllTransactions =
                     ResponseBody typeof<TransactionResponse list>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "List all transactions"
-                        op.Description <- "Returns every transaction in the store."
-                        op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

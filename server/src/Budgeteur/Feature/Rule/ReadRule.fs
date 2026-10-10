@@ -24,7 +24,11 @@ module ReadRule =
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
-    let private get (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
+    let private get
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (id : Guid)
+        =
         task {
             let! result =
                 selectTask queryContext {
@@ -38,7 +42,10 @@ module ReadRule =
             return rule
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let! userId = Auth.getUserId ctx
@@ -47,12 +54,28 @@ module ReadRule =
 
                 match rule with
                 | Some rule ->
-                    log.Info ($"Returned rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))
+                    log.Info (
+                        $"Returned rule %O{id}",
+                        LogProp.prop "ruleId" (id.ToString ())
+                    )
+
                     do! Json.write ctx (RuleResponse.fromDomain rule)
                 | None ->
-                    log.Warn ($"Rule %O{id} not found", LogProp.prop "ruleId" (id.ToString ()))
+                    log.Warn (
+                        $"Rule %O{id} not found",
+                        LogProp.prop "ruleId" (id.ToString ())
+                    )
+
                     return! Error (NotFound $"Rule %O{id} not found")
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Get a rule by ID"
+
+        op.Description <- "Returns a single rule, or 404 if not found."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         routef Path (handler queryContext)
@@ -63,11 +86,6 @@ module ReadRule =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Get a rule by ID"
-                        op.Description <- "Returns a single rule, or 404 if not found."
-                        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

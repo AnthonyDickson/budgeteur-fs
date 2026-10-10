@@ -8,10 +8,10 @@ type DomainError =
     | NotFound of string
     /// The "sub" claim could not be found in the OIDC token.
     | Unauthorised
-    /// An unhandled database constraint violation.
-    /// Constraint violations should be handled via helpers that explicitly check
-    /// the constraint and return a `ValidationFailed` error. This error variant
-    /// exists to make it clear where there are unhandled constraints.
+    /// An unhandled database constraint violation. Constraint violations should
+    /// be handled via helpers that explicitly check the constraint and return a
+    /// `ValidationFailed` error. This error variant exists to make it clear
+    /// where there are unhandled constraints.
     | Conflict of exn
     /// An unhandled database error.
     | DatabaseError of exn

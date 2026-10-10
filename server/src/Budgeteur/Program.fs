@@ -40,30 +40,43 @@ open Budgeteur.Feature.TestSupport
 open Budgeteur.Feature.Transaction
 
 
-let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAuth2Config) =
+let private addOpenApiToBuilder
+    (builder : WebApplicationBuilder)
+    (oauth2 : OAuth2Config)
+    =
     let oauth2AuthUrl = oauth2.AuthorizationUrl
     let oauth2TokenUrl = oauth2.TokenUrl
 
     builder.Services.AddOpenApi (fun options ->
         options.AddSchemaTransformer<FSharpOptionSchemaTransformer>() |> ignore
-        options.AddSchemaTransformer<OpenApi.FSharpRecordSchemaTransformer>() |> ignore
-        options.AddSchemaTransformer<OpenApi.XmlDocSchemaTransformer>() |> ignore
+
+        options.AddSchemaTransformer<OpenApi.FSharpRecordSchemaTransformer>()
+        |> ignore
+
+        options.AddSchemaTransformer<OpenApi.XmlDocSchemaTransformer>()
+        |> ignore
+
         options.AddSchemaTransformer<OpenApi.SchemaHintTransformer>() |> ignore
-        options.AddSchemaTransformer<OpenApi.DecimalSchemaTransformer>() |> ignore
+
+        options.AddSchemaTransformer<OpenApi.DecimalSchemaTransformer>()
+        |> ignore
 
         options.AddDocumentTransformer (fun doc _ _ ->
             if isNull doc.Components then
                 doc.Components <- OpenApiComponents ()
 
             if isNull doc.Components.SecuritySchemes then
-                doc.Components.SecuritySchemes <- Dictionary<string, IOpenApiSecurityScheme>()
+                doc.Components.SecuritySchemes <-
+                    Dictionary<string, IOpenApiSecurityScheme>()
 
             doc.Components.SecuritySchemes["bearerAuth"] <-
                 OpenApiSecurityScheme (
                     Type = SecuritySchemeType.Http,
                     Scheme = "bearer",
                     BearerFormat = "JWT",
-                    Description = "JWT access token from Authelia. Use the Scalar OAuth2 flow to obtain one."
+                    Description =
+                        "JWT access token from Authelia. Use the Scalar \
+                        OAuth2 flow to obtain one."
                 )
 
             doc.Components.SecuritySchemes["scalarOAuth2"] <-
@@ -73,7 +86,8 @@ let private addOpenApiToBuilder (builder : WebApplicationBuilder) (oauth2 : OAut
                         OpenApiOAuthFlows (
                             AuthorizationCode =
                                 OpenApiOAuthFlow (
-                                    AuthorizationUrl = System.Uri oauth2AuthUrl,
+                                    AuthorizationUrl =
+                                        System.Uri oauth2AuthUrl,
                                     TokenUrl = System.Uri oauth2TokenUrl
                                 )
                         )
@@ -122,13 +136,17 @@ let private applyMigrations (connectionString : string) =
     use conn = new SqliteConnection (connectionString)
     conn.Open ()
 
-    // WAL is stored in the database file, so setting it once applies to every later connection.
-    // Foreign keys are per connection and are set in the connection string (Config.withForeignKeys).
+    // WAL is stored in the database file, so setting it once applies to every
+    // later connection. Foreign keys are per connection and are set in the
+    // connection string (Config.withForeignKeys).
     use walCmd = conn.CreateCommand ()
     walCmd.CommandText <- "PRAGMA journal_mode = WAL"
     walCmd.ExecuteNonQuery () |> ignore
 
-let private handleException (loggerFactory : ILoggerFactory) (next : RequestDelegate) : RequestDelegate =
+let private handleException
+    (loggerFactory : ILoggerFactory)
+    (next : RequestDelegate)
+    : RequestDelegate =
     let logger = loggerFactory.CreateLogger "Budgeteur.Program"
 
     RequestDelegate (fun (ctx : HttpContext) ->
@@ -162,10 +180,11 @@ let private configureSerilog
 
     config.MinimumLevel.Information () |> ignore
 
-    // Filter out healthcheck noise for the status endpoint. Framework per-request logs
-    // (Microsoft.AspNetCore.Hosting.Diagnostics) carry no status code, so they are dropped
-    // whenever the path matches. The app's own buffered request-log summary does carry the
-    // status code, so only successful probes are dropped; failures (503) stay visible.
+    // Filter out healthcheck noise for the status endpoint. Framework
+    // per-request logs (Microsoft.AspNetCore.Hosting.Diagnostics) carry no
+    // status code, so they are dropped whenever the path matches. The app's own
+    // buffered request-log summary does carry the status code, so only
+    // successful probes are dropped; failures (503) stay visible.
     config.Filter.ByExcluding (fun (e : LogEvent) ->
         let prop name =
             match e.Properties.TryGetValue name with
@@ -195,11 +214,16 @@ let private configureSerilog
     config.WriteTo.Console (RenderedCompactJsonFormatter ()) |> ignore
 
     match filePath with
-    | Some path -> config.WriteTo.File (RenderedCompactJsonFormatter (), path) |> ignore
+    | Some path ->
+        config.WriteTo.File (RenderedCompactJsonFormatter (), path) |> ignore
     | None -> ()
 
-let private configureForwardedHeaders (options : ForwardedHeadersOptions) : unit =
-    options.ForwardedHeaders <- ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto
+let private configureForwardedHeaders
+    (options : ForwardedHeadersOptions)
+    : unit =
+    options.ForwardedHeaders <-
+        ForwardedHeaders.XForwardedFor ||| ForwardedHeaders.XForwardedProto
+
     options.KnownIPNetworks.Clear ()
     options.KnownProxies.Clear ()
 
@@ -212,7 +236,11 @@ let private withAuth endpoints =
     Seq.map (addFilter Auth.requireAuth) endpoints
 
 // TODO: Move to own file
-let private buildEndpoints (connectionString : string) (loginReturnUrl : string) (app : WebApplication) =
+let private buildEndpoints
+    (connectionString : string)
+    (loginReturnUrl : string)
+    (app : WebApplication)
+    =
     let queryContext = QueryContextFactory.Create connectionString
     let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime()
 
@@ -221,7 +249,10 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
 
     let statusEndpoints = [
         GET [
-            GetStatus.endpoint connectionString app.Environment.EnvironmentName startedAt
+            GetStatus.endpoint
+                connectionString
+                app.Environment.EnvironmentName
+                startedAt
         ]
     ]
 
@@ -247,23 +278,33 @@ let private buildEndpoints (connectionString : string) (loginReturnUrl : string)
         else
             Seq.empty
 
-    Seq.concat [ authEndpoints; statusEndpoints; featureEndpoints; testEndpoints ]
+    Seq.concat [
+        authEndpoints
+        statusEndpoints
+        featureEndpoints
+        testEndpoints
+    ]
 
 
-let private configureBuilder (builder : WebApplicationBuilder) (config : AppConfig) : unit =
+let private configureBuilder
+    (builder : WebApplicationBuilder)
+    (config : AppConfig)
+    : unit =
     let isDevelopment = builder.Environment.IsDevelopment ()
 
     Auth.configureServices builder.Services isDevelopment config.Oidc
     builder.Services.AddRouting().AddOxpecker() |> ignore
 
-    builder.Services.Configure<ForwardedHeadersOptions> configureForwardedHeaders
+    builder.Services.Configure<ForwardedHeadersOptions>
+        configureForwardedHeaders
     |> ignore
 
     builder.Services.Configure<HostOptions>(fun (options : HostOptions) ->
         options.ShutdownTimeout <- System.TimeSpan.FromSeconds 30L)
     |> ignore
 
-    builder.WebHost.ConfigureKestrel (fun options -> options.Limits.MaxRequestBodySize <- 65536L)
+    builder.WebHost.ConfigureKestrel (fun options ->
+        options.Limits.MaxRequestBodySize <- 65536L)
     |> ignore
 
     builder.Host.UseSerilog (configureSerilog config.Logging) |> ignore
@@ -279,7 +320,9 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     | Some config when isDevelopment -> addOpenApiToApp app config.ClientId
     | _ -> ()
 
-    app.Use (handleException (app.Services.GetRequiredService<ILoggerFactory>()))
+    app.Use (
+        handleException (app.Services.GetRequiredService<ILoggerFactory>())
+    )
     |> ignore
 
     app.UseForwardedHeaders () |> ignore
@@ -289,19 +332,23 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
 
     app.Use (
         Middleware.requestLogging (
-            (app.Services.GetRequiredService<Serilog.ILogger>()).ForContext("SourceContext", "Budgeteur.Request")
+            (app.Services.GetRequiredService<Serilog.ILogger>())
+                .ForContext("SourceContext", "Budgeteur.Request")
         )
     )
     |> ignore
 
     app.UseAuthorization () |> ignore
 
-    app.UseOxpecker (buildEndpoints config.ConnectionString config.Login.ReturnUrl app)
+    app.UseOxpecker (
+        buildEndpoints config.ConnectionString config.Login.ReturnUrl app
+    )
     |> ignore
 
-    // Run the vite dev server for accessing the SPA bundle in the dev environment.
-    // The fallback is explicitly disabled to avoid surprising and difficult to
-    // debug situations where the backend is not loading the code you expect.
+    // Run the vite dev server for accessing the SPA bundle in the dev
+    // environment. The fallback is explicitly disabled to avoid surprising and
+    // difficult to debug situations where the backend is not loading the code
+    // you expect.
     if not isDevelopment then
         app.MapFallbackToFile "index.html" |> ignore
 
@@ -313,13 +360,15 @@ let main (args : string array) : int =
         try
             Config.load builder.Services builder.Configuration
         with :? OptionsValidationException as ex ->
-            eprintfn "The server refused to start: configuration validation failed."
+            eprintfn
+                "The server refused to start: configuration validation failed."
 
             ex.Failures |> Seq.iter (fun failure -> eprintfn "  - %s" failure)
 
             eprintfn
-                "Fix the settings above and restart. \
-                Values are read from appsettings.json or environment variables (e.g. Oidc__ClientSecret)."
+                "Fix the settings above and restart. Values are read from \
+                appsettings.json or environment variables (e.g. \
+                Oidc__ClientSecret)."
 
             exit 1
 

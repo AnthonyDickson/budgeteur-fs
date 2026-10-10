@@ -39,50 +39,78 @@ module ResetUserDataTests =
     let private seed (client : HttpClient) =
         async {
             let! created =
-                TestHttp.postJson client CreateTransaction.Path transaction |> Async.AwaitTask
+                TestHttp.postJson client CreateTransaction.Path transaction
+                |> Async.AwaitTask
 
-            Expect.equal created.StatusCode HttpStatusCode.Created "seeding a transaction should return 201"
+            Expect.equal
+                created.StatusCode
+                HttpStatusCode.Created
+                "seeding a transaction should return 201"
 
             let! created =
-                TestHttp.postJson client CreateBalanceSheetItem.Path item |> Async.AwaitTask
+                TestHttp.postJson client CreateBalanceSheetItem.Path item
+                |> Async.AwaitTask
 
-            Expect.equal created.StatusCode HttpStatusCode.Created "seeding an item should return 201"
+            Expect.equal
+                created.StatusCode
+                HttpStatusCode.Created
+                "seeding an item should return 201"
         }
 
     let private transactionCount (client : HttpClient) =
         async {
-            let! response = client.GetAsync ReadAllTransactions.Path |> Async.AwaitTask
-            let! transactions = TestHttp.readJson<TransactionResponse list> response
+            let! response =
+                client.GetAsync ReadAllTransactions.Path |> Async.AwaitTask
+
+            let! transactions =
+                TestHttp.readJson<TransactionResponse list> response
+
             return List.length transactions
         }
 
     let private sheetStatus (client : HttpClient) =
         async {
-            let! response = client.GetAsync ReadBalanceSheet.Path |> Async.AwaitTask
+            let! response =
+                client.GetAsync ReadBalanceSheet.Path |> Async.AwaitTask
+
             return response.StatusCode
         }
 
     [<Tests>]
     let tests =
         testList "ResetUserData" [
-            testCaseAsync "clears the current user's data and leaves other users' data"
+            testCaseAsync
+                "clears the current user's data and leaves other users' data"
             <| async {
                 use app = newApp ()
                 use otherUser = app.ClientForUser "other-user"
                 do! seed app.Client
                 do! seed otherUser
 
-                let! response = app.Client.DeleteAsync ResetUserData.Path |> Async.AwaitTask
-                Expect.equal response.StatusCode HttpStatusCode.NoContent "reset should return 204"
+                let! response =
+                    app.Client.DeleteAsync ResetUserData.Path |> Async.AwaitTask
+
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.NoContent
+                    "reset should return 204"
 
                 let! count = transactionCount app.Client
                 Expect.equal count 0 "the user's transactions should be deleted"
                 let! status = sheetStatus app.Client
-                Expect.equal status HttpStatusCode.NotFound "the user's balance sheet should be deleted"
+
+                Expect.equal
+                    status
+                    HttpStatusCode.NotFound
+                    "the user's balance sheet should be deleted"
 
                 let! count = transactionCount otherUser
                 Expect.equal count 1 "another user's transactions should remain"
                 let! status = sheetStatus otherUser
-                Expect.equal status HttpStatusCode.OK "another user's balance sheet should remain"
+
+                Expect.equal
+                    status
+                    HttpStatusCode.OK
+                    "another user's balance sheet should remain"
             }
         ]

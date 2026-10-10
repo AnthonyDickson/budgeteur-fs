@@ -9,20 +9,21 @@ open Budgeteur.Domain.Transaction
 
 /// <summary>
 /// Property-based tests for <c>TransactionDescription</c>. These complement the
-/// hand-written endpoint tests by sampling the full input space instead of a few
-/// canned examples, catching off-by-one errors at the length boundary and pinning
-/// down the trim/whitespace behaviour of <c>create</c>.
+/// hand-written endpoint tests by sampling the full input space instead of a
+/// few canned examples, catching off-by-one errors at the length boundary and
+/// pinning down the trim/whitespace behaviour of <c>create</c>.
 /// </summary>
 module TransactionDescriptionPropertyTests =
 
     /// FsCheck's default string generator can produce null, but the validation
-    /// function assumes a non-null description. The endpoint guarantees that via
-    /// JSON decoding (Thoth rejects a null `description`), so the properties sample
-    /// only non-null strings. The null behaviour itself is pinned as an explicit
-    /// example case rather than fuzzed.
+    /// function assumes a non-null description. The endpoint guarantees that
+    /// via JSON decoding (Thoth rejects a null `description`), so the
+    /// properties sample only non-null strings. The null behaviour itself is
+    /// pinned as an explicit example case rather than fuzzed.
     module Arbitraries =
-        /// FsCheck's default string generator can produce null; this override restricts
-        /// generated strings to non-null (the validation function's actual contract).
+        /// FsCheck's default string generator can produce null; this override
+        /// restricts generated strings to non-null (the validation function's
+        /// actual contract).
         type NonNullStrings =
             static member String () : Arbitrary<string> =
                 ArbMap.defaults
@@ -39,7 +40,8 @@ module TransactionDescriptionPropertyTests =
             arbitrary = [ typeof<Arbitraries.NonNullStrings> ]
     }
 
-    /// Acceptance preserves trim: an accepted description equals the trimmed input.
+    /// Acceptance preserves trim: an accepted description equals the trimmed
+    /// input.
     let private propPreservesTrim (s : string) =
         match TransactionDescription.create s with
         | Ok trimmed -> TransactionDescription.value trimmed = s.Trim ()
@@ -48,12 +50,15 @@ module TransactionDescriptionPropertyTests =
     /// Length bounded on accept: accepted descriptions never exceed the limit.
     let private propLengthBounded (s : string) =
         match TransactionDescription.create s with
-        | Ok trimmed -> (TransactionDescription.value trimmed).Length <= maxDescriptionLength
+        | Ok trimmed ->
+            (TransactionDescription.value trimmed).Length
+            <= maxDescriptionLength
         | Error _ -> true
 
-    /// Whitespace rejection: within the acceptable-length domain, the result is an
-    /// error iff the trimmed input is empty (pins the IsNullOrWhiteSpace semantics).
-    /// Over-length inputs are deliberately skipped here; they're the length rule's domain.
+    /// Whitespace rejection: within the acceptable-length domain, the result is
+    /// an error iff the trimmed input is empty (pins the IsNullOrWhiteSpace
+    /// semantics). Over-length inputs are deliberately skipped here; they're
+    /// the length rule's domain.
     let private propRejectsWhitespace (s : string) =
         let whitespaceOnly = String.IsNullOrWhiteSpace s
 
@@ -64,7 +69,8 @@ module TransactionDescriptionPropertyTests =
             | Ok _ -> false
         else
             // A non-whitespace description is accepted unless it is too long,
-            // which is out of scope for this property (see the length property).
+            // which is out of scope for this property (see the length
+            // property).
             let trimmed = s.Trim ()
 
             match TransactionDescription.create s with
@@ -84,5 +90,8 @@ module TransactionDescriptionPropertyTests =
                 "Length bounded on accept: accepted description length <= 256"
                 propLengthBounded
 
-            testPropertyWithConfig config "Whitespace rejection: Error iff trimmed input is empty" propRejectsWhitespace
+            testPropertyWithConfig
+                config
+                "Whitespace rejection: Error iff trimmed input is empty"
+                propRejectsWhitespace
         ]

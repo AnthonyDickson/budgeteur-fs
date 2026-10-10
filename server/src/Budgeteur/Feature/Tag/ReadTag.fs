@@ -24,7 +24,11 @@ module ReadTag =
     [<Literal>]
     let Path = "/api/tags/{%O:guid}"
 
-    let private get (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
+    let private get
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (id : Guid)
+        =
         task {
             let! result =
                 selectTask queryContext {
@@ -38,7 +42,10 @@ module ReadTag =
             return tag
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let! userId = Auth.getUserId ctx
@@ -47,12 +54,28 @@ module ReadTag =
 
                 match tag with
                 | Some tag ->
-                    log.Info ($"Returned tag %O{id}", LogProp.prop "tagId" (id.ToString ()))
+                    log.Info (
+                        $"Returned tag %O{id}",
+                        LogProp.prop "tagId" (id.ToString ())
+                    )
+
                     do! Json.write ctx (TagResponse.fromDomain tag)
                 | None ->
-                    log.Warn ($"Tag %O{id} not found", LogProp.prop "tagId" (id.ToString ()))
+                    log.Warn (
+                        $"Tag %O{id} not found",
+                        LogProp.prop "tagId" (id.ToString ())
+                    )
+
                     return! Error (NotFound $"Tag %O{id} not found")
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Get a tag by ID"
+
+        op.Description <- "Returns a single tag, or 404 if not found."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Tags" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         routef Path (handler queryContext)
@@ -63,11 +86,6 @@ module ReadTag =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Get a tag by ID"
-                        op.Description <- "Returns a single tag, or 404 if not found."
-                        op.Tags <- HashSet [ OpenApiTagReference "Tags" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

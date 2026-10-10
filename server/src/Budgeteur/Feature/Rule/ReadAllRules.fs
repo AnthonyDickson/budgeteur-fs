@@ -43,11 +43,20 @@ module ReadAllRules =
 
                 let log = RequestLog.fromContext ctx
 
-                log.Info ($"Returned %i{List.length rules} rules", LogProp.prop "count" (List.length rules))
+                log.Info (
+                    $"Returned %i{List.length rules} rules",
+                    LogProp.prop "count" (List.length rules)
+                )
 
                 let response = List.map RuleResponse.fromDomain rules
                 do! Json.write ctx response
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "List all rules"
+        op.Description <- "Returns all of the user's rules."
+        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         route Path (handler queryContext)
@@ -57,11 +66,6 @@ module ReadAllRules =
                     ResponseBody typeof<RuleResponse list>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "List all rules"
-                        op.Description <- "Returns all of the user's rules."
-                        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

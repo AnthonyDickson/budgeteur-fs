@@ -10,10 +10,22 @@ module EndpointTests =
     open Budgeteur.Tests
 
     let private newApp () =
-        TestApp.create (TestAppConfig.empty |> TestAppConfig.withTags |> TestAppConfig.withRules)
+        TestApp.create (
+            TestAppConfig.empty
+            |> TestAppConfig.withTags
+            |> TestAppConfig.withRules
+        )
 
-    let private createRule (client : HttpClient) (pattern : string) (tagId : Guid) =
-        let request : CreateRule.CreateRuleRequest = { Pattern = pattern; TagId = tagId }
+    let private createRule
+        (client : HttpClient)
+        (pattern : string)
+        (tagId : Guid)
+        =
+        let request : CreateRule.CreateRuleRequest = {
+            Pattern = pattern
+            TagId = tagId
+        }
+
         TestHttp.postJson client CreateRule.Path request |> Async.AwaitTask
 
     [<Tests>]
@@ -28,7 +40,8 @@ module EndpointTests =
                 let! created = createRule app.Client "STARBUCKS" tagId
                 let! created = TestHttp.readJson<RuleResponse> created
 
-                // A body that is valid for the other user, so only the rule's owner decides the outcome.
+                // A body that is valid for the other user, so only the rule's
+                // owner decides the outcome.
                 let! otherTagId = Seed.tag otherUser "Coffee" "Expense"
 
                 let replacement : UpdateRule.UpdateRuleRequest = {
@@ -53,6 +66,9 @@ module EndpointTests =
                 let! tagId = Seed.tag app.Client "Coffee" "Expense"
                 let! response = createRule otherUser "STARBUCKS" tagId
 
-                Expect.equal response.StatusCode HttpStatusCode.BadRequest "another user's tag should be rejected"
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.BadRequest
+                    "another user's tag should be rejected"
             }
         ]

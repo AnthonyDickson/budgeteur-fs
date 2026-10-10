@@ -19,19 +19,23 @@ module GetStatus =
 
     /// <summary>Outcome of the database connectivity probe.</summary>
     type DatabaseHealth = {
-        /// <summary><c>healthy</c> when the probe succeeded, <c>unhealthy</c> otherwise.</summary>
+        /// <summary><c>healthy</c> when the probe succeeded, <c>unhealthy</c>
+        /// otherwise.</summary>
         Status : string
 
-        /// <summary>Details of the failure, present only when the probe failed.</summary>
+        /// <summary>Details of the failure, present only when the probe
+        /// failed.</summary>
         Error : string option
     }
 
     /// <summary>Payload returned by the public status endpoint.</summary>
     type StatusResponse = {
-        /// <summary>The version of the running build, taken from the assembly informational version.</summary>
+        /// <summary>The version of the running build, taken from the assembly
+        /// informational version.</summary>
         Version : string
 
-        /// <summary>The ASP.NET Core hosting environment name (e.g. Development or Production).</summary>
+        /// <summary>The ASP.NET Core hosting environment name (e.g. Development
+        /// or Production).</summary>
         Environment : string
 
         /// <summary>UTC time the server process started.</summary>
@@ -40,7 +44,8 @@ module GetStatus =
         /// <summary>Seconds elapsed since the server process started.</summary>
         UptimeSeconds : int64
 
-        /// <summary>Time since the server process started in a human-readable format.</summary>
+        /// <summary>Time since the server process started in a human-readable
+        /// format.</summary>
         Uptime : string
 
         /// <summary>Outcome of the database connectivity probe.</summary>
@@ -62,7 +67,11 @@ module GetStatus =
         match Assembly.GetEntryAssembly () with
         | null -> "unknown"
         | assembly ->
-            match assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>() with
+            match
+                assembly.GetCustomAttribute<
+                    AssemblyInformationalVersionAttribute
+                 >()
+            with
             | null -> string (assembly.GetName().Version)
             | attr -> attr.InformationalVersion
 
@@ -73,7 +82,10 @@ module GetStatus =
         | 0 -> sprintf "%dh %dm %ds" ts.Hours ts.Minutes ts.Seconds
         | d -> sprintf "%dd %dh %dm" d ts.Hours ts.Minutes
 
-    let private checkDatabase (queryContext : QueryContextFactory) (ct : CancellationToken) =
+    let private checkDatabase
+        (queryContext : QueryContextFactory)
+        (ct : CancellationToken)
+        =
         let probe =
             task {
                 try
@@ -86,7 +98,9 @@ module GetStatus =
                     return { Status = Healthy; Error = None }, []
                 with ex ->
                     let logEntry =
-                        LogEntry.warn "Database health probe failed" [ LogProp.prop "exception" ex.Message ]
+                        LogEntry.warn "Database health probe failed" [
+                            LogProp.prop "exception" ex.Message
+                        ]
 
                     return
                         {
@@ -103,7 +117,8 @@ module GetStatus =
             if winner = probe then
                 return probe.Result
             else
-                let logEntry = LogEntry.warn "Database health probe timed out" []
+                let logEntry =
+                    LogEntry.warn "Database health probe timed out" []
 
                 return
                     {
@@ -125,7 +140,10 @@ module GetStatus =
         : EndpointHandler =
         fun (ctx : HttpContext) ->
             task {
-                use cts = CancellationTokenSource.CreateLinkedTokenSource ctx.RequestAborted
+                use cts =
+                    CancellationTokenSource.CreateLinkedTokenSource
+                        ctx.RequestAborted
+
                 cts.CancelAfter probeTimeout
 
                 let! database, logEntries = checkDatabase queryContext cts.Token
@@ -148,7 +166,21 @@ module GetStatus =
                 do! Json.write ctx response
             }
 
-    let endpoint (connectionString : string) (environment : string) (startedAt : DateTime) =
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Service status"
+
+        op.Description <-
+            "Reports the deployed version, uptime, and \
+            database health. Returns 503 when the database is unreachable."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Status" ]
+        Task.CompletedTask
+
+    let endpoint
+        (connectionString : string)
+        (environment : string)
+        (startedAt : DateTime)
+        =
         let queryContext = createProbeFactory connectionString
 
         route Path (handler queryContext environment startedAt)
@@ -158,15 +190,6 @@ module GetStatus =
                     ResponseBody typeof<StatusResponse>
                     ResponseBody (typeof<StatusResponse>, statusCode = 503)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Service status"
-
-                        op.Description <-
-                            "Reports the deployed version, uptime, and database health. \
-                            Returns 503 when the database is unreachable."
-
-                        op.Tags <- HashSet [ OpenApiTagReference "Status" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

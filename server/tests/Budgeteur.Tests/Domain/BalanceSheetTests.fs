@@ -12,7 +12,8 @@ module BalanceSheetTests =
     let private okOrFail label =
         function
         | Ok value -> value
-        | Error error -> failtestf "%s: expected Ok, but got Error %A" label error
+        | Error error ->
+            failtestf "%s: expected Ok, but got Error %A" label error
 
     let private item name kind term balance = {
         Id = Guid.Empty
@@ -23,7 +24,12 @@ module BalanceSheetTests =
     }
 
     let private sheet items = {
-        StatementDate = DateTime (DateOnly (2026, 1, 1), TimeOnly.MinValue, DateTimeKind.Utc)
+        StatementDate =
+            DateTime (
+                DateOnly (2026, 1, 1),
+                TimeOnly.MinValue,
+                DateTimeKind.Utc
+            )
         Items = items
     }
 
@@ -51,57 +57,102 @@ module BalanceSheetTests =
     [<Tests>]
     let balanceTests =
         testList "Balance" [
-            testProperty "Accepted balances are exact, non-negative cents" propBalanceAcceptedIsNonNegativeCents
-            testProperty "Negative amounts are always rejected" propBalanceRejectsNegatives
+            testProperty
+                "Accepted balances are exact, non-negative cents"
+                propBalanceAcceptedIsNonNegativeCents
+            testProperty
+                "Negative amounts are always rejected"
+                propBalanceRejectsNegatives
 
             testCase "create rounds to cents away from zero"
             <| fun () ->
                 let balance = Balance.create 13.375m |> okOrFail "balance"
-                Expect.equal (Balance.value balance) 13.38m "13.375 rounds up to 13.38"
+
+                Expect.equal
+                    (Balance.value balance)
+                    13.38m
+                    "13.375 rounds up to 13.38"
 
             testCase "create leaves exact cents unchanged"
             <| fun () ->
                 let balance = Balance.create 12.50m |> okOrFail "balance"
-                Expect.equal (Balance.value balance) 12.50m "12.50 is already cents"
+
+                Expect.equal
+                    (Balance.value balance)
+                    12.50m
+                    "12.50 is already cents"
 
             testCase "create accepts zero"
             <| fun () ->
                 let balance = Balance.create 0m |> okOrFail "balance"
-                Expect.equal (Balance.value balance) 0m "zero is a valid magnitude"
 
-            testCase "create rejects a negative magnitude with a validation error"
+                Expect.equal
+                    (Balance.value balance)
+                    0m
+                    "zero is a valid magnitude"
+
+            testCase
+                "create rejects a negative magnitude with a validation error"
             <| fun () ->
                 match Balance.create -10m with
                 | Error (Budgeteur.Shared.DomainError.ValidationFailed _) -> ()
-                | other -> failtestf "Expected ValidationFailed, but got %A" other
+                | other ->
+                    failtestf "Expected ValidationFailed, but got %A" other
         ]
 
     [<Tests>]
     let balanceSheetTotalsTests =
         testList "BalanceSheet totals" [
             testCase "totalAssets sums only assets, across both terms"
-            <| fun () -> Expect.equal (BalanceSheet.totalAssets sampleSheet) 407000m "2000 + 5000 + 400000"
+            <| fun () ->
+                Expect.equal
+                    (BalanceSheet.totalAssets sampleSheet)
+                    407000m
+                    "2000 + 5000 + 400000"
 
             testCase "totalLiabilities sums only liabilities, across both terms"
-            <| fun () -> Expect.equal (BalanceSheet.totalLiabilities sampleSheet) 301500m "1500 + 300000"
+            <| fun () ->
+                Expect.equal
+                    (BalanceSheet.totalLiabilities sampleSheet)
+                    301500m
+                    "1500 + 300000"
 
             testCase "netWorth is total assets minus total liabilities"
-            <| fun () -> Expect.equal (BalanceSheet.netWorth sampleSheet) 105500m "407000 - 301500"
+            <| fun () ->
+                Expect.equal
+                    (BalanceSheet.netWorth sampleSheet)
+                    105500m
+                    "407000 - 301500"
 
             testCase "an empty balance sheet has zero net worth"
-            <| fun () -> Expect.equal (BalanceSheet.netWorth (sheet [])) 0m "nothing owned or owed"
+            <| fun () ->
+                Expect.equal
+                    (BalanceSheet.netWorth (sheet []))
+                    0m
+                    "nothing owned or owed"
 
             testCase "liabilities do not contribute to total assets"
             <| fun () ->
-                let liabilitiesOnly = sheet [ item "Loan" ItemKind.Liability Term.NonCurrent 500m ]
-                Expect.equal (BalanceSheet.totalAssets liabilitiesOnly) 0m "a liability is never an asset"
+                let liabilitiesOnly =
+                    sheet [
+                        item "Loan" ItemKind.Liability Term.NonCurrent 500m
+                    ]
+
+                Expect.equal
+                    (BalanceSheet.totalAssets liabilitiesOnly)
+                    0m
+                    "a liability is never an asset"
         ]
 
     [<Tests>]
     let workingCapitalTests =
         testList "BalanceSheet working capital" [
             testCase "totalCurrentAssets sums only current assets"
-            <| fun () -> Expect.equal (BalanceSheet.totalCurrentAssets sampleSheet) 7000m "2000 + 5000, house excluded"
+            <| fun () ->
+                Expect.equal
+                    (BalanceSheet.totalCurrentAssets sampleSheet)
+                    7000m
+                    "2000 + 5000, house excluded"
 
             testCase "totalCurrentLiabilities sums only current liabilities"
             <| fun () ->
@@ -110,20 +161,41 @@ module BalanceSheetTests =
                     1500m
                     "credit card only, mortgage excluded"
 
-            testCase "workingCapital is current assets minus current liabilities"
-            <| fun () -> Expect.equal (BalanceSheet.workingCapital sampleSheet) 5500m "7000 - 1500"
+            testCase
+                "workingCapital is current assets minus current liabilities"
+            <| fun () ->
+                Expect.equal
+                    (BalanceSheet.workingCapital sampleSheet)
+                    5500m
+                    "7000 - 1500"
 
-            testCase "workingCapital excludes non-current items, unlike net worth"
+            testCase
+                "workingCapital excludes non-current items, unlike net worth"
             <| fun () ->
                 let nonCurrentOnly =
                     sheet [
                         item "House" ItemKind.Asset Term.NonCurrent 400000m
-                        item "Mortgage" ItemKind.Liability Term.NonCurrent 300000m
+                        item
+                            "Mortgage"
+                            ItemKind.Liability
+                            Term.NonCurrent
+                            300000m
                     ]
 
-                Expect.equal (BalanceSheet.workingCapital nonCurrentOnly) 0m "non-current items do not count"
-                Expect.equal (BalanceSheet.netWorth nonCurrentOnly) 100000m "net worth still sees them"
+                Expect.equal
+                    (BalanceSheet.workingCapital nonCurrentOnly)
+                    0m
+                    "non-current items do not count"
+
+                Expect.equal
+                    (BalanceSheet.netWorth nonCurrentOnly)
+                    100000m
+                    "net worth still sees them"
 
             testCase "an empty balance sheet has zero working capital"
-            <| fun () -> Expect.equal (BalanceSheet.workingCapital (sheet [])) 0m "nothing current"
+            <| fun () ->
+                Expect.equal
+                    (BalanceSheet.workingCapital (sheet []))
+                    0m
+                    "nothing current"
         ]

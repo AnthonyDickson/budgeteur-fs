@@ -10,8 +10,9 @@ open Budgeteur.Domain.BalanceSheetItem
 
 module BalanceSheetItemTests =
     module Arbitraries =
-        /// FsCheck's default string generator can produce null, but the validation
-        /// functions assume a non-null input (guaranteed by JSON decoding at the edge).
+        /// FsCheck's default string generator can produce null, but the
+        /// validation functions assume a non-null input (guaranteed by JSON
+        /// decoding at the edge).
         type NonNullStrings =
             static member String () : Arbitrary<string> =
                 ArbMap.defaults
@@ -42,8 +43,8 @@ module BalanceSheetItemTests =
 
     let private nameConfig = {
         FsCheckConfig.defaultConfig with
-            // Pushes FsCheck past the length limit so an off-by-one at the boundary
-            // is exercised rather than missed.
+            // Pushes FsCheck past the length limit so an off-by-one at the
+            // boundary is exercised rather than missed.
             endSize = 512
             arbitrary = [ typeof<Arbitraries.NonNullStrings> ]
     }
@@ -58,7 +59,8 @@ module BalanceSheetItemTests =
 
             testPropertyWithConfig
                 nameConfig
-                $"Length bounded on accept: accepted name length <= {ItemName.MaxLength}"
+                $"Length bounded on accept: accepted name length <= \
+                {ItemName.MaxLength}"
                 propNameLengthBounded
 
             testPropertyWithConfig
@@ -69,12 +71,18 @@ module BalanceSheetItemTests =
             testCase "create accepts a name at exactly the length limit"
             <| fun () ->
                 let name = String ('a', ItemName.MaxLength)
-                Expect.isOk (ItemName.create name) $"{ItemName.MaxLength} character names are allowed"
+
+                Expect.isOk
+                    (ItemName.create name)
+                    $"{ItemName.MaxLength} character names are allowed"
 
             testCase "create rejects a name one character over the limit"
             <| fun () ->
                 let name = String ('a', ItemName.MaxLength + 1)
-                Expect.isError (ItemName.create name) $"{ItemName.MaxLength + 1} character names are rejected"
+
+                Expect.isError
+                    (ItemName.create name)
+                    $"{ItemName.MaxLength + 1} character names are rejected"
         ]
 
     [<Tests>]
@@ -95,7 +103,10 @@ module BalanceSheetItemTests =
                     "Could not round trip Liability"
 
             testCase "Parse rejects invalid value"
-            <| fun () -> Expect.isError (ItemKind.parse "foo") "ItemKind accepted invalid value 'foo'"
+            <| fun () ->
+                Expect.isError
+                    (ItemKind.parse "foo")
+                    "ItemKind accepted invalid value 'foo'"
         ]
 
     [<Tests>]
@@ -116,5 +127,8 @@ module BalanceSheetItemTests =
                     "Could not round trip NonCurrent"
 
             testCase "Parse rejects invalid value"
-            <| fun () -> Expect.isError (Term.parse "foo") "Term accepted invalid value 'foo'"
+            <| fun () ->
+                Expect.isError
+                    (Term.parse "foo")
+                    "Term accepted invalid value 'foo'"
         ]

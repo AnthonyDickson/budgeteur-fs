@@ -1,8 +1,8 @@
 namespace Budgeteur.Shared.Endpoint
 
 
-/// <summary>Maps <c>Task&lt;Result&lt;unit, DomainError&gt;&gt;</c> results into HTTP responses
-/// suitable for Oxpecker endpoint handlers.</summary>
+/// <summary>Maps <c>Task&lt;Result&lt;unit, DomainError&gt;&gt;</c> results
+/// into HTTP responses suitable for Oxpecker endpoint handlers.</summary>
 [<RequireQualifiedAccess>]
 module Endpoint =
     open System.Threading.Tasks
@@ -24,26 +24,34 @@ module Endpoint =
         | DatabaseError _ -> "DatabaseError"
         | UnhandledException _ -> "UnhandledException"
 
-    let handler (handler_fun : HttpContext -> Task<Result<unit, DomainError>>) : (HttpContext -> Task) =
+    /// Run the handler, turning the exceptions it raises into errors.
+    let private runCatching
+        (log : RequestLog)
+        (handler_fun : HttpContext -> Task<Result<unit, DomainError>>)
+        (ctx : HttpContext)
+        =
+        task {
+            try
+                return! handler_fun ctx
+            with
+            | :? SqliteException as exn when exn.SqliteErrorCode = 19 ->
+                log.Warn (
+                    $"Unhandled constraint violation: {exn.Message}",
+                    LogProp.prop "exception" (exn.ToString ())
+                )
+
+                return Error (Conflict exn)
+            | :? SqliteException as exn -> return Error (DatabaseError exn)
+            | exn -> return Error (UnhandledException exn)
+        }
+
+    let handler
+        (handler_fun : HttpContext -> Task<Result<unit, DomainError>>)
+        : (HttpContext -> Task) =
         fun (ctx : HttpContext) ->
             task {
                 let log = RequestLog.fromContext ctx
-
-                let! result =
-                    task {
-                        try
-                            return! handler_fun ctx
-                        with
-                        | :? SqliteException as exn when exn.SqliteErrorCode = 19 ->
-                            log.Warn (
-                                $"Unhandled constraint violation: {exn.Message}",
-                                LogProp.prop "exception" (exn.ToString ())
-                            )
-
-                            return Error (Conflict exn)
-                        | :? SqliteException as exn -> return Error (DatabaseError exn)
-                        | exn -> return Error (UnhandledException exn)
-                    }
+                let! result = runCatching log handler_fun ctx
 
                 match result with
                 | Ok () -> ()
@@ -64,7 +72,9 @@ module Endpoint =
                             RequestId = ctx.TraceIdentifier
                         }
                 | Error Unauthorised ->
-                    log.Error "Got a request where the user claims were not defined"
+                    log.Error
+                        "Got a request where the user claims were not defined"
+
                     ctx.Response.StatusCode <- 401
 
                     return!
@@ -75,7 +85,12 @@ module Endpoint =
                             RequestId = ctx.TraceIdentifier
                         }
                 | Error (NotFound err) ->
-                    log.Warn ($"Not found: {err}", LogProp.prop "errorType" "NotFound", LogProp.prop "error" err)
+                    log.Warn (
+                        $"Not found: {err}",
+                        LogProp.prop "errorType" "NotFound",
+                        LogProp.prop "error" err
+                    )
+
                     ctx.Response.StatusCode <- 404
 
                     return!
@@ -98,7 +113,8 @@ module Endpoint =
                         Json.write ctx {
                             Error = "Conflict"
                             Details =
-                                "The request could not be completed due to unhandled database constraint violations."
+                                "The request could not be completed due to \
+                                unhandled database constraint violations."
                             StatusCode = Some 409
                             RequestId = ctx.TraceIdentifier
                         }

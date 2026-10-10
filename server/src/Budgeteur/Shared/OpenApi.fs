@@ -3,36 +3,41 @@ namespace Budgeteur.Shared.OpenApi
 open System
 
 /// <summary>
-/// Declarative hints describing how a refined or constrained value is represented on the wire.
-/// A hint is applied to an OpenAPI schema by <see cref="OpenApi.SchemaHintTransformer"/>; the
-/// annotated field stays a primitive, so decoding is unaffected.
+/// Declarative hints describing how a refined or constrained value is
+/// represented on the wire. A hint is applied to an OpenAPI schema by
+/// <see cref="OpenApi.SchemaHintTransformer"/>; the annotated field stays a
+/// primitive, so decoding is unaffected.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Prefer the native <c>System.ComponentModel.DataAnnotations</c> attributes wherever they express
-/// the constraint: ASP.NET Core maps them onto JSON Schema keywords for free. Avoid
-/// <c>[&lt;Required&gt;]</c> on F# records - see <see cref="OpenApi.FSharpRecordSchemaTransformer"/>.
+/// Prefer the native <c>System.ComponentModel.DataAnnotations</c> attributes
+/// wherever they express the constraint: ASP.NET Core maps them onto JSON
+/// Schema keywords for free. Avoid <c>[&lt;Required&gt;]</c> on F# records -
+/// see <see cref="OpenApi.FSharpRecordSchemaTransformer"/>.
 /// </para>
 /// <para>
-/// Use <see cref="SchemaHint.EnumAttribute"/> to document a string enum derived from an F# union's
-/// cases, and <see cref="SchemaHint.DecimalAttribute"/> to mark a decimal as a non-negative money
-/// value. Hints document only; they do not validate, so keep them in step with the domain
-/// invariants.
+/// Use <see cref="SchemaHint.EnumAttribute"/> to document a string enum derived
+/// from an F# union's cases, and <see cref="SchemaHint.DecimalAttribute"/> to
+/// mark a decimal as a non-negative money value. Hints document only; they do
+/// not validate, so keep them in step with the domain invariants.
 /// </para>
 /// <para>
-/// See <c>docs/openapi.md</c> for the native attribute reference, the full guidance, and future
-/// migrations (e.g. the F# union transformer in Oxpecker.OpenApi PR #98) and alternatives.
+/// See <c>docs/openapi.md</c> for the native attribute reference, the full
+/// guidance, and future migrations (e.g. the F# union transformer in
+/// Oxpecker.OpenApi PR #98) and alternatives.
 /// </para>
 /// </remarks>
 module SchemaHint =
     /// <summary>
-    /// Documents a string property as an enum, deriving the accepted values from the cases of an
-    /// F# discriminated union, e.g. <c>SchemaHint.Enum(typeof&lt;ItemKind&gt;)</c>.
+    /// Documents a string property as an enum, deriving the accepted values
+    /// from the cases of an F# discriminated union, e.g.
+    /// <c>SchemaHint.Enum(typeof&lt;ItemKind&gt;)</c>.
     /// </summary>
     /// <remarks>
-    /// The emitted values are the union case names, so they must match the wire strings. They do for
-    /// the domain enums, whose <c>toString</c> returns the case names. If a case name ever diverges
-    /// from its wire value, either reflect a dedicated union whose names match or fall back to
+    /// The emitted values are the union case names, so they must match the wire
+    /// strings. They do for the domain enums, whose <c>toString</c> returns the
+    /// case names. If a case name ever diverges from its wire value, either
+    /// reflect a dedicated union whose names match or fall back to
     /// <c>[&lt;RegularExpression&gt;]</c>.
     /// </remarks>
     [<AttributeUsage(AttributeTargets.Class
@@ -49,10 +54,11 @@ module SchemaHint =
     /// <c>SchemaHint.Decimal (NonNegative = true)</c>.
     /// </summary>
     /// <remarks>
-    /// Decimals are encoded as JSON strings, so the published decimal schema is a <c>string</c>
-    /// with a money pattern (see <see cref="OpenApi.DecimalSchemaTransformer"/>). The pattern is
-    /// signed by default; set <c>NonNegative</c> to drop the sign, mirroring the domain rule that
-    /// a magnitude cannot be negative.
+    /// Decimals are encoded as JSON strings, so the published decimal schema is
+    /// a <c>string</c> with a money pattern (see
+    /// <see cref="OpenApi.DecimalSchemaTransformer"/>). The pattern is signed
+    /// by default; set <c>NonNegative</c> to drop the sign, mirroring the
+    /// domain rule that a magnitude cannot be negative.
     /// </remarks>
     [<AttributeUsage(AttributeTargets.Class
                      ||| AttributeTargets.Struct
@@ -80,23 +86,29 @@ module OpenApi =
     let private isOptionType (t : System.Type) : bool =
         if t.IsGenericType then
             let definition = t.GetGenericTypeDefinition ()
-            definition = typedefof<option<_>> || definition = typedefof<voption<_>>
+
+            definition = typedefof<option<_>>
+            || definition = typedefof<voption<_>>
         else
             false
 
     /// <summary>
-    /// Marks non-option record fields as required and fixes string property type inference in OpenAPI schemas.
+    /// Marks non-option record fields as required and fixes string property
+    /// type inference in OpenAPI schemas.
     /// </summary>
     type FSharpRecordSchemaTransformer () =
         interface IOpenApiSchemaTransformer with
-            member _.TransformAsync (schema, context, _cancellationToken : CancellationToken) =
+            member _.TransformAsync
+                (schema, context, _cancellationToken : CancellationToken)
+                =
                 let jsonType = context.JsonTypeInfo.Type
 
                 if FSharpType.IsRecord jsonType then
                     let required =
                         jsonType
                         |> FSharpType.GetRecordFields
-                        |> Seq.filter (fun field -> not (isOptionType field.PropertyType))
+                        |> Seq.filter (fun field ->
+                            not (isOptionType field.PropertyType))
                         |> Seq.map (fun field -> field.Name)
                         |> HashSet<string>
 
@@ -122,7 +134,8 @@ module OpenApi =
 
 
     /// <summary>
-    /// Populates schema and property descriptions from F# XML doc comments (`summary` tags on types and record fields).
+    /// Populates schema and property descriptions from F# XML doc comments
+    /// (`summary` tags on types and record fields).
     /// </summary>
     type XmlDocSchemaTransformer () =
         let loadedDocs = ConcurrentDictionary<string, Map<string, string>>()
@@ -153,9 +166,12 @@ module OpenApi =
             loadedDocs.GetOrAdd (asm.Location, fun _ -> tryLoadDoc asm)
 
         interface IOpenApiSchemaTransformer with
-            member _.TransformAsync (schema, context, _cancellationToken : CancellationToken) =
+            member _.TransformAsync
+                (schema, context, _cancellationToken : CancellationToken)
+                =
                 let jsonType = context.JsonTypeInfo.Type
-                // .NET reflection uses '+' for nested types but XML doc uses '.'
+                // .NET reflection uses '+' for nested types but XML doc uses
+                // '.'
                 let xmlTypeName = jsonType.FullName.Replace ('+', '.')
 
                 let summaries = getSummaries jsonType.Assembly
@@ -171,32 +187,46 @@ module OpenApi =
                 if FSharpType.IsRecord jsonType then
                     for field in FSharpType.GetRecordFields jsonType do
                         let fieldKey = $"P:%s{xmlTypeName}.%s{field.Name}"
-                        let jsonName = JsonNamingPolicy.CamelCase.ConvertName field.Name
+
+                        let jsonName =
+                            JsonNamingPolicy.CamelCase.ConvertName field.Name
 
                         match summaries.TryFind fieldKey with
                         | Some summary ->
-                            if not (isNull schema.Properties) && schema.Properties.ContainsKey jsonName then
-                                schema.Properties[jsonName].Description <- summary
+                            if
+                                not (isNull schema.Properties)
+                                && schema.Properties.ContainsKey jsonName
+                            then
+                                schema.Properties[jsonName].Description <-
+                                    summary
                         | None -> ()
 
                 Task.CompletedTask
 
     /// <summary>
-    /// Applies <see cref="SchemaHint"/> attributes to generated schemas, so refined values are
-    /// documented as their wire representation: an enum derived from a union's cases.
+    /// Applies <see cref="SchemaHint"/> attributes to generated schemas, so
+    /// refined values are documented as their wire representation: an enum
+    /// derived from a union's cases.
     /// </summary>
     type SchemaHintTransformer () =
         interface IOpenApiSchemaTransformer with
-            member _.TransformAsync (schema, context, _cancellationToken : CancellationToken) =
+            member _.TransformAsync
+                (schema, context, _cancellationToken : CancellationToken)
+                =
                 let apply (provider : ICustomAttributeProvider) =
-                    for attribute in provider.GetCustomAttributes (typeof<SchemaHint.EnumAttribute>, false) do
+                    for attribute in
+                        provider.GetCustomAttributes (
+                            typeof<SchemaHint.EnumAttribute>,
+                            false
+                        ) do
                         let hint = attribute :?> SchemaHint.EnumAttribute
 
                         schema.Type <- Nullable JsonSchemaType.String
 
                         schema.Enum <-
                             ResizeArray<JsonNode> [
-                                for case in FSharpType.GetUnionCases hint.UnionType ->
+                                for case in
+                                    FSharpType.GetUnionCases hint.UnionType ->
                                     JsonValue.Create case.Name :> JsonNode
                             ]
 
@@ -208,17 +238,22 @@ module OpenApi =
                 Task.CompletedTask
 
     /// <summary>
-    /// Documents <c>decimal</c> as a JSON string using the money pattern, because the server encodes
-    /// decimals as strings (Thoth's <c>Encode.decimal</c>) and the client sends strings. The pattern
-    /// allows at most two fraction digits, matching the domain's rounding to cents. A property
-    /// marked with <see cref="SchemaHint.DecimalAttribute.NonNegative"/> uses the unsigned pattern.
+    /// Documents <c>decimal</c> as a JSON string using the money pattern,
+    /// because the server encodes decimals as strings (Thoth's
+    /// <c>Encode.decimal</c>) and the client sends strings. The pattern allows
+    /// at most two fraction digits, matching the domain's rounding to cents. A
+    /// property marked with
+    /// <see cref="SchemaHint.DecimalAttribute.NonNegative"/> uses the unsigned
+    /// pattern.
     /// </summary>
     type DecimalSchemaTransformer () =
         let signedPattern = @"^-?(?:0|[1-9]\d*)(?:\.\d{1,2})?$"
         let nonNegativePattern = @"^(?:0|[1-9]\d*)(?:\.\d{1,2})?$"
 
         interface IOpenApiSchemaTransformer with
-            member _.TransformAsync (schema, context, _cancellationToken : CancellationToken) =
+            member _.TransformAsync
+                (schema, context, _cancellationToken : CancellationToken)
+                =
                 if context.JsonTypeInfo.Type = typeof<decimal> then
                     schema.Type <- Nullable JsonSchemaType.String
                     schema.Format <- null
@@ -228,12 +263,19 @@ module OpenApi =
 
                     let isNonNegative =
                         not (isNull context.JsonPropertyInfo)
-                        && context.JsonPropertyInfo.AttributeProvider.GetCustomAttributes (
-                            typeof<SchemaHint.DecimalAttribute>,
-                            false
-                           )
-                           |> Array.exists (fun attribute -> (attribute :?> SchemaHint.DecimalAttribute).NonNegative)
+                        && context.JsonPropertyInfo
+                            .AttributeProvider.GetCustomAttributes (
+                                typeof<SchemaHint.DecimalAttribute>,
+                                false
+                            )
+                           |> Array.exists (fun attribute ->
+                               (attribute :?> SchemaHint.DecimalAttribute)
+                                   .NonNegative)
 
-                    schema.Pattern <- if isNonNegative then nonNegativePattern else signedPattern
+                    schema.Pattern <-
+                        if isNonNegative then
+                            nonNegativePattern
+                        else
+                            signedPattern
 
                 Task.CompletedTask

@@ -26,7 +26,8 @@ module RulePattern =
         else
             Ok pattern
 
-    /// <summary>Trim whitespace and then validate a rule pattern. Returns the trimmed pattern.</summary>
+    /// <summary>Trim whitespace and then validate a rule pattern. Returns the
+    /// trimmed pattern.</summary>
     let create (pattern : string) =
         pattern.Trim ()
         |> nonEmpty
@@ -35,7 +36,8 @@ module RulePattern =
 
     let value (RulePattern pattern) = pattern
 
-    /// An escape hatch for the smart constructor for reading trusted values from the database.
+    /// An escape hatch for the smart constructor for reading trusted values
+    /// from the database.
     let internal unsafeFromString pattern = RulePattern pattern
 
 type Rule = {

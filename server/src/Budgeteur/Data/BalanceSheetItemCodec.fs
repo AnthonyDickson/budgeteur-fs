@@ -5,7 +5,10 @@ module BalanceSheetItemCodec =
     open Budgeteur.Data.Db
     open Budgeteur.Domain.BalanceSheetItem
 
-    let toRow (item : BalanceSheetItem) (userId : string) : main.BalanceSheetItems = {
+    let toRow
+        (item : BalanceSheetItem)
+        (userId : string)
+        : main.BalanceSheetItems = {
         Id = item.Id
         UserId = userId
         Name = ItemName.value item.Name
@@ -20,12 +23,14 @@ module BalanceSheetItemCodec =
         Kind =
             match ItemKind.parse row.Kind with
             | Ok kind -> kind
-            // The database checks this column, so in practice this arm is unreachable
+            // The database checks this column, so in practice this arm is
+            // unreachable
             | Error error -> failwith error
         Term =
             match Term.parse row.Term with
             | Ok term -> term
-            // The database checks this column, so in practice this arm is unreachable
+            // The database checks this column, so in practice this arm is
+            // unreachable
             | Error error -> failwith error
         Balance = Balance.unsafeFromDecimal row.Balance
     }

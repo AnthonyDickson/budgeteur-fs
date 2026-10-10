@@ -50,10 +50,17 @@ module UpdateBalanceSheetItem =
                 if rowCount = 0 then
                     Ok ()
                 else
-                    Error (ConstraintError "An identical balance sheet item already exists.")
+                    Error (
+                        ConstraintError
+                            "An identical balance sheet item already exists."
+                    )
         }
 
-    let private updateBalanceSheetItem (queryContext : QueryContext) (item : BalanceSheetItem) (userId : string) =
+    let private updateBalanceSheetItem
+        (queryContext : QueryContext)
+        (item : BalanceSheetItem)
+        (userId : string)
+        =
         task {
             let row = BalanceSheetItemCodec.toRow item userId
 
@@ -65,12 +72,20 @@ module UpdateBalanceSheetItem =
                 }
 
             if rowsUpdated = 0 then
-                return Error (NotFound $"Could not find the balance sheet item %O{item.Id}")
+                return
+                    Error (
+                        NotFound
+                            $"Could not find the balance sheet item %O{item.Id}"
+                    )
             else
                 return Ok ()
         }
 
-    let private handler (queryContext : QueryContextFactory) (clock : Clock) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (clock : Clock)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -78,12 +93,24 @@ module UpdateBalanceSheetItem =
                 let! req = Json.read ctx
                 let! item = WriteBalanceSheetItemRequest.validate req id
 
-                do! Constraints.requireOne (requireBalanceSheetItemIsUnique queryContext item userId)
+                do!
+                    Constraints.requireOne (
+                        requireBalanceSheetItemIsUnique
+                            queryContext
+                            item
+                            userId
+                    )
 
                 use! sharedCtx = queryContext.OpenContextAsync ()
                 sharedCtx.BeginTransaction ()
                 do! updateBalanceSheetItem sharedCtx item userId
-                do! BalanceSheetStore.updateOrCreate sharedCtx (clock ()) userId
+
+                do!
+                    BalanceSheetStore.updateOrCreate
+                        sharedCtx
+                        (clock ())
+                        userId
+
                 sharedCtx.CommitTransaction ()
 
                 log.Info (
@@ -94,25 +121,31 @@ module UpdateBalanceSheetItem =
                 do! Json.write ctx (BalanceSheetItemResponse.fromDomain item)
             })
 
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Update a balance sheet item"
+
+        op.Description <-
+            "Update a balance sheet item and the balance sheet statement date."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
+
+        Task.CompletedTask
+
     let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
         routef Path (handler queryContext clock)
         |> addOpenApi (
             OpenApiConfig (
                 requestBody = RequestBody typeof<WriteBalanceSheetItemRequest>,
                 responseBodies = [|
-                    ResponseBody (typeof<BalanceSheetItemResponse>, statusCode = 200)
+                    ResponseBody (
+                        typeof<BalanceSheetItemResponse>,
+                        statusCode = 200
+                    )
                     ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                     ResponseBody (typeof<ApiError>, statusCode = 409)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Update a balance sheet item"
-
-                        op.Description <- "Update a balance sheet item and the balance sheet statement date."
-
-                        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

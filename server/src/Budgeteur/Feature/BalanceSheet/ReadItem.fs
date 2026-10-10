@@ -23,7 +23,11 @@ module ReadBalanceSheetItem =
     [<Literal>]
     let Path = "/api/balance-sheet/items/{%O:guid}"
 
-    let private tryReadBalanceSheetItem (queryContext : QueryContextFactory) (id : Guid) (userId : string) =
+    let private tryReadBalanceSheetItem
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        (userId : string)
+        =
         task {
             let! item =
                 selectTask queryContext {
@@ -36,7 +40,10 @@ module ReadBalanceSheetItem =
             return Option.map BalanceSheetItemCodec.fromRow item
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -50,15 +57,27 @@ module ReadBalanceSheetItem =
                         LogProp.prop "balanceSheetItemId" (id.ToString ())
                     )
 
-                    do! Json.write ctx (BalanceSheetItemResponse.fromDomain item)
+                    do!
+                        Json.write
+                            ctx
+                            (BalanceSheetItemResponse.fromDomain item)
                 | None ->
                     log.Warn (
                         $"Balance sheet item %O{id} not found",
                         LogProp.prop "balanceSheetItemId" (id.ToString ())
                     )
 
-                    return! Error (NotFound $"Balance sheet item %O{id} not found")
+                    return!
+                        Error (NotFound $"Balance sheet item %O{id} not found")
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Get a balance sheet item"
+        op.Description <- "Returns a user's balance sheet item."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
+
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         routef Path (handler queryContext)
@@ -69,11 +88,6 @@ module ReadBalanceSheetItem =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Get a balance sheet item"
-                        op.Description <- "Returns a user's balance sheet item."
-                        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

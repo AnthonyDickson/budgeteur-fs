@@ -21,7 +21,11 @@ module DeleteRule =
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
-    let delete (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
+    let delete
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (id : Guid)
+        =
         task {
             let! rows =
                 deleteTask queryContext {
@@ -34,7 +38,10 @@ module DeleteRule =
             return deleted
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -42,12 +49,28 @@ module DeleteRule =
                 let! deleted = delete queryContext userId id
 
                 if deleted then
-                    log.Info ($"Deleted rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))
+                    log.Info (
+                        $"Deleted rule %O{id}",
+                        LogProp.prop "ruleId" (id.ToString ())
+                    )
+
                     ctx.SetStatusCode 204
                 else
-                    log.Warn ($"Rule %O{id} not found", LogProp.prop "ruleId" (id.ToString ()))
+                    log.Warn (
+                        $"Rule %O{id} not found",
+                        LogProp.prop "ruleId" (id.ToString ())
+                    )
+
                     return! Error (NotFound $"Rule %O{id} not found")
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Delete a rule"
+
+        op.Description <- "Permanently removes a rule. Returns 204 on success."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         routef Path (handler queryContext)
@@ -58,11 +81,6 @@ module DeleteRule =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Delete a rule"
-                        op.Description <- "Permanently removes a rule. Returns 204 on success."
-                        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

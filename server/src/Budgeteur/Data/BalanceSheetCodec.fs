@@ -5,7 +5,10 @@ module BalanceSheetCodec =
     open Budgeteur.Domain.BalanceSheet
     open Budgeteur.Domain.BalanceSheetItem
 
-    let fromRow (row : main.BalanceSheets) (items : BalanceSheetItem list) : BalanceSheet = {
+    let fromRow
+        (row : main.BalanceSheets)
+        (items : BalanceSheetItem list)
+        : BalanceSheet = {
         StatementDate = UtcDateTime.fromColumn row.StatementDate
         Items = items
     }

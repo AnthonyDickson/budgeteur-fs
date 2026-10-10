@@ -29,30 +29,37 @@ module ReadBalanceSheet =
         /// <summary>The date the balances are accurate as of.</summary>
         StatementDate : DateTime
 
-        /// <summary>Every asset and liability currently being tracked.</summary>
+        /// <summary>Every asset and liability currently being
+        /// tracked.</summary>
         Items : BalanceSheetItemResponse list
 
-        /// <summary>Total value of assets expected to be realised within the current period.</summary>
+        /// <summary>Total value of assets expected to be realised within the
+        /// current period.</summary>
         [<SchemaHint.Decimal(NonNegative = true)>]
         TotalCurrentAssets : decimal
 
-        /// <summary>Total value of liabilities expected to be settled within the current period.</summary>
+        /// <summary>Total value of liabilities expected to be settled within
+        /// the current period.</summary>
         [<SchemaHint.Decimal(NonNegative = true)>]
         TotalCurrentLiabilities : decimal
 
-        /// <summary>Total value of assets **not** expected to be realised within the current period.</summary>
+        /// <summary>Total value of assets **not** expected to be realised
+        /// within the current period.</summary>
         [<SchemaHint.Decimal(NonNegative = true)>]
         TotalNonCurrentAssets : decimal
 
-        /// <summary>Total value of liabilities **not** expected to be settled within the current period.</summary>
+        /// <summary>Total value of liabilities **not** expected to be settled
+        /// within the current period.</summary>
         [<SchemaHint.Decimal(NonNegative = true)>]
         TotalNonCurrentLiabilities : decimal
 
-        /// <summary>Total value of everything owned, both current and non-current.</summary>
+        /// <summary>Total value of everything owned, both current and
+        /// non-current.</summary>
         [<SchemaHint.Decimal(NonNegative = true)>]
         TotalAssets : decimal
 
-        /// <summary>Total value of everything owed, both current and non-current.</summary>
+        /// <summary>Total value of everything owed, both current and
+        /// non-current.</summary>
         [<SchemaHint.Decimal(NonNegative = true)>]
         TotalLiabilities : decimal
 
@@ -60,8 +67,9 @@ module ReadBalanceSheet =
         NetWorth : decimal
 
         /// <summary>
-        /// Current assets minus current liabilities: the near-term position. Unlike net worth it
-        /// excludes non-current debt, so it stays sensitive to near-term decisions.
+        /// Current assets minus current liabilities: the near-term position.
+        /// Unlike net worth it excludes non-current debt, so it stays sensitive
+        /// to near-term decisions.
         /// </summary>
         WorkingCapital : decimal
     }
@@ -73,7 +81,8 @@ module ReadBalanceSheet =
             TotalCurrentAssets = BalanceSheet.totalCurrentAssets sheet
             TotalCurrentLiabilities = BalanceSheet.totalCurrentLiabilities sheet
             TotalNonCurrentAssets = BalanceSheet.totalNonCurrentAssets sheet
-            TotalNonCurrentLiabilities = BalanceSheet.totalNonCurrentLiabilities sheet
+            TotalNonCurrentLiabilities =
+                BalanceSheet.totalNonCurrentLiabilities sheet
             TotalAssets = BalanceSheet.totalAssets sheet
             TotalLiabilities = BalanceSheet.totalLiabilities sheet
             NetWorth = BalanceSheet.netWorth sheet
@@ -81,7 +90,10 @@ module ReadBalanceSheet =
         }
 
     /// <summary> Get the user's balance sheet if it exists.</summary>
-    let tryFindBalanceSheet (queryContext : QueryContextFactory) (userId : string) : Task<BalanceSheet option> =
+    let tryFindBalanceSheet
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        : Task<BalanceSheet option> =
         task {
             let! sheet =
                 selectTask queryContext {
@@ -96,9 +108,13 @@ module ReadBalanceSheet =
                         where (item.UserId = userId)
                 }
 
-            let items = Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
+            let items =
+                Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
 
-            return Option.map (fun sheet -> BalanceSheetCodec.fromRow sheet items) sheet
+            return
+                Option.map
+                    (fun sheet -> BalanceSheetCodec.fromRow sheet items)
+                    sheet
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -112,9 +128,23 @@ module ReadBalanceSheet =
                 | Some sheet ->
                     log.Info "Returned balance sheet"
                     do! Json.write ctx (BalanceSheetResponse.fromDomain sheet)
-                | None -> return! Error (NotFound $"Could not find balance sheet for user {userId}")
+                | None ->
+                    return!
+                        Error (
+                            NotFound
+                                $"Could not find balance sheet for user \
+                                {userId}"
+                        )
 
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Get balance sheet"
+        op.Description <- "Returns the user's balance sheet."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
+
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         route Path (handler queryContext)
@@ -125,11 +155,6 @@ module ReadBalanceSheet =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Get balance sheet"
-                        op.Description <- "Returns the user's balance sheet."
-                        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

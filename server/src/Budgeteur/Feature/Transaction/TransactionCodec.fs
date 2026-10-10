@@ -5,7 +5,11 @@ module TransactionCodec =
     open Budgeteur.Domain.Transaction
     open Budgeteur.Shared.Money
 
-    let toRow (transaction : Transaction) (userId : string) (importHash : string option) : main.Transactions = {
+    let toRow
+        (transaction : Transaction)
+        (userId : string)
+        (importHash : string option)
+        : main.Transactions = {
         Id = transaction.Id
         UserId = userId
         Amount = Money.value transaction.Amount

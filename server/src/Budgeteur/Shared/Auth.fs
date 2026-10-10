@@ -40,7 +40,7 @@ module Auth =
     let private requirePolicy (policyName : string) : EndpointMiddleware =
         fun next ctx ->
             task {
-                let authz = ctx.RequestServices.GetRequiredService<IAuthorizationService>()
+                let authz = ctx.GetService<IAuthorizationService>()
 
                 let! result = authz.AuthorizeAsync (ctx.User, null, policyName)
 
@@ -48,7 +48,9 @@ module Auth =
                     return! next ctx
                 else
                     ctx.SetStatusCode 401
-                    ctx.Response.ContentType <- "application/json; charset=utf-8"
+
+                    ctx.Response.ContentType <-
+                        "application/json; charset=utf-8"
 
                     return!
                         ctx.Response.WriteAsync (
@@ -63,11 +65,16 @@ module Auth =
 
     let requireAuth : EndpointMiddleware = requirePolicy policyName
 
-    let configureServices (services : IServiceCollection) (isDevelopment : bool) (oidc : OidcConfig) =
+    let configureServices
+        (services : IServiceCollection)
+        (isDevelopment : bool)
+        (oidc : OidcConfig)
+        =
         services
             // ASP.NET Core only authenticates with DefaultScheme per request.
             // Since the SPA uses cookies but Scalar API docs use Bearer tokens,
-            // a policy scheme routes to the right handler based on the auth header.
+            // a policy scheme routes to the right handler based on the auth
+            // header.
             .AddAuthentication(fun options ->
                 options.DefaultScheme <- polAuthScheme
                 options.DefaultChallengeScheme <- polAuthScheme)
@@ -77,9 +84,15 @@ module Auth =
                 fun options ->
                     options.ForwardDefaultSelector <-
                         fun ctx ->
-                            let authHeader = ctx.Request.Headers.Authorization.ToString ()
+                            let authHeader =
+                                ctx.Request.Headers.Authorization.ToString ()
 
-                            if authHeader.StartsWith ("Bearer ", StringComparison.OrdinalIgnoreCase) then
+                            if
+                                authHeader.StartsWith (
+                                    "Bearer ",
+                                    StringComparison.OrdinalIgnoreCase
+                                )
+                            then
                                 bearerScheme
                             else
                                 cookieScheme
@@ -108,7 +121,8 @@ module Auth =
                     options.ClientSecret <- oidc.ClientSecret
                     options.ResponseType <- "code"
                     options.CallbackPath <- oidc.CallbackPath
-                    // Set this to true to get the name and email from Authelia/your identity provider
+                    // Set this to true to get the name and email from
+                    // Authelia/your identity provider
                     options.GetClaimsFromUserInfoEndpoint <- false
                     options.MapInboundClaims <- false
                     options.SaveTokens <- true
@@ -123,7 +137,8 @@ module Auth =
 
                         options.BackchannelHttpHandler <-
                             new Net.Http.HttpClientHandler (
-                                ServerCertificateCustomValidationCallback = fun _ _ _ _ -> true
+                                ServerCertificateCustomValidationCallback =
+                                    fun _ _ _ _ -> true
                             )
             )
             .AddJwtBearer(
@@ -133,33 +148,49 @@ module Auth =
                     options.MapInboundClaims <- false
                     options.RequireHttpsMetadata <- not isDevelopment
 
-                    if isNull oidc.ValidAudiences || oidc.ValidAudiences.Length = 0 then
+                    if
+                        isNull oidc.ValidAudiences
+                        || oidc.ValidAudiences.Length = 0
+                    then
                         // No audiences configured — disable validation.
-                        // Authelia does not include an aud claim in access tokens.
-                        options.TokenValidationParameters.ValidateAudience <- false
+                        // Authelia does not include an aud claim in access
+                        // tokens.
+                        options.TokenValidationParameters.ValidateAudience <-
+                            false
                     else
-                        options.TokenValidationParameters.ValidateAudience <- true
-                        options.TokenValidationParameters.ValidAudiences <- oidc.ValidAudiences
+                        options.TokenValidationParameters.ValidateAudience <-
+                            true
+
+                        options.TokenValidationParameters.ValidAudiences <-
+                            oidc.ValidAudiences
 
                     if isDevelopment then
-                        // Accept self-signed TLS certs for the backchannel OIDC discovery and JWKS fetches in dev.
+                        // Accept self-signed TLS certs for the backchannel OIDC
+                        // discovery and JWKS fetches in dev.
                         options.BackchannelHttpHandler <-
                             new Net.Http.HttpClientHandler (
-                                ServerCertificateCustomValidationCallback = fun _ _ _ _ -> true
+                                ServerCertificateCustomValidationCallback =
+                                    fun _ _ _ _ -> true
                             )
             )
             .Services.AddAuthorization(fun options ->
                 options.AddPolicy (
                     policyName,
                     fun policy ->
-                        policy.AddAuthenticationSchemes(cookieScheme, bearerScheme).RequireAuthenticatedUser()
+                        policy
+                            .AddAuthenticationSchemes(
+                                cookieScheme,
+                                bearerScheme
+                            )
+                            .RequireAuthenticatedUser()
                         |> ignore
                 )
                 |> ignore)
         |> ignore
 
     let getUserId (ctx : HttpContext) : Result<string, DomainError> =
-        let userId = ctx.User.FindFirst "sub" |> Option.ofObj |> Option.map _.Value
+        let userId =
+            ctx.User.FindFirst "sub" |> Option.ofObj |> Option.map _.Value
 
         match userId with
         | Some userId -> Ok userId

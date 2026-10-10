@@ -20,5 +20,7 @@ module Json =
         task {
             use reader = new StreamReader (ctx.Request.Body, Encoding.UTF8)
             let! body = reader.ReadToEndAsync ()
-            return Decode.fromStringAuto body |> Result.mapError ValidationFailed
+
+            return
+                Decode.fromStringAuto body |> Result.mapError ValidationFailed
         }

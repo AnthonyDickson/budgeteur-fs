@@ -1,7 +1,8 @@
 namespace Budgeteur.Feature.BalanceSheet
 
-/// <summary>The slice's endpoints, grouped by HTTP method. Shared by <c>Program.fs</c> and the
-/// test host so both route the same handlers.</summary>
+/// <summary>The slice's endpoints, grouped by HTTP method. Shared by
+/// <c>Program.fs</c> and the test host so both route the same
+/// handlers.</summary>
 module BalanceSheetEndpoints =
     open Oxpecker
 
@@ -14,8 +15,8 @@ module BalanceSheetEndpoints =
         DELETE [ DeleteBalanceSheetItem.endpoint queryContext clock ]
     ]
 
-    /// <summary>Item reads for manual inspection. Development only, so they are not advertised as
-    /// supported API.</summary>
+    /// <summary>Item reads for manual inspection. Development only, so they are
+    /// not advertised as supported API.</summary>
     let developmentOnly (queryContext : QueryContextFactory) = [
         GET [
             ReadBalanceSheetItem.endpoint queryContext

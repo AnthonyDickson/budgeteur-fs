@@ -22,7 +22,8 @@ module CreateTransaction =
     open Budgeteur.Shared.Money
     open Budgeteur.Shared.RequestLogging
 
-    /// <summary>Payload for creating a transaction. The id is generated server-side.</summary>
+    /// <summary>Payload for creating a transaction. The id is generated
+    /// server-side.</summary>
     type CreateTransactionRequest = {
         Amount : decimal
         Description : string
@@ -35,28 +36,11 @@ module CreateTransaction =
     [<Literal>]
     let Path = "/api/transactions"
 
-    /// <summary>Verify that the referenced account exists and belongs to the user. Skips the
-    /// check when no account is referenced (<c>None</c> succeeds).</summary>
-    let private requireAccountExists (queryContext : QueryContextFactory) (userId : string) (accountId : Guid option) =
-        task {
-            match accountId with
-            | Some accountId ->
-                let! rowCount =
-                    selectTask queryContext {
-                        for t in main.Accounts do
-                            where (t.Id = accountId && t.UserId = userId)
-                            count
-                    }
-
-                return
-                    if rowCount > 0 then
-                        Ok ()
-                    else
-                        Error (ConstraintError $"Could not find an account with the ID {accountId}")
-            | None -> return Ok ()
-        }
-
-    let private insert (queryContext : QueryContextFactory) (transaction : Transaction) (userId : string) =
+    let private insert
+        (queryContext : QueryContextFactory)
+        (transaction : Transaction)
+        (userId : string)
+        =
         task {
             let row = TransactionCodec.toRow transaction userId None
 
@@ -76,12 +60,19 @@ module CreateTransaction =
                 let! userId = Auth.getUserId ctx
                 let! (req : CreateTransactionRequest) = Json.read ctx
 
-                let! description = TransactionDescription.create req.Description
+                let! description =
+                    TransactionDescription.create req.Description
 
                 do!
                     Constraints.requireAll [
-                        Constraints.requireTagIfReferenced queryContext userId req.TagId
-                        requireAccountExists queryContext userId req.AccountId
+                        Constraints.requireTagIfReferenced
+                            queryContext
+                            userId
+                            req.TagId
+                        Constraints.requireAccountIfReferenced
+                            queryContext
+                            userId
+                            req.AccountId
                     ]
 
                 let transaction : Transaction = {
@@ -105,6 +96,16 @@ module CreateTransaction =
                 do! Json.write ctx (TransactionResponse.fromDomain transaction)
             })
 
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Create a transaction"
+
+        op.Description <-
+            "Creates a new transaction and returns it with status 201."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
+
+        Task.CompletedTask
+
     let endpoint (queryContext : QueryContextFactory) =
         route Path (handler queryContext)
         |> addOpenApi (
@@ -116,11 +117,6 @@ module CreateTransaction =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 409)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Create a transaction"
-                        op.Description <- "Creates a new transaction and returns it with status 201."
-                        op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

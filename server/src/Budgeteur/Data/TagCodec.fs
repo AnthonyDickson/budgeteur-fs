@@ -19,6 +19,7 @@ module TagCodec =
         Kind =
             match TagKind.parse row.Kind with
             | Ok kind -> kind
-            // The database checks this column, so in practice this arm is unreachable
+            // The database checks this column, so in practice this arm is
+            // unreachable
             | Error error -> failwith error
     }

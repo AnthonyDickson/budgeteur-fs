@@ -21,7 +21,11 @@ module DeleteTransaction =
     [<Literal>]
     let Path = "/api/transactions/{%O:guid}"
 
-    let delete (queryContext : QueryContextFactory) (userId : string) (id : Guid) =
+    let delete
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (id : Guid)
+        =
         task {
             let! rows =
                 deleteTask queryContext {
@@ -34,7 +38,10 @@ module DeleteTransaction =
             return deleteSuccessful
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -42,12 +49,30 @@ module DeleteTransaction =
                 let! deleted = delete queryContext userId id
 
                 if deleted then
-                    log.Info ($"Deleted transaction %O{id}", LogProp.prop "transactionId" (id.ToString ()))
+                    log.Info (
+                        $"Deleted transaction %O{id}",
+                        LogProp.prop "transactionId" (id.ToString ())
+                    )
+
                     ctx.SetStatusCode 204
                 else
-                    log.Warn ($"Transaction %O{id} not found", LogProp.prop "transactionId" (id.ToString ()))
+                    log.Warn (
+                        $"Transaction %O{id} not found",
+                        LogProp.prop "transactionId" (id.ToString ())
+                    )
+
                     return! Error (NotFound $"Transaction %O{id} not found")
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Delete a transaction"
+
+        op.Description <-
+            "Permanently removes a transaction. Returns 204 on success."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
+
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         routef Path (handler queryContext)
@@ -58,11 +83,6 @@ module DeleteTransaction =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Delete a transaction"
-                        op.Description <- "Permanently removes a transaction. Returns 204 on success."
-                        op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

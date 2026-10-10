@@ -12,25 +12,35 @@ module TestHttp =
 
     let postJson (client : HttpClient) (url : string) (value : 'T) =
         let json = Encode.toStringAuto value
-        let content = new StringContent (json, Encoding.UTF8, "application/json")
+
+        let content =
+            new StringContent (json, Encoding.UTF8, "application/json")
+
         client.PostAsync (url, content)
 
     let putJson (client : HttpClient) (url : string) (value : 'T) =
         let json = Encode.toStringAuto value
-        let content = new StringContent (json, Encoding.UTF8, "application/json")
+
+        let content =
+            new StringContent (json, Encoding.UTF8, "application/json")
+
         client.PutAsync (url, content)
 
     let patchJson (client : HttpClient) (url : string) (value : 'T) =
         let json = Encode.toStringAuto value
-        let content = new StringContent (json, Encoding.UTF8, "application/json")
+
+        let content =
+            new StringContent (json, Encoding.UTF8, "application/json")
+
         client.PatchAsync (url, content)
 
-    /// Fill the Oxpecker routef `{%O:guid}` placeholder in an item path with a concrete id.
+    /// Fill the Oxpecker routef `{%O:guid}` placeholder in an item path with a
+    /// concrete id.
     let itemPath (path : string) (id : System.Guid) =
         path.Replace ("{%O:guid}", id.ToString ())
 
-    /// Decode a JSON response body, failing the test with the decoder's message rather than an
-    /// opaque null.
+    /// Decode a JSON response body, failing the test with the decoder's message
+    /// rather than an opaque null.
     let readJson<'T> (response : HttpResponseMessage) : Async<'T> =
         async {
             let! body = response.Content.ReadAsStringAsync () |> Async.AwaitTask
@@ -48,7 +58,11 @@ module Seed =
     open Budgeteur.Feature.Tag
 
     /// Create a tag and return its server-assigned id.
-    let tag (client : HttpClient) (name : string) (kind : string) : Async<Guid> =
+    let tag
+        (client : HttpClient)
+        (name : string)
+        (kind : string)
+        : Async<Guid> =
         async {
             let request : CreateTag.CreateTagRequest = {
                 Name = name
@@ -56,8 +70,15 @@ module Seed =
                 Kind = kind
             }
 
-            let! response = TestHttp.postJson client CreateTag.Path request |> Async.AwaitTask
-            Expect.equal response.StatusCode HttpStatusCode.Created "creating a tag should return 201"
+            let! response =
+                TestHttp.postJson client CreateTag.Path request
+                |> Async.AwaitTask
+
+            Expect.equal
+                response.StatusCode
+                HttpStatusCode.Created
+                "creating a tag should return 201"
+
             let! tag = TestHttp.readJson<TagResponse> response
             return tag.Id
         }
@@ -67,8 +88,8 @@ module Scoping =
     open System.Net
     open Expecto
 
-    /// Assert that `otherUser` can neither read, list, replace, nor delete the item at `itemPath`,
-    /// and that `owner` can still read it afterwards.
+    /// Assert that `otherUser` can neither read, list, replace, nor delete the
+    /// item at `itemPath`, and that `owner` can still read it afterwards.
     let expectHiddenFrom
         (owner : HttpClient)
         (otherUser : HttpClient)
@@ -78,17 +99,35 @@ module Scoping =
         =
         async {
             let! read = otherUser.GetAsync itemPath |> Async.AwaitTask
-            Expect.equal read.StatusCode HttpStatusCode.NotFound "another user's read should be 404"
+
+            Expect.equal
+                read.StatusCode
+                HttpStatusCode.NotFound
+                "another user's read should be 404"
 
             let! list = otherUser.GetStringAsync listPath |> Async.AwaitTask
             Expect.equal list "[]" "another user's list should be empty"
 
-            let! update = TestHttp.putJson otherUser itemPath replacement |> Async.AwaitTask
-            Expect.equal update.StatusCode HttpStatusCode.NotFound "another user's update should be 404"
+            let! update =
+                TestHttp.putJson otherUser itemPath replacement
+                |> Async.AwaitTask
+
+            Expect.equal
+                update.StatusCode
+                HttpStatusCode.NotFound
+                "another user's update should be 404"
 
             let! delete = otherUser.DeleteAsync itemPath |> Async.AwaitTask
-            Expect.equal delete.StatusCode HttpStatusCode.NotFound "another user's delete should be 404"
+
+            Expect.equal
+                delete.StatusCode
+                HttpStatusCode.NotFound
+                "another user's delete should be 404"
 
             let! stillThere = owner.GetAsync itemPath |> Async.AwaitTask
-            Expect.equal stillThere.StatusCode HttpStatusCode.OK "the owner should still see the item"
+
+            Expect.equal
+                stillThere.StatusCode
+                HttpStatusCode.OK
+                "the owner should still see the item"
         }

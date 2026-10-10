@@ -28,9 +28,14 @@ module UpdateRule =
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
-    /// <summary>Verify that no other rule with the same pattern and tag exists for this user,
-    /// excluding the rule being updated (the <c>UNIQUE(UserId, Pattern, TagId)</c> constraint).</summary>
-    let private requireRuleIsUnique (queryContext : QueryContextFactory) (userId : string) (rule : Rule) =
+    /// <summary>Verify that no other rule with the same pattern and tag exists
+    /// for this user, excluding the rule being updated (the <c>UNIQUE(UserId,
+    /// Pattern, TagId)</c> constraint).</summary>
+    let private requireRuleIsUnique
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (rule : Rule)
+        =
         task {
             let pattern = RulePattern.value rule.Pattern
 
@@ -51,12 +56,20 @@ module UpdateRule =
                 if rowCount = 0 then
                     Ok ()
                 else
-                    Error (ConstraintError $"The rule pattern '{pattern}' for tag {rule.TagId} already exists")
+                    Error (
+                        ConstraintError
+                            $"The rule pattern '{pattern}' for tag \
+                            {rule.TagId} already exists"
+                    )
         }
 
-    /// <summary>Replace the user's rule. Fails with <c>NotFound</c> when the user has no rule with
-    /// the id.</summary>
-    let private update (queryContext : QueryContextFactory) (userId : string) (rule : Rule) =
+    /// <summary>Replace the user's rule. Fails with <c>NotFound</c> when the
+    /// user has no rule with the id.</summary>
+    let private update
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (rule : Rule)
+        =
         task {
             let row = RuleCodec.toRow rule userId
 
@@ -74,7 +87,10 @@ module UpdateRule =
                 return Ok ()
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -91,15 +107,28 @@ module UpdateRule =
 
                 do!
                     Constraints.requireAll [
-                        Constraints.requireTagExists queryContext userId req.TagId
+                        Constraints.requireTagExists
+                            queryContext
+                            userId
+                            req.TagId
                         requireRuleIsUnique queryContext userId rule
                     ]
 
                 do! update queryContext userId rule
 
-                log.Info ($"Updated rule %O{id}", LogProp.prop "ruleId" (id.ToString ()))
+                log.Info (
+                    $"Updated rule %O{id}",
+                    LogProp.prop "ruleId" (id.ToString ())
+                )
+
                 do! Json.write ctx (RuleResponse.fromDomain rule)
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Update a rule"
+        op.Description <- "Replaces the rule."
+        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         routef Path (handler queryContext)
@@ -112,11 +141,6 @@ module UpdateRule =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Update a rule"
-                        op.Description <- "Replaces the rule."
-                        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

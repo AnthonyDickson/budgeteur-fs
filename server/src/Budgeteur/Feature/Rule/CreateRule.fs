@@ -21,15 +21,17 @@ module CreateRule =
     open Budgeteur.Shared.Json
     open Budgeteur.Shared.RequestLogging
 
-    /// <summary>Payload for creating a rule. The id is generated server-side.</summary>
+    /// <summary>Payload for creating a rule. The id is generated
+    /// server-side.</summary>
     type CreateRuleRequest = { Pattern : string; TagId : Guid }
 
     [<Literal>]
     let Path = "/api/rules"
 
-    /// <summary>Verify that no rule with the same pattern and tag already exists for this user
-    /// (the <c>UNIQUE(UserId, Pattern, TagId)</c> constraint). Used on create, where the rule
-    /// does not exist yet, so no existing rule is excluded from the check.</summary>
+    /// <summary>Verify that no rule with the same pattern and tag already
+    /// exists for this user (the <c>UNIQUE(UserId, Pattern, TagId)</c>
+    /// constraint). Used on create, where the rule does not exist yet, so no
+    /// existing rule is excluded from the check.</summary>
     let private requireRuleIsUnique
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -42,7 +44,12 @@ module CreateRule =
             let! rowCount =
                 selectTask queryContext {
                     for r in main.Rules do
-                        where (r.Pattern = pattern && r.TagId = tagId && r.UserId = userId)
+                        where (
+                            r.Pattern = pattern
+                            && r.TagId = tagId
+                            && r.UserId = userId
+                        )
+
                         count
                 }
 
@@ -50,10 +57,18 @@ module CreateRule =
                 if rowCount = 0 then
                     Ok ()
                 else
-                    Error (ConstraintError $"The rule pattern '{pattern}' for tag {tagId} already exists")
+                    Error (
+                        ConstraintError
+                            $"The rule pattern '{pattern}' for tag {tagId} \
+                            already exists"
+                    )
         }
 
-    let private insert (queryContext : QueryContextFactory) (userId : string) (rule : Rule) =
+    let private insert
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (rule : Rule)
+        =
         task {
             let row = RuleCodec.toRow rule userId
 
@@ -77,8 +92,15 @@ module CreateRule =
 
                 do!
                     Constraints.requireAll [
-                        Constraints.requireTagExists queryContext userId req.TagId
-                        requireRuleIsUnique queryContext userId pattern req.TagId
+                        Constraints.requireTagExists
+                            queryContext
+                            userId
+                            req.TagId
+                        requireRuleIsUnique
+                            queryContext
+                            userId
+                            pattern
+                            req.TagId
                     ]
 
                 let rule : Rule = {
@@ -89,11 +111,22 @@ module CreateRule =
 
                 let! () = insert queryContext userId rule
 
-                log.Info ($"Created rule %O{rule.Id}", LogProp.prop "ruleId" (rule.Id.ToString ()))
+                log.Info (
+                    $"Created rule %O{rule.Id}",
+                    LogProp.prop "ruleId" (rule.Id.ToString ())
+                )
 
                 ctx.SetStatusCode 201
                 do! Json.write ctx (RuleResponse.fromDomain rule)
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Create a rule"
+
+        op.Description <- "Creates a new rule and returns it with status 201."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         route Path (handler queryContext)
@@ -106,11 +139,6 @@ module CreateRule =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 409)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Create a rule"
-                        op.Description <- "Creates a new rule and returns it with status 201."
-                        op.Tags <- HashSet [ OpenApiTagReference "Rules" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

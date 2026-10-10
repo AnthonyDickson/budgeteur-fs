@@ -22,13 +22,16 @@ I started budgeting with a mobile app, but I quickly ran into three main issues:
 1. it only worked on my phone,
 1. and it didn't help me with tracking my net worth.
 
-I have tried using a spreadsheet to track my net worth, however I then ran into issues where editing this spreadsheet
-from multiple devices lead to old copies overwriting the copy in my cloud storage.
+I have tried using a spreadsheet to track my net worth, however I then ran into
+issues where editing this spreadsheet from multiple devices lead to old copies
+overwriting the copy in my cloud storage.
 
-Budgeteur is my attempt at a single, cross-platform application for tracking my budget and net worth. One helpful
-feature of Budgeteur is that you can import transactions and track your account balances from CSV files. These CSV can
-be exported from the internet banking websites for New Zealand bank accounts (ASB and Kiwibank). This reduces the amount
-manual data entry significantly, making it easier to maintain the habit of tracking your budget even when life gets
+Budgeteur is my attempt at a single, cross-platform application for tracking my
+budget and net worth. One helpful feature of Budgeteur is that you can import
+transactions and track your account balances from CSV files. These CSV can be
+exported from the internet banking websites for New Zealand bank accounts (ASB
+and Kiwibank). This reduces the amount manual data entry significantly, making
+it easier to maintain the habit of tracking your budget even when life gets
 busy.
 
 ## Getting Started
@@ -64,29 +67,39 @@ See the [Justfile](./justfile) for all targets.
 
 ## How It Works
 
-Budgeteur is a full-stack web app with an F#/Oxpecker backend (SQLite + OIDC auth + OpenAPI) and a Gleam/Lustre SPA
-frontend (Tailwind CSS v4, Vite).
+Budgeteur is a full-stack web app with an F#/Oxpecker backend (SQLite + OIDC
+auth + OpenAPI) and a Gleam/Lustre SPA frontend (Tailwind CSS v4, Vite).
 
-- **Backend** — Oxpecker on .NET 10 with OIDC auth (cookie + JWT bearer). Endpoints live in vertical slices (one folder
-  per feature). SQLite with DbUp migrations and SqlHydra type-safe queries. OpenAPI spec at `/openapi/v1.json` and
-  interactive docs at `/scalar/v1` (dev only).
-- **Frontend** — Gleam/Lustre SPA with nested MVU. A custom `Effect` type keeps `update` pure — all I/O (HTTP,
-  localStorage, navigation) runs through one interpreter.
-- **Auth** — Dev OIDC via Authelia (test user `dev`/`dev-password`). Production needs your own OIDC provider.
-- **Testing** — Expecto server tests, gleeunit client unit tests, Playwright E2E tests via Docker Compose.
-- **Deployment** — Single-file publish (`just publish`) or a Docker image. Intended to be hosted behind a reverse proxy.
+- **Backend** — Oxpecker on .NET 10 with OIDC auth (cookie + JWT bearer).
+  Endpoints live in vertical slices (one folder per feature). SQLite with DbUp
+  migrations and SqlHydra type-safe queries. OpenAPI spec at `/openapi/v1.json`
+  and interactive docs at `/scalar/v1` (dev only).
+- **Frontend** — Gleam/Lustre SPA with nested MVU. A custom `Effect` type keeps
+  `update` pure — all I/O (HTTP, localStorage, navigation) runs through one
+  interpreter.
+- **Auth** — Dev OIDC via Authelia (test user `dev`/`dev-password`). Production
+  needs your own OIDC provider.
+- **Testing** — Expecto server tests, gleeunit client unit tests, Playwright E2E
+  tests via Docker Compose.
+- **Deployment** — Single-file publish (`just publish`) or a Docker image.
+  Intended to be hosted behind a reverse proxy.
 
 ## Dev Environment
 
-Nix flake provides the toolchain (see `flake.nix`); F# dotnet tools are restored from `server/dotnet-tools.json`. NuGet
-Central Package Management — versions in `Directory.Packages.props`.
+Nix flake provides the toolchain (see `flake.nix`); F# dotnet tools are restored
+from `server/dotnet-tools.json`. NuGet Central Package Management — versions in
+`Directory.Packages.props`.
 
 ## Docs
 
 - [Architecture](docs/architecture.md) — requirements, server and client design
 - [Database](docs/database.md) and [Dates and Timestamps](docs/dates.md)
 - [OpenAPI Schemas](docs/openapi.md)
-- [Testing Strategy](docs/testing-strategy.md), [Server Tests](docs/server-tests.md), [E2E Tests](docs/e2e-tests.md)
-- [Deployment](docs/deployment.md) and [Production OIDC Setup](docs/prod-oidc-setup.md)
-- Design briefs: [Balance Sheet](docs/balance-sheet.md), [Dashboard](docs/dashboard.md)
-- [Functional Programming in Practice](docs/fp-showcase.md) — a tour of the codebase for FP newcomers
+- [Testing Strategy](docs/testing-strategy.md),
+  [Server Tests](docs/server-tests.md), [E2E Tests](docs/e2e-tests.md)
+- [Deployment](docs/deployment.md) and
+  [Production OIDC Setup](docs/prod-oidc-setup.md)
+- Design briefs: [Balance Sheet](docs/balance-sheet.md),
+  [Dashboard](docs/dashboard.md)
+- [Functional Programming in Practice](docs/fp-showcase.md) — a tour of the
+  codebase for FP newcomers

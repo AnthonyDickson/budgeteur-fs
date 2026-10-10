@@ -7,7 +7,8 @@ type TransactionResponse = {
     /// <summary>Unique identifier for the transaction item.</summary>
     Id : Guid
 
-    /// <summary>A debit (negative) or credit (positive). Serialised as a string.</summary>
+    /// <summary>A debit (negative) or credit (positive). Serialised as a
+    /// string.</summary>
     Amount : decimal
 
     /// <summary>The title or description of the transaction.</summary>
@@ -16,7 +17,8 @@ type TransactionResponse = {
     /// <summary>Date when the transaction occurred (UTC).</summary>
     Date : DateOnly
 
-    /// <summary>Whether the transaction represents an internal transfer between one's own accounts.</summary>
+    /// <summary>Whether the transaction represents an internal transfer between
+    /// one's own accounts.</summary>
     IsTransfer : bool
 
     /// <summary>The bank account associated with this transaction.</summary>

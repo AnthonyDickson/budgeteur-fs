@@ -27,8 +27,8 @@ module UpdateTag =
         Name : string
         Color : string
 
-        /// <summary>Which side of the income statement the tag's transactions are on. Changing it
-        /// reclassifies the tag in every period.</summary>
+        /// <summary>Which side of the income statement the tag's transactions
+        /// are on. Changing it reclassifies the tag in every period.</summary>
         [<SchemaHint.Enum(typeof<TagKind>)>]
         Kind : string
     }
@@ -36,16 +36,24 @@ module UpdateTag =
     [<Literal>]
     let Path = "/api/tags/{%O:guid}"
 
-    /// <summary>Verify that no other tag with the same name exists for this user, excluding the
-    /// tag being updated (the <c>UNIQUE(UserId, Name)</c> constraint).</summary>
-    let private requireTagIsUnique (queryContext : QueryContextFactory) (userId : string) (tag : Tag) =
+    /// <summary>Verify that no other tag with the same name exists for this
+    /// user, excluding the tag being updated (the <c>UNIQUE(UserId, Name)</c>
+    /// constraint).</summary>
+    let private requireTagIsUnique
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (tag : Tag)
+        =
         task {
             let name = TagName.value tag.Name
 
             let! rowCount =
                 selectTask queryContext {
                     for t in main.Tags do
-                        where (t.Id <> tag.Id && t.Name = name && t.UserId = userId)
+                        where (
+                            t.Id <> tag.Id && t.Name = name && t.UserId = userId
+                        )
+
                         count
                 }
 
@@ -53,12 +61,19 @@ module UpdateTag =
                 if rowCount = 0 then
                     Ok ()
                 else
-                    Error (ConstraintError $"A tag with the name '{name}' already exists")
+                    Error (
+                        ConstraintError
+                            $"A tag with the name '{name}' already exists"
+                    )
         }
 
-    /// <summary>Replace the user's tag. Fails with <c>NotFound</c> when the user has no tag with
-    /// the id.</summary>
-    let private update (queryContext : QueryContextFactory) (userId : string) (tag : Tag) =
+    /// <summary>Replace the user's tag. Fails with <c>NotFound</c> when the
+    /// user has no tag with the id.</summary>
+    let private update
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (tag : Tag)
+        =
         task {
             let row = TagCodec.toRow tag userId
 
@@ -76,7 +91,10 @@ module UpdateTag =
                 return Ok ()
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -85,7 +103,9 @@ module UpdateTag =
 
                 let! name = TagName.create req.Name
                 let! color = TagColor.create req.Color
-                let! kind = TagKind.parse req.Kind |> Result.mapError ValidationFailed
+
+                let! kind =
+                    TagKind.parse req.Kind |> Result.mapError ValidationFailed
 
                 let tag : Tag = {
                     Id = id
@@ -94,12 +114,26 @@ module UpdateTag =
                     Kind = kind
                 }
 
-                do! Constraints.requireOne (requireTagIsUnique queryContext userId tag)
+                do!
+                    Constraints.requireOne (
+                        requireTagIsUnique queryContext userId tag
+                    )
+
                 do! update queryContext userId tag
 
-                log.Info ($"Updated tag %O{id}", LogProp.prop "tagId" (id.ToString ()))
+                log.Info (
+                    $"Updated tag %O{id}",
+                    LogProp.prop "tagId" (id.ToString ())
+                )
+
                 do! Json.write ctx (TagResponse.fromDomain tag)
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Update a tag"
+        op.Description <- "Replaces the tag."
+        op.Tags <- HashSet [ OpenApiTagReference "Tags" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         routef Path (handler queryContext)
@@ -112,11 +146,6 @@ module UpdateTag =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Update a tag"
-                        op.Description <- "Replaces the tag."
-                        op.Tags <- HashSet [ OpenApiTagReference "Tags" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

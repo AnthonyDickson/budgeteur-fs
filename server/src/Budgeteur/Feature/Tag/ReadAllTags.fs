@@ -43,11 +43,20 @@ module ReadAllTags =
 
                 let log = RequestLog.fromContext ctx
 
-                log.Info ($"Returned %i{List.length tags} tags", LogProp.prop "count" (List.length tags))
+                log.Info (
+                    $"Returned %i{List.length tags} tags",
+                    LogProp.prop "count" (List.length tags)
+                )
 
                 let response = List.map TagResponse.fromDomain tags
                 do! Json.write ctx response
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "List all tags"
+        op.Description <- "Returns all of the user's tags."
+        op.Tags <- HashSet [ OpenApiTagReference "Tags" ]
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         route Path (handler queryContext)
@@ -57,11 +66,6 @@ module ReadAllTags =
                     ResponseBody typeof<TagResponse list>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "List all tags"
-                        op.Description <- "Returns all of the user's tags."
-                        op.Tags <- HashSet [ OpenApiTagReference "Tags" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

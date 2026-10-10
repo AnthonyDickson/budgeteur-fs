@@ -21,7 +21,11 @@ module DeleteBalanceSheetItem =
     [<Literal>]
     let Path = "/api/balance-sheet/items/{%O:guid}"
 
-    let private deleteBalanceSheetItem (queryContext : QueryContext) (userId : string) (id : Guid) =
+    let private deleteBalanceSheetItem
+        (queryContext : QueryContext)
+        (userId : string)
+        (id : Guid)
+        =
         task {
             let! rows =
                 deleteTask queryContext {
@@ -34,7 +38,11 @@ module DeleteBalanceSheetItem =
             return deleted
         }
 
-    let private handler (queryContext : QueryContextFactory) (clock : Clock) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (clock : Clock)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
@@ -45,9 +53,19 @@ module DeleteBalanceSheetItem =
                 let! deleted = deleteBalanceSheetItem sharedCtx userId id
 
                 if deleted then
-                    do! BalanceSheetStore.updateOrCreate sharedCtx (clock ()) userId
+                    do!
+                        BalanceSheetStore.updateOrCreate
+                            sharedCtx
+                            (clock ())
+                            userId
+
                     sharedCtx.CommitTransaction ()
-                    log.Info ($"Deleted balance sheet item %O{id}", LogProp.prop "balanceSheetItemId" (id.ToString ()))
+
+                    log.Info (
+                        $"Deleted balance sheet item %O{id}",
+                        LogProp.prop "balanceSheetItemId" (id.ToString ())
+                    )
+
                     ctx.SetStatusCode 204
                 else
                     sharedCtx.RollbackTransaction ()
@@ -57,8 +75,19 @@ module DeleteBalanceSheetItem =
                         LogProp.prop "balanceSheetItemId" (id.ToString ())
                     )
 
-                    return! Error (NotFound $"Balance sheet item %O{id} not found")
+                    return!
+                        Error (NotFound $"Balance sheet item %O{id} not found")
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Delete a balance sheet item"
+
+        op.Description <-
+            "Permanently removes a balance sheet item. Returns 204 on success."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
+
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
         routef Path (handler queryContext clock)
@@ -69,11 +98,6 @@ module DeleteBalanceSheetItem =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Delete a balance sheet item"
-                        op.Description <- "Permanently removes a balance sheet item. Returns 204 on success."
-                        op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )

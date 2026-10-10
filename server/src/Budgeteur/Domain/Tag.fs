@@ -27,11 +27,15 @@ module TagName =
             Ok name
 
     let create (name : string) =
-        name.Trim () |> nonEmpty |> Result.bind acceptableLength |> Result.map TagName
+        name.Trim ()
+        |> nonEmpty
+        |> Result.bind acceptableLength
+        |> Result.map TagName
 
     let value (TagName name) = name
 
-    /// An escape hatch for the smart constructor for reading trusted values from the database.
+    /// An escape hatch for the smart constructor for reading trusted values
+    /// from the database.
     let internal unsafeFromString name = TagName name
 
 type TagColor = private TagColor of string
@@ -45,15 +49,21 @@ module TagColor =
         if Regex.IsMatch (color, regexPattern) then
             Ok (TagColor color)
         else
-            Error (ValidationFailed $"Tag color should be hex color string matching '{regexPattern}', e.g. #00AAFF")
+            Error (
+                ValidationFailed
+                    $"Tag color should be hex color string matching \
+                    '{regexPattern}', e.g. #00AAFF"
+            )
 
     let value (TagColor color) = color
 
-    /// An escape hatch for the smart constructor for reading trusted values from the database.
+    /// An escape hatch for the smart constructor for reading trusted values
+    /// from the database.
     let internal unsafeFromString color = TagColor color
 
-/// <summary>Which side of the income statement a tag's transactions are on. The user states it, so a
-/// tag stays on the same side in every period, whatever the sign of its amounts.</summary>
+/// <summary>Which side of the income statement a tag's transactions are on. The
+/// user states it, so a tag stays on the same side in every period, whatever
+/// the sign of its amounts.</summary>
 type TagKind =
     | Income
     | Expense
@@ -68,7 +78,10 @@ module TagKind =
         match string with
         | "Income" -> Ok Income
         | "Expense" -> Ok Expense
-        | other -> Error $"\"{other}\" is not a valid value for TagKind, expecting one of \"Income\" or \"Expense\"."
+        | other ->
+            Error
+                $"\"{other}\" is not a valid value for TagKind, expecting \
+                one of \"Income\" or \"Expense\"."
 
 type Tag = {
     Id : Guid

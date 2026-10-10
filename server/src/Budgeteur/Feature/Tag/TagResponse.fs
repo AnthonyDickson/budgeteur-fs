@@ -10,7 +10,8 @@ type TagResponse = {
     Name : string
     Color : string
 
-    /// <summary>Which side of the income statement the tag's transactions are on.</summary>
+    /// <summary>Which side of the income statement the tag's transactions are
+    /// on.</summary>
     [<SchemaHint.Enum(typeof<TagKind>)>]
     Kind : string
 }

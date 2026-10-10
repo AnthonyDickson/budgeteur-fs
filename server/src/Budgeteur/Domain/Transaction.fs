@@ -13,7 +13,9 @@ module TransactionDescription =
 
     let private nonEmpty (description : string) =
         if String.IsNullOrWhiteSpace description then
-            Error (ValidationFailed "Description cannot be null or just whitespace")
+            Error (
+                ValidationFailed "Description cannot be null or just whitespace"
+            )
         else
             Ok description
 
@@ -22,12 +24,14 @@ module TransactionDescription =
             Error (
                 ValidationFailed
                     $"Title is too long. Titles must be at most \
-                    %i{MaxTransactionDescriptionLength} characters, but got %i{description.Length}"
+                    %i{MaxTransactionDescriptionLength} characters, but got \
+                    %i{description.Length}"
             )
         else
             Ok description
 
-    /// <summary>Trim whitespace and then validate a transaction description. Returns the trimmed title.</summary>
+    /// <summary>Trim whitespace and then validate a transaction description.
+    /// Returns the trimmed title.</summary>
     let create (description : string) =
         description.Trim ()
         |> nonEmpty
@@ -36,15 +40,18 @@ module TransactionDescription =
 
     let value (TransactionDescription description) = description
 
-    /// An escape hatch for the smart constructor for reading trusted values from the database.
-    let internal unsafeFromString description = TransactionDescription description
+    /// An escape hatch for the smart constructor for reading trusted values
+    /// from the database.
+    let internal unsafeFromString description =
+        TransactionDescription description
 
 /// <summary>A transaction stored in the database.</summary>
 type Transaction = {
     /// <summary>Unique identifier for the transaction item.</summary>
     Id : Guid
 
-    /// <summary>A debit (negative) or credit (positive). Serialised as a string.</summary>
+    /// <summary>A debit (negative) or credit (positive). Serialised as a
+    /// string.</summary>
     Amount : Money
 
     /// <summary>The title or description of the transaction.</summary>
@@ -53,7 +60,8 @@ type Transaction = {
     /// <summary>Date when the transaction occurred (UTC).</summary>
     Date : DateOnly
 
-    /// <summary>Whether the transaction represents an internal transfer between one's own accounts.</summary>
+    /// <summary>Whether the transaction represents an internal transfer between
+    /// one's own accounts.</summary>
     IsTransfer : bool
 
     /// <summary>The bank account associated with this transaction.</summary>

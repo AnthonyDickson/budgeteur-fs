@@ -37,30 +37,13 @@ module UpdateTransaction =
     [<Literal>]
     let Path = "/api/transactions/{%O:guid}"
 
-    /// <summary>Verify that the referenced account exists and belongs to the user. Skips the
-    /// check when no account is referenced (<c>None</c> succeeds).</summary>
-    let private requireAccountExists (queryContext : QueryContextFactory) (userId : string) (accountId : Guid option) =
-        task {
-            match accountId with
-            | Some accountId ->
-                let! rowCount =
-                    selectTask queryContext {
-                        for t in main.Accounts do
-                            where (t.Id = accountId && t.UserId = userId)
-                            count
-                    }
-
-                return
-                    if rowCount > 0 then
-                        Ok ()
-                    else
-                        Error (ConstraintError $"Could not find an account with the ID {accountId}")
-            | None -> return Ok ()
-        }
-
-    /// <summary>Replace the user's transaction. Fails with <c>NotFound</c> when the user has no
-    /// transaction with the id.</summary>
-    let private update (queryContext : QueryContextFactory) (userId : string) (transaction : Transaction) =
+    /// <summary>Replace the user's transaction. Fails with <c>NotFound</c> when
+    /// the user has no transaction with the id.</summary>
+    let private update
+        (queryContext : QueryContextFactory)
+        (userId : string)
+        (transaction : Transaction)
+        =
         task {
             let row = TransactionCodec.toRow transaction userId None
 
@@ -69,30 +52,42 @@ module UpdateTransaction =
                     for t in main.Transactions do
                         entity row
                         excludeColumn t.Id
-                        // The request carries no import hash; keeping it lets a re-import skip the transaction.
+                        // The request carries no import hash; keeping it lets a
+                        // re-import skip the transaction.
                         excludeColumn t.ImportHash
                         where (t.Id = transaction.Id && t.UserId = userId)
                 }
 
             if rowsAffected = 0 then
-                return Error (NotFound $"Transaction %O{transaction.Id} not found")
+                return
+                    Error (NotFound $"Transaction %O{transaction.Id} not found")
             else
                 return Ok ()
         }
 
-    let private handler (queryContext : QueryContextFactory) (id : Guid) : EndpointHandler =
+    let private handler
+        (queryContext : QueryContextFactory)
+        (id : Guid)
+        : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! (req : UpdateTransactionRequest) = Json.read ctx
                 let! userId = Auth.getUserId ctx
 
-                let! description = TransactionDescription.create req.Description
+                let! description =
+                    TransactionDescription.create req.Description
 
                 do!
                     Constraints.requireAll [
-                        Constraints.requireTagIfReferenced queryContext userId req.TagId
-                        requireAccountExists queryContext userId req.AccountId
+                        Constraints.requireTagIfReferenced
+                            queryContext
+                            userId
+                            req.TagId
+                        Constraints.requireAccountIfReferenced
+                            queryContext
+                            userId
+                            req.AccountId
                     ]
 
                 let transaction : Transaction = {
@@ -107,9 +102,21 @@ module UpdateTransaction =
 
                 do! update queryContext userId transaction
 
-                log.Info ($"Updated transaction %O{id}", LogProp.prop "transactionId" (id.ToString ()))
+                log.Info (
+                    $"Updated transaction %O{id}",
+                    LogProp.prop "transactionId" (id.ToString ())
+                )
+
                 do! Json.write ctx (TransactionResponse.fromDomain transaction)
             })
+
+    let private configureOperation (op : OpenApiOperation) _ _ =
+        op.Summary <- "Update a transaction"
+        op.Description <- "Replaces the transaction."
+
+        op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
+
+        Task.CompletedTask
 
     let endpoint (queryContext : QueryContextFactory) =
         routef Path (handler queryContext)
@@ -122,11 +129,6 @@ module UpdateTransaction =
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
-                configureOperation =
-                    fun op _ _ ->
-                        op.Summary <- "Update a transaction"
-                        op.Description <- "Replaces the transaction."
-                        op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
-                        Task.CompletedTask
+                configureOperation = configureOperation
             )
         )
