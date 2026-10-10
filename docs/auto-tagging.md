@@ -242,8 +242,9 @@ decision.
 
 ### 9. UI
 
-- **Tagging page**: the rules section has "Tag untagged" and "Re-tag all"
-  buttons, disabled while a run is in progress. "Re-tag all" opens a
+- **Tagging page**: the page header has "Tag untagged" and "Re-tag all" buttons,
+  disabled while a run is in progress. They are not in the rules panel because a
+  run applies every rule, not only the selected tag's. "Re-tag all" opens a
   confirmation modal (decision 5) and runs only when confirmed. The result is a
   toast with the counts; failures use the error toast.
 - **Transaction modal**: while the selected tag is the one a rule set, a callout

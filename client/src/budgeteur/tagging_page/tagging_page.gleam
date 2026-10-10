@@ -7,6 +7,7 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/tag.{type Tag}
+import budgeteur/tagging_page/auto_tag
 import budgeteur/tagging_page/rule.{type Rule}
 import budgeteur/tagging_page/rule_delete_modal
 import budgeteur/tagging_page/rule_matches
@@ -40,6 +41,7 @@ pub type Model {
     tag_delete_modal: tag_delete_modal.DeleteModalState,
     rule_modal: rule_modal.Modal,
     rule_delete_modal: rule_delete_modal.DeleteModalState,
+    auto_tag: auto_tag.Run,
   )
 }
 
@@ -74,6 +76,15 @@ pub type Msg {
   UserCancelledRuleDelete
   // Server response to a rule delete request (see ServerDeletedTag).
   ServerDeletedRule(rule: Rule, result: Result(Nil, ApiError))
+  // Auto-tagging messages
+  UserRequestedTagUntagged
+  UserRequestedRetag
+  UserConfirmedRetag
+  UserCancelledRetag
+  ServerRanAutoTag(
+    action: auto_tag.Action,
+    result: Result(auto_tag.Counts, ApiError),
+  )
 }
 
 // TODO: See if there's a common pattern among the API request effect helpers and refactor
@@ -115,6 +126,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       tag_delete_modal: tag_delete_modal.empty(),
       rule_modal: rule_modal.hidden(),
       rule_delete_modal: rule_delete_modal.empty(),
+      auto_tag: auto_tag.Idle,
     ),
     effect.batch([fetch_tags(), fetch_rules()]),
   )
@@ -291,7 +303,108 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       effect.none(),
       None,
     )
+
+    UserRequestedTagUntagged ->
+      case model.auto_tag {
+        auto_tag.Idle -> start_auto_tag(model, auto_tag.TagUntagged)
+        auto_tag.ConfirmingRetag | auto_tag.Running(_) -> #(
+          model,
+          effect.none(),
+          None,
+        )
+      }
+
+    UserRequestedRetag ->
+      case model.auto_tag {
+        auto_tag.Idle -> #(
+          Model(..model, auto_tag: auto_tag.ConfirmingRetag),
+          effect.none(),
+          None,
+        )
+        auto_tag.ConfirmingRetag | auto_tag.Running(_) -> #(
+          model,
+          effect.none(),
+          None,
+        )
+      }
+
+    UserConfirmedRetag ->
+      case model.auto_tag {
+        auto_tag.ConfirmingRetag -> start_auto_tag(model, auto_tag.Retag)
+        auto_tag.Idle | auto_tag.Running(_) -> #(model, effect.none(), None)
+      }
+
+    UserCancelledRetag ->
+      case model.auto_tag {
+        auto_tag.ConfirmingRetag -> #(
+          Model(..model, auto_tag: auto_tag.Idle),
+          effect.none(),
+          None,
+        )
+        auto_tag.Idle | auto_tag.Running(_) -> #(model, effect.none(), None)
+      }
+
+    ServerRanAutoTag(action:, result:) -> {
+      // The run happened whatever the page shows now, so its result is always
+      // toasted. Only the run it belongs to ends; a response that arrives
+      // after the page was re-entered must not close a newer confirmation.
+      let model = case model.auto_tag == auto_tag.Running(action) {
+        True -> Model(..model, auto_tag: auto_tag.Idle)
+        False -> model
+      }
+      case result {
+        Ok(counts) -> #(
+          model,
+          effect.none(),
+          Some(out_msg.success_toast(auto_tag.summary(action, counts))),
+        )
+        Error(error) -> #(
+          model,
+          effect.LogError(api_error.describe(error)),
+          Some(out_msg.error_toast(
+            case action {
+              auto_tag.TagUntagged -> "Could not tag untagged transactions"
+              auto_tag.Retag -> "Could not re-tag transactions"
+            },
+            error.details,
+          )),
+        )
+      }
+    }
   }
+}
+
+fn start_auto_tag(
+  model: Model,
+  action: auto_tag.Action,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  #(
+    Model(..model, auto_tag: auto_tag.Running(action)),
+    run_auto_tag(action),
+    None,
+  )
+}
+
+fn run_auto_tag(action: auto_tag.Action) -> Effect(Msg) {
+  effect.post(
+    api_route.RunAutoTag |> api_route.to_string,
+    auto_tag.to_json(action) |> json.to_string,
+    fn(result) {
+      case result {
+        Ok(body) ->
+          ServerRanAutoTag(
+            action,
+            response.decode_success(body, auto_tag.counts_decoder()),
+          )
+        Error(http_error) ->
+          ServerRanAutoTag(
+            action,
+            Error(response.http_error_to_api_error(http_error)),
+          )
+      }
+    },
+  )
+  |> effect.with_timeout(auto_tag.run_timeout_ms)
 }
 
 fn confirm_tag_delete(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
@@ -638,9 +751,25 @@ fn fold_form(
 
 pub fn view(model: Model) -> Element(Msg) {
   html.div([attribute.class("mx-auto max-w-6xl px-4 py-8 sm:px-6")], [
-    html.h1([attribute.class("mb-6 text-2xl font-semibold text-gray-900")], [
-      html.text("Tags & Rules"),
-    ]),
+    html.div(
+      [
+        attribute.class(
+          "mb-6 flex flex-wrap items-center justify-between gap-4",
+        ),
+      ],
+      [
+        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+          html.text("Tags & Rules"),
+        ]),
+        // Runs apply every rule, not the selected tag's, so the buttons sit
+        // in the page header rather than the rules panel. Without tags there is
+        // nothing to tag with.
+        case remote.both(model.tags, model.rules) {
+          Loaded(#([_, ..], _)) -> auto_tag_buttons(model.auto_tag)
+          Loaded(_) | Loading | Failed -> element.none()
+        },
+      ],
+    ),
     case remote.both(model.tags, model.rules) {
       Loading -> loading_state()
       Failed -> failed_state()
@@ -664,6 +793,52 @@ pub fn view(model: Model) -> Element(Msg) {
       model.rule_delete_modal,
       on_cancel: UserCancelledRuleDelete,
       on_confirm: UserConfirmedRuleDelete,
+    ),
+    auto_tag.view_retag_confirmation(
+      model.auto_tag,
+      on_cancel: UserCancelledRetag,
+      on_confirm: UserConfirmedRetag,
+    ),
+  ])
+}
+
+const secondary_button_class = "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium "
+  <> "text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+
+/// "Tag untagged" and "Re-tag all", both disabled while a run is in progress.
+fn auto_tag_buttons(run: auto_tag.Run) -> Element(Msg) {
+  let button = fn(testid, label, busy_label, action, on_click) {
+    html.button(
+      [
+        attribute.class(secondary_button_class),
+        attribute.attribute("data-testid", testid),
+        attribute.disabled(run != auto_tag.Idle),
+        event.on_click(on_click),
+      ],
+      [
+        html.text(case run == auto_tag.Running(action) {
+          True -> busy_label
+          False -> label
+        }),
+      ],
+    )
+  }
+
+  html.div([attribute.class("flex gap-2")], [
+    button(
+      "tag-untagged-button",
+      "Tag untagged",
+      "Tagging...",
+      auto_tag.TagUntagged,
+      UserRequestedTagUntagged,
+    ),
+    button(
+      "retag-all-button",
+      "Re-tag all",
+      "Re-tagging...",
+      auto_tag.Retag,
+      UserRequestedRetag,
     ),
   ])
 }

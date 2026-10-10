@@ -22,6 +22,7 @@ pub type ApiRoute {
   UpdateBalanceSheetItem(id: Uuid)
   DeleteBalanceSheetItem(id: Uuid)
   GetIncomeStatement(from: Date, to: Date)
+  RunAutoTag
   GetRuleMatches(pattern: String)
 }
 
@@ -48,6 +49,7 @@ pub fn to_string(route: ApiRoute) -> String {
       <> date.format(from)
       <> "&to="
       <> date.format(to)
+    RunAutoTag -> api_prefix <> "/auto-tag"
     GetRuleMatches(pattern:) ->
       api_prefix
       <> "/auto-tag/matches?"

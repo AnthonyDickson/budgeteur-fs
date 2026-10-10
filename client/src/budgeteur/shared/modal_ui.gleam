@@ -120,6 +120,23 @@ pub fn submit_button(
   )
 }
 
+/// The primary button of a confirmation dialog that closes when confirmed.
+pub fn confirm_button(
+  testid testid: String,
+  label label: String,
+  on_click on_click: msg,
+) -> Element(msg) {
+  html.button(
+    [
+      attribute.type_("button"),
+      attribute.attribute("data-testid", testid),
+      attribute.class(submit_button_class),
+      event.on_click(on_click),
+    ],
+    [html.text(label)],
+  )
+}
+
 /// The destructive confirm button of a delete dialog, showing a spinner while
 /// the delete request is in flight.
 pub fn delete_button(

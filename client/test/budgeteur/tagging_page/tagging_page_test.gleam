@@ -8,6 +8,7 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote
 import budgeteur/shared/toast
 import budgeteur/tag
+import budgeteur/tagging_page/auto_tag
 import budgeteur/tagging_page/rule
 import budgeteur/tagging_page/rule_delete_modal
 import budgeteur/tagging_page/rule_modal
@@ -43,6 +44,7 @@ fn empty_model() -> tagging_page.Model {
     tag_delete_modal: tag_delete_modal.empty(),
     rule_modal: rule_modal.hidden(),
     rule_delete_modal: rule_delete_modal.empty(),
+    auto_tag: auto_tag.Idle,
   )
 }
 
@@ -667,6 +669,109 @@ pub fn cancelling_the_tag_modal_hides_it_without_changes_test() {
   closed.tag_modal |> should.equal(tag_modal.hidden())
   tags(closed) |> should.equal(tags(model))
   effect |> should.equal(effect.none())
+}
+
+// ── Auto-tagging ──────────────────────────────────────────────────────────────
+
+pub fn tag_untagged_posts_the_action_and_toasts_the_count_test() {
+  let model = model_with([tag_named(tag_id(1), "Coffee")])
+
+  let #(running, run_effect, _) =
+    tagging_page.update(model, tagging_page.UserRequestedTagUntagged)
+
+  running.auto_tag |> should.equal(auto_tag.Running(auto_tag.TagUntagged))
+  let assert effect.HttpRequest(method: http_effect.Post, url:, body:, ..) =
+    run_effect
+  url |> should.equal(api_route.to_string(api_route.RunAutoTag))
+  body |> should.equal("{\"action\":\"TagUntagged\"}")
+
+  let #(done, _, out_msg) =
+    tagging_page.update(
+      running,
+      tagging_page.ServerRanAutoTag(
+        auto_tag.TagUntagged,
+        Ok(auto_tag.Counts(tagged: 3, changed: 0, cleared: 0)),
+      ),
+    )
+
+  done.auto_tag |> should.equal(auto_tag.Idle)
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, body:, ..)) =
+    out_msg
+  body |> should.equal("Tagged 3 untagged transactions")
+}
+
+pub fn retag_runs_only_once_confirmed_test() {
+  let model = model_with([tag_named(tag_id(1), "Coffee")])
+
+  let #(confirming, confirm_effect, _) =
+    tagging_page.update(model, tagging_page.UserRequestedRetag)
+
+  confirming.auto_tag |> should.equal(auto_tag.ConfirmingRetag)
+  confirm_effect |> should.equal(effect.none())
+
+  let #(running, run_effect, _) =
+    tagging_page.update(confirming, tagging_page.UserConfirmedRetag)
+
+  running.auto_tag |> should.equal(auto_tag.Running(auto_tag.Retag))
+  let assert effect.HttpRequest(method: http_effect.Post, body:, ..) =
+    run_effect
+  body |> should.equal("{\"action\":\"Retag\"}")
+
+  let #(done, _, out_msg) =
+    tagging_page.update(
+      running,
+      tagging_page.ServerRanAutoTag(
+        auto_tag.Retag,
+        Ok(auto_tag.Counts(tagged: 1, changed: 2, cleared: 3)),
+      ),
+    )
+
+  done.auto_tag |> should.equal(auto_tag.Idle)
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, body:, ..)) =
+    out_msg
+  body |> should.equal("Tagged 1, changed 2, and cleared 3 transactions")
+}
+
+pub fn cancelling_retag_sends_no_request_test() {
+  let model = model_with([tag_named(tag_id(1), "Coffee")])
+  let confirming = run(model, tagging_page.UserRequestedRetag)
+
+  let #(cancelled, effect, out_msg) =
+    tagging_page.update(confirming, tagging_page.UserCancelledRetag)
+
+  cancelled |> should.equal(model)
+  effect |> should.equal(effect.none())
+  out_msg |> should.equal(None)
+}
+
+pub fn a_failed_run_logs_and_toasts_an_error_test() {
+  let model = model_with([tag_named(tag_id(1), "Coffee")])
+  let running = run(model, tagging_page.UserRequestedTagUntagged)
+
+  let #(failed, effect, out_msg) =
+    tagging_page.update(
+      running,
+      tagging_page.ServerRanAutoTag(auto_tag.TagUntagged, Error(server_error())),
+    )
+
+  failed.auto_tag |> should.equal(auto_tag.Idle)
+  let assert effect.LogError(_) = effect
+  let assert Some(out_msg.PageRequestedToast(level: toast.Error, ..)) = out_msg
+}
+
+pub fn runs_are_ignored_while_one_is_in_progress_test() {
+  let model = model_with([tag_named(tag_id(1), "Coffee")])
+  let running = run(model, tagging_page.UserRequestedTagUntagged)
+
+  let #(after_tag, tag_effect, _) =
+    tagging_page.update(running, tagging_page.UserRequestedTagUntagged)
+  let #(after_retag, retag_effect, _) =
+    tagging_page.update(running, tagging_page.UserRequestedRetag)
+
+  after_tag |> should.equal(running)
+  tag_effect |> should.equal(effect.none())
+  after_retag |> should.equal(running)
+  retag_effect |> should.equal(effect.none())
 }
 
 fn then_confirm(
