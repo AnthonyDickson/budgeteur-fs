@@ -236,17 +236,26 @@ fn set_type(state: Modal, type_: TransactionType) -> Modal {
   form_modal.set_form(state, fn(form) { Form(..form, type_:) })
 }
 
-/// Validate and set the transfer flag. No op for Hidden and Submitting
-/// states.
+/// Set the transfer flag. A transfer has no tag, so marking one clears the
+/// tag. No op for Hidden and Submitting states.
 fn set_is_transfer(state: Modal, is_transfer: Bool) -> Modal {
-  form_modal.set_form(state, fn(form) { Form(..form, is_transfer:) })
+  form_modal.set_form(state, fn(form) {
+    case is_transfer {
+      True -> Form(..form, is_transfer:, tag_id: None)
+      False -> Form(..form, is_transfer:)
+    }
+  })
 }
 
-/// Set the tag from the select's value. No op for Hidden and Submitting
+/// Set the tag from the select's value. A transfer has no tag, so this is a
+/// no op while the form is a transfer, as it is for Hidden and Submitting
 /// states.
 fn set_tag(state: Modal, tag_id: String) -> Modal {
   form_modal.set_form(state, fn(form) {
-    Form(..form, tag_id: parse_tag_id(tag_id))
+    case form.is_transfer {
+      True -> form
+      False -> Form(..form, tag_id: parse_tag_id(tag_id))
+    }
   })
 }
 
@@ -683,7 +692,7 @@ fn view_form(
                 <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
                 <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
               ),
-              attribute.disabled(submitting),
+              attribute.disabled(submitting || is_transfer),
               event.on_change(TagChanged),
             ],
             [
@@ -702,8 +711,23 @@ fn view_form(
               })
             ],
           ),
-          case tags {
-            [] ->
+          case is_transfer, tags {
+            True, _ ->
+              html.p(
+                [
+                  attribute.attribute(
+                    "data-testid",
+                    "transaction-transfer-tag-hint",
+                  ),
+                  attribute.class("mt-1 text-xs text-gray-500"),
+                ],
+                [
+                  html.text(
+                    "Transfers have no tag: they are neither income nor expenses.",
+                  ),
+                ],
+              )
+            False, [] ->
               html.p([attribute.class("mt-1 text-xs text-gray-500")], [
                 html.text("No tags yet. "),
                 html.a(
@@ -717,7 +741,7 @@ fn view_form(
                 ),
                 html.text("."),
               ])
-            _ -> element.none()
+            False, _ -> element.none()
           },
           case rule_tag_id {
             Some(_) if rule_tag_id == tag_id ->

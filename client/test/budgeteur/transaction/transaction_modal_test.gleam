@@ -130,6 +130,26 @@ pub fn tag_changed_with_unparseable_value_clears_tag_id_test() {
   form.tag_id |> should.equal(None)
 }
 
+pub fn marking_a_transfer_clears_the_tag_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000009")
+  let form =
+    opened()
+    |> send(TagChanged(uuid.to_string(id)))
+    |> send(IsTransferChanged(True))
+    |> form_of
+  form.tag_id |> should.equal(None)
+}
+
+pub fn tag_changed_is_ignored_for_a_transfer_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000009")
+  let form =
+    opened()
+    |> send(IsTransferChanged(True))
+    |> send(TagChanged(uuid.to_string(id)))
+    |> form_of
+  form.tag_id |> should.equal(None)
+}
+
 pub fn validate_includes_is_transfer_test() {
   let assert #(submitting, Some(Post(request)), NoChange) =
     transaction_modal.update(
