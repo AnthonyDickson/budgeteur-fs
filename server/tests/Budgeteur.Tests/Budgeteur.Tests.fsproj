@@ -24,6 +24,7 @@
     <Compile Include="BalanceSheet/EndpointTests.fs" />
     <Compile Include="IncomeStatement/ComputeTests.fs" />
     <Compile Include="IncomeStatement/EndpointTests.fs" />
+    <Compile Include="AutoTag/ChangesTests.fs" />
     <Compile Include="Rules/EndpointTests.fs" />
     <Compile Include="Tags/EndpointTests.fs" />
     <Compile Include="Transactions/EndpointTests.fs" />
