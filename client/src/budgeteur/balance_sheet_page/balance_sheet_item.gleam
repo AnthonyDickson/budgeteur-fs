@@ -3,7 +3,6 @@ import budgeteur/balance_sheet_page/term.{type Term}
 import budgeteur/shared/money
 import budgeteur/shared/uuid as uuid_decoder
 import gleam/dynamic/decode
-import gleam/json
 import youid/uuid.{type Uuid}
 
 pub type BalanceSheetItem {
@@ -19,17 +18,6 @@ pub type BalanceSheetItem {
     // The positive magnitude of the item's value. Direction is implied by Kind.
     balance: Float,
   )
-}
-
-pub fn to_json(balance_sheet_item: BalanceSheetItem) -> json.Json {
-  let BalanceSheetItem(id:, name:, kind:, term:, balance:) = balance_sheet_item
-  json.object([
-    #("id", uuid.to_string(id) |> json.string),
-    #("name", json.string(name)),
-    #("kind", item_kind.to_json(kind)),
-    #("term", term.to_json(term)),
-    #("balance", money.encode_decimal(balance)),
-  ])
 }
 
 pub fn decoder() -> decode.Decoder(BalanceSheetItem) {

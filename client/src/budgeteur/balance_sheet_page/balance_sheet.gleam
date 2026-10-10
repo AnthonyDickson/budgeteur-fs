@@ -2,7 +2,6 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/shared/money
 import budgeteur/shared/timestamp_helpers
 import gleam/dynamic/decode
-import gleam/json
 import gleam/time/timestamp.{type Timestamp}
 
 pub type BalanceSheet {
@@ -18,39 +17,6 @@ pub type BalanceSheet {
     working_capital: Float,
     items: List(BalanceSheetItem),
   )
-}
-
-pub fn to_json(balance_sheet: BalanceSheet) -> json.Json {
-  let BalanceSheet(
-    statement_date:,
-    total_assets:,
-    total_liabilities:,
-    net_worth:,
-    total_current_assets:,
-    total_non_current_assets:,
-    total_current_liabilities:,
-    total_non_current_liabilities:,
-    working_capital:,
-    items:,
-  ) = balance_sheet
-  json.object([
-    #("statementDate", timestamp_helpers.to_json(statement_date)),
-    #("totalAssets", money.encode_decimal(total_assets)),
-    #("totalLiabilities", money.encode_decimal(total_liabilities)),
-    #("netWorth", money.encode_decimal(net_worth)),
-    #("totalCurrentAssets", money.encode_decimal(total_current_assets)),
-    #("totalNonCurrentAssets", money.encode_decimal(total_non_current_assets)),
-    #(
-      "totalCurrentLiabilities",
-      money.encode_decimal(total_current_liabilities),
-    ),
-    #(
-      "totalNonCurrentLiabilities",
-      money.encode_decimal(total_non_current_liabilities),
-    ),
-    #("workingCapital", money.encode_decimal(working_capital)),
-    #("items", json.array(items, balance_sheet_item.to_json)),
-  ])
 }
 
 pub fn decoder() -> decode.Decoder(BalanceSheet) {

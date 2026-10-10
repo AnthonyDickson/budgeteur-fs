@@ -521,18 +521,20 @@ let #(new_model, custom_effect) = update(model, msg) |> with_auth_redirect
 ```
 
 Auth, session expiry, and persistence each become a small transformation rather than a framework: the server maps
-`Auth.requireAuth` over its endpoint lists, the client rewrites HTTP effects into a `401` redirect, and each page folds
-its own `SaveToStore` effect into the result before returning. This is "the program is data" in practice, and it's why
-neither half of this stack needs a DI container or a middleware framework.
+`Auth.requireAuth` over its endpoint lists, the client rewrites HTTP effects into a `401` redirect, and the dashboard
+folds a `SaveToStore` effect for its chosen period into the result before returning. This is "the program is data" in
+practice, and it's why neither half of this stack needs a DI container or a middleware framework.
 
 ### 11. App state as data
 
 In a typical app, "the state" is scattered across components, stores, and globals, so persisting it across a reload
 means saving pieces and hoping you got them all. The OOP version of "save the whole app and restore it" needs
 serialization annotations and a snapshotting strategy just to approximate what's really in memory. Here the model is
-plain data, with no methods and no hidden state, so each page persisting its own slice is a few lines: serialize it to
-JSON, save it to localStorage after every update, parse it back on startup. Rich Hickey draws the same line in "The
-Value of Values": values are immutable and self-contained, so they can be compared, cached, serialized, and passed
+plain data, with no methods and no hidden state, so persisting a slice of it is a few lines: serialize it to JSON, save
+it to localStorage after the update that changes it, parse it back on startup. The dashboard does this for its period
+preset. The pages once cached their whole model the same way and stopped for a domain reason, not a technical one: a
+browser-wide cache of financial data outlived logout and was shared between users. Rich Hickey draws the same line in
+"The Value of Values": values are immutable and self-contained, so they can be compared, cached, serialized, and passed
 between threads freely, while objects carry identity and mutable state.
 
 ### 12. Routes and codecs as values

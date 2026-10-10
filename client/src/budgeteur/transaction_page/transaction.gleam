@@ -2,7 +2,6 @@ import budgeteur/shared/date
 import budgeteur/shared/money
 import budgeteur/shared/uuid as uuid_codec
 import gleam/dynamic/decode
-import gleam/json
 import gleam/option.{type Option, None}
 import gleam/time/calendar.{type Date}
 import youid/uuid.{type Uuid}
@@ -48,31 +47,4 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
     account_id:,
     tag_id: tag_id,
   ))
-}
-
-pub fn transaction_to_json(transaction: Transaction) -> json.Json {
-  let Transaction(
-    id:,
-    amount:,
-    description:,
-    date:,
-    is_transfer:,
-    account_id:,
-    tag_id:,
-  ) = transaction
-  json.object([
-    #("id", json.string(uuid.to_string(id))),
-    #("amount", money.encode_decimal(amount)),
-    #("description", json.string(description)),
-    #("date", date.encode(date)),
-    #("isTransfer", json.bool(is_transfer)),
-    #("accountId", case account_id {
-      None -> json.null()
-      option.Some(value) -> json.string(uuid.to_string(value))
-    }),
-    #("tagId", case tag_id {
-      None -> json.null()
-      option.Some(value) -> json.string(uuid.to_string(value))
-    }),
-  ])
 }

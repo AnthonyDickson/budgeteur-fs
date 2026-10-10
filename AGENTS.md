@@ -216,8 +216,9 @@ the real browser, wired into Lustre via `lustre_effect.from(fn(dispatch) { effec
 effects are plain values, unit tests assert on them without a browser or HTTP mocking. The `Effect` type in
 `shared/effect.gleam` is the source of truth; variants cover HTTP requests, localStorage load/save, navigation (history
 push/replace, hard redirects), browser chrome (document title), timers, generic message dispatch, batching, and no-ops.
-Thin per-method constructors (`effect.get`/`post`/`put`/`patch`/`delete`) cover the common HTTP cases. Pages own their
-localStorage persistence: each serialises its own data after updates and restores it in `init`.
+Thin per-method constructors (`effect.get`/`post`/`put`/`patch`/`delete`) cover the common HTTP cases. localStorage
+holds user preferences only (the dashboard's period preset). Pages fetch server data on every visit and never cache it:
+the keys are not per user and would outlive logout, exposing one user's finances to the next.
 
 Supporting modules:
 
@@ -231,9 +232,8 @@ Supporting modules:
 
 The shell also handles, unseen by pages: **routing** (no router library — `effect.init_routing` intercepts internal link
 clicks and back/forward navigation, delivering paths to `update`; routes are declared in `shared/route.gleam`, unknown
-paths render a 404), **model persistence** (pages persist themselves; the shell does not), and **session expiry** (HTTP
-effects are rewritten so a `401` dispatches `SessionExpired` and the app redirects to login, rather than reaching the
-page's callback).
+paths render a 404) and **session expiry** (HTTP effects are rewritten so a `401` dispatches `SessionExpired` and the
+app redirects to login, rather than reaching the page's callback).
 
 The client always requests same-origin URLs (`location.origin` prefixed). In dev, Vite proxies `/api`, `/login`,
 `/logout`, and `/signin-oidc` to the backend (`BACKEND_URL` or `http://localhost:5000`); in production the server serves

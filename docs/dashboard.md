@@ -97,7 +97,7 @@ The MVP shows figures and tables only. Charts, comparisons against a baseline, a
 
 - **Decision**: the default preset is "This month" (the first of the month up to `today`). The other presets are "Last
   month", "Last 28 days" (`today - 27` to `today`), and "This financial year" (from 1 April). The chosen preset is saved
-  to localStorage, following the existing page convention.
+  to localStorage, the one kind of data the client keeps there (preferences, never server data).
 - **Why**: monthly periods are the default in budgeting tools and match bills, statements, and monthly budgets. An
   income statement covers a fixed reporting period, not a rolling one. A month-to-date figure only changes when
   transactions are added, while a rolling window changes as old days leave it, and monthly items (rent, a monthly

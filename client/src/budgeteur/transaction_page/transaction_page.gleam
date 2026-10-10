@@ -6,6 +6,7 @@ import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
+import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/tag.{type Tag}
 import budgeteur/transaction_page/create_transaction_request
@@ -14,9 +15,6 @@ import budgeteur/transaction_page/transaction_delete_modal.{
   type DeleteModalState,
 }
 import budgeteur/transaction_page/transaction_modal
-import budgeteur/transaction_page/transaction_page_data.{
-  type TransactionPageData, TransactionPageData,
-}
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/float
@@ -35,42 +33,21 @@ import youid/uuid.{type Uuid}
 
 pub type Model {
   Model(
-    transactions: List(Transaction),
+    /// Newest first.
+    transactions: Remote(List(Transaction)),
+    /// Names the transactions' tags and fills the modal's tag select. Empty
+    /// until loaded; if the fetch fails, transactions show without tag names.
     tags: List(Tag),
     modal: transaction_modal.Modal,
     delete_modal: DeleteModalState,
   )
 }
 
-fn persist_page_data(model: Model) -> Effect(Msg) {
-  let Model(transactions:, tags:, ..) = model
-
-  effect.SaveToStore(
-    transaction_page_data.storage_key,
-    transaction_page_data.to_string(TransactionPageData(transactions:, tags:)),
-  )
-}
-
-fn restore_transactions_from_store() -> Effect(Msg) {
-  effect.LoadFromStore(
-    key: transaction_page_data.storage_key,
-    callback: fn(store_result) {
-      case store_result {
-        Ok(value) -> {
-          json.parse(value, using: transaction_page_data.data_decoder())
-          |> option.from_result
-          |> ClientRestoredPageData
-        }
-        Error(_) -> ClientRestoredPageData(None)
-      }
-    },
-  )
-}
-
 pub type Msg {
-  ClientRestoredPageData(Option(TransactionPageData))
   ClientFetchedTransactions(Result(List(Transaction), ApiError))
   ClientFetchedTags(Result(List(Tag), ApiError))
+  // Retry after a failed first load.
+  UserRequestedReload
   // Modal messages
   UserRequestedCreationForm
   UserRequestedEditForm(Uuid)
@@ -149,59 +126,41 @@ fn sort_transactions(transactions: List(Transaction)) -> List(Transaction) {
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
-      transactions: [],
+      transactions: Loading,
       tags: [],
       modal: transaction_modal.hidden(),
       delete_modal: transaction_delete_modal.empty(),
     ),
-    effect.batch([
-      restore_transactions_from_store(),
-      fetch_transactions(),
-      fetch_tags(),
-    ]),
+    effect.batch([fetch_transactions(), fetch_tags()]),
   )
 }
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let #(new_model, effect, out_msg) = update_inner(model, msg)
-
   case msg {
-    // Restored data came from the store, so don't write it straight back.
-    ClientRestoredPageData(_) -> #(new_model, effect, out_msg)
-    _ ->
-      case new_model.transactions == model.transactions {
-        True -> #(new_model, effect, out_msg)
-        False -> #(
-          new_model,
-          effect.batch([effect, persist_page_data(new_model)]),
-          out_msg,
+    ClientFetchedTransactions(Ok(transactions)) -> #(
+      Model(..model, transactions: Loaded(sort_transactions(transactions))),
+      effect.none(),
+      None,
+    )
+
+    ClientFetchedTransactions(Error(error)) ->
+      case model.transactions {
+        // A refetch failed (e.g. on returning to the page); the loaded list is
+        // still the latest the page has seen.
+        Loaded(_) -> #(
+          model,
+          effect.LogError(api_error.describe(error)),
+          Some(out_msg.error_toast(
+            "Could not refresh transactions",
+            "Showing the transactions loaded earlier",
+          )),
+        )
+        Loading | Failed -> #(
+          Model(..model, transactions: Failed),
+          effect.LogError(api_error.describe(error)),
+          None,
         )
       }
-  }
-}
-
-fn update_inner(
-  model: Model,
-  msg: Msg,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case msg {
-    ClientRestoredPageData(Some(data)) -> #(
-      Model(
-        ..model,
-        transactions: sort_transactions(data.transactions),
-        tags: sort_tags(data.tags),
-      ),
-      effect.none(),
-      None,
-    )
-
-    ClientRestoredPageData(None) -> #(model, effect.none(), None)
-
-    ClientFetchedTransactions(Ok(transactions)) -> #(
-      Model(..model, transactions: sort_transactions(transactions)),
-      effect.none(),
-      None,
-    )
 
     ClientFetchedTags(Ok(tags)) -> #(
       Model(..model, tags: sort_tags(tags)),
@@ -209,22 +168,27 @@ fn update_inner(
       None,
     )
 
-    ClientFetchedTransactions(Error(error)) | ClientFetchedTags(Error(error)) -> {
-      #(
-        model,
-        effect.LogError(api_error.describe(error)),
-        Some(out_msg.error_toast(
-          "Could not load page data",
-          "Falling back to local data",
-        )),
-      )
-    }
+    ClientFetchedTags(Error(error)) -> #(
+      model,
+      effect.LogError(api_error.describe(error)),
+      Some(out_msg.error_toast(
+        "Could not load tags",
+        "Transactions are shown without tag names",
+      )),
+    )
+
+    UserRequestedReload -> #(
+      Model(..model, transactions: Loading),
+      effect.batch([fetch_transactions(), fetch_tags()]),
+      None,
+    )
 
     UserRequestedCreationForm ->
       run_transaction_modal(model, transaction_modal.CreateRequested)
 
     UserRequestedEditForm(id) -> {
-      case list.find(model.transactions, fn(t) { t.id == id }) {
+      let transactions = remote.unwrap(model.transactions, or: [])
+      case list.find(transactions, fn(t) { t.id == id }) {
         Ok(transaction) ->
           run_transaction_modal(
             model,
@@ -300,19 +264,23 @@ fn apply_outcome(
     form_modal.NoChange -> #(model, None)
     form_modal.Created(entity: transaction) -> {
       let transactions =
-        [transaction, ..model.transactions] |> sort_transactions
+        remote.map(model.transactions, fn(transactions) {
+          [transaction, ..transactions] |> sort_transactions
+        })
       let model = Model(..model, transactions:)
       #(model, Some(out_msg.success_toast("Transaction created")))
     }
     form_modal.Updated(entity: updated) -> {
       let transactions =
-        list.map(model.transactions, fn(t) {
-          case t.id == updated.id {
-            True -> updated
-            False -> t
-          }
+        remote.map(model.transactions, fn(transactions) {
+          list.map(transactions, fn(t) {
+            case t.id == updated.id {
+              True -> updated
+              False -> t
+            }
+          })
+          |> sort_transactions
         })
-        |> sort_transactions
       let model = Model(..model, transactions:)
       #(model, Some(out_msg.success_toast("Transaction updated")))
     }
@@ -377,8 +345,8 @@ fn fold_form(
     Some(error_effect) -> [error_effect, ..effects]
     None -> effects
   }
-  // A single effect stays unwrapped so the caller's persist batching does not
-  // nest one-element batches; several effects are batched.
+  // A single effect stays unwrapped rather than becoming a one-element batch;
+  // several effects are batched.
   let effect = case effects {
     [] -> effect.none()
     [effect] -> effect
@@ -394,9 +362,10 @@ fn on_delete_succeeded(
   #(
     Model(
       ..model,
-      transactions: list.filter(model.transactions, fn(t) {
-        t.id != transaction.id
-      }),
+      transactions: remote.map(
+        model.transactions,
+        list.filter(_, fn(t) { t.id != transaction.id }),
+      ),
       delete_modal: transaction_delete_modal.empty(),
     ),
     effect.none(),
@@ -430,20 +399,26 @@ pub fn view(model: Model) -> Element(Msg) {
       html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
         html.text("Transactions"),
       ]),
-      html.button(
-        [
-          attribute.class(
-            "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-            <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
-            <> "focus:ring-indigo-500 focus:ring-offset-2",
-          ),
-          attribute.attribute("data-testid", "record-transaction-button"),
-          event.on_click(UserRequestedCreationForm),
-        ],
-        [html.text("Record Transaction")],
-      ),
+      // Offered only once the list has loaded, so a new transaction always
+      // has a list to join.
+      case model.transactions {
+        Loaded(_) ->
+          html.button(
+            [
+              attribute.class(primary_button_class),
+              attribute.attribute("data-testid", "record-transaction-button"),
+              event.on_click(UserRequestedCreationForm),
+            ],
+            [html.text("Record Transaction")],
+          )
+        Loading | Failed -> element.none()
+      },
     ]),
-    transactions_table(model.transactions, tag_names_by_id),
+    case model.transactions {
+      Loading -> loading_state()
+      Failed -> failed_state()
+      Loaded(transactions) -> transactions_table(transactions, tag_names_by_id)
+    },
     transaction_modal.view(model.modal, model.tags)
       |> element.map(TransactionModalMsg),
     transaction_delete_modal.view(
@@ -640,6 +615,55 @@ fn no_transactions_empty_state() -> Element(Msg) {
       html.p([attribute.class("mt-1 text-sm text-gray-500")], [
         html.text("Use \"Record Transaction\" to add your first one."),
       ]),
+    ],
+  )
+}
+
+const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
+  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
+  <> "focus:ring-indigo-500 focus:ring-offset-2"
+
+fn loading_state() -> Element(Msg) {
+  html.div(
+    [
+      attribute.class(
+        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
+      ),
+      attribute.attribute("data-testid", "transactions-loading-state"),
+    ],
+    [
+      html.p([attribute.class("text-sm text-gray-500")], [
+        html.text("Loading transactions..."),
+      ]),
+    ],
+  )
+}
+
+/// The first load failed; the page offers a retry rather than an indefinite
+/// loading state.
+fn failed_state() -> Element(Msg) {
+  html.div(
+    [
+      attribute.class(
+        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
+      ),
+      attribute.attribute("data-testid", "transactions-load-error"),
+    ],
+    [
+      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+        html.text("Could not load transactions"),
+      ]),
+      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+        html.text("Check your connection and try again."),
+      ]),
+      html.button(
+        [
+          attribute.class("mt-4 " <> primary_button_class),
+          attribute.attribute("data-testid", "transactions-retry"),
+          event.on_click(UserRequestedReload),
+        ],
+        [html.text("Retry")],
+      ),
     ],
   )
 }

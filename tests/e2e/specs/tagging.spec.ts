@@ -279,7 +279,7 @@ test.describe('tagging', () => {
     await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(1);
   });
 
-  test('restores tags and rules after a reload', async ({ page }) => {
+  test('shows saved tags and rules after a reload', async ({ page }) => {
     await gotoEmptyTagging(page);
     await createFirstTag(page, 'Groceries');
     await createRule(page, 'STARBUCKS');

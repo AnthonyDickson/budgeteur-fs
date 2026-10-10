@@ -1,8 +1,5 @@
 import budgeteur/balance_sheet_page/balance_sheet.{type BalanceSheet}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
-import budgeteur/balance_sheet_page/balance_sheet_page_data.{
-  type BalanceSheetPageData, BalanceSheetPageData,
-}
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
@@ -46,19 +43,18 @@ pub type Model {
 
 /// The lifecycle of the page's snapshot.
 pub type SheetState {
-  /// No response yet, and nothing cached to show.
+  /// No response yet.
   Loading
   /// The user has no balance sheet yet. The server creates the sheet on the
   /// first item write, so a missing sheet is an expected state, not a failure.
   Empty
   /// The sheet loaded. Its item list may be empty (every item was deleted).
   Loaded(BalanceSheet)
-  /// The first load failed and there is nothing cached to fall back to.
+  /// The first load failed.
   Failed
 }
 
 pub type Msg {
-  ClientRestoredData(Option(BalanceSheetPageData))
   // API responses
   ClientFetchedSheet(Result(BalanceSheet, ApiError))
   // Retry after a failed first load.
@@ -94,36 +90,6 @@ fn fetch_sheet() -> Effect(Msg) {
   })
 }
 
-fn restore_data_from_store() -> Effect(Msg) {
-  effect.LoadFromStore(
-    key: balance_sheet_page_data.storage_key,
-    callback: fn(store_result) {
-      case store_result {
-        Ok(value) -> {
-          case json.parse(value, using: balance_sheet_page_data.decoder()) {
-            Ok(data) -> ClientRestoredData(Some(data))
-            Error(_) -> ClientRestoredData(None)
-          }
-        }
-        Error(_) -> ClientRestoredData(None)
-      }
-    },
-  )
-}
-
-fn persist_sheet(sheet: BalanceSheet) -> Effect(Msg) {
-  effect.SaveToStore(
-    balance_sheet_page_data.storage_key,
-    balance_sheet_page_data.to_string(BalanceSheetPageData(sheet:)),
-  )
-}
-
-/// Forget the cached snapshot. An empty value is treated as absent by
-/// `LoadFromStore`.
-fn clear_stored_sheet() -> Effect(Msg) {
-  effect.SaveToStore(balance_sheet_page_data.storage_key, "")
-}
-
 // Init
 // ----
 
@@ -134,7 +100,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       item_modal: item_modal.hidden(),
       item_delete_modal: item_delete_modal.empty(),
     ),
-    effect.batch([restore_data_from_store(), fetch_sheet()]),
+    fetch_sheet(),
   )
 }
 
@@ -142,47 +108,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
 // ------
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let #(new_model, effect, out_msg) = update_inner(model, msg)
-
   case msg {
-    // Restored data came from the store, so don't write it straight back.
-    ClientRestoredData(_) -> #(new_model, effect, out_msg)
-    _ ->
-      case new_model.sheet == model.sheet {
-        True -> #(new_model, effect, out_msg)
-        False ->
-          case new_model.sheet {
-            Loaded(sheet) -> #(
-              new_model,
-              effect.batch([effect, persist_sheet(sheet)]),
-              out_msg,
-            )
-            // The server has no sheet for this user, so any cached snapshot
-            // is stale and is dropped.
-            Empty -> #(
-              new_model,
-              effect.batch([effect, clear_stored_sheet()]),
-              out_msg,
-            )
-            Loading | Failed -> #(new_model, effect, out_msg)
-          }
-      }
-  }
-}
-
-fn update_inner(
-  model: Model,
-  msg: Msg,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case msg {
-    ClientRestoredData(Some(data)) -> #(
-      Model(..model, sheet: Loaded(data.sheet)),
-      effect.none(),
-      None,
-    )
-
-    ClientRestoredData(None) -> #(model, effect.none(), None)
-
     ClientFetchedSheet(Ok(sheet)) -> #(
       Model(..model, sheet: Loaded(sheet)),
       effect.none(),
@@ -241,9 +167,9 @@ fn update_inner(
   }
 }
 
-/// A fetch failed for a reason other than a missing sheet. A cached snapshot
-/// is more useful than an error page; without one there is nothing to show, so
-/// the page offers a retry.
+/// A fetch failed for a reason other than a missing sheet. A sheet loaded
+/// earlier (e.g. before a refetch after a write) is more useful than an error
+/// page; without one there is nothing to show, so the page offers a retry.
 fn on_fetch_failed(
   model: Model,
   error: ApiError,
@@ -253,8 +179,8 @@ fn on_fetch_failed(
       model,
       effect.LogError(api_error.describe(error)),
       Some(out_msg.error_toast(
-        "Could not sync balance sheet",
-        "Falling back to local data",
+        "Could not refresh balance sheet",
+        "Showing the balance sheet loaded earlier",
       )),
     )
     Loading | Empty | Failed -> #(
@@ -300,8 +226,8 @@ fn run_item_modal(
     form_modal.Created(_) | form_modal.Updated(_) ->
       list.append(effects, [fetch_sheet()])
   }
-  // A single effect stays unwrapped so the caller's persist batching does not
-  // nest one-element batches; several effects are batched.
+  // A single effect stays unwrapped rather than becoming a one-element batch;
+  // several effects are batched.
   let effect = case effects {
     [] -> effect.none()
     [effect] -> effect

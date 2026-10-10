@@ -5,9 +5,6 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
 import budgeteur/balance_sheet_page/balance_sheet_page
-import budgeteur/balance_sheet_page/balance_sheet_page_data.{
-  BalanceSheetPageData,
-}
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
@@ -22,7 +19,6 @@ import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/toast
 import gleam/int
-import gleam/json
 import gleam/option.{None, Some}
 import gleam/time/timestamp
 import gleeunit/should
@@ -124,43 +120,30 @@ fn sample_sheet() -> BalanceSheet {
   )
 }
 
-pub fn init_restores_the_cache_and_fetches_the_sheet_test() {
+pub fn init_fetches_the_sheet_test() {
   let #(model, effect) = balance_sheet_page.init()
 
   model.sheet |> should.equal(balance_sheet_page.Loading)
 
-  let assert effect.Batch([
-    effect.LoadFromStore(key: key, ..),
-    effect.HttpRequest(method: method, url: url, ..),
-  ]) = effect
-  key |> should.equal(balance_sheet_page_data.storage_key)
+  let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Get)
   url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
 }
 
-pub fn a_fetched_sheet_is_loaded_verbatim_and_persisted_test() {
+pub fn a_fetched_sheet_is_loaded_verbatim_test() {
   let #(model, effect, out_msg) =
     balance_sheet_page.update(
       empty_model(),
       balance_sheet_page.ClientFetchedSheet(Ok(sample_sheet())),
     )
 
-  // The server owns the totals, so they are stored as received.
+  // The server owns the totals, so they are kept as received.
   model.sheet |> should.equal(balance_sheet_page.Loaded(sample_sheet()))
   out_msg |> should.equal(None)
-
-  let assert effect.Batch([
-    effect.NoEffect,
-    effect.SaveToStore(key: key, value: value),
-  ]) = effect
-  key |> should.equal(balance_sheet_page_data.storage_key)
-
-  let assert Ok(stored) =
-    json.parse(value, using: balance_sheet_page_data.decoder())
-  stored.sheet |> should.equal(sample_sheet())
+  effect |> should.equal(effect.none())
 }
 
-pub fn not_found_is_the_empty_state_and_clears_the_store_test() {
+pub fn not_found_is_the_empty_state_test() {
   let #(model, effect, out_msg) =
     balance_sheet_page.update(
       empty_model(),
@@ -170,17 +153,11 @@ pub fn not_found_is_the_empty_state_and_clears_the_store_test() {
   // A user with no sheet yet is an expected state, not an error.
   model.sheet |> should.equal(balance_sheet_page.Empty)
   out_msg |> should.equal(None)
-
-  // Any cached snapshot is stale, so it is dropped.
-  let assert effect.Batch([
-    effect.NoEffect,
-    effect.SaveToStore(key: key, value: ""),
-  ]) = effect
-  key |> should.equal(balance_sheet_page_data.storage_key)
+  effect |> should.equal(effect.none())
 }
 
-pub fn a_failed_fetch_retries_or_falls_back_to_the_cache_test() {
-  // With nothing cached there is nothing to show, so the page offers a retry.
+pub fn a_failed_fetch_retries_or_keeps_the_loaded_sheet_test() {
+  // With nothing loaded there is nothing to show, so the page offers a retry.
   let #(failed, failed_effect, failed_out_msg) =
     balance_sheet_page.update(
       empty_model(),
@@ -191,34 +168,20 @@ pub fn a_failed_fetch_retries_or_falls_back_to_the_cache_test() {
   failed_out_msg |> should.equal(None)
   let assert effect.LogError(_) = failed_effect
 
-  // With a cached sheet the data must not appear to vanish.
-  let cached = loaded_model(sample_sheet())
+  // With a sheet loaded earlier (e.g. a refetch after a write), the data must
+  // not appear to vanish.
+  let loaded = loaded_model(sample_sheet())
 
   let #(kept, kept_effect, kept_out_msg) =
     balance_sheet_page.update(
-      cached,
+      loaded,
       balance_sheet_page.ClientFetchedSheet(Error(api_error(500))),
     )
 
-  kept |> should.equal(cached)
+  kept |> should.equal(loaded)
   let assert effect.LogError(_) = kept_effect
   let assert Some(out_msg.PageRequestedToast(level: level, ..)) = kept_out_msg
   level |> should.equal(toast.Error)
-}
-
-pub fn restored_data_is_not_written_back_test() {
-  let #(model, effect, out_msg) =
-    balance_sheet_page.update(
-      empty_model(),
-      balance_sheet_page.ClientRestoredData(
-        Some(BalanceSheetPageData(sheet: sample_sheet())),
-      ),
-    )
-
-  model.sheet |> should.equal(balance_sheet_page.Loaded(sample_sheet()))
-  // The data came from the store, so echoing it straight back is pointless.
-  effect |> should.equal(effect.none())
-  out_msg |> should.equal(None)
 }
 
 pub fn saving_an_item_closes_the_dialog_refetches_and_toasts_test() {
@@ -365,16 +328,4 @@ pub fn cancelling_the_item_form_hides_it_test() {
   after.item_modal |> should.equal(item_modal.hidden())
   effect |> should.equal(effect.none())
   out_msg |> should.equal(None)
-}
-
-pub fn the_sheet_round_trips_through_the_store_test() {
-  let value =
-    balance_sheet_page_data.to_string(
-      BalanceSheetPageData(sheet: sample_sheet()),
-    )
-
-  let assert Ok(restored) =
-    json.parse(value, using: balance_sheet_page_data.decoder())
-
-  restored.sheet |> should.equal(sample_sheet())
 }

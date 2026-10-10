@@ -213,8 +213,9 @@ Things the shell does that feature pages should not know about:
 - **Routing** — no router library. `effect.init_routing` intercepts clicks on internal links and back/forward
   navigation, delivering each path to `update` as a message. Routes are declared in `shared/route.gleam`; unrecognised
   paths render a 404 page.
-- **Model persistence** — each feature page serialises its own data to localStorage after updates and restores it in
-  `init`, so the UI survives page reloads; the shell itself does not persist the model.
+- **No cached server data** — pages fetch their data on every visit and show a loading state until it arrives;
+  localStorage holds user preferences only (the dashboard's period preset). Cached financial data was dropped because
+  its keys were not per user and survived logout.
 - **Session expiry** — HTTP effects are rewritten so that a `401` response dispatches `SessionExpired` instead of
   reaching the page's callback, and the app redirects to the login route.
 

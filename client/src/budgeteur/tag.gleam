@@ -58,13 +58,3 @@ pub fn tag_decoder() -> decode.Decoder(Tag) {
   use kind <- decode.field("kind", kind_decoder())
   decode.success(Tag(id:, name:, color:, kind:))
 }
-
-pub fn tag_to_json(tag: Tag) -> json.Json {
-  let Tag(id:, name:, color:, kind:) = tag
-  json.object([
-    #("id", json.string(uuid.to_string(id))),
-    #("name", json.string(name)),
-    #("color", json.string(color)),
-    #("kind", kind_to_json(kind)),
-  ])
-}

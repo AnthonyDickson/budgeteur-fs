@@ -5,6 +5,7 @@ import budgeteur/shared/effect
 import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg.{type OutMsg}
+import budgeteur/shared/remote
 import budgeteur/shared/toast
 import budgeteur/tag
 import budgeteur/tagging_page/rule
@@ -13,9 +14,10 @@ import budgeteur/tagging_page/rule_modal
 import budgeteur/tagging_page/tag_delete_modal
 import budgeteur/tagging_page/tag_modal
 import budgeteur/tagging_page/tagging_page
-import budgeteur/tagging_page/tagging_page_data.{TaggingPageData}
+import budgeteur/tagging_page/tagging_page_data.{
+  type TaggingPageData, TaggingPageData,
+}
 import gleam/int
-import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleeunit/should
 import youid/uuid
@@ -34,10 +36,18 @@ fn make_rule_for(for_tag: uuid.Uuid) -> rule.Rule {
   rule.Rule(id: tag_id(9), pattern: "STARBUCKS", tag_id: for_tag)
 }
 
+/// Loaded tags and rules.
+fn data(
+  tags: List(tag.Tag),
+  rules: List(rule.Rule),
+) -> remote.Remote(TaggingPageData) {
+  remote.Loaded(TaggingPageData(tags:, rules:))
+}
+
+/// A loaded page with no tags or rules.
 fn empty_model() -> tagging_page.Model {
   tagging_page.Model(
-    tags: [],
-    rules: [],
+    data: data([], []),
     selected_tag: None,
     tag_modal: tag_modal.hidden(),
     tag_delete_modal: tag_delete_modal.empty(),
@@ -51,7 +61,17 @@ fn model_with(tags: List(tag.Tag)) -> tagging_page.Model {
     [first, ..] -> Some(first.id)
     _ -> None
   }
-  tagging_page.Model(..empty_model(), tags:, selected_tag:)
+  tagging_page.Model(..empty_model(), data: data(tags, []), selected_tag:)
+}
+
+fn tags(model: tagging_page.Model) -> List(tag.Tag) {
+  let assert remote.Loaded(data) = model.data
+  data.tags
+}
+
+fn rules(model: tagging_page.Model) -> List(rule.Rule) {
+  let assert remote.Loaded(data) = model.data
+  data.rules
 }
 
 /// Apply a page message, keeping only the resulting model.
@@ -60,99 +80,80 @@ fn run(model: tagging_page.Model, msg: tagging_page.Msg) -> tagging_page.Model {
   model
 }
 
-pub fn restored_data_sorts_and_selects_first_tag_test() {
-  let data =
-    TaggingPageData(
-      tags: [tag_named(tag_id(2), "Rent"), tag_named(tag_id(1), "Coffee")],
-      rules: [],
-    )
-  let #(new_model, _, _) =
-    tagging_page.update(
-      empty_model(),
-      tagging_page.ClientRestoredData(Some(data)),
-    )
-
-  new_model.tags
-  |> should.equal([
-    tag_named(tag_id(1), "Coffee"),
-    tag_named(tag_id(2), "Rent"),
-  ])
-  new_model.selected_tag |> should.equal(Some(tag_id(1)))
+fn server_error() -> api_error.ApiError {
+  ApiError(
+    error: "boom",
+    details: "boom",
+    status_code: Some(500),
+    request_id: None,
+  )
 }
 
-// ── Server sync ────────────────────────────────────────────────────────────────
+// ── Loading ──────────────────────────────────────────────────────────────────
 
-pub fn init_batches_store_restore_and_fetch_test() {
-  let #(_, effect) = tagging_page.init()
+pub fn init_fetches_tags_and_rules_test() {
+  let #(model, effect) = tagging_page.init()
 
-  let assert effect.Batch([
-    effect.LoadFromStore(key: key, ..),
-    effect.HttpRequest(method: method, url: url, ..),
-  ]) = effect
-  key |> should.equal("budgeteur.tags")
+  model.data |> should.equal(remote.Loading)
+  let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Get)
   url |> should.equal(api_route.to_string(api_route.GetTaggingData))
 }
 
 pub fn fetched_data_sorts_and_selects_first_tag_test() {
-  let data =
+  let fetched =
     TaggingPageData(
       tags: [tag_named(tag_id(2), "Rent"), tag_named(tag_id(1), "Coffee")],
       rules: [make_rule_for(tag_id(1))],
     )
-  let #(new_model, effect, out_msg) =
-    tagging_page.update(empty_model(), tagging_page.ClientFetchedData(Ok(data)))
+  let #(model, _) = tagging_page.init()
 
-  new_model.tags
+  let #(new_model, effect, out_msg) =
+    tagging_page.update(model, tagging_page.ClientFetchedData(Ok(fetched)))
+
+  tags(new_model)
   |> should.equal([
     tag_named(tag_id(1), "Coffee"),
     tag_named(tag_id(2), "Rent"),
   ])
-  new_model.rules |> should.equal(data.rules)
+  rules(new_model) |> should.equal(fetched.rules)
   new_model.selected_tag |> should.equal(Some(tag_id(1)))
+  effect |> should.equal(effect.none())
   out_msg |> should.equal(None)
-
-  // Fetched data replaces the store so the next reload starts from it.
-  let assert effect.Batch([
-    effect.NoEffect,
-    effect.SaveToStore(key: key, value: value),
-  ]) = effect
-  key |> should.equal("budgeteur.tags")
-  let assert Ok(round_tripped) =
-    json.parse(value, using: tagging_page_data.data_decoder())
-  round_tripped
-  |> should.equal(TaggingPageData(
-    tags: [tag_named(tag_id(1), "Coffee"), tag_named(tag_id(2), "Rent")],
-    rules: data.rules,
-  ))
 }
 
-pub fn fetched_data_error_keeps_local_data_and_toasts_test() {
-  let coffee = tag_named(tag_id(1), "Coffee")
-  let model =
-    tagging_page.Model(
-      ..empty_model(),
-      tags: [coffee],
-      selected_tag: Some(coffee.id),
+pub fn a_failed_first_load_offers_a_retry_test() {
+  let #(model, _) = tagging_page.init()
+
+  let #(failed, effect, out_msg) =
+    tagging_page.update(
+      model,
+      tagging_page.ClientFetchedData(Error(server_error())),
     )
+
+  failed.data |> should.equal(remote.Failed)
+  let assert effect.LogError(_) = effect
+  out_msg |> should.equal(None)
+
+  let #(retrying, effect, _) =
+    tagging_page.update(failed, tagging_page.UserRequestedReload)
+
+  retrying.data |> should.equal(remote.Loading)
+  let assert effect.HttpRequest(method: http_effect.Get, ..) = effect
+}
+
+pub fn a_failed_refetch_keeps_the_loaded_data_and_toasts_test() {
+  let model = model_with([tag_named(tag_id(1), "Coffee")])
 
   let #(new_model, effect, out_msg) =
     tagging_page.update(
       model,
-      tagging_page.ClientFetchedData(
-        Error(ApiError(
-          error: "boom",
-          details: "boom",
-          status_code: Some(500),
-          request_id: None,
-        )),
-      ),
+      tagging_page.ClientFetchedData(Error(server_error())),
     )
 
   new_model |> should.equal(model)
   let assert effect.LogError(_) = effect
-  let assert Some(out_msg.PageRequestedToast(level: level, ..)) = out_msg
-  level |> should.equal(toast.Error)
+  let assert Some(out_msg.PageRequestedToast(level: toast.Error, ..)) = out_msg
 }
 
 pub fn deleting_tag_cascades_rules_and_reselects_test() {
@@ -161,8 +162,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee, rent],
-      rules: [make_rule_for(coffee.id)],
+      data: data([coffee, rent], [make_rule_for(coffee.id)]),
       selected_tag: Some(coffee.id),
     )
 
@@ -172,7 +172,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
     |> then_confirm
 
   let assert delete_modal.Deleting(..) = deleting.tag_delete_modal
-  deleting.tags |> should.equal([coffee, rent])
+  tags(deleting) |> should.equal([coffee, rent])
   let assert effect.HttpRequest(method: method, url: url, timeout: timeout, ..) =
     effect
   method |> should.equal(http_effect.Delete)
@@ -187,15 +187,13 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
       tagging_page.ServerDeletedTag(coffee, Ok(Nil)),
     )
 
-  new_model.tags |> should.equal([rent])
-  new_model.rules |> should.equal([])
+  tags(new_model) |> should.equal([rent])
+  rules(new_model) |> should.equal([])
   new_model.selected_tag |> should.equal(Some(rent.id))
   let assert delete_modal.Hidden = new_model.tag_delete_modal
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
-  // The lists changed, so the page persists them to the store.
-  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(..)]) =
-    delete_effect
+  delete_effect |> should.equal(effect.none())
 }
 
 pub fn deleting_rule_arms_request_then_removes_it_test() {
@@ -204,8 +202,7 @@ pub fn deleting_rule_arms_request_then_removes_it_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee],
-      rules: [starbucks],
+      data: data([coffee], [starbucks]),
       selected_tag: Some(coffee.id),
     )
 
@@ -217,7 +214,7 @@ pub fn deleting_rule_arms_request_then_removes_it_test() {
     |> then_confirm_rule
 
   let assert delete_modal.Deleting(..) = deleting.rule_delete_modal
-  deleting.rules |> should.equal([starbucks])
+  rules(deleting) |> should.equal([starbucks])
   let assert effect.HttpRequest(method: method, url: url, ..) = effect
   method |> should.equal(http_effect.Delete)
   url |> should.equal("/api/rules/" <> uuid.to_string(starbucks.id))
@@ -228,7 +225,7 @@ pub fn deleting_rule_arms_request_then_removes_it_test() {
       tagging_page.ServerDeletedRule(starbucks, Ok(Nil)),
     )
 
-  new_model.rules |> should.equal([])
+  rules(new_model) |> should.equal([])
   let assert delete_modal.Hidden = new_model.rule_delete_modal
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
@@ -239,7 +236,7 @@ pub fn failed_tag_delete_shows_inline_error_and_allows_retry_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee],
+      data: data([coffee], []),
       selected_tag: Some(coffee.id),
       tag_delete_modal: delete_modal.Deleting(target: coffee, context: 0),
     )
@@ -261,7 +258,7 @@ pub fn failed_tag_delete_shows_inline_error_and_allows_retry_test() {
   // emitted (the dialog is still open).
   let assert delete_modal.Errored(error: details, ..) = failed.tag_delete_modal
   details |> should.equal("boom")
-  failed.tags |> should.equal([coffee])
+  tags(failed) |> should.equal([coffee])
   out_msg |> should.equal(None)
   let assert effect.LogError(_) = effect
 
@@ -277,7 +274,7 @@ pub fn tag_delete_404_is_treated_as_success_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee],
+      data: data([coffee], []),
       selected_tag: Some(coffee.id),
       tag_delete_modal: delete_modal.Deleting(target: coffee, context: 0),
     )
@@ -295,7 +292,7 @@ pub fn tag_delete_404_is_treated_as_success_test() {
       tagging_page.ServerDeletedTag(coffee, Error(not_found)),
     )
 
-  new_model.tags |> should.equal([])
+  tags(new_model) |> should.equal([])
   let assert delete_modal.Hidden = new_model.tag_delete_modal
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
@@ -314,7 +311,7 @@ pub fn stale_delete_error_when_not_deleting_is_a_noop_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee],
+      data: data([coffee], []),
       selected_tag: Some(coffee.id),
     )
 
@@ -344,8 +341,7 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee],
-      rules: [existing],
+      data: data([coffee], [existing]),
       selected_tag: Some(coffee.id),
     )
 
@@ -373,7 +369,7 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
     )
 
   // New rules append so insertion order equals rule evaluation order.
-  new_model.rules |> should.equal([existing, created])
+  rules(new_model) |> should.equal([existing, created])
   new_model.selected_tag |> should.equal(Some(coffee.id))
   new_model.rule_modal |> should.equal(rule_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
@@ -387,8 +383,7 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee, rent],
-      rules: [starbucks],
+      data: data([coffee, rent], [starbucks]),
       selected_tag: Some(coffee.id),
     )
 
@@ -414,7 +409,7 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
       tagging_page.RuleModalMsg(rule_modal.SaveCompleted(Ok(moved))),
     )
 
-  new_model.rules |> should.equal([moved])
+  rules(new_model) |> should.equal([moved])
   new_model.rule_modal |> should.equal(rule_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
@@ -426,8 +421,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee],
-      rules: [starbucks],
+      data: data([coffee], [starbucks]),
       selected_tag: Some(coffee.id),
     )
   let opened = run(model, tagging_page.UserRequestedRuleEdit(starbucks.id))
@@ -451,7 +445,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
     )
 
   let assert form_modal.Errored(..) = failed.rule_modal
-  failed.rules |> should.equal(model.rules)
+  rules(failed) |> should.equal(rules(model))
   out_msg |> should.equal(None)
   let assert effect.LogError(_) = fail_effect
 }
@@ -461,7 +455,7 @@ pub fn cancelling_the_rule_modal_hides_it_without_changes_test() {
   let model =
     tagging_page.Model(
       ..empty_model(),
-      tags: [coffee],
+      data: data([coffee], []),
       selected_tag: Some(coffee.id),
     )
   let opened = run(model, tagging_page.UserRequestedRuleCreation)
@@ -472,7 +466,7 @@ pub fn cancelling_the_rule_modal_hides_it_without_changes_test() {
     )
 
   closed.rule_modal |> should.equal(rule_modal.hidden())
-  closed.rules |> should.equal(model.rules)
+  rules(closed) |> should.equal(rules(model))
   effect |> should.equal(effect.none())
 }
 
@@ -513,7 +507,7 @@ pub fn creating_tag_inserts_sorts_and_selects_it_test() {
       tagging_page.TagModalMsg(tag_modal.SaveCompleted(Ok(created))),
     )
 
-  new_model.tags |> should.equal([coffee, created, rent])
+  tags(new_model) |> should.equal([coffee, created, rent])
   new_model.selected_tag |> should.equal(Some(created.id))
   new_model.tag_modal |> should.equal(tag_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
@@ -551,7 +545,7 @@ pub fn creating_duplicate_name_surfaces_server_error_inline_test() {
   let assert form_modal.Errored(mode: form_modal.Create, error: details, ..) =
     failed.tag_modal
   details |> should.equal("A tag with the name 'Tea' already exists")
-  failed.tags |> should.equal(model.tags)
+  tags(failed) |> should.equal(tags(model))
   out_msg |> should.equal(None)
   let assert effect.LogError(_) = fail_effect
 }
@@ -581,7 +575,7 @@ pub fn editing_tag_replaces_and_resorts_it_test() {
       tagging_page.TagModalMsg(tag_modal.SaveCompleted(Ok(updated))),
     )
 
-  new_model.tags |> should.equal([updated, coffee])
+  tags(new_model) |> should.equal([updated, coffee])
   new_model.selected_tag |> should.equal(Some(coffee.id))
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
@@ -611,7 +605,7 @@ pub fn failed_save_logs_error_and_keeps_the_form_open_test() {
     )
 
   let assert form_modal.Errored(..) = failed.tag_modal
-  failed.tags |> should.equal(model.tags)
+  tags(failed) |> should.equal(tags(model))
   out_msg |> should.equal(None)
   let assert effect.LogError(_) = fail_effect
 }
@@ -636,7 +630,7 @@ pub fn cancelling_the_tag_modal_hides_it_without_changes_test() {
     )
 
   closed.tag_modal |> should.equal(tag_modal.hidden())
-  closed.tags |> should.equal(model.tags)
+  tags(closed) |> should.equal(tags(model))
   effect |> should.equal(effect.none())
 }
 

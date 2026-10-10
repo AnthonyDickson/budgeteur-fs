@@ -5,16 +5,13 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
+import budgeteur/shared/remote
 import budgeteur/shared/toast
-import budgeteur/tag
 import budgeteur/transaction_page/transaction
 import budgeteur/transaction_page/transaction_delete_modal
 import budgeteur/transaction_page/transaction_modal
 import budgeteur/transaction_page/transaction_page
-import budgeteur/transaction_page/transaction_page_data
-import gleam/json
 import gleam/option.{None, Some}
-import gleam/string
 import gleam/time/calendar
 import gleeunit/should
 import youid/uuid
@@ -30,17 +27,6 @@ fn sample_transaction() -> transaction.Transaction {
     account_id: None,
     tag_id: None,
   )
-}
-
-fn sample_tag() -> tag.Tag {
-  let assert Ok(id) = uuid.from_string("00000000-0000-0000-1000-000000000001")
-  tag.Tag(id:, name: "Food", color: "#012345", kind: tag.Expense)
-}
-
-fn sample_page_data() -> transaction_page_data.TransactionPageData {
-  transaction_page_data.TransactionPageData([sample_transaction()], [
-    sample_tag(),
-  ])
 }
 
 /// Apply a page message, keeping only the resulting model.
@@ -212,15 +198,11 @@ pub fn server_created_transaction_closes_modal_and_updates_list_test() {
       ),
     )
 
-  new_model.transactions |> should.equal([transaction])
+  new_model.transactions |> should.equal(remote.Loaded([transaction]))
   new_model.modal |> should.equal(transaction_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
-  // The list changed, so the page persists it.
-  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
-    effect
-  key |> should.equal("budgeteur.transactions")
-  value |> string.starts_with("{\"transactions\":[") |> should.be_true
+  effect |> should.equal(effect.none())
 }
 
 pub fn server_updated_transaction_replaces_row_in_place_test() {
@@ -244,7 +226,7 @@ pub fn server_updated_transaction_replaces_row_in_place_test() {
       ),
     )
 
-  new_model.transactions |> should.equal([updated])
+  new_model.transactions |> should.equal(remote.Loaded([updated]))
   new_model.modal |> should.equal(transaction_modal.hidden())
 }
 
@@ -275,7 +257,7 @@ pub fn server_save_error_shows_inline_error_and_keeps_the_modal_open_test() {
   let assert form_modal.Errored(mode: form_modal.Edit(..), error: details, ..) =
     new_model.modal
   details |> should.equal("boom")
-  new_model.transactions |> should.equal([transaction])
+  new_model.transactions |> should.equal(remote.Loaded([transaction]))
   out_msg |> should.equal(None)
   let assert effect.LogError(_) = effect
 }
@@ -306,7 +288,7 @@ pub fn cancelling_the_form_after_a_failed_save_keeps_the_list_test() {
     )
 
   closed.modal |> should.equal(transaction_modal.hidden())
-  closed.transactions |> should.equal([transaction])
+  closed.transactions |> should.equal(remote.Loaded([transaction]))
   effect |> should.equal(effect.none())
 }
 
@@ -330,7 +312,7 @@ pub fn confirming_delete_issues_delete_request_test() {
   let model =
     transaction_page.Model(
       ..empty_model(),
-      transactions: [transaction],
+      transactions: remote.Loaded([transaction]),
       delete_modal: transaction_delete_modal.open(transaction),
     )
 
@@ -351,7 +333,7 @@ pub fn server_deleted_transaction_removes_row_test() {
   let model =
     transaction_page.Model(
       ..empty_model(),
-      transactions: [transaction],
+      transactions: remote.Loaded([transaction]),
       delete_modal: delete_modal.Deleting(target: transaction, context: Nil),
     )
 
@@ -361,7 +343,7 @@ pub fn server_deleted_transaction_removes_row_test() {
       transaction_page.ServerDeletedTransaction(transaction, Ok(Nil)),
     )
 
-  new_model.transactions |> should.equal([])
+  new_model.transactions |> should.equal(remote.Loaded([]))
   let assert delete_modal.Hidden = new_model.delete_modal
 }
 
@@ -375,7 +357,7 @@ pub fn server_deleted_transaction_removes_row_even_if_modal_closed_test() {
       transaction_page.ServerDeletedTransaction(transaction, Ok(Nil)),
     )
 
-  new_model.transactions |> should.equal([])
+  new_model.transactions |> should.equal(remote.Loaded([]))
 }
 
 pub fn server_delete_error_shows_inline_error_test() {
@@ -383,7 +365,7 @@ pub fn server_delete_error_shows_inline_error_test() {
   let model =
     transaction_page.Model(
       ..empty_model(),
-      transactions: [transaction],
+      transactions: remote.Loaded([transaction]),
       delete_modal: delete_modal.Deleting(target: transaction, context: Nil),
     )
 
@@ -403,7 +385,7 @@ pub fn server_delete_error_shows_inline_error_test() {
 
   let assert delete_modal.Errored(error: details, ..) = new_model.delete_modal
   details |> should.equal("boom")
-  new_model.transactions |> should.equal([transaction])
+  new_model.transactions |> should.equal(remote.Loaded([transaction]))
   out_msg |> should.equal(None)
   let assert effect.LogError(_) = effect
 }
@@ -413,7 +395,7 @@ pub fn server_delete_error_404_is_treated_as_success_test() {
   let model =
     transaction_page.Model(
       ..empty_model(),
-      transactions: [transaction],
+      transactions: remote.Loaded([transaction]),
       delete_modal: delete_modal.Deleting(target: transaction, context: Nil),
     )
 
@@ -431,7 +413,7 @@ pub fn server_delete_error_404_is_treated_as_success_test() {
       ),
     )
 
-  new_model.transactions |> should.equal([])
+  new_model.transactions |> should.equal(remote.Loaded([]))
   let assert delete_modal.Hidden = new_model.delete_modal
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
@@ -442,7 +424,7 @@ pub fn user_cancelled_delete_modal_closes_test() {
   let model =
     transaction_page.Model(
       ..empty_model(),
-      transactions: [transaction],
+      transactions: remote.Loaded([transaction]),
       delete_modal: transaction_delete_modal.open(transaction),
     )
 
@@ -453,141 +435,93 @@ pub fn user_cancelled_delete_modal_closes_test() {
   effect |> should.equal(effect.none())
 }
 
-// ── Local backup ─────────────────────────────────────────────────────────────
+// ── Loading ──────────────────────────────────────────────────────────────────
 
-pub fn init_restores_from_store_test() {
-  let #(_, effect) = transaction_page.init()
-
-  let assert effect.Batch([effect.LoadFromStore(key: key, ..), ..]) = effect
-  key |> should.equal(transaction_page_data.storage_key)
+fn server_error() -> api_error.ApiError {
+  ApiError(
+    error: "boom",
+    details: "boom",
+    status_code: Some(500),
+    request_id: None,
+  )
 }
 
-pub fn stored_data_round_trip_test() {
-  let data = sample_page_data()
+pub fn init_fetches_transactions_and_tags_test() {
+  let #(model, effect) = transaction_page.init()
 
-  let stored = transaction_page_data.to_string(data)
-  let assert Ok(restored) =
-    json.parse(stored, using: transaction_page_data.data_decoder())
-  restored |> should.equal(data)
+  model.transactions |> should.equal(remote.Loading)
+  let assert effect.Batch([
+    effect.HttpRequest(url: transactions_url, ..),
+    effect.HttpRequest(url: tags_url, ..),
+  ]) = effect
+  transactions_url |> should.equal("/api/transactions")
+  tags_url |> should.equal("/api/tags")
 }
 
-pub fn client_restored_transactions_sets_list_test() {
-  let data = sample_page_data()
-  let model = empty_model()
+pub fn fetched_transactions_are_loaded_newest_first_test() {
+  let older = sample_transaction()
+  let assert Ok(newer_id) =
+    uuid.from_string("00000000-0000-0000-0000-000000000002")
+  let newer =
+    transaction.Transaction(
+      ..older,
+      id: newer_id,
+      date: calendar.Date(2026, calendar.February, 1),
+    )
+  let #(model, _) = transaction_page.init()
 
   let #(new_model, effect, out_msg) =
     transaction_page.update(
       model,
-      transaction_page.ClientRestoredPageData(Some(data)),
+      transaction_page.ClientFetchedTransactions(Ok([older, newer])),
     )
 
-  new_model.transactions |> should.equal(data.transactions)
-  new_model.tags |> should.equal(data.tags)
-  out_msg |> should.equal(None)
-  // Restored data came from the store, so it is not written straight back.
+  new_model.transactions |> should.equal(remote.Loaded([newer, older]))
   effect |> should.equal(effect.none())
+  out_msg |> should.equal(None)
 }
 
-pub fn client_restored_transactions_none_is_noop_test() {
+pub fn a_failed_first_load_offers_a_retry_test() {
+  let #(model, _) = transaction_page.init()
+
+  let #(failed, effect, out_msg) =
+    transaction_page.update(
+      model,
+      transaction_page.ClientFetchedTransactions(Error(server_error())),
+    )
+
+  failed.transactions |> should.equal(remote.Failed)
+  let assert effect.LogError(_) = effect
+  out_msg |> should.equal(None)
+
+  let #(retrying, effect, _) =
+    transaction_page.update(failed, transaction_page.UserRequestedReload)
+
+  retrying.transactions |> should.equal(remote.Loading)
+  let assert effect.Batch([
+    effect.HttpRequest(url: "/api/transactions", ..),
+    effect.HttpRequest(url: "/api/tags", ..),
+  ]) = effect
+}
+
+pub fn a_failed_refetch_keeps_the_loaded_list_test() {
   let transaction = sample_transaction()
   let model = empty_model() |> with_transaction(transaction)
 
   let #(new_model, effect, out_msg) =
     transaction_page.update(
       model,
-      transaction_page.ClientRestoredPageData(None),
+      transaction_page.ClientFetchedTransactions(Error(server_error())),
     )
 
-  new_model |> should.equal(model)
-  effect |> should.equal(effect.none())
-  out_msg |> should.equal(None)
-}
-
-pub fn server_created_transaction_persists_to_store_test() {
-  let transaction = sample_transaction()
-  let #(new_model, effect, _) =
-    transaction_page.update(
-      empty_model() |> submitting_create_form,
-      transaction_page.TransactionModalMsg(
-        transaction_modal.SaveCompleted(Ok(transaction)),
-      ),
-    )
-
-  new_model.transactions |> should.equal([transaction])
-  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
-    effect
-  key |> should.equal("budgeteur.transactions")
-  value |> string.starts_with("{\"transactions\":[") |> should.be_true
-}
-
-pub fn server_updated_transaction_persists_to_store_test() {
-  let transaction = sample_transaction()
-  let updated =
-    transaction.Transaction(..transaction, description: "Flat White")
-  let #(new_model, effect, _) =
-    transaction_page.update(
-      empty_model()
-        |> with_transaction(transaction)
-        |> submit_edit_form(transaction.id),
-      transaction_page.TransactionModalMsg(
-        transaction_modal.SaveCompleted(Ok(updated)),
-      ),
-    )
-
-  new_model.transactions |> should.equal([updated])
-  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
-    effect
-  key |> should.equal("budgeteur.transactions")
-  value |> string.starts_with("{\"transactions\":[") |> should.be_true
-}
-
-pub fn server_deleted_transaction_persists_to_store_test() {
-  let transaction = sample_transaction()
-  let model = empty_model() |> with_transaction(transaction)
-
-  let #(new_model, _, _) =
-    transaction_page.update(
-      model,
-      transaction_page.ServerDeletedTransaction(transaction, Ok(Nil)),
-    )
-
-  new_model.transactions |> should.equal([])
-}
-
-pub fn server_fetched_transactions_persists_to_store_test() {
-  let transaction = sample_transaction()
-  let model = empty_model()
-
-  let #(new_model, effect, _) =
-    transaction_page.update(
-      model,
-      transaction_page.ClientFetchedTransactions(Ok([transaction])),
-    )
-
-  new_model.transactions |> should.equal([transaction])
-  let assert effect.Batch([effect.NoEffect, effect.SaveToStore(key:, value:)]) =
-    effect
-  key |> should.equal(transaction_page_data.storage_key)
-  value |> string.starts_with("{\"transactions\":[") |> should.be_true
-}
-
-pub fn non_mutating_message_does_not_persist_test() {
-  let transaction = sample_transaction()
-  let model = empty_model() |> with_transaction(transaction)
-
-  let #(new_model, effect, _) =
-    transaction_page.update(
-      model,
-      transaction_page.TransactionModalMsg(transaction_modal.AmountChanged("5")),
-    )
-
-  new_model.transactions |> should.equal([transaction])
-  effect |> should.equal(effect.none())
+  new_model.transactions |> should.equal(remote.Loaded([transaction]))
+  let assert effect.LogError(_) = effect
+  let assert Some(out_msg.PageRequestedToast(level: toast.Error, ..)) = out_msg
 }
 
 fn empty_model() -> transaction_page.Model {
   transaction_page.Model(
-    transactions: [],
+    transactions: remote.Loaded([]),
     tags: [],
     modal: transaction_modal.hidden(),
     delete_modal: transaction_delete_modal.empty(),
@@ -598,5 +532,5 @@ fn with_transaction(
   model: transaction_page.Model,
   transaction: transaction.Transaction,
 ) -> transaction_page.Model {
-  transaction_page.Model(..model, transactions: [transaction])
+  transaction_page.Model(..model, transactions: remote.Loaded([transaction]))
 }
