@@ -97,7 +97,7 @@ module UpdateTransaction =
 
                 let transaction : Transaction = {
                     Id = id
-                    Amount = Money.roundToCents req.Amount
+                    Amount = Money.create req.Amount
                     Description = description
                     Date = req.Date
                     IsTransfer = req.IsTransfer

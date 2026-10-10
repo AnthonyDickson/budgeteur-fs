@@ -332,7 +332,7 @@ let private handler (queryContext : QueryContextFactory) : EndpointHandler =
 
             let transaction : Transaction = {
                 Id = Guid.CreateVersion7 ()
-                Amount = Money.roundToCents req.Amount
+                Amount = Money.create req.Amount
                 Description = description
                 Date = req.Date
                 IsTransfer = req.IsTransfer

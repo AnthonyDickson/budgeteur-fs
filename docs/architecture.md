@@ -239,5 +239,6 @@ just client-test
 
 - **User scoping** — every server query filters by `UserId`, resolved from the `sub` claim. New slices must follow this
   or they will leak data across users.
-- **Money** — amounts are `decimal`, rounded to cents with `Money.roundToCents` (`MidpointRounding.AwayFromZero`), and
-  serialised as JSON strings, not numbers.
+- **Money** — transaction amounts are the refined `Money` type, built with `Money.create`, which rounds a `decimal` to
+  cents (`MidpointRounding.AwayFromZero`); other amounts round with `Money.roundToCents`. Amounts are serialised as JSON
+  strings, not numbers.

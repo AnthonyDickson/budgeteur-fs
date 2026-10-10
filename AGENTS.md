@@ -286,8 +286,9 @@ reports build version, uptime, and DB connectivity, returning `503` when the dat
 
 - **User scoping** — every query filters by `UserId`, resolved from the `sub` claim. New slices must follow this or they
   will leak data across users.
-- **Money** — amounts are `decimal`, rounded to cents with `Money.roundToCents` (`MidpointRounding.AwayFromZero`), and
-  serialised as JSON strings, not numbers.
+- **Money** — transaction amounts are the refined `Money` type, built with `Money.create`, which rounds a `decimal` to
+  cents (`MidpointRounding.AwayFromZero`); other amounts round with `Money.roundToCents`. Amounts are serialised as JSON
+  strings, not numbers.
 - **Dates and timestamps** — days from the user or a bank statement are calendar dates (`DATE` / `DateOnly`); events the
   server records are UTC instants (`DATETIME`). Date ranges are inclusive and supplied by the client. See
   [docs/dates.md](docs/dates.md).

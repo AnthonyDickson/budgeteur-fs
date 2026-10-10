@@ -3,6 +3,7 @@ namespace Budgeteur.Domain.Transaction
 open System
 
 open Budgeteur.Shared.DomainError
+open Budgeteur.Shared.Money
 
 type TransactionDescription = private TransactionDescription of string
 
@@ -44,7 +45,7 @@ type Transaction = {
     Id : Guid
 
     /// <summary>A debit (negative) or credit (positive). Serialised as a string.</summary>
-    Amount : decimal
+    Amount : Money
 
     /// <summary>The title or description of the transaction.</summary>
     Description : TransactionDescription

@@ -28,10 +28,11 @@ type TransactionResponse = {
 
 module TransactionResponse =
     open Budgeteur.Domain.Transaction
+    open Budgeteur.Shared.Money
 
     let fromDomain (t : Transaction) : TransactionResponse = {
         Id = t.Id
-        Amount = t.Amount
+        Amount = Money.value t.Amount
         Description = TransactionDescription.value t.Description
         Date = t.Date
         IsTransfer = t.IsTransfer
