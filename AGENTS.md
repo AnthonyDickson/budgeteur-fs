@@ -165,8 +165,9 @@ See [docs/database.md](docs/database.md) for the full picture. Key points:
 - `Data/Constraints.fs` holds hand-written `require*` checks mirroring the schema's integrity constraints, combined with
   `requireAll`/`requireOne` so a client sees every failure in one response (SQLite does not always report which column
   triggered a violation).
-- `Program.fs` enables WAL journal mode and foreign-key enforcement after migrations run; SQLite silently ignores
-  foreign keys otherwise.
+- `Program.fs` enables WAL journal mode after migrations run. Foreign keys are enforced per connection, so
+  `Config.withForeignKeys` adds `Foreign Keys=True` to the configured connection string; SQLite builds without a
+  foreign-key default would otherwise silently ignore them.
 - Connection string: `Data Source=app.sqlite3` (relative to the server project). Override with
   `ConnectionStrings__Default`, using an absolute path (e.g. `/data/app.sqlite3`) in production.
 

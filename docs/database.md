@@ -53,8 +53,11 @@ defined in `Data/Migrations/`. The header comment of the first migration documen
 [SqlHydra's SqliteDataTypes.fs](https://github.com/JordanMarr/SqlHydra/blob/main/src/SqlHydra.Cli/Sqlite/SqliteDataTypes.fs)
 for the full list of supported hints.
 
-At startup `Program.fs` enables WAL journal mode and foreign-key enforcement via PRAGMA after migrations run — SQLite
-silently ignores foreign keys otherwise.
+At startup `Program.fs` enables WAL journal mode after migrations run; WAL is stored in the database file, so it
+persists. Foreign keys are a per-connection setting, so `Config.withForeignKeys` adds `Foreign Keys=True` to the
+configured connection string and Microsoft.Data.Sqlite turns them on for every connection it opens. The bundled
+`e_sqlite3` build also defaults them to on, but the connection string keeps the guarantee independent of build flags;
+other SQLite builds silently ignore foreign keys unless asked.
 
 ### Date and datetime columns
 

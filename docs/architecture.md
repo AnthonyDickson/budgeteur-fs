@@ -123,8 +123,9 @@ the key design points:
 - The `toRow` / `fromRow` mapping layer is the control point — DB columns never leak to the API.
 - `Data/Constraints.fs` holds explicit `require*` checks mirroring the schema's integrity constraints, to give friendly
   `ValidationFailed` errors.
-- `Program.fs` enables WAL journal mode and foreign-key enforcement after migrations run; SQLite silently ignores
-  foreign keys otherwise.
+- `Program.fs` enables WAL journal mode after migrations run. Foreign keys are enforced per connection, so
+  `Config.withForeignKeys` adds `Foreign Keys=True` to the configured connection string; SQLite builds without a
+  foreign-key default would otherwise silently ignore them.
 - `scripts/migrate.fsx` applies migrations without building the server, so a schema change can be migrated and
   `Data/Db.fs` regenerated before the domain code is fixed. CI re-runs this and fails if `Data/Db.fs` is out of date.
 

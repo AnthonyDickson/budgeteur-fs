@@ -200,7 +200,10 @@ module TestApp =
         // the last connection to it closes. Each query opens its own connection, so disposing a
         // QueryContext (which closes its connection) doesn't lose the data.
         let name = $"test-{Guid.NewGuid ()}"
-        let connectionString = $"Data Source=file:{name}?mode=memory&cache=shared"
+
+        let connectionString =
+            Budgeteur.Shared.Config.Config.withForeignKeys $"Data Source=file:{name}?mode=memory&cache=shared"
+
         let keeper = new SqliteConnection (connectionString)
         keeper.Open ()
 
