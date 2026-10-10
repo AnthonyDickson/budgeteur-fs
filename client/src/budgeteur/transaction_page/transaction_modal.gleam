@@ -10,7 +10,9 @@ import budgeteur/tag.{type Tag}
 import budgeteur/transaction_page/create_transaction_request.{
   type CreateTransactionRequest,
 }
-import budgeteur/transaction_page/transaction.{type Transaction, Transaction}
+import budgeteur/transaction_page/transaction.{
+  type Transaction, Manual, Rule, Transaction, TransactionTag,
+}
 import gleam/float
 import gleam/int
 import gleam/list
@@ -63,6 +65,10 @@ pub type Form {
     description: DescriptionField,
     date: DateField,
     tag_id: Option(Uuid),
+    // The tag a rule set, when editing a rule-tagged transaction. Not an input:
+    // while it is still the selected tag, saving keeps it a rule tag, and the
+    // form says so.
+    rule_tag_id: Option(Uuid),
   )
 }
 
@@ -166,6 +172,7 @@ fn empty_form() -> Form {
     description: field.Empty(""),
     date: field.Empty(""),
     tag_id: None,
+    rule_tag_id: None,
   )
 }
 
@@ -197,6 +204,10 @@ fn from_transaction(transaction: Transaction) -> Form {
     description: field.Valid(value: description, input: description),
     date: field.Valid(value: date, input: date.format(date)),
     tag_id: option.map(tag, fn(tag) { tag.id }),
+    rule_tag_id: case tag {
+      Some(TransactionTag(id:, source: Rule)) -> Some(id)
+      Some(TransactionTag(source: Manual, ..)) | None -> None
+    },
   )
 }
 
@@ -356,7 +367,8 @@ fn validate_form(
 ) -> Result(#(CreateTransactionRequest, Form), Form) {
   let form = finalize(form)
 
-  let Form(amount:, type_:, is_transfer:, description:, date:, tag_id:) = form
+  let Form(amount:, type_:, is_transfer:, description:, date:, tag_id:, ..) =
+    form
 
   case field.value(amount), field.value(description), field.value(date) {
     Some(amount_value), Some(description), Some(date) -> {
@@ -445,7 +457,15 @@ fn view_form(
     )
   }
 
-  let Form(amount:, type_:, is_transfer:, description:, date:, tag_id:) = form
+  let Form(
+    amount:,
+    type_:,
+    is_transfer:,
+    description:,
+    date:,
+    tag_id:,
+    rule_tag_id:,
+  ) = form
 
   let amount_error = field.error(amount)
   let description_error = field.error(description)
@@ -697,6 +717,26 @@ fn view_form(
                 ),
                 html.text("."),
               ])
+            _ -> element.none()
+          },
+          case rule_tag_id {
+            Some(_) if rule_tag_id == tag_id ->
+              html.p(
+                [
+                  attribute.attribute(
+                    "data-testid",
+                    "transaction-rule-tag-hint",
+                  ),
+                  attribute.class(
+                    "mt-2 rounded-md bg-indigo-50 px-3 py-2 text-xs text-indigo-700",
+                  ),
+                ],
+                [
+                  html.text(
+                    "Set automatically by a rule. Choosing another tag makes it manual.",
+                  ),
+                ],
+              )
             _ -> element.none()
           },
         ]),

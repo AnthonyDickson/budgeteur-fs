@@ -30,8 +30,8 @@ Auto-tagging. Design and rationale are in `docs/auto-tagging.md`.
    and remove the tag from the `Transaction` type. Transaction create and update
    write facts and assignment in one database transaction; responses carry the
    tag and source. Read assignments in the income statement. Client decoder and
-   the rule marker in the transactions table. Tests, including deleting a tag
-   that has assignments.
+   the rule-tag callout in the transaction modal. Tests, including deleting a
+   tag that has assignments.
 3. `Feature/AutoTag/`: the pure application function and `POST /api/auto-tag`
    for `TagUntagged` and `Retag`, with OpenAPI metadata. Tests.
 4. Match count: `GET /api/auto-tag/matches?pattern=` and the debounced preview

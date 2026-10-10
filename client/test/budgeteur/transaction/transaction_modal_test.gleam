@@ -360,3 +360,33 @@ pub fn double_submit_while_submitting_is_a_no_op_test() {
   request |> should.equal(None)
   outcome |> should.equal(NoChange)
 }
+
+pub fn edit_modal_remembers_only_a_rule_tag_test() {
+  // The form shows a hint while the tag a rule set is still selected, so it
+  // keeps that tag's id; a manual tag needs no hint.
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000001")
+  let assert Ok(tag_id) =
+    uuid.from_string("00000000-0000-0000-0000-00000000000b")
+  let edit = fn(source) {
+    let transaction =
+      transaction.Transaction(
+        id: id,
+        amount: -12.5,
+        description: "Coffee",
+        date: calendar.Date(2026, calendar.January, 2),
+        is_transfer: False,
+        account_id: None,
+        tag: Some(transaction.TransactionTag(id: tag_id, source:)),
+      )
+    let #(modal, _, _) =
+      transaction_modal.update(
+        transaction_modal.hidden(),
+        EditRequested(transaction),
+      )
+    let assert Active(form:, ..) = modal
+    form.rule_tag_id
+  }
+
+  edit(transaction.Rule) |> should.equal(Some(tag_id))
+  edit(transaction.Manual) |> should.equal(None)
+}

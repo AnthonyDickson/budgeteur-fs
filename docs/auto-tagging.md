@@ -235,8 +235,11 @@ decision.
   buttons, disabled while a run is in progress. "Re-tag all" opens a
   confirmation modal (decision 5) and runs only when confirmed. The result is a
   toast with the counts; failures use the error toast.
-- **Transactions table**: a rule tag shows a marker whose title says a rule set
-  it.
+- **Transaction modal**: while the selected tag is the one a rule set, a callout
+  below the tag select says a rule set it and that choosing another tag makes it
+  manual. It is a static hint rather than a tooltip, so it works on touch
+  screens, and it follows from the stored source and the current selection. The
+  transactions table shows no marker.
 - **Rule modal**: the match count and samples from decision 7, below the pattern
   field.
 - **Goal**: the user can start a run and see its effect without leaving the
@@ -268,7 +271,7 @@ decision.
     request until confirmed and none when cancelled; the match count is
     debounced and ignores outdated responses.
   - E2E: create a tag, a rule, and a matching untagged transaction; "Tag
-    untagged" tags it, and the table shows the rule marker.
+    untagged" tags it, and the transaction modal shows the rule callout.
 
 ## Deferred
 
