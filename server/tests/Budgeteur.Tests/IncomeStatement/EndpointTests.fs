@@ -148,7 +148,7 @@ module EndpointTests =
                         app.Client
                         (DateOnly (2026, 10, 15))
                         -999m
-                        (Some rent)
+                        None
                         true
 
                 do!

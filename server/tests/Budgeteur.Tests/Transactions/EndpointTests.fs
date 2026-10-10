@@ -346,6 +346,45 @@ module EndpointTests =
                 Expect.isNone cleared "clearing the tag should untag"
             }
 
+            testCaseAsync "a transfer cannot have a tag"
+            <| async {
+                use app = newAppWithTags ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+
+                let! created =
+                    create app.Client {
+                        request "Countdown" -42.50m with
+                            TagId = Some groceries
+                    }
+
+                let transfer = {
+                    request "To savings" -100.00m with
+                        IsTransfer = true
+                        TagId = Some groceries
+                }
+
+                let! createResponse =
+                    TestHttp.postJson app.Client CreateTransaction.Path transfer
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    createResponse.StatusCode
+                    HttpStatusCode.BadRequest
+                    "creating a tagged transfer should be rejected"
+
+                let! updateResponse =
+                    TestHttp.putJson
+                        app.Client
+                        (TestHttp.itemPath UpdateTransaction.Path created.Id)
+                        transfer
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    updateResponse.StatusCode
+                    HttpStatusCode.BadRequest
+                    "tagging a transfer should be rejected"
+            }
+
             testCaseAsync "deleting a tag untags its transactions"
             <| async {
                 use app = newAppWithTags ()

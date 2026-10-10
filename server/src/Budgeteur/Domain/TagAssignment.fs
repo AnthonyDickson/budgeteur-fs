@@ -2,6 +2,8 @@ namespace Budgeteur.Domain.TagAssignment
 
 open System
 
+open Budgeteur.Shared.DomainError
+
 /// <summary>Where a transaction's tag came from. Rules never change a manual
 /// tag; a rule tag is derived data that re-tagging recomputes.</summary>
 [<RequireQualifiedAccess>]
@@ -45,6 +47,18 @@ module TagAssignment =
         TagId = tagId
         Source = TagSource.Rule
     }
+
+    /// <summary>A transfer moves money between the user's own accounts, so it
+    /// is neither income nor expense and has no tag. Fails when a transfer is
+    /// given one.</summary>
+    let requireNoTagOnTransfer
+        (isTransfer : bool)
+        (tagId : Guid option)
+        : Result<unit, DomainError> =
+        match isTransfer, tagId with
+        | true, Some _ ->
+            Error (ValidationFailed "A transfer cannot have a tag")
+        | _ -> Ok ()
 
     /// <summary>Creating a transaction with a tag makes it manual; without
     /// one, untagged.</summary>

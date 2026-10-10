@@ -109,6 +109,11 @@ module UpdateTransaction =
                     TransactionDescription.create req.Description
 
                 do!
+                    TagAssignment.requireNoTagOnTransfer
+                        req.IsTransfer
+                        req.TagId
+
+                do!
                     Constraints.requireAll [
                         Constraints.requireTagIfReferenced
                             queryContext

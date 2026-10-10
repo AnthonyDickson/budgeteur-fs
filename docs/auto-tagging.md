@@ -35,7 +35,7 @@ decision.
 | Rule tag     | A tag set by auto-tagging. Derived data: re-tagging recomputes it.                                         |
 | Tag untagged | The action that applies rules to untagged transactions only.                                               |
 | Re-tag       | The action that recomputes every transaction without a manual tag. Asks for confirmation first.            |
-| Match count  | The number of the user's transactions a pattern matches, shown in the rule modal while editing.            |
+| Match count  | The number of the user's non-transfer transactions a pattern matches, shown in the rule modal.             |
 
 ## Decisions
 
@@ -102,6 +102,12 @@ decision.
 - **Ownership**: the assignment type in `Domain/` owns the transitions in
   decision 4. Its row mapping is in `Data/`, because the Transaction and AutoTag
   slices both write it (decision 8).
+- **Transfers**: a transfer has no assignment. It moves money between the user's
+  own accounts, so it is neither income nor expense and a tag on it would mean
+  nothing. The Transaction slice rejects a tag on a transfer (`400`), the
+  transaction form clears and disables the tag while the transfer box is
+  checked, and auto-tagging and the match count skip transfers. The schema
+  cannot express a rule across two tables, so the slices enforce it.
 - **Rejected**:
   - Tag columns on `Transactions`: no join, but the schema cannot enforce the
     constraints above, so the codec has to read a missing tag as untagged, and
@@ -160,8 +166,7 @@ decision.
   tags; decision 4 makes that possible. Re-tag cannot be undone, and a user who
   deleted a rule to stop future tagging may not expect past tags to be cleared,
   so it is confirmed. Tag untagged only fills in missing tags, so it is not.
-- **Transfers**: rules apply to internal transfers too. A tag on a transfer
-  affects no statement, and a separate filter would be one more rule to explain.
+- **Transfers**: have no tag (decision 3), so runs skip them.
 - **Rejected**: live rules, where every rule change re-tags immediately. That
   removes both buttons, but every rule save rewrites assignments, and a pattern
   being typed would tag transactions part way through editing.

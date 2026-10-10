@@ -57,8 +57,8 @@ module RunAutoTag =
             return rows |> Seq.map RuleCodec.fromRow |> List.ofSeq
         }
 
-    /// <summary>Every transaction of the user, with its description and
-    /// assignment. Transfers are included: rules apply to them too.</summary>
+    /// <summary>The user's transactions that may have a tag, which excludes
+    /// transfers, each with its description and assignment.</summary>
     let private loadCandidates (queryContext : QueryContext) (userId : string) =
         task {
             let! rows =
@@ -68,7 +68,7 @@ module RunAutoTag =
                                           on
                                           (t.Id = a.TransactionId)
 
-                        where (t.UserId = userId)
+                        where (t.UserId = userId && not t.IsTransfer)
                         select (t.Id, t.Description, a)
                 }
 

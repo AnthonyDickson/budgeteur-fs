@@ -46,14 +46,12 @@ Done: the matcher, rule uniqueness, tag assignments, and `POST /api/auto-tag`.
   - `Accounts.CurrentAsOf` needs no work: `Accounts` is only used as the target
     of `Transactions.AccountId` and may be replaced by the balance sheet.
     Revisit when CSV imports decide what an account is.
-- Kiwibank statements have enough info to auto tag internal transfers without
+- Kiwibank statements have enough info to mark internal transfers without a
   dedicated rule
-  - If the both the source and target account numbers are in the user's
-    accounts, then you can tag as an internal transfer.
-  - This should only apply on import, manual imports must be manually
-    categorised.
-  - May want user setting around which category to use for internal transfer, or
-    hardcode and force user to use it.
+  - If both the source and target account numbers are in the user's accounts,
+    the transaction is an internal transfer.
+  - This should only apply on import; manually created transactions are marked
+    by hand.
   - Initial imports will be missed if the accounts are not added beforehand
 - Page transactions in table view
   - Next page should append to list, search should replace paging many times.

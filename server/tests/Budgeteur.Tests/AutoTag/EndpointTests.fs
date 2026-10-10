@@ -37,13 +37,17 @@ module EndpointTests =
                 "creating a rule should return 201"
         }
 
-    let private createUntagged (client : HttpClient) description =
+    let private createUntaggedWith
+        (client : HttpClient)
+        (isTransfer : bool)
+        description
+        =
         async {
             let request : CreateTransaction.CreateTransactionRequest = {
                 Amount = -42.50m
                 Description = description
                 Date = DateOnly (2026, 10, 1)
-                IsTransfer = false
+                IsTransfer = isTransfer
                 TagId = None
                 AccountId = None
             }
@@ -55,6 +59,9 @@ module EndpointTests =
             let! created = TestHttp.readJson<TransactionResponse> response
             return created.Id
         }
+
+    let private createUntagged (client : HttpClient) description =
+        createUntaggedWith client false description
 
     let private run (client : HttpClient) (action : string) =
         TestHttp.postJson client RunAutoTag.Path { Action = action }
@@ -105,6 +112,24 @@ module EndpointTests =
                     tag
                     (Some { Id = groceries; Source = "Rule" })
                     "the transaction should have the rule's tag"
+            }
+
+            testCaseAsync "a run leaves transfers untagged"
+            <| async {
+                use app = newApp ()
+                let! savings = Seed.tag app.Client "Savings" "Expense"
+                do! createRule app.Client "SAVINGS" savings
+                let! id = createUntaggedWith app.Client true "To savings"
+
+                let! counts = runOk app.Client "Retag"
+
+                Expect.equal
+                    counts
+                    { Tagged = 0; Changed = 0; Cleared = 0 }
+                    "a transfer should not be a candidate"
+
+                let! tag = readTag app.Client id
+                Expect.isNone tag "the transfer should stay untagged"
             }
 
             testCaseAsync "a run reads and writes only the caller's data"

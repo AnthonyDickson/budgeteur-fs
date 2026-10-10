@@ -41,6 +41,13 @@ module TagAssignmentTests =
                 expect (onUpdate None (byRule tagA)) None "clear rule tag"
                 expect (onUpdate None (manual tagA)) None "clear manual tag"
 
+            testCase "a transfer cannot have a tag"
+            <| fun () ->
+                let require = TagAssignment.requireNoTagOnTransfer
+                Expect.isError (require true (Some tagA)) "tagged transfer"
+                Expect.isOk (require true None) "untagged transfer"
+                Expect.isOk (require false (Some tagA)) "tagged transaction"
+
             testCase "tagUntagged only tags untagged transactions"
             <| fun () ->
                 let tagUntagged = TagAssignment.tagUntagged
