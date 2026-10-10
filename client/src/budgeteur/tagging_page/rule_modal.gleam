@@ -26,6 +26,8 @@ pub const max_pattern_length = 128
 /// what the pattern matches.
 const match_count_delay_ms = 300
 
+const pattern_hint_id = "rule-pattern-hint"
+
 pub type PatternError {
   PatternRequired
   TooLong
@@ -444,6 +446,7 @@ fn view_form(
                 attribute.type_("text"),
                 attribute.attribute("data-testid", "rule-pattern-input"),
                 attribute.placeholder("e.g. STARBUCKS"),
+                attribute.aria_describedby(pattern_hint_id),
                 attribute.class(
                   "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
                   <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
@@ -472,6 +475,15 @@ fn view_form(
                   )
                 None -> element.none()
               },
+            ],
+          ),
+          html.p(
+            [
+              attribute.id(pattern_hint_id),
+              attribute.class("mt-1 text-xs text-gray-500"),
+            ],
+            [
+              html.text("Prefer longer, more specific patterns."),
             ],
           ),
           view_match_count(pattern, match_count),

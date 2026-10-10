@@ -52,6 +52,10 @@ decision.
   version. Culture-sensitive comparison treats some characters as ignorable, so
   a pattern of only a soft hyphen would match every description.
 - **Cost**: short patterns over-match. Decisions 2 and 7 mitigate this.
+- **Rejected**: a minimum pattern length. Short merchant names such as `Z` (Z
+  Energy) and `BP` are real patterns, and long generic ones such as `PAYMENT`
+  over-match as well. Decision 7 shows over-matching instead of forbidding a
+  length.
 - **Goal**: one pattern per merchant, whatever the transaction type.
 
 ### 2. The longest matching pattern wins; patterns are unique per user
@@ -200,7 +204,8 @@ decision.
   matches, not wins, because whether the rule wins depends on the other rules.
   Requests are debounced, and a response for a pattern that is no longer in the
   field is ignored. Only the request waits: the field itself updates on every
-  keystroke, so validation and save never see an outdated pattern.
+  keystroke, so validation and save never see an outdated pattern. A static hint
+  under the field asks for longer, more specific patterns.
 - **Why**: substring patterns over-match, and seeing example matches before
   saving is the main guard against that. The previous project offered no
   feedback until after a run.
@@ -246,8 +251,8 @@ decision.
   manual. It is a static hint rather than a tooltip, so it works on touch
   screens, and it follows from the stored source and the current selection. The
   transactions table shows no marker.
-- **Rule modal**: the match count and samples from decision 7, below the pattern
-  field.
+- **Rule modal**: the hint, match count, and samples from decision 7, below the
+  pattern field.
 - **Goal**: the user can start a run and see its effect without leaving the
   page, and can tell rule tags from manual ones.
 
