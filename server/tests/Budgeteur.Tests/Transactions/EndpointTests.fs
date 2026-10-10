@@ -4,6 +4,7 @@ module EndpointTests =
     open System
     open System.Net
     open Expecto
+    open Microsoft.Data.Sqlite
 
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
@@ -203,6 +204,47 @@ module EndpointTests =
                     Expect.equal update.Description updated.Description "description should match"
                     Expect.equal update.Amount updated.Amount "amount should match"
                 | Error err -> failtest err
+            }
+
+            testCaseAsync "PUT /api/transactions/{id} keeps the import hash"
+            <| async {
+                use app = newApp ()
+
+                // Given: an imported transaction. Imports do not exist yet, so the hash is set directly.
+                let! created =
+                    TestHttp.postJson app.Client CreateTransaction.Path (request "Imported" 12.50m)
+                    |> Async.AwaitTask
+
+                let! createdBody = created.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+                let id =
+                    match Decode.fromStringAuto<TransactionResponse> createdBody with
+                    | Ok item -> item.Id
+                    | Error err -> failtest err
+
+                let importHash () =
+                    use conn = new SqliteConnection (app.ConnectionString)
+                    conn.Open ()
+                    use cmd = conn.CreateCommand ()
+                    cmd.CommandText <- "SELECT ImportHash FROM Transactions"
+                    cmd.ExecuteScalar ()
+
+                do
+                    use conn = new SqliteConnection (app.ConnectionString)
+                    conn.Open ()
+                    use cmd = conn.CreateCommand ()
+                    cmd.CommandText <- "UPDATE Transactions SET ImportHash = 'row-hash'"
+                    cmd.ExecuteNonQuery () |> ignore
+
+                // When: the user edits it, e.g. to tag it.
+                let! response =
+                    TestHttp.putJson app.Client (routefPath UpdateTransaction.Path id) (request "Edited" 12.50m)
+                    |> Async.AwaitTask
+
+                Expect.equal response.StatusCode HttpStatusCode.OK "status code should be 200"
+
+                // Then: the hash survives, so a re-import still recognises the transaction.
+                Expect.equal (importHash ()) (box "row-hash") "the import hash should be unchanged"
             }
 
             testCaseAsync "DELETE /api/transactions/{id} removes the transaction"

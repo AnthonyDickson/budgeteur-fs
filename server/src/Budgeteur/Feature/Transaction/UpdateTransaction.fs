@@ -88,6 +88,8 @@ module UpdateTransaction =
                     for t in main.Transactions do
                         entity row
                         excludeColumn t.Id
+                        // The request carries no import hash; keeping it lets a re-import skip the transaction.
+                        excludeColumn t.ImportHash
                         where (t.Id = transaction.Id && t.UserId = userId)
                 }
 

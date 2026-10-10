@@ -120,6 +120,8 @@ module TestAppConfig =
 
 type TestApp = {
     Client : HttpClient
+    /// The app's database, for state the API cannot set or read (e.g. an import hash).
+    ConnectionString : string
     /// A second client authenticated as a different user against the same database.
     ClientForUser : string -> HttpClient
     CleanDatabase : unit -> unit
@@ -248,6 +250,7 @@ module TestApp =
 
         {
             Client = client
+            ConnectionString = connectionString
             ClientForUser = clientForUser
             CleanDatabase = cleanDatabase
             Dispose = dispose
