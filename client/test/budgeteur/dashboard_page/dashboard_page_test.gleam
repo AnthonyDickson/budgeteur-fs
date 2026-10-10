@@ -1,14 +1,15 @@
 import budgeteur/dashboard_page/balance_summary.{BalanceSummary}
 import budgeteur/dashboard_page/dashboard_page.{
   ClientFetchedBalance, ClientFetchedStatement, ClientGotToday,
-  ClientRestoredPreset, Failed, Loaded, Loading, UserRetriedBalance,
-  UserRetriedStatement, UserSelectedPreset,
+  ClientRestoredPreset, UserRetriedBalance, UserRetriedStatement,
+  UserSelectedPreset,
 }
 import budgeteur/dashboard_page/income_statement.{IncomeStatement}
 import budgeteur/dashboard_page/period.{LastMonth, Period, ThisMonth}
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/effect
+import budgeteur/shared/remote.{Failed, Loaded, Loading}
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, October, September}
 import gleam/time/timestamp

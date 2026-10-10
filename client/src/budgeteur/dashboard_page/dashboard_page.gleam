@@ -13,6 +13,7 @@ import budgeteur/shared/date
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
+import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/tag_ui
@@ -53,14 +54,6 @@ pub type Model {
     balance: Remote(Option(BalanceSummary)),
     statement: Remote(IncomeStatement),
   )
-}
-
-/// The lifecycle of one statement fetched from the server.
-pub type Remote(a) {
-  Loading
-  Loaded(a)
-  /// The fetch failed; the page offers a retry.
-  Failed
 }
 
 pub type Msg {
