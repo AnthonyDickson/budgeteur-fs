@@ -24,15 +24,7 @@ module BalanceSheetTests =
         AsOf = DateOnly (2026, 1, 1)
     }
 
-    let private sheet items = {
-        StatementDate =
-            DateTime (
-                DateOnly (2026, 1, 1),
-                TimeOnly.MinValue,
-                DateTimeKind.Utc
-            )
-        Items = items
-    }
+    let private sheet items : BalanceSheet = { Items = items }
 
     let private sampleSheet =
         sheet [

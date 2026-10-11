@@ -2,7 +2,9 @@
 //// income statement for a period. The page composes the two statements'
 //// endpoints rather than calling a dashboard aggregate. See docs/dashboard.md.
 
-import budgeteur/dashboard_page/balance_summary.{type BalanceSummary}
+import budgeteur/dashboard_page/balance_summary.{
+  type BalanceSummary, BalanceSummary,
+}
 import budgeteur/dashboard_page/income_statement.{
   type ExpenseLine, type IncomeLine, type IncomeStatement,
 }
@@ -23,9 +25,7 @@ import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/pair
 import gleam/time/calendar.{type Date}
-import gleam/time/timestamp
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -49,9 +49,7 @@ pub type Model {
     preset: Preset,
     /// The client's local date, once the `GetLocalDate` effect has reported it.
     today: Option(Date),
-    /// `Loaded(None)` is a user with no balance sheet yet: the server creates
-    /// the sheet on the first item write, so this is not an error.
-    balance: Remote(Option(BalanceSummary)),
+    balance: Remote(BalanceSummary),
     statement: Remote(IncomeStatement),
   )
 }
@@ -201,18 +199,14 @@ fn update_inner(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     }
 
     ClientFetchedBalance(Ok(summary)) -> #(
-      Model(..model, balance: Loaded(Some(summary))),
+      Model(..model, balance: Loaded(summary)),
       effect.none(),
     )
 
-    ClientFetchedBalance(Error(error)) ->
-      case api_error.is_not_found(error) {
-        True -> #(Model(..model, balance: Loaded(None)), effect.none())
-        False -> #(
-          Model(..model, balance: Failed),
-          effect.LogError(api_error.describe(error)),
-        )
-      }
+    ClientFetchedBalance(Error(error)) -> #(
+      Model(..model, balance: Failed),
+      effect.LogError(api_error.describe(error)),
+    )
 
     ClientFetchedStatement(period:, result:) ->
       case current_period(model) == Some(period) {
@@ -249,7 +243,7 @@ pub fn view(model: Model) -> Element(Msg) {
       html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
         html.text("Dashboard"),
       ]),
-      balance_section(model.balance),
+      balance_section(model.balance, model.today),
       statement_section(model),
     ],
   )
@@ -268,16 +262,19 @@ fn section_heading(title: String, subtitle: String) -> Element(Msg) {
 
 // Balance sheet
 
-fn balance_section(balance: Remote(Option(BalanceSummary))) -> Element(Msg) {
+fn balance_section(
+  balance: Remote(BalanceSummary),
+  today: Option(Date),
+) -> Element(Msg) {
   html.section([attribute.class("space-y-4")], case balance {
     Loading -> [
       section_heading("Where you stand", "Loading balances..."),
     ]
-    Loaded(None) -> [
+    Loaded(BalanceSummary(is_empty: True, ..)) -> [
       section_heading("Where you stand", "No balances recorded yet"),
       message_card(
-        testid: "dashboard-no-balance-sheet",
-        heading: "No balance sheet yet",
+        testid: "dashboard-empty-balance-sheet",
+        heading: "Nothing on the balance sheet yet",
         body: [
           html.text("Add what you own and owe on the "),
           page_link(route.BalanceSheet, "Balance Sheet page"),
@@ -285,16 +282,11 @@ fn balance_section(balance: Remote(Option(BalanceSummary))) -> Element(Msg) {
         ],
       ),
     ]
-    Loaded(Some(summary)) -> [
-      section_heading(
-        "Where you stand",
-        "Balances as of "
-          <> date.format(
-          summary.statement_date
-          |> timestamp.to_calendar(calendar.local_offset())
-          |> pair.first,
-        ),
-      ),
+    Loaded(summary) -> [
+      section_heading("Where you stand", case today {
+        Some(today) -> "Balances as of " <> date.format(today)
+        None -> ""
+      }),
       html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-2")], [
         figure_card("Net worth", summary.net_worth, "dashboard-net-worth"),
         figure_card(

@@ -29,7 +29,7 @@ const summaryCard = (page: Page, testId: string) => page.getByTestId(testId);
 
 async function gotoNewBalanceSheet(page: Page) {
   await page.goto('/balance-sheet');
-  await expect(page.getByTestId('no-balance-sheet-empty-state')).toBeVisible();
+  await expect(page.getByTestId('no-items-empty-state')).toBeVisible();
 }
 
 /// Add an item through the modal. The kind is chosen by which header button
@@ -144,14 +144,12 @@ test.describe('balance sheet', () => {
       await modal(page).getByTestId('item-cancel-button').click();
       await expect(modal(page)).toBeHidden();
 
-      // ── Delete everything: the sheet survives, so the empty-items state shows ─
+      // ── Delete everything: the empty state shows ─────────────────────────────
       await deleteItem(page, 'Chequing');
       await deleteItem(page, 'Credit card');
       await deleteItem(page, 'Mortgage');
 
       await expect(page.getByTestId('no-items-empty-state')).toBeVisible();
-      await expect(page.getByTestId('no-balance-sheet-empty-state'))
-        .toBeHidden();
       await expectAmount(summaryCard(page, 'net-worth'), 0);
 
       await page.screenshot({

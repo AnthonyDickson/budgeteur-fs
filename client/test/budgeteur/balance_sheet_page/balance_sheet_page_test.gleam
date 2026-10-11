@@ -21,7 +21,6 @@ import budgeteur/shared/toast
 import gleam/int
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, March}
-import gleam/time/timestamp
 import gleeunit/should
 import youid/uuid.{type Uuid}
 
@@ -108,7 +107,6 @@ fn api_error(status_code: Int) -> ApiError {
 /// recomputed them locally would be caught.
 fn sample_sheet() -> BalanceSheet {
   BalanceSheet(
-    statement_date: timestamp.from_unix_seconds(1_772_000_000),
     total_assets: 402_000.0,
     total_liabilities: 301_500.0,
     net_worth: 999.0,
@@ -152,19 +150,6 @@ pub fn a_fetched_sheet_is_loaded_verbatim_test() {
 
   // The server owns the totals, so they are kept as received.
   model.sheet |> should.equal(balance_sheet_page.Loaded(sample_sheet()))
-  out_msg |> should.equal(None)
-  effect |> should.equal(effect.none())
-}
-
-pub fn not_found_is_the_empty_state_test() {
-  let #(model, effect, out_msg) =
-    balance_sheet_page.update(
-      empty_model(),
-      balance_sheet_page.ClientFetchedSheet(Error(api_error(404))),
-    )
-
-  // A user with no sheet yet is an expected state, not an error.
-  model.sheet |> should.equal(balance_sheet_page.Empty)
   out_msg |> should.equal(None)
   effect |> should.equal(effect.none())
 }

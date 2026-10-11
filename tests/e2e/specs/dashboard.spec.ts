@@ -121,7 +121,7 @@ test.describe('dashboard', () => {
       await expect(page.getByTestId('dashboard-untagged-notice')).toContainText(
         '1 transaction',
       );
-      await expect(page.getByTestId('dashboard-no-balance-sheet'))
+      await expect(page.getByTestId('dashboard-empty-balance-sheet'))
         .toBeVisible();
       await page.screenshot({
         path: screenshotPath(testInfo, 'dashboard-this-month'),

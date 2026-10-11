@@ -18,9 +18,7 @@ import gleam/float
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/pair
 import gleam/time/calendar.{type Date}
-import gleam/time/timestamp
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -47,10 +45,7 @@ pub type Model {
 pub type SheetState {
   /// No response yet.
   Loading
-  /// The user has no balance sheet yet. The server creates the sheet on the
-  /// first item write, so a missing sheet is an expected state, not a failure.
-  Empty
-  /// The sheet loaded. Its item list may be empty (every item was deleted).
+  /// The sheet loaded. It is empty for a user who tracks nothing yet.
   Loaded(BalanceSheet)
   /// The first load failed.
   Failed
@@ -125,12 +120,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       None,
     )
 
-    ClientFetchedSheet(Error(error)) ->
-      case api_error.is_not_found(error) {
-        // A user with no sheet yet. Expected, so it is not an error.
-        True -> #(Model(..model, sheet: Empty), effect.none(), None)
-        False -> on_fetch_failed(model, error)
-      }
+    ClientFetchedSheet(Error(error)) -> on_fetch_failed(model, error)
 
     UserRequestedSheetReload -> #(
       Model(..model, sheet: Loading),
@@ -180,9 +170,9 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   }
 }
 
-/// A fetch failed for a reason other than a missing sheet. A sheet loaded
-/// earlier (e.g. before a refetch after a write) is more useful than an error
-/// page; without one there is nothing to show, so the page offers a retry.
+/// A fetch failed. A sheet loaded earlier (e.g. before a refetch after a write)
+/// is more useful than an error page; without one there is nothing to show, so
+/// the page offers a retry.
 fn on_fetch_failed(
   model: Model,
   error: ApiError,
@@ -196,7 +186,7 @@ fn on_fetch_failed(
         "Showing the balance sheet loaded earlier",
       )),
     )
-    Loading | Empty | Failed -> #(
+    Loading | Failed -> #(
       Model(..model, sheet: Failed),
       effect.LogError(api_error.describe(error)),
       None,
@@ -208,7 +198,7 @@ fn on_fetch_failed(
 fn model_items(model: Model) -> List(BalanceSheetItem) {
   case model.sheet {
     Loaded(sheet) -> sheet.items
-    Loading | Empty | Failed -> []
+    Loading | Failed -> []
   }
 }
 
@@ -372,8 +362,7 @@ pub fn view(model: Model) -> Element(Msg) {
     [
       case model.sheet {
         Loading -> loading_state()
-        Empty -> no_sheet_state()
-        Loaded(sheet) -> loaded_sheet(sheet)
+        Loaded(sheet) -> loaded_sheet(sheet, model.today)
         Failed -> failed_state()
       },
       item_modal.view(model.item_modal)
@@ -387,9 +376,9 @@ pub fn view(model: Model) -> Element(Msg) {
   )
 }
 
-fn loaded_sheet(sheet: BalanceSheet) -> Element(Msg) {
+fn loaded_sheet(sheet: BalanceSheet, today: Option(Date)) -> Element(Msg) {
   html.div([], [
-    page_header(statement_date_subtitle(sheet)),
+    page_header(statement_date_subtitle(today)),
     summary_cards(sheet),
     case list.is_empty(sheet.items) {
       True -> empty_state()
@@ -398,25 +387,13 @@ fn loaded_sheet(sheet: BalanceSheet) -> Element(Msg) {
   ])
 }
 
-fn statement_date_subtitle(sheet: BalanceSheet) -> String {
-  "Balances as of "
-  <> date.format(
-    sheet.statement_date
-    |> timestamp.to_calendar(calendar.local_offset())
-    |> pair.first,
-  )
-}
-
-/// A user who has never added an item has no balance sheet on the server yet.
-fn no_sheet_state() -> Element(Msg) {
-  html.div([], [
-    page_header("No balances recorded yet"),
-    empty_card(
-      testid: "no-balance-sheet-empty-state",
-      heading: "No balance sheet yet",
-      body: "Add what you own and owe to see your net worth and working capital.",
-    ),
-  ])
+/// The sheet is drawn for the client's today, its statement date. Each line
+/// shows its own as-of date.
+fn statement_date_subtitle(today: Option(Date)) -> String {
+  case today {
+    Some(today) -> "Balances as of " <> date.format(today)
+    None -> ""
+  }
 }
 
 /// The first load failed; the page offers a retry rather than an indefinite

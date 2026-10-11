@@ -3,24 +3,26 @@
 //// pages can change independently.
 
 import budgeteur/shared/money
-import budgeteur/shared/timestamp_helpers
 import gleam/dynamic/decode
-import gleam/time/timestamp.{type Timestamp}
+import gleam/list
 
 pub type BalanceSummary {
   BalanceSummary(
-    statement_date: Timestamp,
     net_worth: Float,
     working_capital: Float,
+    /// Whether the sheet has no lines, so the page shows an empty state
+    /// instead of zero figures.
+    is_empty: Bool,
   )
 }
 
 pub fn decoder() -> decode.Decoder(BalanceSummary) {
-  use statement_date <- decode.field(
-    "statementDate",
-    timestamp_helpers.decoder(),
-  )
   use net_worth <- decode.field("netWorth", money.decode_decimal())
   use working_capital <- decode.field("workingCapital", money.decode_decimal())
-  decode.success(BalanceSummary(statement_date:, net_worth:, working_capital:))
+  use items <- decode.field("items", decode.list(decode.dynamic))
+  decode.success(BalanceSummary(
+    net_worth:,
+    working_capital:,
+    is_empty: list.is_empty(items),
+  ))
 }

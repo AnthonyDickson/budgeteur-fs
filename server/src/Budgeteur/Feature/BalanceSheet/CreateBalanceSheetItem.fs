@@ -57,7 +57,7 @@ module CreateBalanceSheetItem =
         }
 
     let private insertBalanceSheetItem
-        (queryContext : QueryContext)
+        (queryContext : QueryContextFactory)
         (item : BalanceSheetItem)
         (userId : string)
         =
@@ -97,17 +97,7 @@ module CreateBalanceSheetItem =
                             userId
                     )
 
-                use! sharedCtx = queryContext.OpenContextAsync ()
-                sharedCtx.BeginTransaction ()
-                do! insertBalanceSheetItem sharedCtx item userId
-
-                do!
-                    BalanceSheetStore.updateOrCreate
-                        sharedCtx
-                        (clock ())
-                        userId
-
-                sharedCtx.CommitTransaction ()
+                do! insertBalanceSheetItem queryContext item userId
 
                 log.Info (
                     $"Created balance sheet item %O{item.Id}",
@@ -122,8 +112,7 @@ module CreateBalanceSheetItem =
         op.Summary <- "Create a balance sheet item"
 
         op.Description <-
-            "Creates a new balance sheet item, updates the balance sheet \
-            statement date"
+            "Creates a new balance sheet item and returns it with status 201."
 
         op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
 

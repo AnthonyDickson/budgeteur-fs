@@ -26,14 +26,7 @@ CREATE TABLE Accounts (
 
 CREATE INDEX IX_Accounts_UserId on Accounts(UserId);
 
--- Balance Sheet + Items
-
-CREATE TABLE BalanceSheets (
-    -- One balance sheet per user
-    UserId        TEXT     NOT NULL PRIMARY KEY,
-    -- When the balance snapshot was taken (the date the balance is accurate as of).
-    StatementDate DATETIME NOT NULL
-);
+-- Balance Sheet Items
 
 CREATE TABLE BalanceSheetItems (
     -- v7 UUID

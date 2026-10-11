@@ -58,7 +58,7 @@ module UpdateBalanceSheetItem =
         }
 
     let private updateBalanceSheetItem
-        (queryContext : QueryContext)
+        (queryContext : QueryContextFactory)
         (item : BalanceSheetItem)
         (userId : string)
         =
@@ -104,17 +104,7 @@ module UpdateBalanceSheetItem =
                             userId
                     )
 
-                use! sharedCtx = queryContext.OpenContextAsync ()
-                sharedCtx.BeginTransaction ()
-                do! updateBalanceSheetItem sharedCtx item userId
-
-                do!
-                    BalanceSheetStore.updateOrCreate
-                        sharedCtx
-                        (clock ())
-                        userId
-
-                sharedCtx.CommitTransaction ()
+                do! updateBalanceSheetItem queryContext item userId
 
                 log.Info (
                     $"Updated balance sheet item %O{item.Id}",
@@ -127,8 +117,7 @@ module UpdateBalanceSheetItem =
     let private configureOperation (op : OpenApiOperation) _ _ =
         op.Summary <- "Update a balance sheet item"
 
-        op.Description <-
-            "Update a balance sheet item and the balance sheet statement date."
+        op.Description <- "Replaces a balance sheet item."
 
         op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
 

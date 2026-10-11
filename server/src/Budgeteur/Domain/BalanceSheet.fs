@@ -1,15 +1,12 @@
 namespace Budgeteur.Domain.BalanceSheet
 
-open System
-
 open Budgeteur.Domain.BalanceSheetItem
 
-/// <summary>The balance sheet items a user tracks, all valued as of a single
-/// date.</summary>
+/// <summary>The balance sheet items a user tracks. The sheet stores no date of
+/// its own: it is drawn for the date the client asks about, and each line
+/// carries its own as-of date. See decision 4 in
+/// docs/balance-sheet.md.</summary>
 type BalanceSheet = {
-    /// <summary>The date the balances are accurate as of.</summary>
-    StatementDate : DateTime
-
     /// <summary>Every asset and liability currently being tracked.</summary>
     Items : BalanceSheetItem list
 }

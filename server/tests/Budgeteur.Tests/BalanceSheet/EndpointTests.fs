@@ -30,14 +30,9 @@ module EndpointTests =
             TestAppConfig.empty |> TestAppConfig.withBalanceSheet Clock.system
         )
 
-    /// A clock a test can move, so a refreshed statement date is
-    /// distinguishable from a stale one. Returns the clock and a function that
-    /// sets the instant.
-    let private testClock
-        (start : DateTimeOffset)
-        : Clock * (DateTimeOffset -> unit) =
-        let instant = ref start
-        (fun () -> instant.Value), (fun next -> instant.Value <- next)
+    /// A clock stopped at the given instant, so the as-of date bound is known.
+    let private fixedClock (instant : DateTimeOffset) : Clock =
+        fun () -> instant
 
     /// Create an item and return its server-assigned id.
     let private createItem
@@ -184,12 +179,11 @@ module EndpointTests =
                     "the owner's list should hold their item"
 
                 // Then: another user sees none of it.
-                let! otherSheet = getSheet otherUser
+                let! otherSheet = getSheetBody otherUser
 
-                Expect.equal
-                    otherSheet.StatusCode
-                    HttpStatusCode.NotFound
-                    "another user's sheet should be 404"
+                Expect.isEmpty
+                    otherSheet.Items
+                    "another user's sheet should be empty"
 
                 let! otherItem = getItem otherUser id
 
@@ -235,16 +229,12 @@ module EndpointTests =
                 "the read assembles, aggregates, and encodes the sheet"
             <| async {
                 use app = newApp ()
-                let before = DateTime.UtcNow
 
-                // Given: no sheet yet, because the sheet is created on the
-                // first item write.
-                let! empty = getSheet app.Client
-
-                Expect.equal
-                    empty.StatusCode
-                    HttpStatusCode.NotFound
-                    "an unwritten sheet should be 404"
+                // Given: a user with no items has an empty sheet, not a
+                // missing one.
+                let! empty = getSheetBody app.Client
+                Expect.isEmpty empty.Items "a new user's sheet should be empty"
+                Expect.equal empty.NetWorth 0m "an empty sheet has no net worth"
 
                 // Given: one item per kind and term.
                 do! createOneOfEachKindAndTerm app.Client
@@ -264,13 +254,7 @@ module EndpointTests =
                     TestHttp.readJson<ReadBalanceSheet.BalanceSheetResponse>
                         response
 
-                // Then: the statement date and every item are present.
-                Expect.isTrue
-                    (sheet.StatementDate >= before.AddMinutes -1.0
-                     && sheet.StatementDate <= DateTime.UtcNow.AddMinutes 1.0)
-                    $"the statement date should be the write time, but was \
-                    %O{sheet.StatementDate}"
-
+                // Then: every item is present.
                 Expect.equal
                     (List.length sheet.Items)
                     4
@@ -390,7 +374,7 @@ module EndpointTests =
                     "an update onto itself should be accepted"
             }
 
-            testCaseAsync "deleting the last item leaves the sheet in place"
+            testCaseAsync "deleting the last item leaves an empty sheet"
             <| async {
                 use app = newApp ()
 
@@ -408,7 +392,7 @@ module EndpointTests =
                     HttpStatusCode.NoContent
                     "delete should return 204"
 
-                // Then: the sheet still exists, with zero totals.
+                // Then: the sheet is empty, with zero totals.
                 let! sheet = getSheetBody app.Client
                 Expect.equal sheet.Items [] "the deleted item should be gone"
 
@@ -456,19 +440,15 @@ module EndpointTests =
                     HttpStatusCode.BadRequest
                     "a negative balance should be rejected"
 
-                // Nothing was written, so the sheet was never created.
-                let! sheet = getSheet app.Client
-
-                Expect.equal
-                    sheet.StatusCode
-                    HttpStatusCode.NotFound
-                    "rejected writes should not create the sheet"
+                // Nothing was written.
+                let! sheet = getSheetBody app.Client
+                Expect.isEmpty sheet.Items "a rejected write should add no item"
             }
 
             testCaseAsync "an item keeps its as-of date, which cannot be future"
             <| async {
                 let now = DateTime (2026, 3, 8, 23, 0, 0, DateTimeKind.Utc)
-                let clock, _ = testClock (DateTimeOffset now)
+                let clock = fixedClock (DateTimeOffset now)
 
                 use app =
                     TestApp.create (
@@ -520,98 +500,5 @@ module EndpointTests =
                     "an update dated after tomorrow should be rejected"
             }
 
-            testCaseAsync "every item write advances the statement date"
-            <| async {
-                let first = DateTime (2026, 1, 1, 9, 0, 0, DateTimeKind.Utc)
-                let second = DateTime (2026, 2, 2, 10, 30, 0, DateTimeKind.Utc)
-                let third = DateTime (2026, 3, 3, 11, 45, 0, DateTimeKind.Utc)
-                let clock, setTime = testClock (DateTimeOffset first)
 
-                use app =
-                    TestApp.create (
-                        TestAppConfig.empty
-                        |> TestAppConfig.withBalanceSheet clock
-                    )
-
-                // Given: the clock starts at the first instant, so the first
-                // write is the one that creates the sheet.
-                let! id =
-                    createItem
-                        app.Client
-                        (request "Chequing" "Asset" "Current" 2000m)
-
-                let! created = getSheetBody app.Client
-
-                Expect.equal
-                    created.StatementDate
-                    first
-                    "creating the sheet should stamp the write time"
-
-                // When: time moves on and an item is updated.
-                setTime (DateTimeOffset second)
-
-                let! updated =
-                    updateItem
-                        app.Client
-                        id
-                        (request "Chequing" "Asset" "Current" 2500m)
-
-                Expect.equal
-                    updated
-                    HttpStatusCode.OK
-                    "the update should be accepted"
-
-                let! afterUpdate = getSheetBody app.Client
-
-                Expect.equal
-                    afterUpdate.StatementDate
-                    second
-                    "an update should restamp the statement date"
-
-                // When: time moves on again and the item is deleted.
-                setTime (DateTimeOffset third)
-                let! deleted = deleteItem app.Client id
-
-                Expect.equal
-                    deleted
-                    HttpStatusCode.NoContent
-                    "the delete should be accepted"
-
-                let! afterDelete = getSheetBody app.Client
-
-                Expect.equal
-                    afterDelete.StatementDate
-                    third
-                    "a delete should restamp the statement date"
-            }
-
-            testCaseAsync "the stored statement date is the instant in UTC"
-            <| async {
-                // A clock in another offset: what it reports as the wall clock
-                // and what it means as an instant differ, and only the instant
-                // may be stored, because the column carries no offset.
-                let elsewhere = TimeSpan.FromHours 13.0
-                let wallClock = DateTime (2026, 4, 5, 0, 30, 0)
-                let instant = DateTime (2026, 4, 4, 11, 30, 0, DateTimeKind.Utc)
-                let clock, _ = testClock (DateTimeOffset (wallClock, elsewhere))
-
-                use app =
-                    TestApp.create (
-                        TestAppConfig.empty
-                        |> TestAppConfig.withBalanceSheet clock
-                    )
-
-                let! _ =
-                    createItem
-                        app.Client
-                        (request "Chequing" "Asset" "Current" 2000m)
-
-                let! sheet = getSheetBody app.Client
-
-                Expect.equal
-                    sheet.StatementDate
-                    instant
-                    "the stored date should be the instant in UTC, not the \
-                    clock's wall clock"
-            }
         ]

@@ -1,12 +1,9 @@
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/shared/money
-import budgeteur/shared/timestamp_helpers
 import gleam/dynamic/decode
-import gleam/time/timestamp.{type Timestamp}
 
 pub type BalanceSheet {
   BalanceSheet(
-    statement_date: Timestamp,
     total_assets: Float,
     total_liabilities: Float,
     net_worth: Float,
@@ -20,10 +17,6 @@ pub type BalanceSheet {
 }
 
 pub fn decoder() -> decode.Decoder(BalanceSheet) {
-  use statement_date <- decode.field(
-    "statementDate",
-    timestamp_helpers.decoder(),
-  )
   use total_assets <- decode.field("totalAssets", money.decode_decimal())
   use total_liabilities <- decode.field(
     "totalLiabilities",
@@ -49,7 +42,6 @@ pub fn decoder() -> decode.Decoder(BalanceSheet) {
   use working_capital <- decode.field("workingCapital", money.decode_decimal())
   use items <- decode.field("items", decode.list(balance_sheet_item.decoder()))
   decode.success(BalanceSheet(
-    statement_date:,
     total_assets:,
     total_liabilities:,
     net_worth:,

@@ -153,9 +153,9 @@ and history are later work (see [Deferred](#deferred)).
   are sorted by amount, largest first, with the untagged line last. Field docs
   are in the OpenAPI document.
 - **Empty states.** A period with no transactions shows a link to the
-  transactions page. A missing balance sheet (`404`) is an empty state with a
-  link to the balance sheet page, as on that page. Untagged transactions in the
-  period show a link to the transactions page.
+  transactions page. An empty balance sheet is an empty state with a link to the
+  balance sheet page, as on that page. Untagged transactions in the period show
+  a link to the transactions page.
 - **Route.** The dashboard is the `/` route.
 - **Client read shapes.** The dashboard page decodes only the balance sheet
   fields it shows, with its own decoder, rather than importing the balance sheet

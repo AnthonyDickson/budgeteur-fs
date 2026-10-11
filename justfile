@@ -70,8 +70,7 @@ format:
 lint: check-architecture
 	cd server && dotnet fsharplint lint Budgeteur.slnx
 
-# Enforce the architecture rules that no compiler or formatter can: slice and shared module boundaries,
-# and the DATETIME column convention (see docs/dates.md)
+# Enforce the architecture rules that no compiler or formatter can: slice and shared module boundaries
 check-architecture:
 	#!/usr/bin/env bash
 	set -euo pipefail
@@ -96,23 +95,6 @@ check-architecture:
 			fail=1
 		fi
 	done < <(find server/src/Budgeteur/{Shared,Domain,Data} -name '*.fs' -type f)
-
-	# Restoring the UTC kind of a DATETIME column belongs at the row boundary, in one place: a codec
-	# that does it by hand is a codec that may forget to. This covers the shared modules and every codec,
-	# since a slice's codec starts in the slice and moves to Data later. Calendar arithmetic
-	# elsewhere is a different concern -- it converts with TimeZoneInfo or DateTimeOffset and
-	# relabels nothing -- so it is deliberately not restricted.
-	while IFS= read -r file; do
-		if [[ "$file" != "server/src/Budgeteur/Data/UtcDateTime.fs" ]]; then
-			echo "DateTime.SpecifyKind outside Data/UtcDateTime.fs: $file (use UtcDateTime.fromColumn)"
-			fail=1
-		fi
-	done < <(
-		{
-			grep -rl 'DateTime\.SpecifyKind' --include='*.fs' server/src/Budgeteur/Data
-			grep -rl 'DateTime\.SpecifyKind' --include='*Codec.fs' server/src/Budgeteur/Feature
-		} | sort -u
-	)
 
 	if [[ $fail -ne 0 ]]; then
 		echo "Architecture violations found (see above)"

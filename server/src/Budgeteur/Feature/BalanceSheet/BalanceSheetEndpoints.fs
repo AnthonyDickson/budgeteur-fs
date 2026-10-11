@@ -13,7 +13,7 @@ module BalanceSheetEndpoints =
         GET [ ReadBalanceSheet.endpoint queryContext ]
         POST [ CreateBalanceSheetItem.endpoint queryContext clock ]
         PUT [ UpdateBalanceSheetItem.endpoint queryContext clock ]
-        DELETE [ DeleteBalanceSheetItem.endpoint queryContext clock ]
+        DELETE [ DeleteBalanceSheetItem.endpoint queryContext ]
     ]
 
     /// <summary>Item reads for manual inspection. Development only, so they are

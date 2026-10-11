@@ -54,18 +54,6 @@ module main =
     let BalanceSheetItems = table<BalanceSheetItems>
 
     [<CLIMutable>]
-    type BalanceSheets =
-        { UserId: string
-          StatementDate: System.DateTime }
-
-        interface IWriteColumns with
-            member this.WriteColumns =
-                [ { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
-                  { WriteColumn.Name = "StatementDate"; Value = box this.StatementDate; ProviderDbType = None } ]
-
-    let BalanceSheets = table<BalanceSheets>
-
-    [<CLIMutable>]
     type Rules =
         { Id: System.Guid
           UserId: string
@@ -187,17 +175,6 @@ module main =
 
         let BalanceSheetItems = leftTable<``BalanceSheetItems (base)``, BalanceSheetItems>
 
-        type private ``BalanceSheets (base)`` = BalanceSheets
-
-        [<CLIMutable; NoEquality; NoComparison>]
-        type BalanceSheets =
-            { UserId: Option<string>
-              StatementDate: Option<System.DateTime> }
-
-            interface ILeftViewOf<``BalanceSheets (base)``>
-
-        let BalanceSheets = leftTable<``BalanceSheets (base)``, BalanceSheets>
-
         type private ``Rules (base)`` = Rules
 
         [<CLIMutable; NoEquality; NoComparison>]
@@ -290,18 +267,6 @@ module LeftViewExtensions =
             | Some value ->
                 let record: main.BalanceSheetItems =
                     { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Kind = this.Kind.Value; Term = this.Term.Value; Balance = this.Balance.Value; AsOf = this.AsOf.Value }
-
-                Some record
-            | None -> None
-
-    type main.LeftJoined.BalanceSheets with
-        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
-        /// Some when the left join matched, None when it did not.
-        member this.ToOption() : main.BalanceSheets option =
-            match this.UserId with
-            | Some value ->
-                let record: main.BalanceSheets =
-                    { UserId = value; StatementDate = this.StatementDate.Value }
 
                 Some record
             | None -> None

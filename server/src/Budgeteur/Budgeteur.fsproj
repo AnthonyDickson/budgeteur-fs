@@ -38,18 +38,15 @@
 
     <Compile Include="Data/Db.fs" />
     <Compile Include="Data/Constraints.fs" />
-    <Compile Include="Data/UtcDateTime.fs" />
     <Compile Include="Data/RuleCodec.fs" />
     <Compile Include="Data/TagCodec.fs" />
     <Compile Include="Data/TagAssignmentCodec.fs" />
     <Compile Include="Data/TagAssignmentStore.fs" />
     <Compile Include="Data/BalanceSheetItemCodec.fs" />
-    <Compile Include="Data/BalanceSheetCodec.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 
-    <Compile Include="Feature/BalanceSheet/BalanceSheetStore.fs" />
     <Compile Include="Feature/BalanceSheet/WriteBalanceSheetItemRequest.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetItemResponse.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheet.fs" />

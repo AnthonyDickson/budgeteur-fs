@@ -14,7 +14,6 @@ module DeleteBalanceSheetItem =
     open Budgeteur.Data.Db
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
-    open Budgeteur.Shared.Clock
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.RequestLogging
@@ -23,7 +22,7 @@ module DeleteBalanceSheetItem =
     let Path = "/api/balance-sheet/items/{%O:guid}"
 
     let private deleteBalanceSheetItem
-        (queryContext : QueryContext)
+        (queryContext : QueryContextFactory)
         (userId : string)
         (id : Guid)
         =
@@ -34,14 +33,11 @@ module DeleteBalanceSheetItem =
                         where (t.Id = id && t.UserId = userId)
                 }
 
-            let deleted = rows > 0
-
-            return deleted
+            return rows > 0
         }
 
     let private handler
         (queryContext : QueryContextFactory)
-        (clock : Clock)
         (id : Guid)
         : EndpointHandler =
         Endpoint.handler (fun ctx ->
@@ -49,19 +45,9 @@ module DeleteBalanceSheetItem =
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
 
-                use! sharedCtx = queryContext.OpenContextAsync ()
-                sharedCtx.BeginTransaction ()
-                let! deleted = deleteBalanceSheetItem sharedCtx userId id
+                let! deleted = deleteBalanceSheetItem queryContext userId id
 
                 if deleted then
-                    do!
-                        BalanceSheetStore.updateOrCreate
-                            sharedCtx
-                            (clock ())
-                            userId
-
-                    sharedCtx.CommitTransaction ()
-
                     log.Info (
                         $"Deleted balance sheet item %O{id}",
                         LogProp.prop "balanceSheetItemId" (id.ToString ())
@@ -69,8 +55,6 @@ module DeleteBalanceSheetItem =
 
                     ctx.SetStatusCode 204
                 else
-                    sharedCtx.RollbackTransaction ()
-
                     log.Warn (
                         $"Balance sheet item %O{id} not found",
                         LogProp.prop "balanceSheetItemId" (id.ToString ())
@@ -90,8 +74,8 @@ module DeleteBalanceSheetItem =
 
         Task.CompletedTask
 
-    let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
-        routef Path (handler queryContext clock)
+    let endpoint (queryContext : QueryContextFactory) =
+        routef Path (handler queryContext)
         |> addOpenApi (
             OpenApiConfig (
                 responseBodies = [|

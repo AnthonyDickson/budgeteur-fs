@@ -1,7 +1,6 @@
 namespace Budgeteur.Feature.BalanceSheet
 
 module ReadBalanceSheet =
-    open System
     open System.Collections.Generic
     open System.Threading.Tasks
 
@@ -16,7 +15,6 @@ module ReadBalanceSheet =
     open Budgeteur.Domain.BalanceSheet
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
-    open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
     open Budgeteur.Shared.OpenApi
@@ -25,10 +23,10 @@ module ReadBalanceSheet =
     [<Literal>]
     let Path = "/api/balance-sheet"
 
+    /// <summary>The user's balance sheet. It carries no statement date: the
+    /// client draws it for its own today, and each line has an as-of
+    /// date.</summary>
     type BalanceSheetResponse = {
-        /// <summary>The date the balances are accurate as of.</summary>
-        StatementDate : DateTime
-
         /// <summary>Every asset and liability currently being
         /// tracked.</summary>
         Items : BalanceSheetItemResponse list
@@ -76,7 +74,6 @@ module ReadBalanceSheet =
 
     module BalanceSheetResponse =
         let fromDomain (sheet : BalanceSheet) : BalanceSheetResponse = {
-            StatementDate = sheet.StatementDate
             Items = sheet.Items |> List.map BalanceSheetItemResponse.fromDomain
             TotalCurrentAssets = BalanceSheet.totalCurrentAssets sheet
             TotalCurrentLiabilities = BalanceSheet.totalCurrentLiabilities sheet
@@ -89,32 +86,23 @@ module ReadBalanceSheet =
             WorkingCapital = BalanceSheet.workingCapital sheet
         }
 
-    /// <summary> Get the user's balance sheet if it exists.</summary>
-    let tryFindBalanceSheet
+    /// <summary>The user's balance sheet: every item they track. A user with
+    /// none has an empty sheet.</summary>
+    let private readBalanceSheet
         (queryContext : QueryContextFactory)
         (userId : string)
-        : Task<BalanceSheet option> =
+        : Task<BalanceSheet> =
         task {
-            let! sheet =
-                selectTask queryContext {
-                    for b in main.BalanceSheets do
-                        where (b.UserId = userId)
-                        tryHead
-                }
-
-            and! items =
+            let! items =
                 selectTask queryContext {
                     for item in main.BalanceSheetItems do
                         where (item.UserId = userId)
                 }
 
-            let items =
-                Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
-
-            return
-                Option.map
-                    (fun sheet -> BalanceSheetCodec.fromRow sheet items)
-                    sheet
+            return {
+                Items =
+                    Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
+            }
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -122,20 +110,9 @@ module ReadBalanceSheet =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! sheet = tryFindBalanceSheet queryContext userId
-
-                match sheet with
-                | Some sheet ->
-                    log.Info "Returned balance sheet"
-                    do! Json.write ctx (BalanceSheetResponse.fromDomain sheet)
-                | None ->
-                    return!
-                        Error (
-                            NotFound
-                                $"Could not find balance sheet for user \
-                                {userId}"
-                        )
-
+                let! sheet = readBalanceSheet queryContext userId
+                log.Info "Returned balance sheet"
+                do! Json.write ctx (BalanceSheetResponse.fromDomain sheet)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =
@@ -153,7 +130,6 @@ module ReadBalanceSheet =
                 responseBodies = [|
                     ResponseBody typeof<BalanceSheetResponse>
                     ResponseBody (typeof<ApiError>, statusCode = 401)
-                    ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],
                 configureOperation = configureOperation
             )

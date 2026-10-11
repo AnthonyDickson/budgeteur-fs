@@ -12,7 +12,6 @@ import budgeteur/shared/effect
 import budgeteur/shared/remote.{Failed, Loaded, Loading}
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, October, September}
-import gleam/time/timestamp
 import gleeunit/should
 
 const today = Date(2026, October, 10)
@@ -189,14 +188,6 @@ pub fn a_failed_statement_can_be_retried_test() {
   model.statement |> should.equal(Loaded(statement(this_month())))
 }
 
-pub fn a_missing_balance_sheet_is_an_empty_state_test() {
-  let #(model, effect) =
-    update(model_with_today(), ClientFetchedBalance(Error(api_error(404))))
-
-  model.balance |> should.equal(Loaded(None))
-  effect |> should.equal(effect.none())
-}
-
 pub fn a_failed_balance_can_be_retried_test() {
   let #(model, _) =
     update(model_with_today(), ClientFetchedBalance(Error(api_error(500))))
@@ -209,10 +200,10 @@ pub fn a_failed_balance_can_be_retried_test() {
 
   let summary =
     BalanceSummary(
-      statement_date: timestamp.from_unix_seconds(1_772_000_000),
       net_worth: 100_500.0,
       working_capital: 500.0,
+      is_empty: False,
     )
   let #(model, _) = update(model, ClientFetchedBalance(Ok(summary)))
-  model.balance |> should.equal(Loaded(Some(summary)))
+  model.balance |> should.equal(Loaded(summary))
 }
