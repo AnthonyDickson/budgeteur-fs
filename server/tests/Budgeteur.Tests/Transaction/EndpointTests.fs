@@ -9,6 +9,7 @@ module EndpointTests =
 
     open Budgeteur.Feature.Tag
     open Budgeteur.Feature.Transaction
+    open Budgeteur.Shared.Clock
     open Budgeteur.Shared.Coders
     open Budgeteur.Tests
 
@@ -250,6 +251,67 @@ module EndpointTests =
                         ReadAllTransactions.Path
                         (TestHttp.itemPath ReadTransaction.Path created.Id)
                         (request "Hijacked" 1.00m)
+            }
+
+            testCaseAsync "a transaction carries its account's name"
+            <| async {
+                use app =
+                    TestApp.create (
+                        TestAppConfig.empty
+                        |> TestAppConfig.withTransactions
+                        |> TestAppConfig.withAccounts Clock.system
+                    )
+
+                use otherUser = app.ClientForUser "other-user"
+                let! everyday = Seed.account app.Client "Everyday" None
+                let! savings = Seed.account app.Client "Savings" None
+
+                let! created =
+                    create app.Client {
+                        request "Coffee" -4.50m with
+                            AccountId = Some everyday
+                    }
+
+                Expect.equal
+                    created.AccountName
+                    (Some "Everyday")
+                    "the create response names the account"
+
+                let! all =
+                    app.Client.GetAsync ReadAllTransactions.Path
+                    |> Async.AwaitTask
+
+                let! all = TestHttp.readJson<TransactionResponse list> all
+                Expect.equal all [ created ] "the list names the account"
+
+                let! moved =
+                    TestHttp.putJson
+                        app.Client
+                        (TestHttp.itemPath UpdateTransaction.Path created.Id)
+                        {
+                            request "Coffee" -4.50m with
+                                AccountId = Some savings
+                        }
+                    |> Async.AwaitTask
+
+                let! moved = TestHttp.readJson<TransactionResponse> moved
+
+                Expect.equal
+                    moved.AccountName
+                    (Some "Savings")
+                    "the update response names the new account"
+
+                let! hijacked =
+                    TestHttp.postJson otherUser CreateTransaction.Path {
+                        request "Coffee" -4.50m with
+                            AccountId = Some everyday
+                    }
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    hijacked.StatusCode
+                    HttpStatusCode.BadRequest
+                    "another user's account should be rejected"
             }
 
             testCaseAsync "a transaction cannot use another user's tag"

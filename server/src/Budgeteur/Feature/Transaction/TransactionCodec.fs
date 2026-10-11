@@ -1,7 +1,6 @@
 namespace Budgeteur.Feature.Transaction
 
 module TransactionCodec =
-    open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Money
     open Budgeteur.Domain.Transaction
@@ -29,11 +28,3 @@ module TransactionCodec =
         IsTransfer = row.IsTransfer
         AccountId = row.AccountId
     }
-
-    /// <summary>Read a transaction left-joined with its assignment: the
-    /// slice's read shape, a transaction and its tag, if any.</summary>
-    let fromJoinedRow
-        (row : main.Transactions, assignment : main.LeftJoined.TagAssignments)
-        =
-        fromRow row,
-        assignment.ToOption () |> Option.map TagAssignmentCodec.fromRow

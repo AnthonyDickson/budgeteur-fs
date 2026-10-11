@@ -38,6 +38,9 @@ type TransactionResponse = {
     /// <summary>The bank account associated with this transaction.</summary>
     AccountId : Guid option
 
+    /// <summary>The name of the transaction's account, if it has one.</summary>
+    AccountName : string option
+
     /// <summary>The transaction's tag, or none when it is untagged.</summary>
     Tag : TransactionTagResponse option
 }
@@ -49,6 +52,7 @@ module TransactionResponse =
     let fromDomain
         (t : Transaction)
         (assignment : TagAssignment option)
+        (accountName : string option)
         : TransactionResponse = {
         Id = t.Id
         Amount = Money.value t.Amount
@@ -56,6 +60,7 @@ module TransactionResponse =
         Date = t.Date
         IsTransfer = t.IsTransfer
         AccountId = t.AccountId
+        AccountName = accountName
         Tag =
             assignment
             |> Option.map (fun assignment -> {

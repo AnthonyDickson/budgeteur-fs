@@ -10,7 +10,6 @@ module ReadTransaction =
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
-    open SqlHydra.Query
 
     open Budgeteur.Data.Db
     open Budgeteur.Feature.Transaction
@@ -24,27 +23,6 @@ module ReadTransaction =
     [<Literal>]
     let Path = "/api/transactions/{%O:guid}"
 
-    let private get
-        (queryContext : QueryContextFactory)
-        (userId : string)
-        (id : Guid)
-        =
-        task {
-            let! row =
-                selectTask queryContext {
-                    for t in main.Transactions do
-                        leftJoin a in main.LeftJoined.TagAssignments
-                                          on
-                                          (t.Id = a.TransactionId)
-
-                        where (t.Id = id && t.UserId = userId)
-                        select (t, a)
-                        tryHead
-                }
-
-            return Option.map TransactionCodec.fromJoinedRow row
-        }
-
     let private handler
         (queryContext : QueryContextFactory)
         (id : Guid)
@@ -52,11 +30,14 @@ module ReadTransaction =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let! userId = Auth.getUserId ctx
-                let! transaction = get queryContext userId id
+
+                let! transaction =
+                    TransactionQuery.tryRead queryContext userId id
+
                 let log = RequestLog.fromContext ctx
 
                 match transaction with
-                | Some (transaction, assignment) ->
+                | Some (transaction, assignment, accountName) ->
                     log.Info (
                         $"Returned transaction %O{id}",
                         LogProp.prop "transactionId" (id.ToString ())
@@ -67,7 +48,8 @@ module ReadTransaction =
                             ctx
                             (TransactionResponse.fromDomain
                                 transaction
-                                assignment)
+                                assignment
+                                accountName)
                 | None ->
                     log.Warn (
                         $"Transaction %O{id} not found",

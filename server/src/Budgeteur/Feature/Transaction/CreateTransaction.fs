@@ -19,6 +19,7 @@ module CreateTransaction =
     open Budgeteur.Feature.Transaction
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
+    open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
     open Budgeteur.Shared.RequestLogging
@@ -105,12 +106,25 @@ module CreateTransaction =
                     LogProp.prop "transactionId" (transaction.Id.ToString ())
                 )
 
-                ctx.SetStatusCode 201
+                match!
+                    TransactionQuery.tryRead queryContext userId transaction.Id
+                with
+                | Some (transaction, assignment, accountName) ->
+                    ctx.SetStatusCode 201
 
-                do!
-                    Json.write
-                        ctx
-                        (TransactionResponse.fromDomain transaction assignment)
+                    do!
+                        Json.write
+                            ctx
+                            (TransactionResponse.fromDomain
+                                transaction
+                                assignment
+                                accountName)
+                | None ->
+                    return!
+                        Error (
+                            NotFound
+                                $"Transaction %O{transaction.Id} not found"
+                        )
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

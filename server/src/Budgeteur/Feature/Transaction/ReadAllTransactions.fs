@@ -8,7 +8,6 @@ module ReadAllTransactions =
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
-    open SqlHydra.Query
 
     open Budgeteur.Data.Db
     open Budgeteur.Feature.Transaction
@@ -21,27 +20,13 @@ module ReadAllTransactions =
     [<Literal>]
     let Path = "/api/transactions"
 
-    let private getAll (queryContext : QueryContextFactory) (userId : string) =
-        task {
-            let! rows =
-                selectTask queryContext {
-                    for t in main.Transactions do
-                        leftJoin a in main.LeftJoined.TagAssignments
-                                          on
-                                          (t.Id = a.TransactionId)
-
-                        where (t.UserId = userId)
-                        select (t, a)
-                }
-
-            return rows |> Seq.map TransactionCodec.fromJoinedRow |> List.ofSeq
-        }
-
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let! userId = Auth.getUserId ctx
-                let! transactions = getAll queryContext userId
+
+                let! transactions =
+                    TransactionQuery.readAll queryContext userId
 
                 let log = RequestLog.fromContext ctx
 
@@ -52,10 +37,11 @@ module ReadAllTransactions =
 
                 let response =
                     List.map
-                        (fun (transaction, assignment) ->
+                        (fun (transaction, assignment, accountName) ->
                             TransactionResponse.fromDomain
                                 transaction
-                                assignment)
+                                assignment
+                                accountName)
                         transactions
 
                 do! Json.write ctx response
