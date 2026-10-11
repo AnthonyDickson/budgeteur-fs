@@ -354,7 +354,7 @@ line. Lessons from it are cited where they shaped a decision.
     transfer detection, as pure functions apart from the handler.
   - `Feature/Account/` owns account CRUD at `/api/accounts`.
   - The `Account` type, its number and name rules, and the observation rules
-    (one per date, statement over manual, latest is current) are in `Domain/`,
+    (one per date, the latest is current, no future dates) are in `Domain/`,
     with their mapping in `Data/`, because both slices write accounts and
     observations. The transaction mapping moves from the Transaction slice to
     `Data/`, because Import also writes transactions.
