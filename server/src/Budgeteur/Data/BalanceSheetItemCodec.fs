@@ -4,6 +4,7 @@ module BalanceSheetItemCodec =
     open System
     open Budgeteur.Data.Db
     open Budgeteur.Domain.BalanceSheetItem
+    open Budgeteur.Domain.Term
 
     let toRow
         (item : BalanceSheetItem)

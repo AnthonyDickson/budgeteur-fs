@@ -4,6 +4,7 @@ open System
 open System.ComponentModel.DataAnnotations
 
 open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Term
 open Budgeteur.Shared.OpenApi
 
 /// <summary>Payload for creating or updating a balance sheet item.</summary>

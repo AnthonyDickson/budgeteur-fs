@@ -4,6 +4,7 @@ open System
 open System.ComponentModel.DataAnnotations
 
 open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Term
 open Budgeteur.Shared.OpenApi
 
 /// <summary>A single line on the balance sheet: one asset or one

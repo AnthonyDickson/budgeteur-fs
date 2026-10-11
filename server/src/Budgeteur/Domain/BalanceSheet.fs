@@ -1,6 +1,7 @@
 namespace Budgeteur.Domain.BalanceSheet
 
 open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Term
 
 /// <summary>The balance sheet items a user tracks. The sheet stores no date of
 /// its own: it is drawn for the date the client asks about, and each line

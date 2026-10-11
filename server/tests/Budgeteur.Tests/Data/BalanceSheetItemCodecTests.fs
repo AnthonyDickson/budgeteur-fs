@@ -6,6 +6,7 @@ module BalanceSheetItemCodecTests =
 
     open Budgeteur.Data
     open Budgeteur.Domain.BalanceSheetItem
+    open Budgeteur.Domain.Term
 
     let private okOrFail label =
         function
