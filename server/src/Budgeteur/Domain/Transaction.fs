@@ -9,7 +9,7 @@ type TransactionDescription = private TransactionDescription of string
 
 module TransactionDescription =
     [<Literal>]
-    let private MaxTransactionDescriptionLength = 256
+    let internal MaxLength = 256
 
     let private nonEmpty (description : string) =
         if String.IsNullOrWhiteSpace description then
@@ -20,11 +20,11 @@ module TransactionDescription =
             Ok description
 
     let private acceptableLength (description : string) =
-        if description.Length > MaxTransactionDescriptionLength then
+        if description.Length > MaxLength then
             Error (
                 ValidationFailed
                     $"Title is too long. Titles must be at most \
-                    %i{MaxTransactionDescriptionLength} characters, but got \
+                    %i{MaxLength} characters, but got \
                     %i{description.Length}"
             )
         else
