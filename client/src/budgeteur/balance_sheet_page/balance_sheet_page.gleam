@@ -19,7 +19,7 @@ import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/pair
-import gleam/time/calendar
+import gleam/time/calendar.{type Date}
 import gleam/time/timestamp
 import lustre/attribute
 import lustre/element.{type Element}
@@ -36,6 +36,8 @@ const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-me
 pub type Model {
   Model(
     sheet: SheetState,
+    /// The client's local date, once the `GetLocalDate` effect has reported it.
+    today: Option(Date),
     item_modal: item_modal.Modal,
     item_delete_modal: item_delete_modal.DeleteModalState,
   )
@@ -55,6 +57,7 @@ pub type SheetState {
 }
 
 pub type Msg {
+  ClientGotToday(Date)
   // API responses
   ClientFetchedSheet(Result(BalanceSheet, ApiError))
   // Retry after a failed first load.
@@ -97,10 +100,11 @@ pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
       sheet: Loading,
+      today: None,
       item_modal: item_modal.hidden(),
       item_delete_modal: item_delete_modal.empty(),
     ),
-    fetch_sheet(),
+    effect.batch([effect.GetLocalDate(ClientGotToday), fetch_sheet()]),
   )
 }
 
@@ -109,6 +113,12 @@ pub fn init() -> #(Model, Effect(Msg)) {
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   case msg {
+    ClientGotToday(today) -> #(
+      Model(..model, today: Some(today)),
+      effect.none(),
+      None,
+    )
+
     ClientFetchedSheet(Ok(sheet)) -> #(
       Model(..model, sheet: Loaded(sheet)),
       effect.none(),
@@ -129,7 +139,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     )
 
     UserRequestedItemCreation(kind:) ->
-      run_item_modal(model, item_modal.CreateRequested(kind))
+      run_item_modal(
+        model,
+        item_modal.CreateRequested(kind:, today: model.today),
+      )
 
     UserRequestedItemEdit(id) -> {
       case list.find(model_items(model), fn(item) { item.id == id }) {
@@ -677,8 +690,13 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
       attribute.attribute("data-testid", "balance-sheet-item-" <> testid),
     ],
     [
-      html.span([attribute.class("flex-1 truncate text-sm text-gray-700")], [
-        html.text(item.name),
+      html.div([attribute.class("min-w-0 flex-1")], [
+        html.p([attribute.class("truncate text-sm text-gray-700")], [
+          html.text(item.name),
+        ]),
+        html.p([attribute.class("text-xs text-gray-400")], [
+          html.text("As of " <> date.format(item.as_of)),
+        ]),
       ]),
       html.span(
         [

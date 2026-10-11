@@ -20,6 +20,7 @@ import budgeteur/shared/out_msg
 import budgeteur/shared/toast
 import gleam/int
 import gleam/option.{None, Some}
+import gleam/time/calendar.{Date, March}
 import gleam/time/timestamp
 import gleeunit/should
 import youid/uuid.{type Uuid}
@@ -37,12 +38,20 @@ fn item(
   term term: Term,
   balance balance: Float,
 ) -> BalanceSheetItem {
-  BalanceSheetItem(id: item_id(id), name:, kind:, term:, balance:)
+  BalanceSheetItem(
+    id: item_id(id),
+    name:,
+    kind:,
+    term:,
+    balance:,
+    as_of: Date(2026, March, 1),
+  )
 }
 
 fn empty_model() -> balance_sheet_page.Model {
   balance_sheet_page.Model(
     sheet: balance_sheet_page.Loading,
+    today: None,
     item_modal: item_modal.hidden(),
     item_delete_modal: item_delete_modal.empty(),
   )
@@ -80,6 +89,7 @@ fn submitting_modal(mode: form_modal.Mode) -> item_modal.Modal {
       kind: Asset,
       term: Current,
       balance: field.Empty(""),
+      as_of: field.Empty(""),
     ),
     mode,
   )
@@ -120,12 +130,15 @@ fn sample_sheet() -> BalanceSheet {
   )
 }
 
-pub fn init_fetches_the_sheet_test() {
+pub fn init_asks_for_today_and_fetches_the_sheet_test() {
   let #(model, effect) = balance_sheet_page.init()
 
   model.sheet |> should.equal(balance_sheet_page.Loading)
 
-  let assert effect.HttpRequest(method: method, url: url, ..) = effect
+  let assert effect.Batch([
+    effect.GetLocalDate(_),
+    effect.HttpRequest(method: method, url: url, ..),
+  ]) = effect
   method |> should.equal(http_effect.Get)
   url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
 }
@@ -319,6 +332,7 @@ pub fn cancelling_the_item_form_hides_it_test() {
             kind: Asset,
             term: Current,
             balance: field.Empty(""),
+            as_of: field.Empty(""),
           ),
           form_modal.Create,
         )),

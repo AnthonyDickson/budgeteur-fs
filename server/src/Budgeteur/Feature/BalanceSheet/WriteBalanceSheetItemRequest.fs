@@ -26,11 +26,16 @@ type WriteBalanceSheetItemRequest = {
     /// implied by Kind.</summary>
     [<SchemaHint.Decimal(NonNegative = true)>]
     Balance : decimal
+
+    /// <summary>The date the balance is accurate as of. At most one day after
+    /// the server's UTC date.</summary>
+    AsOf : DateOnly
 }
 
 module WriteBalanceSheetItemRequest =
     open FsToolkit.ErrorHandling
 
+    open Budgeteur.Domain.AsOfDate
     open Budgeteur.Shared.DomainError
 
     let private joinValidationErrors
@@ -53,10 +58,17 @@ module WriteBalanceSheetItemRequest =
             |> ValidationFailed
             |> Error
 
-    let validate (req : WriteBalanceSheetItemRequest) (id : Guid) =
+    /// <summary>Validate the request as of the instant <c>now</c>, which bounds
+    /// the as-of date.</summary>
+    let validate
+        (now : DateTimeOffset)
+        (req : WriteBalanceSheetItemRequest)
+        (id : Guid)
+        =
         validation {
             let! name = ItemName.create req.Name
             and! balance = Balance.create req.Balance
+            and! asOf = AsOfDate.validate now req.AsOf
 
             and! kind =
                 ItemKind.parse req.Kind |> Result.mapError ValidationFailed
@@ -69,6 +81,7 @@ module WriteBalanceSheetItemRequest =
                 Kind = kind
                 Term = term
                 Balance = balance
+                AsOf = asOf
             }
 
             return item

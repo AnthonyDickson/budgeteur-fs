@@ -38,7 +38,8 @@ module main =
           Name: string
           Kind: string
           Term: string
-          Balance: decimal }
+          Balance: decimal
+          AsOf: System.DateOnly }
 
         interface IWriteColumns with
             member this.WriteColumns =
@@ -47,7 +48,8 @@ module main =
                   { WriteColumn.Name = "Name"; Value = box this.Name; ProviderDbType = None }
                   { WriteColumn.Name = "Kind"; Value = box this.Kind; ProviderDbType = None }
                   { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None }
-                  { WriteColumn.Name = "Balance"; Value = box this.Balance; ProviderDbType = None } ]
+                  { WriteColumn.Name = "Balance"; Value = box this.Balance; ProviderDbType = None }
+                  { WriteColumn.Name = "AsOf"; Value = box this.AsOf; ProviderDbType = None } ]
 
     let BalanceSheetItems = table<BalanceSheetItems>
 
@@ -178,7 +180,8 @@ module main =
               Name: Option<string>
               Kind: Option<string>
               Term: Option<string>
-              Balance: Option<decimal> }
+              Balance: Option<decimal>
+              AsOf: Option<System.DateOnly> }
 
             interface ILeftViewOf<``BalanceSheetItems (base)``>
 
@@ -286,7 +289,7 @@ module LeftViewExtensions =
             match this.Id with
             | Some value ->
                 let record: main.BalanceSheetItems =
-                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Kind = this.Kind.Value; Term = this.Term.Value; Balance = this.Balance.Value }
+                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Kind = this.Kind.Value; Term = this.Term.Value; Balance = this.Balance.Value; AsOf = this.AsOf.Value }
 
                 Some record
             | None -> None

@@ -30,6 +30,9 @@ type BalanceSheetItemResponse = {
     /// implied by Kind.</summary>
     [<SchemaHint.Decimal(NonNegative = true)>]
     Balance : decimal
+
+    /// <summary>The date the balance is accurate as of.</summary>
+    AsOf : DateOnly
 }
 
 module BalanceSheetItemResponse =
@@ -39,4 +42,5 @@ module BalanceSheetItemResponse =
         Kind = ItemKind.toString item.Kind
         Term = Term.toString item.Term
         Balance = Balance.value item.Balance
+        AsOf = item.AsOf
     }

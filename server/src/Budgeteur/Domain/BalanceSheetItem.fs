@@ -138,4 +138,7 @@ type BalanceSheetItem = {
     /// <summary>The positive magnitude of the item's value. Direction is
     /// implied by Kind.</summary>
     Balance : Balance
+
+    /// <summary>The date the balance is accurate as of.</summary>
+    AsOf : DateOnly
 }

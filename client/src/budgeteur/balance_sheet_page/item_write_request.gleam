@@ -1,8 +1,9 @@
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
 import budgeteur/balance_sheet_page/term.{type Term}
+import budgeteur/shared/date
 import budgeteur/shared/money
-import gleam/dynamic/decode
 import gleam/json
+import gleam/time/calendar.{type Date}
 
 pub type ItemWriteRequest {
   ItemWriteRequest(
@@ -14,23 +15,19 @@ pub type ItemWriteRequest {
     term: Term,
     // The positive magnitude of the item's value. Direction is implied by Kind.
     balance: Float,
+    // The date the balance is accurate as of.
+    as_of: Date,
   )
 }
 
 pub fn to_json(item_write_request: ItemWriteRequest) -> json.Json {
-  let ItemWriteRequest(name:, kind:, term:, balance:) = item_write_request
+  let ItemWriteRequest(name:, kind:, term:, balance:, as_of:) =
+    item_write_request
   json.object([
     #("name", json.string(name)),
     #("kind", item_kind.to_json(kind)),
     #("term", term.to_json(term)),
     #("balance", money.encode_decimal(balance)),
+    #("asOf", date.encode(as_of)),
   ])
-}
-
-pub fn decoder() -> decode.Decoder(ItemWriteRequest) {
-  use name <- decode.field("name", decode.string)
-  use kind <- decode.field("kind", item_kind.decoder())
-  use term <- decode.field("term", term.decoder())
-  use balance <- decode.field("balance", money.decode_decimal())
-  decode.success(ItemWriteRequest(name:, kind:, term:, balance:))
 }

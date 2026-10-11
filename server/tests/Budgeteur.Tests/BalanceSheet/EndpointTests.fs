@@ -22,6 +22,7 @@ module EndpointTests =
         Kind = kind
         Term = term
         Balance = balance
+        AsOf = DateOnly (2026, 1, 1)
     }
 
     let private newApp () =
@@ -462,6 +463,61 @@ module EndpointTests =
                     sheet.StatusCode
                     HttpStatusCode.NotFound
                     "rejected writes should not create the sheet"
+            }
+
+            testCaseAsync "an item keeps its as-of date, which cannot be future"
+            <| async {
+                let now = DateTime (2026, 3, 8, 23, 0, 0, DateTimeKind.Utc)
+                let clock, _ = testClock (DateTimeOffset now)
+
+                use app =
+                    TestApp.create (
+                        TestAppConfig.empty
+                        |> TestAppConfig.withBalanceSheet clock
+                    )
+
+                // Given: an item dated the day after the server's UTC date,
+                // which a client ahead of UTC may call today.
+                let tomorrow = {
+                    request "Chequing" "Asset" "Current" 2000m with
+                        AsOf = DateOnly (2026, 3, 9)
+                }
+
+                let! id = createItem app.Client tomorrow
+
+                // Then: the sheet reports the item's as-of date.
+                let! sheet = getSheetBody app.Client
+
+                Expect.equal
+                    (sheet.Items |> List.map (fun item -> item.AsOf))
+                    [ DateOnly (2026, 3, 9) ]
+                    "the item should keep its as-of date"
+
+                // When: a later date is written.
+                let future = {
+                    tomorrow with
+                        AsOf = DateOnly (2026, 3, 10)
+                }
+
+                let! created =
+                    TestHttp.postJson app.Client CreateBalanceSheetItem.Path {
+                        future with
+                            Name = "Savings"
+                    }
+                    |> Async.AwaitTask
+
+                let! updated = updateItem app.Client id future
+
+                // Then: both writes are rejected.
+                Expect.equal
+                    created.StatusCode
+                    HttpStatusCode.BadRequest
+                    "a create dated after tomorrow should be rejected"
+
+                Expect.equal
+                    updated
+                    HttpStatusCode.BadRequest
+                    "an update dated after tomorrow should be rejected"
             }
 
             testCaseAsync "every item write advances the statement date"

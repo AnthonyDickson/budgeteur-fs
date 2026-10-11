@@ -15,6 +15,7 @@ module BalanceSheetItemCodec =
         Kind = ItemKind.toString item.Kind
         Term = Term.toString item.Term
         Balance = Balance.value item.Balance
+        AsOf = item.AsOf
     }
 
     let fromRow (row : main.BalanceSheetItems) : BalanceSheetItem = {
@@ -33,4 +34,5 @@ module BalanceSheetItemCodec =
             // unreachable
             | Error error -> failwith error
         Balance = Balance.unsafeFromDecimal row.Balance
+        AsOf = row.AsOf
     }

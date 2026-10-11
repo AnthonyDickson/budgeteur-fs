@@ -43,6 +43,8 @@ CREATE TABLE BalanceSheetItems (
     Kind    TEXT     NOT NULL CHECK (Kind IN ('Asset', 'Liability')),
     Term    TEXT     NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
     Balance CURRENCY NOT NULL CHECK (Balance >= 0),
+    -- The calendar date the balance is accurate as of, chosen by the user.
+    AsOf    DATE     NOT NULL,
     UNIQUE(UserId, Name, Kind, Term)
 );
 

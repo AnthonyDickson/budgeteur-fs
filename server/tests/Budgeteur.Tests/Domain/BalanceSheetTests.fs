@@ -21,6 +21,7 @@ module BalanceSheetTests =
         Kind = kind
         Term = term
         Balance = Balance.create balance |> okOrFail "balance"
+        AsOf = DateOnly (2026, 1, 1)
     }
 
     let private sheet items = {

@@ -92,7 +92,9 @@ module UpdateBalanceSheetItem =
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
                 let! req = Json.read ctx
-                let! item = WriteBalanceSheetItemRequest.validate req id
+
+                let! item =
+                    WriteBalanceSheetItemRequest.validate (clock ()) req id
 
                 do!
                     Constraints.requireOne (

@@ -34,6 +34,7 @@ module ResetUserDataTests =
         Kind = "Asset"
         Term = "Current"
         Balance = 2000m
+        AsOf = DateOnly (2026, 3, 8)
     }
 
     /// Give a user a transaction, a balance sheet, and a balance sheet item.

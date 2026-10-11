@@ -28,6 +28,7 @@
     <Compile Include="Shared/Endpoint.fs" />
 
     <Compile Include="Domain/Money.fs" />
+    <Compile Include="Domain/AsOfDate.fs" />
     <Compile Include="Domain/Tag.fs" />
     <Compile Include="Domain/Transaction.fs" />
     <Compile Include="Domain/Rule.fs" />

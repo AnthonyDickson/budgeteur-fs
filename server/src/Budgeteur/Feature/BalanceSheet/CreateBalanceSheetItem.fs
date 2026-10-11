@@ -85,6 +85,7 @@ module CreateBalanceSheetItem =
 
                 let! item =
                     WriteBalanceSheetItemRequest.validate
+                        (clock ())
                         req
                         (Guid.CreateVersion7 ())
 

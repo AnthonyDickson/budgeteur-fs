@@ -38,6 +38,7 @@ module BalanceSheetItemCodecTests =
                             Term = term
                             Balance =
                                 Balance.create 1.23m |> okOrFail "Balance"
+                            AsOf = DateOnly (2026, 3, 8)
                         }
 
                         let row = BalanceSheetItemCodec.toRow item userId
