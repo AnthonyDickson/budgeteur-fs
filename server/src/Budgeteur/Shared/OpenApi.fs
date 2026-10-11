@@ -70,9 +70,13 @@ module SchemaHint =
         member val NonNegative = false with get, set
 
 module OpenApi =
+    open Microsoft.AspNetCore.Builder
     open Microsoft.AspNetCore.OpenApi
+    open Microsoft.Extensions.DependencyInjection
     open Microsoft.FSharp.Reflection
     open Microsoft.OpenApi
+    open Oxpecker.OpenApi
+    open Scalar.AspNetCore
     open System.Collections.Concurrent
     open System.Collections.Generic
     open System.IO
@@ -82,6 +86,9 @@ module OpenApi =
     open System.Threading
     open System.Threading.Tasks
     open System.Xml.Linq
+
+    open Budgeteur.Shared.Auth
+    open Budgeteur.Shared.Config
 
     let private isOptionType (t : System.Type) : bool =
         if t.IsGenericType then
@@ -279,3 +286,91 @@ module OpenApi =
                             signedPattern
 
                 Task.CompletedTask
+
+    /// <summary>Register the OpenAPI document: the schema transformers above,
+    /// and the security schemes the Scalar docs use to obtain a
+    /// token.</summary>
+    let configureServices
+        (services : IServiceCollection)
+        (oauth2 : OAuth2Config)
+        =
+        let oauth2AuthUrl = oauth2.AuthorizationUrl
+        let oauth2TokenUrl = oauth2.TokenUrl
+
+        services.AddOpenApi (fun options ->
+            options.AddSchemaTransformer<FSharpOptionSchemaTransformer>()
+            |> ignore
+
+            options.AddSchemaTransformer<FSharpRecordSchemaTransformer>()
+            |> ignore
+
+            options.AddSchemaTransformer<XmlDocSchemaTransformer>() |> ignore
+            options.AddSchemaTransformer<SchemaHintTransformer>() |> ignore
+            options.AddSchemaTransformer<DecimalSchemaTransformer>() |> ignore
+
+            options.AddDocumentTransformer (fun doc _ _ ->
+                if isNull doc.Components then
+                    doc.Components <- OpenApiComponents ()
+
+                if isNull doc.Components.SecuritySchemes then
+                    doc.Components.SecuritySchemes <-
+                        Dictionary<string, IOpenApiSecurityScheme>()
+
+                doc.Components.SecuritySchemes["bearerAuth"] <-
+                    OpenApiSecurityScheme (
+                        Type = SecuritySchemeType.Http,
+                        Scheme = "bearer",
+                        BearerFormat = "JWT",
+                        Description =
+                            "JWT access token from Authelia. Use the Scalar \
+                            OAuth2 flow to obtain one."
+                    )
+
+                doc.Components.SecuritySchemes["scalarOAuth2"] <-
+                    OpenApiSecurityScheme (
+                        Type = SecuritySchemeType.OAuth2,
+                        Flows =
+                            OpenApiOAuthFlows (
+                                AuthorizationCode =
+                                    OpenApiOAuthFlow (
+                                        AuthorizationUrl =
+                                            System.Uri oauth2AuthUrl,
+                                        TokenUrl = System.Uri oauth2TokenUrl
+                                    )
+                            )
+                    )
+
+                doc.Security <- ResizeArray [ Auth.oauthRequirement doc ]
+
+                Task.CompletedTask)
+            |> ignore)
+        |> ignore
+
+    /// <summary>Serve the OpenAPI document and the Scalar API
+    /// reference.</summary>
+    let mapEndpoints (app : WebApplication) (clientId : string) =
+        app.MapOpenApi () |> ignore
+
+        app.MapScalarApiReference (fun opts ->
+            opts
+                .WithTitle("Budgeteur API")
+                .WithTheme(ScalarTheme.DeepSpace)
+                .WithDefaultHttpClient(ScalarTarget.Http, ScalarClient.Curl)
+            |> ignore
+
+            opts
+                .AddPreferredSecuritySchemes([| "scalarOAuth2" |])
+                .AddAuthorizationCodeFlow(
+                    "scalarOAuth2",
+                    fun flow ->
+                        flow.ClientId <- clientId
+                        flow.Pkce <- Pkce.Sha256
+
+                        flow.SelectedScopes <- [|
+                            "openid"
+                            "profile"
+                            "email"
+                        |]
+                )
+            |> ignore)
+        |> ignore

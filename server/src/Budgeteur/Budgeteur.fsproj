@@ -21,6 +21,7 @@
     <Compile Include="Shared/Coders.fs" />
     <Compile Include="Shared/Config.fs" />
     <Compile Include="Shared/Clock.fs" />
+    <Compile Include="Shared/Logging.fs" />
     <Compile Include="Shared/Auth.fs" />
     <Compile Include="Shared/OpenApi.fs" />
     <Compile Include="Shared/Json.fs" />

@@ -1,6 +1,5 @@
 module Budgeteur.Program
 
-open System.Collections.Generic
 open System.Diagnostics
 open System.Reflection
 open System.Threading.Tasks
@@ -15,13 +14,8 @@ open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Options
-open Microsoft.OpenApi
 open Oxpecker
-open Oxpecker.OpenApi
-open Scalar.AspNetCore
 open Serilog
-open Serilog.Events
-open Serilog.Formatting.Compact
 
 open Budgeteur.Data.Db
 open Budgeteur.Shared.ApiError
@@ -29,6 +23,7 @@ open Budgeteur.Shared.Auth
 open Budgeteur.Shared.Clock
 open Budgeteur.Shared.Config
 open Budgeteur.Shared.Json
+open Budgeteur.Shared.Logging
 open Budgeteur.Shared.OpenApi
 open Budgeteur.Shared.RequestLogging
 open Budgeteur.Feature.Auth
@@ -41,87 +36,6 @@ open Budgeteur.Feature.Tag
 open Budgeteur.Feature.TestSupport
 open Budgeteur.Feature.Transaction
 
-
-let private addOpenApiToBuilder
-    (builder : WebApplicationBuilder)
-    (oauth2 : OAuth2Config)
-    =
-    let oauth2AuthUrl = oauth2.AuthorizationUrl
-    let oauth2TokenUrl = oauth2.TokenUrl
-
-    builder.Services.AddOpenApi (fun options ->
-        options.AddSchemaTransformer<FSharpOptionSchemaTransformer>() |> ignore
-
-        options.AddSchemaTransformer<OpenApi.FSharpRecordSchemaTransformer>()
-        |> ignore
-
-        options.AddSchemaTransformer<OpenApi.XmlDocSchemaTransformer>()
-        |> ignore
-
-        options.AddSchemaTransformer<OpenApi.SchemaHintTransformer>() |> ignore
-
-        options.AddSchemaTransformer<OpenApi.DecimalSchemaTransformer>()
-        |> ignore
-
-        options.AddDocumentTransformer (fun doc _ _ ->
-            if isNull doc.Components then
-                doc.Components <- OpenApiComponents ()
-
-            if isNull doc.Components.SecuritySchemes then
-                doc.Components.SecuritySchemes <-
-                    Dictionary<string, IOpenApiSecurityScheme>()
-
-            doc.Components.SecuritySchemes["bearerAuth"] <-
-                OpenApiSecurityScheme (
-                    Type = SecuritySchemeType.Http,
-                    Scheme = "bearer",
-                    BearerFormat = "JWT",
-                    Description =
-                        "JWT access token from Authelia. Use the Scalar \
-                        OAuth2 flow to obtain one."
-                )
-
-            doc.Components.SecuritySchemes["scalarOAuth2"] <-
-                OpenApiSecurityScheme (
-                    Type = SecuritySchemeType.OAuth2,
-                    Flows =
-                        OpenApiOAuthFlows (
-                            AuthorizationCode =
-                                OpenApiOAuthFlow (
-                                    AuthorizationUrl =
-                                        System.Uri oauth2AuthUrl,
-                                    TokenUrl = System.Uri oauth2TokenUrl
-                                )
-                        )
-                )
-
-            doc.Security <- ResizeArray [ Auth.oauthRequirement doc ]
-
-            Task.CompletedTask)
-        |> ignore)
-    |> ignore
-
-let private addOpenApiToApp (app : WebApplication) (clientId : string) =
-    app.MapOpenApi () |> ignore
-
-    app.MapScalarApiReference (fun opts ->
-        opts
-            .WithTitle("Budgeteur API")
-            .WithTheme(ScalarTheme.DeepSpace)
-            .WithDefaultHttpClient(ScalarTarget.Http, ScalarClient.Curl)
-        |> ignore
-
-        opts
-            .AddPreferredSecuritySchemes([| "scalarOAuth2" |])
-            .AddAuthorizationCodeFlow(
-                "scalarOAuth2",
-                fun flow ->
-                    flow.ClientId <- clientId
-                    flow.Pkce <- Pkce.Sha256
-                    flow.SelectedScopes <- [| "openid"; "profile"; "email" |]
-            )
-        |> ignore)
-    |> ignore
 
 let private applyMigrations (connectionString : string) =
     let result =
@@ -170,56 +84,6 @@ let private handleException
         }
         :> Task)
 
-let private configureSerilog
-    (loggingOptions : LoggingConfig)
-    (ctx : HostBuilderContext)
-    (config : LoggerConfiguration)
-    =
-    let filePath =
-        loggingOptions.FilePath
-        |> Option.ofObj
-        |> Option.filter (not << System.String.IsNullOrWhiteSpace)
-
-    config.MinimumLevel.Information () |> ignore
-
-    // Filter out healthcheck noise for the status endpoint. Framework
-    // per-request logs (Microsoft.AspNetCore.Hosting.Diagnostics) carry no
-    // status code, so they are dropped whenever the path matches. The app's own
-    // buffered request-log summary does carry the status code, so only
-    // successful probes are dropped; failures (503) stay visible.
-    config.Filter.ByExcluding (fun (e : LogEvent) ->
-        let prop name =
-            match e.Properties.TryGetValue name with
-            | true, (:? ScalarValue as sv) -> string sv.Value
-            | _ -> ""
-
-        let source = prop "SourceContext"
-        let requestPath = prop "RequestPath"
-
-        let statusCode =
-            match e.Properties.TryGetValue "StatusCode" with
-            | true, (:? ScalarValue as sv) ->
-                match System.Int32.TryParse (string sv.Value) with
-                | true, code -> code
-                | _ -> 0
-            | _ -> 0
-
-        let isStatusProbe = requestPath.StartsWith GetStatus.Path
-
-        let isFrameworkLog =
-            source.StartsWith "Microsoft.AspNetCore"
-            || source.StartsWith "Microsoft.Hosting"
-
-        isStatusProbe && (isFrameworkLog || statusCode < 400))
-    |> ignore
-
-    config.WriteTo.Console (RenderedCompactJsonFormatter ()) |> ignore
-
-    match filePath with
-    | Some path ->
-        config.WriteTo.File (RenderedCompactJsonFormatter (), path) |> ignore
-    | None -> ()
-
 let private configureForwardedHeaders
     (options : ForwardedHeadersOptions)
     : unit =
@@ -237,7 +101,6 @@ let private configureForwardedHeaders
 let private withAuth endpoints =
     Seq.map (addFilter Auth.requireAuth) endpoints
 
-// TODO: Move to own file
 let private buildEndpoints
     (connectionString : string)
     (loginReturnUrl : string)
@@ -310,17 +173,19 @@ let private configureBuilder
         options.Limits.MaxRequestBodySize <- 65536L)
     |> ignore
 
-    builder.Host.UseSerilog (configureSerilog config.Logging) |> ignore
+    builder.Host.UseSerilog (Logging.configure GetStatus.Path config.Logging)
+    |> ignore
 
     match config.Oauth2 with
-    | Some config when isDevelopment -> addOpenApiToBuilder builder config
+    | Some config when isDevelopment ->
+        OpenApi.configureServices builder.Services config
     | _ -> ()
 
 let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     let isDevelopment = app.Environment.IsDevelopment ()
 
     match config.Oauth2 with
-    | Some config when isDevelopment -> addOpenApiToApp app config.ClientId
+    | Some config when isDevelopment -> OpenApi.mapEndpoints app config.ClientId
     | _ -> ()
 
     app.Use (
