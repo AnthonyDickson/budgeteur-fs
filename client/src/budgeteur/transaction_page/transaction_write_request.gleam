@@ -12,6 +12,7 @@ pub type TransactionWriteRequest {
     date: Date,
     is_transfer: Bool,
     tag_id: Option(Uuid),
+    account_id: Option(Uuid),
   )
 }
 
@@ -24,6 +25,7 @@ pub fn to_json(
     date:,
     is_transfer:,
     tag_id:,
+    account_id:,
   ) = transaction_write_request
   json.object([
     #("amount", money.encode_decimal(amount)),
@@ -31,5 +33,9 @@ pub fn to_json(
     #("date", date.encode(date)),
     #("isTransfer", json.bool(is_transfer)),
     #("tagId", json.nullable(tag_id |> option.map(uuid.to_string), json.string)),
+    #(
+      "accountId",
+      json.nullable(account_id |> option.map(uuid.to_string), json.string),
+    ),
   ])
 }

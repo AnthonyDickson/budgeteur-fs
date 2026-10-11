@@ -9,6 +9,7 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/transaction.{type Transaction}
 import budgeteur/transaction_page/transaction_delete_modal.{
   type DeleteModalState,
@@ -38,6 +39,9 @@ pub type Model {
     /// Names the transactions' tags and fills the modal's tag select. Empty
     /// until loaded; if the fetch fails, transactions show without tag names.
     tags: List(Tag),
+    /// Fills the modal's account select. Empty until loaded; if the fetch
+    /// fails, the select offers no accounts.
+    accounts: List(Account),
     modal: transaction_modal.Modal,
     delete_modal: DeleteModalState,
   )
@@ -46,6 +50,7 @@ pub type Model {
 pub type Msg {
   ClientFetchedTransactions(Result(List(Transaction), ApiError))
   ClientFetchedTags(Result(List(Tag), ApiError))
+  ClientFetchedAccounts(Result(List(Account), ApiError))
   // Retry after a failed first load.
   UserRequestedReload
   // Modal messages
@@ -69,6 +74,22 @@ fn fetch_tags() -> Effect(Msg) {
         ))
       Error(http_error) ->
         ClientFetchedTags(Error(response.http_error_to_api_error(http_error)))
+    }
+  })
+}
+
+fn fetch_accounts() -> Effect(Msg) {
+  effect.get(api_route.GetAllAccounts |> api_route.to_string, fn(result) {
+    case result {
+      Ok(body) ->
+        ClientFetchedAccounts(response.decode_success(
+          body,
+          decode.list(account.decoder()),
+        ))
+      Error(http_error) ->
+        ClientFetchedAccounts(
+          Error(response.http_error_to_api_error(http_error)),
+        )
     }
   })
 }
@@ -128,10 +149,11 @@ pub fn init() -> #(Model, Effect(Msg)) {
     Model(
       transactions: Loading,
       tags: [],
+      accounts: [],
       modal: transaction_modal.hidden(),
       delete_modal: transaction_delete_modal.empty(),
     ),
-    effect.batch([fetch_transactions(), fetch_tags()]),
+    effect.batch([fetch_transactions(), fetch_tags(), fetch_accounts()]),
   )
 }
 
@@ -177,9 +199,24 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       )),
     )
 
+    ClientFetchedAccounts(Ok(accounts)) -> #(
+      Model(..model, accounts:),
+      effect.none(),
+      None,
+    )
+
+    ClientFetchedAccounts(Error(error)) -> #(
+      model,
+      effect.LogError(api_error.describe(error)),
+      Some(out_msg.error_toast(
+        "Could not load accounts",
+        "The transaction form offers no accounts",
+      )),
+    )
+
     UserRequestedReload -> #(
       Model(..model, transactions: Loading),
-      effect.batch([fetch_transactions(), fetch_tags()]),
+      effect.batch([fetch_transactions(), fetch_tags(), fetch_accounts()]),
       None,
     )
 
@@ -419,7 +456,7 @@ pub fn view(model: Model) -> Element(Msg) {
       Failed -> failed_state()
       Loaded(transactions) -> transactions_table(transactions, tag_names_by_id)
     },
-    transaction_modal.view(model.modal, model.tags)
+    transaction_modal.view(model.modal, model.tags, model.accounts)
       |> element.map(TransactionModalMsg),
     transaction_delete_modal.view(
       model.delete_modal,
@@ -478,6 +515,9 @@ fn transactions_table(
                     html.text("Description"),
                   ]),
                   html.th([attribute.class("px-4 py-3 font-medium")], [
+                    html.text("Account"),
+                  ]),
+                  html.th([attribute.class("px-4 py-3 font-medium")], [
                     html.text("Tag"),
                   ]),
                   html.th(
@@ -520,6 +560,14 @@ fn transactions_table(
                       [attribute.class("px-4 py-3 text-sm text-gray-700")],
                       [
                         html.text(transaction.description),
+                      ],
+                    ),
+                    html.td(
+                      [attribute.class("px-4 py-3 text-sm text-gray-700")],
+                      [
+                        html.text(
+                          transaction.account_name |> option.unwrap("-"),
+                        ),
                       ],
                     ),
                     html.td(

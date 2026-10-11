@@ -7,6 +7,7 @@ import budgeteur/shared/money
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/tag_ui
+import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/transaction.{
   type Transaction, Manual, Rule, Transaction, TransactionTag,
 }
@@ -69,6 +70,8 @@ pub type Form {
     // while it is still the selected tag, saving keeps it a rule tag, and the
     // form says so.
     rule_tag_id: Option(Uuid),
+    // The account the transaction happened in, if any.
+    account_id: Option(Uuid),
   )
 }
 
@@ -98,6 +101,7 @@ pub type Msg {
   DescriptionChanged(value: String)
   DateChanged(value: String)
   TagChanged(value: String)
+  AccountChanged(value: String)
   SaveRequested
   // Response to the in-flight create or update; the `Created`/`Updated`
   // outcome variant is chosen from the `mode` in the `Submitting` state.
@@ -137,6 +141,13 @@ pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
     )
     DateChanged(value:) -> #(set_date(state, value), None, form_modal.NoChange)
     TagChanged(value:) -> #(set_tag(state, value), None, form_modal.NoChange)
+    AccountChanged(value:) -> #(
+      form_modal.set_form(state, fn(form) {
+        Form(..form, account_id: parse_id(value))
+      }),
+      None,
+      form_modal.NoChange,
+    )
     SaveRequested -> save(state)
     SaveCompleted(result: Ok(transaction)) -> {
       let #(modal, outcome) = form_modal.succeeded(state, transaction)
@@ -173,6 +184,7 @@ fn empty_form() -> Form {
     date: field.Empty(""),
     tag_id: None,
     rule_tag_id: None,
+    account_id: None,
   )
 }
 
@@ -186,7 +198,8 @@ fn from_transaction(transaction: Transaction) -> Form {
     description:,
     date:,
     is_transfer:,
-    account_id: _,
+    account_id:,
+    account_name: _,
     tag:,
   ) = transaction
 
@@ -208,6 +221,7 @@ fn from_transaction(transaction: Transaction) -> Form {
       Some(TransactionTag(id:, source: Rule)) -> Some(id)
       Some(TransactionTag(source: Manual, ..)) | None -> None
     },
+    account_id:,
   )
 }
 
@@ -254,18 +268,18 @@ fn set_tag(state: Modal, tag_id: String) -> Modal {
   form_modal.set_form(state, fn(form) {
     case form.is_transfer {
       True -> form
-      False -> Form(..form, tag_id: parse_tag_id(tag_id))
+      False -> Form(..form, tag_id: parse_id(tag_id))
     }
   })
 }
 
-/// Parse a tag `<select>` value into a tag id. The empty string is the "No
-/// tag" option; any unparseable value also clears the tag.
-fn parse_tag_id(tag_id: String) -> Option(Uuid) {
-  case tag_id {
+/// Parse a tag or account `<select>` value into an id. The empty string is the
+/// "No tag" or "No account" option; any unparseable value also clears it.
+fn parse_id(id: String) -> Option(Uuid) {
+  case id {
     "" -> None
     _ ->
-      case uuid.from_string(tag_id) {
+      case uuid.from_string(id) {
         Ok(id) -> Some(id)
         Error(Nil) -> None
       }
@@ -374,8 +388,16 @@ fn save(state: Modal) -> #(Modal, Option(Request), Outcome) {
 fn validate_form(form: Form) -> Result(#(TransactionWriteRequest, Form), Form) {
   let form = finalize(form)
 
-  let Form(amount:, type_:, is_transfer:, description:, date:, tag_id:, ..) =
-    form
+  let Form(
+    amount:,
+    type_:,
+    is_transfer:,
+    description:,
+    date:,
+    tag_id:,
+    account_id:,
+    ..,
+  ) = form
 
   case field.value(amount), field.value(description), field.value(date) {
     Some(amount_value), Some(description), Some(date) -> {
@@ -391,6 +413,7 @@ fn validate_form(form: Form) -> Result(#(TransactionWriteRequest, Form), Form) {
           date:,
           is_transfer:,
           tag_id:,
+          account_id:,
         ),
         form,
       ))
@@ -417,7 +440,11 @@ fn finalize(form: Form) -> Form {
 
 /// Renders nothing while `Hidden`, otherwise the open dialog. The dialog is
 /// locked while a request is in flight so it cannot be dismissed mid-request.
-pub fn view(state: Modal, tags: List(Tag)) -> Element(Msg) {
+pub fn view(
+  state: Modal,
+  tags: List(Tag),
+  accounts: List(Account),
+) -> Element(Msg) {
   let open = fn(children, submitting) {
     modal_ui.dialog(
       testid: "transaction-modal",
@@ -431,14 +458,31 @@ pub fn view(state: Modal, tags: List(Tag)) -> Element(Msg) {
     form_modal.Hidden -> element.none()
     form_modal.Active(form:, mode:) ->
       open(
-        view_form(form, mode, tags, api_error: None, submitting: False),
+        view_form(
+          form,
+          mode,
+          tags,
+          accounts,
+          api_error: None,
+          submitting: False,
+        ),
         False,
       )
     form_modal.Submitting(form:, mode:) ->
-      open(view_form(form, mode, tags, api_error: None, submitting: True), True)
+      open(
+        view_form(form, mode, tags, accounts, api_error: None, submitting: True),
+        True,
+      )
     form_modal.Errored(form:, mode:, error:) ->
       open(
-        view_form(form, mode, tags, api_error: Some(error), submitting: False),
+        view_form(
+          form,
+          mode,
+          tags,
+          accounts,
+          api_error: Some(error),
+          submitting: False,
+        ),
         False,
       )
   }
@@ -448,6 +492,7 @@ fn view_form(
   form: Form,
   mode: form_modal.Mode,
   tags: List(Tag),
+  accounts: List(Account),
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
@@ -472,6 +517,7 @@ fn view_form(
     date:,
     tag_id:,
     rule_tag_id:,
+    account_id:,
   ) = form
 
   let amount_error = field.error(amount)
@@ -761,6 +807,39 @@ fn view_form(
               )
             _ -> element.none()
           },
+        ]),
+        html.label([attribute.class("block")], [
+          html.span(
+            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
+            [html.text("Account")],
+          ),
+          html.select(
+            [
+              attribute.attribute("data-testid", "transaction-account-select"),
+              attribute.class(
+                "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
+                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
+                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
+              ),
+              attribute.disabled(submitting),
+              event.on_change(AccountChanged),
+            ],
+            [
+              html.option(
+                [attribute.value(""), attribute.selected(account_id == None)],
+                "No account",
+              ),
+              ..list.map(accounts, fn(account) {
+                html.option(
+                  [
+                    attribute.value(uuid.to_string(account.id)),
+                    attribute.selected(account_id == Some(account.id)),
+                  ],
+                  account.name,
+                )
+              })
+            ],
+          ),
         ]),
         html.div([attribute.class("flex justify-end gap-3 pt-2")], [
           modal_ui.cancel_button(

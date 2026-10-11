@@ -5,10 +5,10 @@ import budgeteur/shared/form_modal.{
 }
 import budgeteur/transaction_page/transaction
 import budgeteur/transaction_page/transaction_modal.{
-  AmountChanged, AmountRequired, CancelRequested, CreateRequested, Credit,
-  DateChanged, DateRequired, Debit, DescriptionChanged, DescriptionRequired,
-  EditRequested, IsTransferChanged, NotADate, NotANumber, NotPositive,
-  SaveCompleted, SaveRequested, TagChanged, TooLong, TypeChanged,
+  AccountChanged, AmountChanged, AmountRequired, CancelRequested,
+  CreateRequested, Credit, DateChanged, DateRequired, Debit, DescriptionChanged,
+  DescriptionRequired, EditRequested, IsTransferChanged, NotADate, NotANumber,
+  NotPositive, SaveCompleted, SaveRequested, TagChanged, TooLong, TypeChanged,
 }
 import gleam/option.{None, Some}
 import gleam/string
@@ -238,6 +238,7 @@ pub fn edit_modal_prefills_transaction_test() {
       date: calendar.Date(2026, calendar.January, 2),
       is_transfer: False,
       account_id: None,
+      account_name: None,
       tag: None,
     )
   let #(modal, _, _) =
@@ -267,6 +268,7 @@ pub fn edit_modal_prefills_tag_id_test() {
       date: calendar.Date(2026, calendar.January, 2),
       is_transfer: False,
       account_id: None,
+      account_name: None,
       tag: Some(transaction.TransactionTag(
         id: tag_id,
         source: transaction.Manual,
@@ -291,6 +293,7 @@ pub fn edit_modal_maps_credit_transaction_test() {
       date: calendar.Date(2026, calendar.March, 15),
       is_transfer: False,
       account_id: None,
+      account_name: None,
       tag: None,
     )
   let #(modal, _, _) =
@@ -318,6 +321,7 @@ pub fn editing_negates_debit_amounts_in_the_update_request_test() {
       date: calendar.Date(2026, calendar.January, 2),
       is_transfer: False,
       account_id: None,
+      account_name: None,
       tag: None,
     )
   let assert #(_, Some(Put(put_id, request)), NoChange) =
@@ -396,6 +400,7 @@ pub fn edit_modal_remembers_only_a_rule_tag_test() {
         date: calendar.Date(2026, calendar.January, 2),
         is_transfer: False,
         account_id: None,
+        account_name: None,
         tag: Some(transaction.TransactionTag(id: tag_id, source:)),
       )
     let #(modal, _, _) =
@@ -409,4 +414,41 @@ pub fn edit_modal_remembers_only_a_rule_tag_test() {
 
   edit(transaction.Rule) |> should.equal(Some(tag_id))
   edit(transaction.Manual) |> should.equal(None)
+}
+
+pub fn editing_keeps_the_account_unless_another_is_chosen_test() {
+  // The update replaces the transaction, so a request without the account
+  // would take an imported transaction out of its account.
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000001")
+  let assert Ok(everyday) =
+    uuid.from_string("00000000-0000-0000-0000-0000000000a1")
+  let assert Ok(savings) =
+    uuid.from_string("00000000-0000-0000-0000-0000000000a2")
+  let transaction =
+    transaction.Transaction(
+      id: id,
+      amount: -12.5,
+      description: "Coffee",
+      date: calendar.Date(2026, calendar.January, 2),
+      is_transfer: False,
+      account_id: Some(everyday),
+      account_name: Some("Everyday"),
+      tag: None,
+    )
+  let editing = send(opened(), EditRequested(transaction))
+
+  let assert #(_, Some(Put(_, kept)), NoChange) =
+    transaction_modal.update(editing, SaveRequested)
+  kept.account_id |> should.equal(Some(everyday))
+
+  let assert #(_, Some(Put(_, moved)), NoChange) =
+    transaction_modal.update(
+      send(editing, AccountChanged(uuid.to_string(savings))),
+      SaveRequested,
+    )
+  moved.account_id |> should.equal(Some(savings))
+
+  let assert #(_, Some(Put(_, cleared)), NoChange) =
+    transaction_modal.update(send(editing, AccountChanged("")), SaveRequested)
+  cleared.account_id |> should.equal(None)
 }

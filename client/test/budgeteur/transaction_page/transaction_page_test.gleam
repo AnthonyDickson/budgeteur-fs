@@ -25,6 +25,7 @@ fn sample_transaction() -> transaction.Transaction {
     date: calendar.Date(2026, calendar.January, 2),
     is_transfer: False,
     account_id: None,
+    account_name: None,
     tag: None,
   )
 }
@@ -446,16 +447,18 @@ fn server_error() -> api_error.ApiError {
   )
 }
 
-pub fn init_fetches_transactions_and_tags_test() {
+pub fn init_fetches_transactions_tags_and_accounts_test() {
   let #(model, effect) = transaction_page.init()
 
   model.transactions |> should.equal(remote.Loading)
   let assert effect.Batch([
     effect.HttpRequest(url: transactions_url, ..),
     effect.HttpRequest(url: tags_url, ..),
+    effect.HttpRequest(url: accounts_url, ..),
   ]) = effect
   transactions_url |> should.equal("/api/transactions")
   tags_url |> should.equal("/api/tags")
+  accounts_url |> should.equal("/api/accounts")
 }
 
 pub fn fetched_transactions_are_loaded_newest_first_test() {
@@ -501,6 +504,7 @@ pub fn a_failed_first_load_offers_a_retry_test() {
   let assert effect.Batch([
     effect.HttpRequest(url: "/api/transactions", ..),
     effect.HttpRequest(url: "/api/tags", ..),
+    effect.HttpRequest(url: "/api/accounts", ..),
   ]) = effect
 }
 
@@ -523,6 +527,7 @@ fn empty_model() -> transaction_page.Model {
   transaction_page.Model(
     transactions: remote.Loaded([]),
     tags: [],
+    accounts: [],
     modal: transaction_modal.hidden(),
     delete_modal: transaction_delete_modal.empty(),
   )
