@@ -270,8 +270,7 @@ decision.
 - **Income statement**: reads assignments to find each transaction's tag. Its
   rules do not change.
 - **Transaction slice**: create and update write the facts and the assignment in
-  one database transaction, as the balance sheet slice does for its item and
-  statement date. Update inserts, replaces, or deletes the assignment.
+  one database transaction. Update inserts, replaces, or deletes the assignment.
 - **Highest-value tests**:
   - Matcher: substring, case, longest wins, the ordinal tie-break, no match.
   - Application: `TagUntagged` leaves rule tags alone; `Retag` tags, changes,
@@ -290,7 +289,8 @@ decision.
 ## Deferred
 
 - **Auto-tagging on CSV import.** Part of the CSV imports roadmap item. Imported
-  transactions get rule tags in the same database transaction as their insert.
+  transactions get rule tags in the same database transaction as their insert;
+  designed in [CSV import](csv-import.md) decision 8.
 - **Tagging queue.** Part of quick-tagging. The previous project queued imported
   transactions that no rule tagged. Restore the table or replace it with a query
   over assignments when quick-tagging is designed.

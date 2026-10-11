@@ -17,8 +17,45 @@
 
 ## Current Tasks
 
-None. Auto-tagging is done; its deferred work (e.g. auto-tagging on CSV import)
-is listed in `docs/auto-tagging.md`.
+CSV imports and accounts. Design and rationale are in `docs/csv-import.md`.
+
+1. Balance sheet dates (`docs/balance-sheet.md` decision 4): in migration `001`,
+   remove `BalanceSheets` and add an as-of date to `BalanceSheetItems`; `just
+   db-reset` and `just db-update`. Item create and update take an as-of date,
+   later than the server's UTC date plus one day rejected, and write no sheet
+   date; the read returns an empty sheet instead of `404`. Client: as-of date in
+   the item modal (defaulting to today) and on item lines, the client's today as
+   the statement date on the balance sheet and dashboard, and no `404` empty
+   state. With no `DATETIME` column left, remove `Data/UtcDateTime.fs`, its lint
+   in the `justfile`, and the client's `timestamp_helpers`. Tests.
+2. Accounts model: in migration `001`, redesign `Accounts` (number nullable and
+   unique per user, name, term), add the balance observations table (keyed by
+   account and date), make the import hash unique per user, delete transactions
+   with their account, and index `Transactions.AccountId`; `just db-reset` and
+   `just db-update`. Add the `Account` type with its number and name rules and
+   the observation rules to `Domain/`, and their mappings to `Data/`. Tests,
+   including account number canonical forms and the observation rules.
+3. `Feature/Account/`: CRUD at `/api/accounts`, with manual balance entry
+   recording an observation. Balance sheet read model with account lines
+   (current balance, side from sign) and unknown balances; transaction responses
+   carry the account name. Tests.
+4. Client accounts: account lines, unknown-balance callout, and account modal on
+   the balance sheet page; account column and account select on the transactions
+   page. Client tests, E2E for an account on the balance sheet.
+5. Formats: the format type, the interpreter, detection and its errors, and the
+   import hash, with the ASB card and Kiwibank formats. Move the samples from
+   `SampleCsv/` to test fixtures. Anonymiser script and `just` target. Tests,
+   including pinned hash values, Kiwibank observations, and the declared row
+   order.
+6. `Feature/Import/`: `POST /api/imports` with its own 1 MB body limit; accounts
+   found or created, duplicates skipped, transfers marked, rule tags applied,
+   daily balance observations recorded, in one database transaction; counts and
+   accounts created in the response. Move the transaction mapping to `Data/`,
+   delete the empty `ImportTransaction.fs`, and update the body limit gotcha in
+   `AGENTS.md` and the proxy notes in `docs/deployment.md`. Tests.
+7. Client import: modal on the transactions page, a file-reading effect, result
+   toast, error list, table reload. Client tests, E2E uploading the Kiwibank
+   chequing and savings samples.
 
 ## Backlog
 
@@ -32,21 +69,6 @@ is listed in `docs/auto-tagging.md`.
   - Per-user timezone: start with the browser's zone
     (`Intl.DateTimeFormat().resolvedOptions().timeZone`); add a settings page
     once there are other preferences to store.
-  - The balance sheet subtitle converts `StatementDate` with today's offset
-    (`calendar.local_offset()`), so an instant from the other side of a DST
-    change can show the wrong date within an hour of midnight. Convert with the
-    offset at that instant (e.g. via a JS `Date` FFI) or the user's IANA
-    timezone.
-  - `Accounts.CurrentAsOf` needs no work: `Accounts` is only used as the target
-    of `Transactions.AccountId` and may be replaced by the balance sheet.
-    Revisit when CSV imports decide what an account is.
-- Kiwibank statements have enough info to mark internal transfers without a
-  dedicated rule
-  - If both the source and target account numbers are in the user's accounts,
-    the transaction is an internal transfer.
-  - This should only apply on import; manually created transactions are marked
-    by hand.
-  - Initial imports will be missed if the accounts are not added beforehand
 - Page transactions in table view
   - Next page should append to list, search should replace paging many times.
   - Response could include path with query params to get next page or none if at
@@ -61,52 +83,3 @@ is listed in `docs/auto-tagging.md`.
   the wrapping DOM element instead of calling `.close()` on the native dialog.
 - Authelia: Check why Authelia keeps showing consents screen
 - Scalar docs: refresh tokens for Authelia
-
-## CSV Parsing
-
-We can use representative example CSVs for each format (schema) to generate type
-providers for type safe access and parsing:
-
-```fsharp
-open FSharp.Data
-
-// One type per known format, each generated from a representative sample
-type FormatA = CsvProvider<"samples/formatA.csv">
-type FormatB = CsvProvider<"samples/formatB.csv">
-type FormatC = CsvProvider<"samples/formatC.csv">
-
-// A DU the user (or your detection logic) selects at runtime
-type CsvFormat =
-    | FormatA
-    | FormatB
-    | FormatC
-
-// A common domain type all formats get normalized into
-type Record =
-    { Id: string
-      Name: string
-      Amount: decimal
-      Date: System.DateTime }
-
-let parse (format: CsvFormat) (path: string) : Record seq =
-    match format with
-    | CsvFormat.FormatA ->
-        FormatA.Load(path).Rows
-        |> Seq.map (fun r -> { Id = r.Id; Name = r.Name; Amount = r.Amount; Date = r.Date })
-    | CsvFormat.FormatB ->
-        FormatB.Load(path).Rows
-        |> Seq.map (fun r -> { Id = r.RecordId; Name = r.FullName; Amount = r.Total; Date = r.TxDate })
-    | CsvFormat.FormatC ->
-        FormatC.Load(path).Rows
-        |> Seq.map (fun r -> { Id = r.Code; Name = r.Description; Amount = r.Value; Date = r.Timestamp })
-```
-
-We also need a function to detect the format/schema of a given CSV file such as:
-
-```fsharp
-let detectFormat (path: string) : CsvFormat =
-    let header = (System.IO.File.ReadLines path |> Seq.head).Split(',')
-    if Array.contains "RecordId" header then CsvFormat.FormatB
-    elif Array.contains "Code" header then CsvFormat.FormatC
-    else CsvFormat.FormatA
-```

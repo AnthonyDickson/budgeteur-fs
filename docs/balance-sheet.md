@@ -16,16 +16,19 @@ Let a user track what they own and what they owe, and read two numbers from it:
   much. This is the short-term indicator, and it is the reason the feature
   exists. It supports budgeting and near-term decisions.
 
-The page is a single, current snapshot valued as of the last update. Periodic
-snapshots (quarterly style, balance sheet plus income statement) are a future
-goal, not this iteration.
+The page shows the sheet as of today, with each line dated by when its balance
+was last set. Periodic snapshots (quarterly style, balance sheet plus income
+statement) are a future goal, not this iteration.
 
 ## Ubiquitous language
 
 | Term                | Meaning                                                                                                                                                     |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BalanceSheet`      | The aggregate: every item, valued as of a single date.                                                                                                      |
-| `BalanceSheetItem`  | One line: a single asset or a single liability.                                                                                                             |
+| `BalanceSheet`      | The aggregate: every item and account, drawn for one date, the statement date.                                                                              |
+| Statement date      | The date the sheet is drawn for. Today on the current page; the requested date for a snapshot. Not stored.                                                  |
+| As-of date          | The date a line's balance is accurate as of. Every line has one.                                                                                            |
+| `BalanceSheetItem`  | One line: a single asset or a single liability that is not an account.                                                                                      |
+| Account             | Somewhere the user's transactions happen. Also a line, with a signed balance; see [CSV import](csv-import.md).                                              |
 | `ItemKind`          | `Asset` (owned) or `Liability` (owed). Gives a value its direction.                                                                                         |
 | `Term`              | `Current` or `NonCurrent`, set by the user. For an asset, `Current` means liquid. For a liability, `Current` means short-term (due within about 12 months). |
 | `Balance`           | The positive magnitude of an item's value, in the base currency, rounded to cents. Direction comes from `ItemKind`.                                         |
@@ -46,13 +49,12 @@ stores `Current` or `NonCurrent`.
 
 - **Decision**: the new concept is named for the balance sheet, not for an
   account.
-- **Why**: `Account` already means a bank account in this codebase
+- **Why**: `Account` means somewhere the user's transactions happen
   (`Transaction.AccountId`, the `Accounts` table). One word, two meanings, is a
   language bug that shows up later as confusion about which account a piece of
   code means.
-- **Goal**: the ubiquitous language stays unambiguous, and this feature can
-  evolve without dragging bank account semantics along. The existing `Accounts`
-  table is out of scope for this iteration.
+- **Goal**: the ubiquitous language stays unambiguous. An item is a holding that
+  is not an account; accounts are a separate source of lines (decision 5).
 
 ### 2. Two orthogonal axes: `ItemKind` and `Term`
 
@@ -73,37 +75,55 @@ stores `Current` or `NonCurrent`.
   account is a current liability with a positive magnitude, not a negative
   asset.
 - **Goal**: net worth is always assets minus liabilities, with no sign handling
-  at the point of use, and invalid rows cannot be constructed. CSV import gets
-  one rule: a negative balance becomes a `Liability`.
+  at the point of use, and invalid rows cannot be constructed.
+- **Accounts**: this decision applies to items. An account's balance is signed,
+  because an overdraft changes its side; the read model turns it into a line
+  with a magnitude, and a negative balance becomes a `Liability` (decision 5).
 
-### 4. One snapshot, dated at last update, derived server-side
+### 4. Each line is dated; the sheet is drawn for a date
 
-- **Decision**: the page shows a single current snapshot. `StatementDate` is set
-  by the server and refreshed on every write to the sheet (item created,
-  updated, or deleted). It is not user input, and it is not recomputed at read
-  time, so it means "these balances are accurate as of the last update".
-- **Why**: the roadmap calls for a current view, and users should not have to
-  pick a valuation date. Storing the date and bumping it on writes makes
-  accuracy a property of the data rather than a function of when the page
-  happened to load. Keeping `StatementDate` on the aggregate is also where
-  periodic reporting will attach.
-- **Goal**: the simplest correct model today, with a date that is honest about
-  when the snapshot was last taken, and a place for dated snapshots to slot in
-  later without reshaping items (items carry no date; the sheet does).
-- **Name**: the field is `StatementDate`, the standard term for the date a
-  financial statement is drawn as of. It is a noun phrase rather than the
-  idiomatic but grammatically odd `AsOf`, and it does not overload `Current`,
-  which in this context already means the near-term `Term`.
+- **Decision**: every line carries its as-of date. An item's is set with its
+  balance and defaults to the client's today; an account's is its current
+  balance's ([CSV import](csv-import.md) decision 3). An as-of date later than
+  the server's UTC date plus one day is rejected, as for account balances. The
+  sheet stores no date of its own: its statement date is the date it is drawn
+  for, which on the current page is the client's today ([dates](dates.md)),
+  shown in the header. Each line shows its as-of date, so a stale balance is
+  visible.
+- **Why**: a stored sheet date has to be refreshed by every write that changes a
+  line, which spreads one rule across the balance sheet, account, and import
+  slices, and one date cannot say that lines were valued on different days.
+  Dating each line keeps the date with the balance it describes. A snapshot
+  (Deferred) is the same read for an earlier date, so the current page and
+  snapshots get their date the same way. The default means entering a balance
+  needs no date unless it is an old one.
+- **Rejected**:
+  - A `StatementDate` stored on the sheet and refreshed on every write to an
+    item or account, the previous design. See Why.
+  - The latest as-of date among the lines as the statement date. It hides a
+    stale line behind a fresh one, and for a snapshot it would show the newest
+    line's date instead of the date asked for.
+- **Goal**: the sheet's date is derived one way for the current page and for
+  snapshots, and how current each line is stays visible.
+- **Name**: statement date is the standard term for the date a financial
+  statement is drawn as of; as-of date matches the account balance term in
+  [CSV import](csv-import.md). Neither overloads `Current`, which in this
+  context already means the near-term `Term`.
 
-### 5. Standalone from `Accounts` and transactions for now
+### 5. Accounts are a second source of lines
 
-- **Decision**: do not link balance sheet items to the existing accounts or
-  transactions yet. Keep the item model generic.
-- **Why**: linkage and CSV-driven balance updates are not designed. Coupling now
-  would constrain two features that currently have nothing to say to each other.
-- **Goal**: a general model that can later accept imported balances. The
-  intended mapping when that arrives is by classification: savings to a current
-  asset, credit card and overdraft to a current liability.
+- **Decision**: items stay unlinked from accounts and transactions. The read
+  model combines items with the user's accounts: an account with a known balance
+  is a line in its `Term` group, an `Asset` when the balance is zero or more and
+  a `Liability` when it is negative, with the balance's magnitude. Accounts with
+  an unknown balance are left out of totals and listed separately. Totals, net
+  worth, and working capital include both sources.
+- **Why**: an account's side follows its balance, which a fixed `ItemKind`
+  cannot. Combining at read time keeps the item invariants and stores each
+  balance once. The account model and the rejected alternatives are in
+  [CSV import](csv-import.md) decisions 1 to 3.
+- **Goal**: imported and manually entered account balances count towards net
+  worth and working capital without changing what an item is.
 
 ### 6. Totals are computed server-side
 
@@ -164,20 +184,21 @@ stores `Current` or `NonCurrent`.
 
 ## Consequences
 
-- **Read DTO.** The response carries `StatementDate` plus the computed totals
-  (total assets, total liabilities, net worth, current and non-current subtotals
-  for each side, working capital) and the items. The client derives nothing.
-- **Missing sheet is not an error.** The sheet row is created on the first item
-  write, so a user who has never written one gets `404` from the read. The
-  client treats that as an empty state ("no balance sheet yet"), separate from a
-  sheet whose items were all deleted, and `404` carries no error toast.
-- **Item shape.** `Id`, `Name`, `Kind`, `Term`, `Balance`. No date, no account
+- **Read DTO.** The response carries the computed totals (total assets, total
+  liabilities, net worth, current and non-current subtotals for each side,
+  working capital), the items and account lines with their as-of dates, and the
+  accounts with an unknown balance. It has no statement date: the client shows
+  its today. The client computes no figures.
+- **No sheet row.** A sheet is the user's items and accounts, with nothing
+  stored for the sheet itself, so a user with neither gets an empty sheet, not
+  `404`. The client shows it as an empty state.
+- **Item shape.** `Id`, `Name`, `Kind`, `Term`, `Balance`, `AsOf`. No account
   reference, no currency.
-- **Kind is fixed at creation.** The page creates assets and liabilities from
-  separate entry points, so `Kind` is never a field in the form and a value
-  cannot silently end up on the wrong side of the sheet. Moving an item to the
-  other side means deleting it and recreating it, which keeps `Kind` immutable
-  like the rest of the model.
+- **Kind is fixed at creation.** For items. The page creates assets and
+  liabilities from separate entry points, so `Kind` is never a field in the form
+  and a value cannot silently end up on the wrong side of the sheet. Moving an
+  item to the other side means deleting it and recreating it, which keeps `Kind`
+  immutable like the rest of the model.
 - **Classification edges.** Under the liquid test a car is `NonCurrent` (a use
   asset), and a 3-year term deposit is `NonCurrent` unless it is genuinely
   liquid. The two-value axis collapses the planner three-bucket asset split
@@ -185,11 +206,14 @@ stores `Current` or `NonCurrent`.
 
 ## Deferred
 
-- Snapshot history and periodic reports (the reason `StatementDate` exists on
-  the aggregate).
+- Snapshot history and periodic reports: the read takes the statement date
+  instead of using today (decision 4). Account balances are kept as dated
+  observations from the CSV import onward; the intended approach, items getting
+  observations too (their balance and as-of date becoming the first) and
+  snapshots queried for a date, is under Deferred in
+  [CSV import](csv-import.md).
 - Income and cash flow (the income statement), so affordability can be judged in
   flow terms rather than only as a stock position.
-- Linkage to `Accounts` and balance updates from CSV import.
 - Multi-currency. A single base currency is assumed, because the app is intended
   to stay local and self-hosted with no FX plans.
 

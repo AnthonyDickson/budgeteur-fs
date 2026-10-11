@@ -3,8 +3,8 @@
 The requirements the system is built around, how the server and client are
 structured, and the rules that hold across both. Feature-level decisions live in
 their design briefs ([balance sheet](balance-sheet.md),
-[dashboard](dashboard.md), [auto-tagging](auto-tagging.md)); storage, dates, and
-tests have their own docs.
+[dashboard](dashboard.md), [auto-tagging](auto-tagging.md),
+[CSV import](csv-import.md)); storage, dates, and tests have their own docs.
 
 ## Requirements and constraints
 

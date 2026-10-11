@@ -38,8 +38,8 @@ and history are later work (see [Deferred](#deferred)).
 ### 1. The dashboard pairs the balance sheet with an income statement
 
 - **Decision**: the page shows two statements. The balance sheet (a stock, as of
-  `StatementDate`) comes from the existing `GET /api/balance-sheet`. The income
-  statement (a flow, over a period) is a new slice, `Feature/IncomeStatement/`.
+  today) comes from the existing `GET /api/balance-sheet`. The income statement
+  (a flow, over a period) is a new slice, `Feature/IncomeStatement/`.
 - **Why**: these are the two standard personal finance statements, and the
   roadmap already names both ("balance sheets, income statement"). Naming the
   flow side now means the later periodic snapshots extend it rather than rename
