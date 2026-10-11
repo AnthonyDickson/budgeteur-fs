@@ -6,8 +6,8 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote
+import budgeteur/shared/tag
 import budgeteur/shared/toast
-import budgeteur/tag
 import budgeteur/tagging_page/auto_tag
 import budgeteur/tagging_page/rule
 import budgeteur/tagging_page/rule_delete_modal

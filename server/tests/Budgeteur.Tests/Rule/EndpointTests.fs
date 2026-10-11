@@ -1,4 +1,4 @@
-namespace Budgeteur.Tests.Rules
+namespace Budgeteur.Tests.Rule
 
 module EndpointTests =
     open System

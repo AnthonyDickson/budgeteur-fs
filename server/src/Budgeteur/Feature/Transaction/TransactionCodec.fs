@@ -3,8 +3,8 @@ namespace Budgeteur.Feature.Transaction
 module TransactionCodec =
     open Budgeteur.Data
     open Budgeteur.Data.Db
+    open Budgeteur.Domain.Money
     open Budgeteur.Domain.Transaction
-    open Budgeteur.Shared.Money
 
     let toRow
         (transaction : Transaction)

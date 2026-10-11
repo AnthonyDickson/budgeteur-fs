@@ -3,8 +3,8 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
+import budgeteur/balance_sheet_page/item_write_request
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
-import budgeteur/balance_sheet_page/write_item_request
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
@@ -258,7 +258,7 @@ fn interpret_item_modal_request(request: item_modal.Request) -> Effect(Msg) {
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateBalanceSheetItem |> api_route.to_string,
-        write_item_request.to_json(payload) |> json.to_string,
+        item_write_request.to_json(payload) |> json.to_string,
         handle_item_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
@@ -266,7 +266,7 @@ fn interpret_item_modal_request(request: item_modal.Request) -> Effect(Msg) {
     form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateBalanceSheetItem(id) |> api_route.to_string,
-        write_item_request.to_json(payload) |> json.to_string,
+        item_write_request.to_json(payload) |> json.to_string,
         handle_item_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)

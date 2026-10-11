@@ -1,4 +1,4 @@
-namespace Budgeteur.Tests.Transactions
+namespace Budgeteur.Tests
 
 open System
 open Expecto
@@ -13,7 +13,7 @@ open Budgeteur.Domain.Transaction
 /// few canned examples, catching off-by-one errors at the length boundary and
 /// pinning down the trim/whitespace behaviour of <c>create</c>.
 /// </summary>
-module TransactionDescriptionPropertyTests =
+module TransactionTests =
 
     /// FsCheck's default string generator can produce null, but the validation
     /// function assumes a non-null description. The endpoint guarantees that

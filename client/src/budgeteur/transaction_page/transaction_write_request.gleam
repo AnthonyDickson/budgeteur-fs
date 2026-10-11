@@ -5,8 +5,8 @@ import gleam/option.{type Option}
 import gleam/time/calendar.{type Date}
 import youid/uuid.{type Uuid}
 
-pub type CreateTransactionRequest {
-  CreateTransactionRequest(
+pub type TransactionWriteRequest {
+  TransactionWriteRequest(
     amount: Float,
     description: String,
     date: Date,
@@ -15,16 +15,16 @@ pub type CreateTransactionRequest {
   )
 }
 
-pub fn create_transaction_request_to_json(
-  create_transaction_request: CreateTransactionRequest,
+pub fn to_json(
+  transaction_write_request: TransactionWriteRequest,
 ) -> json.Json {
-  let CreateTransactionRequest(
+  let TransactionWriteRequest(
     amount:,
     description:,
     date:,
     is_transfer:,
     tag_id:,
-  ) = create_transaction_request
+  ) = transaction_write_request
   json.object([
     #("amount", money.encode_decimal(amount)),
     #("description", json.string(description)),

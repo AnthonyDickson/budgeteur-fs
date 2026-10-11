@@ -2,8 +2,8 @@ namespace Budgeteur.Domain.BalanceSheetItem
 
 open System
 
+open Budgeteur.Domain.Money
 open Budgeteur.Shared.DomainError
-open Budgeteur.Shared.Money
 
 type ItemName = private ItemName of string
 

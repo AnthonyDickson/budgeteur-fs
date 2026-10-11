@@ -1,9 +1,9 @@
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
-import budgeteur/balance_sheet_page/write_item_request.{
-  type WriteBalanceSheetItemRequest, WriteBalanceSheetItemRequest,
+import budgeteur/balance_sheet_page/item_write_request.{
+  type ItemWriteRequest, ItemWriteRequest,
 }
+import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
@@ -51,7 +51,7 @@ pub type Modal =
   form_modal.Modal(Form)
 
 pub type Request =
-  form_modal.Request(WriteBalanceSheetItemRequest)
+  form_modal.Request(ItemWriteRequest)
 
 pub type Outcome =
   form_modal.Outcome(BalanceSheetItem)
@@ -196,18 +196,13 @@ fn save(
 fn validate_form(
   form: Form,
   other_items: List(BalanceSheetItem),
-) -> Result(#(WriteBalanceSheetItemRequest, Form), Form) {
+) -> Result(#(ItemWriteRequest, Form), Form) {
   let form = finalize(form, other_items)
 
   case field.value(form.name), field.value(form.balance) {
     Some(name), Some(balance) ->
       Ok(#(
-        WriteBalanceSheetItemRequest(
-          name:,
-          kind: form.kind,
-          term: form.term,
-          balance:,
-        ),
+        ItemWriteRequest(name:, kind: form.kind, term: form.term, balance:),
         form,
       ))
     _, _ -> Error(form)

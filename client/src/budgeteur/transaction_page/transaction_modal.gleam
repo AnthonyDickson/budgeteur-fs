@@ -5,13 +5,13 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/route
+import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/tag_ui
-import budgeteur/tag.{type Tag}
-import budgeteur/transaction_page/create_transaction_request.{
-  type CreateTransactionRequest,
-}
 import budgeteur/transaction_page/transaction.{
   type Transaction, Manual, Rule, Transaction, TransactionTag,
+}
+import budgeteur/transaction_page/transaction_write_request.{
+  type TransactionWriteRequest,
 }
 import gleam/float
 import gleam/int
@@ -76,7 +76,7 @@ pub type Modal =
   form_modal.Modal(Form)
 
 pub type Request =
-  form_modal.Request(CreateTransactionRequest)
+  form_modal.Request(TransactionWriteRequest)
 
 pub type Outcome =
   form_modal.Outcome(Transaction)
@@ -371,9 +371,7 @@ fn save(state: Modal) -> #(Modal, Option(Request), Outcome) {
 /// required errors, then build the write request if every field is valid.
 /// Debit amounts are negated in the request; the form keeps the unsigned
 /// amount (the type toggle expresses the sign).
-fn validate_form(
-  form: Form,
-) -> Result(#(CreateTransactionRequest, Form), Form) {
+fn validate_form(form: Form) -> Result(#(TransactionWriteRequest, Form), Form) {
   let form = finalize(form)
 
   let Form(amount:, type_:, is_transfer:, description:, date:, tag_id:, ..) =
@@ -387,7 +385,7 @@ fn validate_form(
       }
 
       Ok(#(
-        create_transaction_request.CreateTransactionRequest(
+        transaction_write_request.TransactionWriteRequest(
           amount:,
           description:,
           date:,

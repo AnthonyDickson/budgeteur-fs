@@ -2,8 +2,8 @@ namespace Budgeteur.Domain.Transaction
 
 open System
 
+open Budgeteur.Domain.Money
 open Budgeteur.Shared.DomainError
-open Budgeteur.Shared.Money
 
 type TransactionDescription = private TransactionDescription of string
 

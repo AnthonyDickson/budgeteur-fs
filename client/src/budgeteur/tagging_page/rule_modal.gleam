@@ -3,7 +3,7 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/number
-import budgeteur/tag.{type Tag}
+import budgeteur/shared/tag.{type Tag}
 import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
 import budgeteur/tagging_page/rule_write_request.{

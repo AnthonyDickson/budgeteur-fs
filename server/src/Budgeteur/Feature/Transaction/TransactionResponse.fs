@@ -43,8 +43,8 @@ type TransactionResponse = {
 }
 
 module TransactionResponse =
+    open Budgeteur.Domain.Money
     open Budgeteur.Domain.Transaction
-    open Budgeteur.Shared.Money
 
     let fromDomain
         (t : Transaction)

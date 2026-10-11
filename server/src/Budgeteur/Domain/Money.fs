@@ -1,4 +1,4 @@
-namespace Budgeteur.Shared.Money
+namespace Budgeteur.Domain.Money
 
 open System
 

@@ -1,6 +1,6 @@
+import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/tag_ui
-import budgeteur/tag.{type Tag}
-import budgeteur/tagging_page/ui
+import budgeteur/tagging_page/icon
 import gleam/list
 import gleam/option.{type Option, Some}
 import lustre/attribute
@@ -104,7 +104,7 @@ pub fn panel(
                     event.on_click(on_edit(tag.id))
                       |> event.stop_propagation,
                   ],
-                  [ui.pencil_icon()],
+                  [icon.pencil()],
                 ),
                 html.button(
                   [
@@ -122,7 +122,7 @@ pub fn panel(
                     event.on_click(on_delete(tag))
                       |> event.stop_propagation,
                   ],
-                  [ui.trash_icon()],
+                  [icon.trash()],
                 ),
               ],
             ),

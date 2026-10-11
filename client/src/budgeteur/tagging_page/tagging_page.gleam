@@ -6,7 +6,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
-import budgeteur/tag.{type Tag}
+import budgeteur/shared/tag.{type Tag}
 import budgeteur/tagging_page/auto_tag
 import budgeteur/tagging_page/rule.{type Rule}
 import budgeteur/tagging_page/rule_delete_modal

@@ -3,10 +3,8 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
 }
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
+import budgeteur/balance_sheet_page/item_write_request.{ItemWriteRequest}
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
-import budgeteur/balance_sheet_page/write_item_request.{
-  WriteBalanceSheetItemRequest,
-}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{
   Active, Create, Edit, Hidden, NoChange, Post, Put, Submitting,
@@ -157,7 +155,7 @@ pub fn editing_an_item_does_not_count_it_as_its_own_duplicate_test() {
   request
   |> should.equal(Put(
     existing.id,
-    WriteBalanceSheetItemRequest(
+    ItemWriteRequest(
       name: "Chequing",
       kind: Asset,
       term: Current,
@@ -218,7 +216,7 @@ pub fn create_builds_a_post_with_the_chosen_kind_test() {
 
   request
   |> should.equal(
-    Post(WriteBalanceSheetItemRequest(
+    Post(ItemWriteRequest(
       name: "Mortgage",
       kind: Liability,
       term: NonCurrent,

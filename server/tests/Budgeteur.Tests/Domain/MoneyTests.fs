@@ -2,10 +2,10 @@ namespace Budgeteur.Tests
 
 open Expecto
 
-open Budgeteur.Shared.Money
+open Budgeteur.Domain.Money
 
 /// <summary>
-/// Property-based tests for <c>Budgeteur.Shared.Money.create</c>, the only way
+/// Property-based tests for <c>Budgeteur.Domain.Money.create</c>, the only way
 /// to build a <c>Money</c> from untrusted input. The Update endpoint once used
 /// F# core <c>round</c> (nearest integer) instead, silently corrupting amounts;
 /// these properties pin the rounding contract so it can never regress silently.

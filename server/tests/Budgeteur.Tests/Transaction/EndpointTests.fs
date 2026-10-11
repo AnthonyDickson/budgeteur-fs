@@ -1,4 +1,4 @@
-namespace Budgeteur.Tests.Transactions
+namespace Budgeteur.Tests.Transaction
 
 module EndpointTests =
     open System

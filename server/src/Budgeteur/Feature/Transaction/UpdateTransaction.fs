@@ -14,6 +14,7 @@ module UpdateTransaction =
 
     open Budgeteur.Data
     open Budgeteur.Data.Db
+    open Budgeteur.Domain.Money
     open Budgeteur.Domain.TagAssignment
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
@@ -22,7 +23,6 @@ module UpdateTransaction =
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
-    open Budgeteur.Shared.Money
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for updating a transaction.</summary>

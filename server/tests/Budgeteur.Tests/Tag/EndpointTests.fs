@@ -1,4 +1,4 @@
-namespace Budgeteur.Tests.Tags
+namespace Budgeteur.Tests.Tag
 
 module EndpointTests =
     open System.Net

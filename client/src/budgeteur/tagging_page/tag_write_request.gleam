@@ -1,4 +1,4 @@
-import budgeteur/tag.{type TagKind}
+import budgeteur/shared/tag.{type TagKind}
 import gleam/dynamic/decode
 import gleam/json
 

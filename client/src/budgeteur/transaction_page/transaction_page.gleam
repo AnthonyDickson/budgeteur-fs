@@ -8,13 +8,13 @@ import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
-import budgeteur/tag.{type Tag}
-import budgeteur/transaction_page/create_transaction_request
+import budgeteur/shared/tag.{type Tag}
 import budgeteur/transaction_page/transaction.{type Transaction}
 import budgeteur/transaction_page/transaction_delete_modal.{
   type DeleteModalState,
 }
 import budgeteur/transaction_page/transaction_modal
+import budgeteur/transaction_page/transaction_write_request
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/float
@@ -294,7 +294,7 @@ fn interpret_transaction_request(
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateTransaction |> api_route.to_string,
-        create_transaction_request.create_transaction_request_to_json(payload)
+        transaction_write_request.to_json(payload)
           |> json.to_string,
         handle_save_response,
       )
@@ -303,7 +303,7 @@ fn interpret_transaction_request(
     form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateTransaction(id) |> api_route.to_string,
-        create_transaction_request.create_transaction_request_to_json(payload)
+        transaction_write_request.to_json(payload)
           |> json.to_string,
         handle_save_response,
       )

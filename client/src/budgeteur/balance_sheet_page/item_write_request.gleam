@@ -4,8 +4,8 @@ import budgeteur/shared/money
 import gleam/dynamic/decode
 import gleam/json
 
-pub type WriteBalanceSheetItemRequest {
-  WriteBalanceSheetItemRequest(
+pub type ItemWriteRequest {
+  ItemWriteRequest(
     // A human-readable name, e.g. "Chequing account" or "Mortgage".
     name: String,
     // Whether the item is an asset or a liability.
@@ -17,11 +17,8 @@ pub type WriteBalanceSheetItemRequest {
   )
 }
 
-pub fn to_json(
-  write_balance_sheet_item_request: WriteBalanceSheetItemRequest,
-) -> json.Json {
-  let WriteBalanceSheetItemRequest(name:, kind:, term:, balance:) =
-    write_balance_sheet_item_request
+pub fn to_json(item_write_request: ItemWriteRequest) -> json.Json {
+  let ItemWriteRequest(name:, kind:, term:, balance:) = item_write_request
   json.object([
     #("name", json.string(name)),
     #("kind", item_kind.to_json(kind)),
@@ -30,10 +27,10 @@ pub fn to_json(
   ])
 }
 
-pub fn decoder() -> decode.Decoder(WriteBalanceSheetItemRequest) {
+pub fn decoder() -> decode.Decoder(ItemWriteRequest) {
   use name <- decode.field("name", decode.string)
   use kind <- decode.field("kind", item_kind.decoder())
   use term <- decode.field("term", term.decoder())
   use balance <- decode.field("balance", money.decode_decimal())
-  decode.success(WriteBalanceSheetItemRequest(name:, kind:, term:, balance:))
+  decode.success(ItemWriteRequest(name:, kind:, term:, balance:))
 }
