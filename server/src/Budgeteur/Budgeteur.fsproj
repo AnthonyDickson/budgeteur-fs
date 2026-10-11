@@ -108,6 +108,8 @@
     <Compile Include="Feature/AutoTag/ReadMatches.fs" />
     <Compile Include="Feature/AutoTag/AutoTagEndpoints.fs" />
 
+    <Compile Include="Feature/Import/Csv.fs" />
+
     <Compile Include="Feature/Status/GetStatus.fs" />
 
     <Compile Include="Feature/TestSupport/ResetUserData.fs" />
