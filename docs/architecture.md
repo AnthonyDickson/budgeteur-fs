@@ -39,30 +39,56 @@ carries OpenAPI metadata ([openapi](openapi.md)).
 Dependencies are passed as function arguments. The database query context is
 created once at startup and passed to each endpoint; there is no DI container.
 
+### Where domain logic lives
+
+The app is one bounded context. Its domain logic lives in two places, both pure
+and free of I/O:
+
+- **The model, in `Domain/`.** Domain types used by more than one slice, their
+  invariants, and the rules several workflows share, such as rule matching and
+  tag assignment transitions. It changes when the model changes, not when a
+  feature does.
+- **Workflow logic, in its slice.** A workflow's own types and rules, such as
+  the income statement and its period, or which assignments an auto-tagging run
+  changes, are pure functions in a module of the slice, apart from its handlers.
+  Handlers load data, check ownership, call that logic, write, and map requests
+  and responses.
+
+Code that translates an external system's model, such as a bank's CSV export
+format, is an adapter in the slice that uses it. It turns the external model
+into domain types at the edge, so the external system's concepts do not enter
+the model.
+
+This follows Wlaschin's workflow-oriented structure and vertical slices: the
+model holds what workflows share, and each workflow's rules change with it.
+
 ### Dependency rules
 
-`Domain/`, `Data/`, and `Shared/` form the shared kernel:
+`Domain/`, `Data/`, and `Shared/` are the shared modules. The term is not DDD's
+Shared Kernel pattern, which is a model shared between bounded contexts.
 
-- **One-way dependencies: features → kernel.** The kernel never depends on a
-  slice, and slices never import each other. `just lint` enforces both.
+- **One-way dependencies: slices → shared modules.** The shared modules never
+  depend on a slice, and slices never import each other. `just lint` enforces
+  both.
 - **Ownership test.** Every type and rule has one owner. A concept belongs in
-  the kernel only if more than one slice drives its changes, and it should
-  change less often than its consumers. A kernel module that changes every
-  sprint is mis-owned; move it into the slice that drives it.
+  the shared modules only if more than one slice drives its changes, and it
+  should change less often than its consumers. A shared module that changes
+  every sprint is mis-owned; move it into the slice that drives it.
 - **Promote on the second consumer.** Code used by one slice stays in that
-  slice, and moves to the kernel when a second slice needs it. This applies to
-  DB mappings, refined types, and domain functions alike.
-- **Invariants live with the type in `Domain/`; use-case rules stay in the
-  slice.** Intrinsic validity (non-empty, length, rounding) is domain;
-  orchestration (auth, queries, uniqueness) is feature.
+  slice, and moves to the shared modules when a second slice needs it. This
+  applies to DB mappings, refined types, and workflow logic alike.
+- **Invariants live with their type; orchestration stays in the handler.**
+  Intrinsic validity (non-empty, length, rounding) is defined with the type, in
+  `Domain/` or in the slice that owns it. Orchestration (auth, queries,
+  uniqueness checks against the database) is the handler's.
 - **Slices are workflows; a table has one owner of its rules, not one writer.**
   Any slice may write a table, but only through the domain type that owns the
-  table's invariants and the table's mapping in the kernel. A user action that
-  changes several tables is one database transaction in one slice. Grouping
-  slices by the table they write would gather every workflow that touches a
-  central table, such as transactions, into one slice, and would split actions
-  that span tables. Schema-declared foreign-key actions and triggers, and the
-  test-support reset, also write across tables.
+  table's invariants and the table's mapping in the shared modules. A user
+  action that changes several tables is one database transaction in one slice.
+  Grouping slices by the table they write would gather every workflow that
+  touches a central table, such as transactions, into one slice, and would split
+  actions that span tables. Schema-declared foreign-key actions and triggers,
+  and the test-support reset, also write across tables.
 - **Slices own their read shapes.** A feature needing a different shape (e.g. a
   dashboard aggregate) defines its own read model rather than growing the shared
   type.

@@ -110,11 +110,12 @@ and trade-offs.
 
 Each rule is explained in the linked doc.
 
-- **Slices and the kernel** — server features live in `Feature/<Name>/`, one
-  file per HTTP operation. `Domain/`, `Data/`, and `Shared/` form the shared
-  kernel. Features depend on the kernel, never the reverse, and slices never
-  import each other (enforced by `just lint`). See
-  [architecture](docs/architecture.md#dependency-rules).
+- **Slices and shared modules** — server features live in `Feature/<Name>/`, one
+  file per HTTP operation, with the workflow's pure domain logic in its own
+  module. `Domain/` (the shared model), `Data/`, and `Shared/` are the shared
+  modules. Slices depend on them, never the reverse, and slices never import
+  each other (enforced by `just lint`). See
+  [architecture](docs/architecture.md#where-domain-logic-lives).
 - **User scoping** — every query filters by the user id from the `sub` claim. A
   slice that skips this leaks data across users.
 - **Errors** — handlers return `Result<unit, DomainError>`; no exceptions escape

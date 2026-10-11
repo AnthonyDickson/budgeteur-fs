@@ -41,7 +41,7 @@ say so in its migration comment.
 - **Display.** Instants are converted to local time on the client, only for
   display.
 
-Both conversions live in one kernel module (`Data/UtcDateTime.fs`). `just lint`
+Both conversions live in one shared module (`Data/UtcDateTime.fs`). `just lint`
 fails if a codec or other `Data/` file relabels a `DateTime` kind itself, so the
 rule is written once. Code converting between UTC and local time is not covered
 and does not need to be: it translates instants rather than relabelling them.

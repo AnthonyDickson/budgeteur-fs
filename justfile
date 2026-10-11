@@ -70,7 +70,7 @@ format:
 lint: check-architecture
 	cd server && dotnet fsharplint lint Budgeteur.slnx
 
-# Enforce the architecture rules that no compiler or formatter can: kernel/feature boundaries,
+# Enforce the architecture rules that no compiler or formatter can: slice and shared module boundaries,
 # and the DATETIME column convention (see docs/dates.md)
 check-architecture:
 	#!/usr/bin/env bash
@@ -89,16 +89,16 @@ check-architecture:
 		done <<< "$opens"
 	done < <(find server/src/Budgeteur/Feature -name '*.fs' -type f)
 
-	# Kernel code (Shared/Domain/Data) must not depend on any feature
+	# Shared modules (Shared/Domain/Data) must not depend on any feature
 	while IFS= read -r file; do
 		if grep -qE 'open Budgeteur\.Feature\.' "$file"; then
-			echo "Kernel depends on a feature: $file"
+			echo "Shared module depends on a feature: $file"
 			fail=1
 		fi
 	done < <(find server/src/Budgeteur/{Shared,Domain,Data} -name '*.fs' -type f)
 
 	# Restoring the UTC kind of a DATETIME column belongs at the row boundary, in one place: a codec
-	# that does it by hand is a codec that may forget to. This covers the kernel and every codec,
+	# that does it by hand is a codec that may forget to. This covers the shared modules and every codec,
 	# since a slice's codec starts in the slice and moves to Data later. Calendar arithmetic
 	# elsewhere is a different concern -- it converts with TimeZoneInfo or DateTimeOffset and
 	# relabels nothing -- so it is deliberately not restricted.
