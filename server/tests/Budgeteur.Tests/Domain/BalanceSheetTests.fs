@@ -5,8 +5,10 @@ open Expecto
 open FsCheck
 open FsCheck.FSharp
 
+open Budgeteur.Domain.Account
 open Budgeteur.Domain.BalanceSheet
 open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Money
 open Budgeteur.Domain.Term
 
 module BalanceSheetTests =
@@ -25,7 +27,7 @@ module BalanceSheetTests =
         AsOf = DateOnly (2026, 1, 1)
     }
 
-    let private sheet items : BalanceSheet = { Items = items }
+    let private sheet items : BalanceSheet = { Items = items; Accounts = [] }
 
     let private sampleSheet =
         sheet [
@@ -192,4 +194,93 @@ module BalanceSheetTests =
                     (BalanceSheet.workingCapital (sheet []))
                     0m
                     "nothing current"
+        ]
+
+    [<Tests>]
+    let accountLineTests =
+        let account name term (balance : decimal option) = {
+            Account = {
+                Id = Guid.NewGuid ()
+                Number = None
+                Name = AccountName.create name |> okOrFail "name"
+                Term = term
+            }
+            Current =
+                balance
+                |> Option.map (fun balance -> {
+                    AsOf = DateOnly (2026, 3, 1)
+                    Balance = Money.create balance
+                })
+        }
+
+        let withAccounts accounts = { sampleSheet with Accounts = accounts }
+
+        testList "BalanceSheet account lines" [
+            testCase "an account's side follows the sign of its balance"
+            <| fun () ->
+                Expect.equal
+                    (BalanceSheet.accountSide (Money.create 250m))
+                    (ItemKind.Asset, 250m)
+                    "a positive balance is held"
+
+                Expect.equal
+                    (BalanceSheet.accountSide (Money.create 0m))
+                    (ItemKind.Asset, 0m)
+                    "a zero balance is an asset"
+
+                Expect.equal
+                    (BalanceSheet.accountSide (Money.create -250m))
+                    (ItemKind.Liability, 250m)
+                    "a negative balance is owed, as a magnitude"
+
+            testCase "accounts count towards every total by side and term"
+            <| fun () ->
+                let sheet =
+                    withAccounts [
+                        account "Everyday" Term.Current (Some 1000m)
+                        account "Credit card" Term.Current (Some -400m)
+                        account "Term deposit" Term.NonCurrent (Some 5000m)
+                    ]
+
+                // The sample's items: 7000 current and 400000 non-current
+                // assets, 1500 current and 300000 non-current liabilities.
+                Expect.equal
+                    (BalanceSheet.totalCurrentAssets sheet)
+                    8000m
+                    "items plus the everyday account"
+
+                Expect.equal
+                    (BalanceSheet.totalCurrentLiabilities sheet)
+                    1900m
+                    "the overdrawn card is a current liability"
+
+                Expect.equal
+                    (BalanceSheet.totalNonCurrentAssets sheet)
+                    405000m
+                    "the term deposit is non-current"
+
+                Expect.equal
+                    (BalanceSheet.netWorth sheet)
+                    111100m
+                    "413000 - 301900"
+
+                Expect.equal
+                    (BalanceSheet.workingCapital sheet)
+                    6100m
+                    "8000 - 1900"
+
+            testCase "an unknown balance is listed and left out of the totals"
+            <| fun () ->
+                let card = account "Credit card" Term.Current None
+                let sheet = withAccounts [ card ]
+
+                Expect.equal
+                    (BalanceSheet.unknownBalances sheet)
+                    [ card.Account ]
+                    "the account is listed as unknown"
+
+                Expect.equal
+                    (BalanceSheet.netWorth sheet)
+                    (BalanceSheet.netWorth sampleSheet)
+                    "an unknown balance is not counted as zero or anything else"
         ]

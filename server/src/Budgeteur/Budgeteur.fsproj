@@ -54,6 +54,7 @@
 
     <Compile Include="Feature/BalanceSheet/WriteBalanceSheetItemRequest.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetItemResponse.fs" />
+    <Compile Include="Feature/BalanceSheet/AccountLineResponse.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheet.fs" />
     <Compile Include="Feature/BalanceSheet/CreateBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheetItem.fs" />

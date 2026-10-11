@@ -308,6 +308,72 @@ module EndpointTests =
                     "terms should be serialised as strings"
             }
 
+            testCaseAsync
+                "accounts are lines on the sheet by the sign of balance"
+            <| async {
+                use app =
+                    TestApp.create (
+                        TestAppConfig.empty
+                        |> TestAppConfig.withBalanceSheet Clock.system
+                        |> TestAppConfig.withAccounts Clock.system
+                    )
+
+                use otherUser = app.ClientForUser "other-user"
+
+                do! createOneOfEachKindAndTerm app.Client
+
+                let! everyday =
+                    Seed.account
+                        app.Client
+                        "Everyday"
+                        (Some (DateOnly (2026, 3, 1), 1000m))
+
+                let! card =
+                    Seed.account
+                        app.Client
+                        "Credit card"
+                        (Some (DateOnly (2026, 3, 2), -400m))
+
+                let! unknown = Seed.account app.Client "New card" None
+
+                let! sheet = getSheetBody app.Client
+
+                // Then: a held balance is an asset and an owed one a
+                // liability, with its magnitude and as-of date.
+                Expect.equal
+                    (sheet.Accounts
+                     |> List.map (fun line ->
+                         line.Id, line.Kind, line.Balance, line.AsOf))
+                    [
+                        card, "Liability", 400m, DateOnly (2026, 3, 2)
+                        everyday, "Asset", 1000m, DateOnly (2026, 3, 1)
+                    ]
+                    "the accounts with a known balance are lines, by name"
+
+                Expect.equal
+                    (sheet.UnknownBalances |> List.map _.Id)
+                    [ unknown ]
+                    "the account without a balance is listed as unknown"
+
+                // Then: the items' totals (from createOneOfEachKindAndTerm)
+                // gain the account lines, and the unknown balance adds
+                // nothing.
+                Expect.equal sheet.TotalCurrentAssets 3000m "current assets"
+
+                Expect.equal
+                    sheet.TotalCurrentLiabilities
+                    1900m
+                    "current liabilities"
+
+                Expect.equal sheet.NetWorth 101100m "net worth"
+                Expect.equal sheet.WorkingCapital 1100m "working capital"
+
+                // Then: another user's sheet has none of the accounts.
+                let! otherSheet = getSheetBody otherUser
+                Expect.isEmpty otherSheet.Accounts "no account lines"
+                Expect.isEmpty otherSheet.UnknownBalances "no unknown balances"
+            }
+
             testCaseAsync "uniqueness includes the term"
             <| async {
                 use app = newApp ()

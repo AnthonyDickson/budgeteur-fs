@@ -12,6 +12,7 @@ module ReadBalanceSheet =
 
     open Budgeteur.Data
     open Budgeteur.Data.Db
+    open Budgeteur.Domain.Account
     open Budgeteur.Domain.BalanceSheet
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
@@ -27,9 +28,15 @@ module ReadBalanceSheet =
     /// client draws it for its own today, and each line has an as-of
     /// date.</summary>
     type BalanceSheetResponse = {
-        /// <summary>Every asset and liability currently being
-        /// tracked.</summary>
+        /// <summary>Every asset and liability that is not an account.</summary>
         Items : BalanceSheetItemResponse list
+
+        /// <summary>Every account with a known balance, as a line.</summary>
+        Accounts : AccountLineResponse list
+
+        /// <summary>Accounts whose balance is unknown, left out of the
+        /// totals.</summary>
+        UnknownBalances : UnknownBalanceResponse list
 
         /// <summary>Total value of assets expected to be realised within the
         /// current period.</summary>
@@ -75,6 +82,11 @@ module ReadBalanceSheet =
     module BalanceSheetResponse =
         let fromDomain (sheet : BalanceSheet) : BalanceSheetResponse = {
             Items = sheet.Items |> List.map BalanceSheetItemResponse.fromDomain
+            Accounts =
+                sheet.Accounts |> List.choose AccountLineResponse.fromDomain
+            UnknownBalances =
+                BalanceSheet.unknownBalances sheet
+                |> List.map UnknownBalanceResponse.fromDomain
             TotalCurrentAssets = BalanceSheet.totalCurrentAssets sheet
             TotalCurrentLiabilities = BalanceSheet.totalCurrentLiabilities sheet
             TotalNonCurrentAssets = BalanceSheet.totalNonCurrentAssets sheet
@@ -86,8 +98,32 @@ module ReadBalanceSheet =
             WorkingCapital = BalanceSheet.workingCapital sheet
         }
 
-    /// <summary>The user's balance sheet: every item they track. A user with
-    /// none has an empty sheet.</summary>
+    /// <summary>Pair each account with its current balance.</summary>
+    let private accountBalances
+        (accounts : main.Accounts seq)
+        (observations : main.BalanceObservations seq)
+        : AccountBalance list =
+        let observationsByAccount =
+            observations
+            |> Seq.groupBy _.AccountId
+            |> Seq.map (fun (accountId, rows) ->
+                accountId,
+                rows |> Seq.map BalanceObservationCodec.fromRow |> List.ofSeq)
+            |> Map.ofSeq
+
+        accounts
+        |> Seq.map (fun row -> {
+            Account = AccountCodec.fromRow row
+            Current =
+                observationsByAccount
+                |> Map.tryFind row.Id
+                |> Option.defaultValue []
+                |> BalanceObservation.current
+        })
+        |> List.ofSeq
+
+    /// <summary>The user's balance sheet: every item and account they track. A
+    /// user with neither has an empty sheet.</summary>
     let private readBalanceSheet
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -99,9 +135,23 @@ module ReadBalanceSheet =
                         where (item.UserId = userId)
                 }
 
+            and! accounts =
+                selectTask queryContext {
+                    for a in main.Accounts do
+                        where (a.UserId = userId)
+                        orderBy a.Name
+                }
+
+            and! observations =
+                selectTask queryContext {
+                    for o in main.BalanceObservations do
+                        where (o.UserId = userId)
+                }
+
             return {
                 Items =
                     Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
+                Accounts = accountBalances accounts observations
             }
         }
 
