@@ -26,6 +26,7 @@ open Serilog.Formatting.Compact
 open Budgeteur.Data.Db
 open Budgeteur.Shared.ApiError
 open Budgeteur.Shared.Auth
+open Budgeteur.Shared.Clock
 open Budgeteur.Shared.Config
 open Budgeteur.Shared.Json
 open Budgeteur.Shared.OpenApi

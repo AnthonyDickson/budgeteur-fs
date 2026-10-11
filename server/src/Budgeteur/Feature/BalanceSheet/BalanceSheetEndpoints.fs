@@ -7,6 +7,7 @@ module BalanceSheetEndpoints =
     open Oxpecker
 
     open Budgeteur.Data.Db
+    open Budgeteur.Shared.Clock
 
     let all (queryContext : QueryContextFactory) (clock : Clock) = [
         GET [ ReadBalanceSheet.endpoint queryContext ]

@@ -20,6 +20,7 @@
     <Compile Include="Shared/RequestLogging.fs" />
     <Compile Include="Shared/Coders.fs" />
     <Compile Include="Shared/Config.fs" />
+    <Compile Include="Shared/Clock.fs" />
     <Compile Include="Shared/Auth.fs" />
     <Compile Include="Shared/OpenApi.fs" />
     <Compile Include="Shared/Json.fs" />
@@ -46,7 +47,9 @@
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 
-    <Compile Include="Feature/BalanceSheet/Shared.fs" />
+    <Compile Include="Feature/BalanceSheet/BalanceSheetStore.fs" />
+    <Compile Include="Feature/BalanceSheet/WriteBalanceSheetItemRequest.fs" />
+    <Compile Include="Feature/BalanceSheet/BalanceSheetItemResponse.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheet.fs" />
     <Compile Include="Feature/BalanceSheet/CreateBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheetItem.fs" />

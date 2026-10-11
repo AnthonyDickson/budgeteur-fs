@@ -9,6 +9,7 @@ module ResetUserDataTests =
     open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Feature.TestSupport
     open Budgeteur.Feature.Transaction
+    open Budgeteur.Shared.Clock
     open Budgeteur.Tests
 
     let private newApp () =

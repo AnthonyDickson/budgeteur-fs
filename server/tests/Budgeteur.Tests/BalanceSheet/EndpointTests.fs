@@ -7,6 +7,7 @@ module EndpointTests =
     open Expecto
 
     open Budgeteur.Feature.BalanceSheet
+    open Budgeteur.Shared.Clock
     open Budgeteur.Tests
 
     /// A valid create or update payload. No id is supplied, matching the

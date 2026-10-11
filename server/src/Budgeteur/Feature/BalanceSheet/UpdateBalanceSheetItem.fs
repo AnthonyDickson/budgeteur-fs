@@ -16,6 +16,7 @@ module UpdateBalanceSheetItem =
     open Budgeteur.Domain.BalanceSheetItem
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
+    open Budgeteur.Shared.Clock
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json

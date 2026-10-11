@@ -42,6 +42,7 @@ module TestAppConfig =
     open Budgeteur.Feature.Tag
     open Budgeteur.Feature.TestSupport
     open Budgeteur.Feature.Transaction
+    open Budgeteur.Shared.Clock
 
     let empty = {
         EndpointProviders = []
