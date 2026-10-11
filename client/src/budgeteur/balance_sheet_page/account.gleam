@@ -1,0 +1,61 @@
+//// Accounts as the balance sheet page reads them: somewhere the user's
+//// transactions happen, shown as a line when its balance is known. See
+//// docs/csv-import.md.
+
+import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
+import budgeteur/balance_sheet_page/term.{type Term}
+import budgeteur/shared/date
+import budgeteur/shared/money
+import budgeteur/shared/uuid as uuid_decoder
+import gleam/dynamic/decode
+import gleam/option.{type Option, None}
+import gleam/time/calendar.{type Date}
+import youid/uuid.{type Uuid}
+
+/// An account's identity and settings: what the account form edits.
+pub type Account {
+  Account(
+    id: Uuid,
+    // The user's alias for the account.
+    name: String,
+    // The number statements identify the account by, in canonical form.
+    number: Option(String),
+    // Whether the account is current or non-current.
+    term: Term,
+  )
+}
+
+/// An account with a known balance, as a balance sheet line.
+pub type AccountLine {
+  AccountLine(
+    account: Account,
+    // Asset when the balance is zero or more, liability when it is negative.
+    kind: ItemKind,
+    // The magnitude of the current balance. Direction is implied by kind.
+    balance: Float,
+    // The date the current balance is accurate as of.
+    as_of: Date,
+  )
+}
+
+/// Decodes the account fields shared by account lines, unknown balances, and
+/// the account endpoints' responses.
+pub fn decoder() -> decode.Decoder(Account) {
+  use id <- decode.field("id", uuid_decoder.decoder())
+  use name <- decode.field("name", decode.string)
+  use number <- decode.optional_field(
+    "number",
+    None,
+    decode.optional(decode.string),
+  )
+  use term <- decode.field("term", term.decoder())
+  decode.success(Account(id:, name:, number:, term:))
+}
+
+pub fn line_decoder() -> decode.Decoder(AccountLine) {
+  use account <- decode.then(decoder())
+  use kind <- decode.field("kind", item_kind.decoder())
+  use balance <- decode.field("balance", money.decode_decimal())
+  use as_of <- decode.field("asOf", date.decoder())
+  decode.success(AccountLine(account:, kind:, balance:, as_of:))
+}

@@ -20,9 +20,16 @@ pub fn decoder() -> decode.Decoder(BalanceSummary) {
   use net_worth <- decode.field("netWorth", money.decode_decimal())
   use working_capital <- decode.field("workingCapital", money.decode_decimal())
   use items <- decode.field("items", decode.list(decode.dynamic))
+  use accounts <- decode.field("accounts", decode.list(decode.dynamic))
+  use unknown_balances <- decode.field(
+    "unknownBalances",
+    decode.list(decode.dynamic),
+  )
   decode.success(BalanceSummary(
     net_worth:,
     working_capital:,
-    is_empty: list.is_empty(items),
+    is_empty: list.is_empty(items)
+      && list.is_empty(accounts)
+      && list.is_empty(unknown_balances),
   ))
 }

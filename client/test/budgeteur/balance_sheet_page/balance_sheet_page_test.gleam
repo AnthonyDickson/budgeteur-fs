@@ -1,3 +1,6 @@
+import budgeteur/balance_sheet_page/account.{type Account, Account}
+import budgeteur/balance_sheet_page/account_delete_modal
+import budgeteur/balance_sheet_page/account_modal
 import budgeteur/balance_sheet_page/balance_sheet.{
   type BalanceSheet, BalanceSheet,
 }
@@ -53,6 +56,8 @@ fn empty_model() -> balance_sheet_page.Model {
     today: None,
     item_modal: item_modal.hidden(),
     item_delete_modal: item_delete_modal.empty(),
+    account_modal: account_modal.hidden(),
+    account_delete_modal: account_delete_modal.empty(),
   )
 }
 
@@ -125,6 +130,8 @@ fn sample_sheet() -> BalanceSheet {
         balance: 300_000.0,
       ),
     ],
+    accounts: [],
+    unknown_balances: [],
   )
 }
 
@@ -327,4 +334,101 @@ pub fn cancelling_the_item_form_hides_it_test() {
   after.item_modal |> should.equal(item_modal.hidden())
   effect |> should.equal(effect.none())
   out_msg |> should.equal(None)
+}
+
+fn sample_account() -> Account {
+  Account(id: item_id(5), name: "Everyday", number: None, term: Current)
+}
+
+pub fn the_account_form_opens_with_today_for_a_new_balance_test() {
+  let model =
+    balance_sheet_page.Model(
+      ..loaded_model(sample_sheet()),
+      today: Some(Date(2026, March, 8)),
+    )
+
+  // "Enter balance" on an unknown balance opens the account for editing.
+  let #(after, effect, out_msg) =
+    balance_sheet_page.update(
+      model,
+      balance_sheet_page.UserRequestedAccountEdit(sample_account()),
+    )
+
+  let assert form_modal.Active(form:, mode: form_modal.Edit(id)) =
+    after.account_modal
+  id |> should.equal(sample_account().id)
+  form.as_of
+  |> should.equal(field.Valid(value: Date(2026, March, 8), input: "2026-03-08"))
+  effect |> should.equal(effect.none())
+  out_msg |> should.equal(None)
+}
+
+pub fn saving_an_account_refetches_the_sheet_and_toasts_test() {
+  let submitting =
+    account_modal.update(
+      account_modal.hidden(),
+      account_modal.CreateRequested(today: None),
+    )
+  let #(active, _, _) = submitting
+  let #(active, _, _) =
+    account_modal.update(active, account_modal.NameChanged("Everyday"))
+  let #(submitting, _, _) =
+    account_modal.update(active, account_modal.SaveRequested)
+
+  let #(after, effect, out_msg) =
+    balance_sheet_page.update(
+      balance_sheet_page.Model(
+        ..loaded_model(sample_sheet()),
+        account_modal: submitting,
+      ),
+      balance_sheet_page.AccountModalMsg(
+        account_modal.SaveCompleted(Ok(sample_account())),
+      ),
+    )
+
+  after.account_modal |> should.equal(account_modal.hidden())
+  let assert Some(out_msg.PageRequestedToast(level: level, body: body, ..)) =
+    out_msg
+  level |> should.equal(toast.Success)
+  body |> should.equal("Created account 'Everyday'")
+
+  // The save may have recorded a balance, so the server's totals are fetched
+  // again.
+  let assert effect.HttpRequest(method: method, url: url, ..) = effect
+  method |> should.equal(http_effect.Get)
+  url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
+}
+
+pub fn deleting_an_account_sends_a_delete_and_refetches_test() {
+  let model = loaded_model(sample_sheet())
+  let account = sample_account()
+
+  let #(opened, _, _) =
+    balance_sheet_page.update(
+      model,
+      balance_sheet_page.UserRequestedAccountDelete(account),
+    )
+
+  let #(deleting, effect, _) =
+    balance_sheet_page.update(
+      opened,
+      balance_sheet_page.UserConfirmedAccountDelete,
+    )
+
+  let assert delete_modal.Deleting(..) = deleting.account_delete_modal
+  let assert effect.HttpRequest(method: method, url: url, ..) = effect
+  method |> should.equal(http_effect.Delete)
+  url |> should.equal(api_route.to_string(api_route.DeleteAccount(account.id)))
+
+  let #(after, effect, out_msg) =
+    balance_sheet_page.update(
+      deleting,
+      balance_sheet_page.ServerDeletedAccount(account, Ok(Nil)),
+    )
+
+  after.account_delete_modal |> should.equal(account_delete_modal.empty())
+  let assert effect.HttpRequest(url: url, ..) = effect
+  url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
+  let assert Some(out_msg.PageRequestedToast(body: body, ..)) = out_msg
+  body |> should.equal("Deleted account 'Everyday'")
 }
