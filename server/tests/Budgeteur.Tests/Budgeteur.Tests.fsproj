@@ -25,6 +25,7 @@
     <Compile Include="Domain/RuleTests.fs" />
     <Compile Include="Domain/TagAssignmentTests.fs" />
     <Compile Include="Data/BalanceSheetItemCodecTests.fs" />
+    <Compile Include="Account/EndpointTests.fs" />
     <Compile Include="BalanceSheet/EndpointTests.fs" />
     <Compile Include="IncomeStatement/ComputeTests.fs" />
     <Compile Include="IncomeStatement/EndpointTests.fs" />

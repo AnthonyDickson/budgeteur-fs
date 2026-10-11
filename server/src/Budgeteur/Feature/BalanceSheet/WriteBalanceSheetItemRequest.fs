@@ -39,26 +39,6 @@ module WriteBalanceSheetItemRequest =
     open Budgeteur.Domain.AsOfDate
     open Budgeteur.Shared.DomainError
 
-    let private joinValidationErrors
-        (validationResult : Validation<'Ok, DomainError>)
-        : Result<'Ok, DomainError> =
-        match validationResult with
-        | Ok value -> Ok value
-        | Error errors ->
-            errors
-            |> List.map (fun error ->
-                match error with
-                | ValidationFailed error -> error
-                // TODO: Is there a way to remove this exception? Maybe have the
-                // validation functions return a scalar value (e.g. just a
-                // string)? It would be nice if this could have nice error
-                // messages like Thoth.
-                | other -> failwithf $"unexpected domain error: {other}")
-            |> fun errorStrings ->
-                "Validation failed:\n\t" + String.Join ("\n\t", errorStrings)
-            |> ValidationFailed
-            |> Error
-
     /// <summary>Validate the request as of the instant <c>now</c>, which bounds
     /// the as-of date.</summary>
     let validate
@@ -87,4 +67,4 @@ module WriteBalanceSheetItemRequest =
 
             return item
         }
-        |> joinValidationErrors
+        |> DomainError.joinValidationErrors

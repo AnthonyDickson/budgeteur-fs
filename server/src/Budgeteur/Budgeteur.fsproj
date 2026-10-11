@@ -47,6 +47,7 @@
     <Compile Include="Data/BalanceSheetItemCodec.fs" />
     <Compile Include="Data/AccountCodec.fs" />
     <Compile Include="Data/BalanceObservationCodec.fs" />
+    <Compile Include="Data/BalanceObservationStore.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
@@ -60,6 +61,16 @@
     <Compile Include="Feature/BalanceSheet/UpdateBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/DeleteBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetEndpoints.fs" />
+
+    <Compile Include="Feature/Account/WriteAccountRequest.fs" />
+    <Compile Include="Feature/Account/AccountResponse.fs" />
+    <Compile Include="Feature/Account/AccountQuery.fs" />
+    <Compile Include="Feature/Account/CreateAccount.fs" />
+    <Compile Include="Feature/Account/ReadAccount.fs" />
+    <Compile Include="Feature/Account/ReadAllAccounts.fs" />
+    <Compile Include="Feature/Account/UpdateAccount.fs" />
+    <Compile Include="Feature/Account/DeleteAccount.fs" />
+    <Compile Include="Feature/Account/AccountEndpoints.fs" />
 
     <Compile Include="Feature/Tag/TagResponse.fs" />
     <Compile Include="Feature/Tag/CreateTag.fs" />

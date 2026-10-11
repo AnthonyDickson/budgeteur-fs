@@ -35,6 +35,7 @@ type TestAppConfig = {
 /// filter.
 module TestAppConfig =
     open Budgeteur.Data.Db
+    open Budgeteur.Feature.Account
     open Budgeteur.Feature.AutoTag
     open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Feature.IncomeStatement
@@ -75,6 +76,10 @@ module TestAppConfig =
         withEndpoints [ "BalanceSheetItems" ] (fun queryContext ->
             BalanceSheetEndpoints.all queryContext clock
             @ BalanceSheetEndpoints.developmentOnly queryContext)
+
+    let withAccounts (clock : Clock) =
+        withEndpoints [ "BalanceObservations"; "Accounts" ] (fun queryContext ->
+            AccountEndpoints.all queryContext clock)
 
     let withResetUserData =
         withEndpoints [] (fun queryContext -> [
