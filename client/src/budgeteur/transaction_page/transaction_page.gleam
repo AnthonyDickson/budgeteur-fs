@@ -324,7 +324,14 @@ fn run_import_modal(
     import_modal.NoChange -> #(effects, None)
     import_modal.Imported(result) -> #(
       list.append(effects, [fetch_transactions(), fetch_accounts()]),
-      Some(out_msg.success_toast(import_modal.describe(result))),
+      // The counts and created accounts take a while to read, so the toast
+      // stays until dismissed.
+      Some(
+        out_msg.PageRequestedToast(
+          ..out_msg.success_toast(import_modal.describe(result)),
+          dismiss_after_ms: None,
+        ),
+      ),
     )
   }
   let effect = case effects {

@@ -21,11 +21,11 @@ CSV import feedback, one commit per group. After each server commit run `just
 server-build` and `just server-test`; after each client commit run `just
 client-test`. Finish with `just e2e-test`, `just lint`, and `just format`.
 
-- [ ] **Client fixes**
-  - [ ] Import toast stays until dismissed: the import success toast in
+- [x] **Client fixes**
+  - [x] Import toast stays until dismissed: the import success toast in
         `transaction_page.gleam` uses no auto-dismiss. Update decision 13 in
         `docs/csv-import.md`.
-  - [ ] New rule defaults to the selected tag (bug from before this branch):
+  - [x] New rule defaults to the selected tag (bug from before this branch):
         `rule_modal.gleam` sets `value` on the `<select>`, which the browser
         applies before the options exist, so it shows the first tag. Mark the
         matching option `selected`, as `transaction_modal.gleam` does. E2E:

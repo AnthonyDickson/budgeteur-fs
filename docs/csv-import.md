@@ -375,10 +375,11 @@ line. Lessons from it are cited where they shaped a decision.
 - **Transactions page**: an "Import" button in the header opens a modal with a
   file input (several files, `.csv`). Submitting reads the files, sends the
   request, and disables the button while it runs. Success closes the modal,
-  shows a toast with the counts and any accounts created, and reloads the table;
-  failures show every listed error in the modal so the user can fix and retry.
-  The table shows the account name for each transaction, and the transaction
-  modal has an account select.
+  shows a toast with the counts and any accounts created, and reloads the table.
+  The toast stays until dismissed, since it takes longer to read than a save
+  confirmation. Failures show every listed error in the modal so the user can
+  fix and retry. The table shows the account name for each transaction, and the
+  transaction modal has an account select.
 - **Balance sheet page**: account lines sit in the same asset and liability,
   current and non-current groups as items, marked with the account number and
   the current balance's as-of date. A callout lists accounts with an unknown
