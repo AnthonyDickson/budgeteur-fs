@@ -4,6 +4,7 @@ import budgeteur/shared/http_effect.{
 import gleam/function
 import gleam/http/request
 import gleam/io
+import gleam/javascript/array.{type Array}
 import gleam/javascript/promise
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -48,6 +49,13 @@ pub type Effect(msg) {
   /// This effect does not trigger a page load, therefore it can be batched with other effects.
   ReplaceUrl(url: String)
   GetLocalDate(dispatch: fn(Date) -> msg)
+  /// Read the files chosen in the file input with the given element id as
+  /// UTF-8 text, as `#(name, text)` pairs. The file handles stay in the DOM,
+  /// so `update` only ever sees their text.
+  ReadFiles(
+    input_id: String,
+    callback: fn(Result(List(#(String, String)), String)) -> msg,
+  )
   Message(msg)
   Batch(effects: List(Effect(msg)))
   NoEffect
@@ -281,6 +289,9 @@ fn raw_redirect(url: String) -> Nil
 @external(javascript, "./effect_ffi.mjs", "setTitle")
 fn raw_set_title(title: String) -> Nil
 
+@external(javascript, "./effect_ffi.mjs", "readFiles")
+fn raw_read_files(input_id: String) -> promise.Promise(Array(#(String, String)))
+
 /// Transform an `Effect(a)` into an `Effect(b)` by applying a function to
 /// every message the effect produces. This is the analogue of `Cmd.map` in
 /// Elmish — it lets a parent component embed a child's effects.
@@ -316,6 +327,8 @@ pub fn map(effect: Effect(a), f: fn(a) -> b) -> Effect(b) {
     PushUrl(url:) -> PushUrl(url:)
     ReplaceUrl(url:) -> ReplaceUrl(url:)
     GetLocalDate(message) -> GetLocalDate(fn(date) { f(message(date)) })
+    ReadFiles(input_id:, callback:) ->
+      ReadFiles(input_id:, callback: fn(result) { f(callback(result)) })
     Message(message) -> Message(f(message))
     Batch(effects:) -> Batch(list.map(effects, fn(e) { map(e, f) }))
     NoEffect -> NoEffect
@@ -399,6 +412,17 @@ pub fn run(effect: Effect(msg), dispatch: fn(msg) -> Nil) -> Nil {
       let now = timestamp.system_time()
       let #(date, _) = timestamp.to_calendar(now, calendar.local_offset())
       dispatch(message(date))
+    }
+
+    ReadFiles(input_id:, callback:) -> {
+      let _ =
+        raw_read_files(input_id)
+        |> promise.map(fn(files) { Ok(array.to_list(files)) })
+        |> promise.rescue(fn(_) {
+          Error("The browser could not read the files")
+        })
+        |> promise.tap(fn(result) { dispatch(callback(result)) })
+      Nil
     }
 
     Message(message) -> dispatch(message)

@@ -10,6 +10,7 @@ import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/transaction_page/account.{type Account}
+import budgeteur/transaction_page/import_modal
 import budgeteur/transaction_page/transaction.{type Transaction}
 import budgeteur/transaction_page/transaction_delete_modal.{
   type DeleteModalState,
@@ -44,6 +45,7 @@ pub type Model {
     accounts: List(Account),
     modal: transaction_modal.Modal,
     delete_modal: DeleteModalState,
+    import_modal: import_modal.State,
   )
 }
 
@@ -62,6 +64,8 @@ pub type Msg {
   UserConfirmedDelete
   ServerDeletedTransaction(Transaction, Result(Nil, ApiError))
   UserCancelledDeleteModal
+  // Import modal messages
+  ImportModalMsg(import_modal.Msg)
 }
 
 fn fetch_tags() -> Effect(Msg) {
@@ -152,6 +156,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       accounts: [],
       modal: transaction_modal.hidden(),
       delete_modal: transaction_delete_modal.empty(),
+      import_modal: import_modal.Hidden,
     ),
     effect.batch([fetch_transactions(), fetch_tags(), fetch_accounts()]),
   )
@@ -269,7 +274,65 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       effect.none(),
       None,
     )
+
+    ImportModalMsg(msg) -> run_import_modal(model, msg)
   }
+}
+
+fn run_import_modal(
+  model: Model,
+  msg: import_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(import_modal, command, outcome) =
+    import_modal.update(model.import_modal, msg)
+  let model = Model(..model, import_modal:)
+  let effects = case command {
+    Some(import_modal.ReadFiles) -> [
+      effect.ReadFiles(import_modal.file_input_id, fn(result) {
+        ImportModalMsg(import_modal.FilesRead(result))
+      }),
+    ]
+    Some(import_modal.Upload(files)) -> [
+      effect.post(
+        api_route.ImportStatements |> api_route.to_string,
+        import_modal.request_json(files) |> json.to_string,
+        fn(result) {
+          ImportModalMsg(
+            import_modal.ImportCompleted(case result {
+              Ok(body) ->
+                response.decode_success(body, import_modal.result_decoder())
+              Error(http_error) ->
+                Error(response.http_error_to_api_error(http_error))
+            }),
+          )
+        },
+      )
+      |> effect.with_timeout(import_modal.import_timeout_ms),
+    ]
+    None -> []
+  }
+  let effects = case msg {
+    import_modal.ImportCompleted(Error(error)) -> [
+      effect.LogError(api_error.describe(error)),
+      ..effects
+    ]
+    _ -> effects
+  }
+  // The import added transactions and maybe accounts, so both are fetched
+  // again rather than merged in here.
+  let #(effects, out_msg) = case outcome {
+    import_modal.NoChange -> #(effects, None)
+    import_modal.Imported(result) -> #(
+      list.append(effects, [fetch_transactions(), fetch_accounts()]),
+      Some(out_msg.success_toast(import_modal.describe(result))),
+    )
+  }
+  let effect = case effects {
+    [] -> effect.none()
+    [effect] -> effect
+    _ -> effect.batch(effects)
+  }
+  #(model, effect, out_msg)
 }
 
 fn run_transaction_modal(
@@ -440,14 +503,24 @@ pub fn view(model: Model) -> Element(Msg) {
       // has a list to join.
       case model.transactions {
         Loaded(_) ->
-          html.button(
-            [
-              attribute.class(primary_button_class),
-              attribute.attribute("data-testid", "record-transaction-button"),
-              event.on_click(UserRequestedCreationForm),
-            ],
-            [html.text("Record Transaction")],
-          )
+          html.div([attribute.class("flex items-center gap-2")], [
+            html.button(
+              [
+                attribute.class(secondary_button_class),
+                attribute.attribute("data-testid", "import-button"),
+                event.on_click(ImportModalMsg(import_modal.OpenRequested)),
+              ],
+              [html.text("Import")],
+            ),
+            html.button(
+              [
+                attribute.class(primary_button_class),
+                attribute.attribute("data-testid", "record-transaction-button"),
+                event.on_click(UserRequestedCreationForm),
+              ],
+              [html.text("Record Transaction")],
+            ),
+          ])
         Loading | Failed -> element.none()
       },
     ]),
@@ -463,6 +536,7 @@ pub fn view(model: Model) -> Element(Msg) {
       on_cancel: UserCancelledDeleteModal,
       on_confirm: UserConfirmedDelete,
     ),
+    import_modal.view(model.import_modal) |> element.map(ImportModalMsg),
   ])
 }
 
@@ -573,10 +647,14 @@ fn transactions_table(
                     html.td(
                       [attribute.class("px-4 py-3 text-sm text-gray-700")],
                       [
-                        html.text(
-                          tag_name(transaction, tag_names_by_id)
-                          |> option.unwrap("-"),
-                        ),
+                        html.text(case transaction.is_transfer {
+                          // A transfer has no tag: it is neither income nor
+                          // an expense.
+                          True -> "Transfer"
+                          False ->
+                            tag_name(transaction, tag_names_by_id)
+                            |> option.unwrap("-")
+                        }),
                       ],
                     ),
                     html.td(
@@ -666,6 +744,10 @@ fn no_transactions_empty_state() -> Element(Msg) {
     ],
   )
 }
+
+const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
+  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 "
+  <> "focus:ring-indigo-500 focus:ring-offset-2"
 
 const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
   <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "

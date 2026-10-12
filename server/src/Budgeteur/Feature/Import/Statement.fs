@@ -118,16 +118,18 @@ module Statement =
         (lines : CsvLine list)
         (reasons : string list)
         =
+        // Continuation lines are indented, so a reader of the joined errors of
+        // several files can tell where this one ends.
         let indent (text : string) = "    " + text
 
         [
             yield "matches no known format."
             yield!
                 reasons
-                |> List.map (fun reason -> $"It looks close, but {reason}.")
-            yield "The file starts with:"
+                |> List.map (fun reason -> $"  It looks close, but {reason}.")
+            yield "  The file starts with:"
             yield! lines |> List.truncate 3 |> List.map (_.Text >> indent)
-            yield "Expected one of these headers:"
+            yield "  Expected one of these headers:"
             yield!
                 formats
                 |> List.map (fun format ->

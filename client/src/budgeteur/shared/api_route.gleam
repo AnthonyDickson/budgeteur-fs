@@ -28,6 +28,7 @@ pub type ApiRoute {
   GetIncomeStatement(from: Date, to: Date)
   RunAutoTag
   GetRuleMatches(pattern: String)
+  ImportStatements
 }
 
 const api_prefix = "/api"
@@ -57,6 +58,7 @@ pub fn to_string(route: ApiRoute) -> String {
       <> "&to="
       <> date.format(to)
     RunAutoTag -> api_prefix <> "/auto-tag"
+    ImportStatements -> api_prefix <> "/imports"
     GetRuleMatches(pattern:) ->
       api_prefix
       <> "/auto-tag/matches?"

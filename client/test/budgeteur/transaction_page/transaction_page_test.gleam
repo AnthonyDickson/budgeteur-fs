@@ -7,6 +7,7 @@ import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/remote
 import budgeteur/shared/toast
+import budgeteur/transaction_page/import_modal
 import budgeteur/transaction_page/transaction
 import budgeteur/transaction_page/transaction_delete_modal
 import budgeteur/transaction_page/transaction_modal
@@ -530,6 +531,7 @@ fn empty_model() -> transaction_page.Model {
     accounts: [],
     modal: transaction_modal.hidden(),
     delete_modal: transaction_delete_modal.empty(),
+    import_modal: import_modal.Hidden,
   )
 }
 
@@ -538,4 +540,69 @@ fn with_transaction(
   transaction: transaction.Transaction,
 ) -> transaction_page.Model {
   transaction_page.Model(..model, transactions: remote.Loaded([transaction]))
+}
+
+fn import_result() -> import_modal.ImportResult {
+  import_modal.ImportResult(
+    imported: 218,
+    skipped_duplicates: 0,
+    transfers: 40,
+    tagged_by_rules: 26,
+    accounts_created: ["12-3456-0789012-000"],
+  )
+}
+
+pub fn an_import_reads_the_files_then_posts_them_test() {
+  let #(model, _, _) =
+    transaction_page.update(
+      empty_model(),
+      transaction_page.ImportModalMsg(import_modal.OpenRequested),
+    )
+  let model =
+    run(model, transaction_page.ImportModalMsg(import_modal.FilesChosen(2)))
+
+  // Submitting reads the chosen files: the files stay in the DOM, so the
+  // effect hands back their text.
+  let #(model, effect, _) =
+    transaction_page.update(
+      model,
+      transaction_page.ImportModalMsg(import_modal.SubmitRequested),
+    )
+  let assert effect.ReadFiles(input_id:, ..) = effect
+  input_id |> should.equal(import_modal.file_input_id)
+
+  let #(model, effect, _) =
+    transaction_page.update(
+      model,
+      transaction_page.ImportModalMsg(
+        import_modal.FilesRead(Ok([#("chequing.csv", "Account number,...")])),
+      ),
+    )
+  let assert effect.HttpRequest(method:, url:, body:, ..) = effect
+  method |> should.equal(http_effect.Post)
+  url |> should.equal("/api/imports")
+  body
+  |> should.equal(
+    "{\"files\":[{\"name\":\"chequing.csv\",\"content\":\"Account number,...\"}]}",
+  )
+
+  // Success closes the dialog, toasts the counts, and reloads the table.
+  let #(model, effect, out_msg) =
+    transaction_page.update(
+      model,
+      transaction_page.ImportModalMsg(
+        import_modal.ImportCompleted(Ok(import_result())),
+      ),
+    )
+  model.import_modal |> should.equal(import_modal.Hidden)
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, body:, ..)) =
+    out_msg
+  body
+  |> should.equal(
+    "Imported 218 transactions (40 transfers, 26 tagged by rules). Skipped 0 already imported. Created accounts: 12-3456-0789012-000.",
+  )
+  let assert effect.Batch([
+    effect.HttpRequest(url: "/api/transactions", ..),
+    effect.HttpRequest(url: "/api/accounts", ..),
+  ]) = effect
 }

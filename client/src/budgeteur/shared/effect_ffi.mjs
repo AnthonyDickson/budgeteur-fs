@@ -78,3 +78,12 @@ export function getOrigin() {
 export function withTimeoutSignal(request, timeoutMs) {
   return new Request(request, { signal: AbortSignal.timeout(timeoutMs) });
 }
+
+// Read every file chosen in the file input `inputId` as UTF-8 text, resolving
+// to [name, text] pairs. File.text() decodes UTF-8 and drops a byte order mark.
+export function readFiles(inputId) {
+  const files = Array.from(document.getElementById(inputId)?.files ?? []);
+  return Promise.all(
+    files.map(async (file) => [file.name, await file.text()]),
+  );
+}
