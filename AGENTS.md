@@ -161,5 +161,6 @@ log message names the local command to reproduce it.
   in query expressions. Bind them to local `let` values first.
 - **Central Package Management**: versions live in `Directory.Packages.props`;
   project files use bare `<PackageReference Include="..." />`.
-- **Request body limit**: Kestrel caps request bodies at 64 KB — relevant for
-  the CSV import.
+- **Request body limit**: Kestrel caps request bodies at 64 KB. `POST
+  /api/imports` raises its own limit to 1 MB through endpoint metadata; a new
+  endpoint that needs more does the same rather than raising the global limit.

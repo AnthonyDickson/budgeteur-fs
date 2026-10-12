@@ -42,6 +42,14 @@ module Endpoint =
 
                 return Error (Conflict exn)
             | :? SqliteException as exn -> return Error (DatabaseError exn)
+            // Kestrel throws this when a body passes the endpoint's size limit.
+            | :? BadHttpRequestException as exn when exn.StatusCode = 413 ->
+                return
+                    Error (
+                        ValidationFailed
+                            "The request is larger than the server accepts. \
+                            Send less at a time."
+                    )
             | exn -> return Error (UnhandledException exn)
         }
 

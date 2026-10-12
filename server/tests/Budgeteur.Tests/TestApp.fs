@@ -38,6 +38,7 @@ module TestAppConfig =
     open Budgeteur.Feature.Account
     open Budgeteur.Feature.AutoTag
     open Budgeteur.Feature.BalanceSheet
+    open Budgeteur.Feature.Import
     open Budgeteur.Feature.IncomeStatement
     open Budgeteur.Feature.Rule
     open Budgeteur.Feature.Tag
@@ -80,6 +81,8 @@ module TestAppConfig =
     let withAccounts (clock : Clock) =
         withEndpoints [ "BalanceObservations"; "Accounts" ] (fun queryContext ->
             AccountEndpoints.all queryContext clock)
+
+    let withImports = withEndpoints [] ImportEndpoints.all
 
     let withResetUserData =
         withEndpoints [] (fun queryContext -> [

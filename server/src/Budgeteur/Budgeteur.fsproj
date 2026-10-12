@@ -112,6 +112,9 @@
     <Compile Include="Feature/Import/Format.fs" />
     <Compile Include="Feature/Import/ImportHash.fs" />
     <Compile Include="Feature/Import/Statement.fs" />
+    <Compile Include="Feature/Import/Import.fs" />
+    <Compile Include="Feature/Import/ImportStatements.fs" />
+    <Compile Include="Feature/Import/ImportEndpoints.fs" />
 
     <Compile Include="Feature/Status/GetStatus.fs" />
 
