@@ -24,6 +24,9 @@ type StatementRow = {
     /// <summary>When the row names the other party's account and it is an
     /// account number.</summary>
     OtherPartyAccount : AccountNumber option
+    /// <summary>Recognises the row in a later import. See decision 6 in
+    /// docs/csv-import.md.</summary>
+    ImportHash : string
 }
 
 /// <summary>One CSV file read into domain types: the transactions of one
@@ -146,11 +149,11 @@ module Statement =
 
             Error (noFormat formats lines reasons)
 
-    /// <summary>A row read into domain types, with the account number it
-    /// names when the format has an account column.</summary>
+    /// <summary>A row read into domain types, with the statement's account
+    /// number as the row names it or the preamble does.</summary>
     type private ReadRow = {
         Row : StatementRow
-        AccountNumber : AccountNumber option
+        AccountNumber : AccountNumber
     }
 
     let private validationMessage error =
@@ -163,6 +166,11 @@ module Statement =
     let private amountStyles =
         NumberStyles.AllowLeadingSign ||| NumberStyles.AllowDecimalPoint
 
+    /// <summary>An amount in the import hash's canonical form, e.g. -8.50,
+    /// however the statement wrote it.</summary>
+    let private canonical (money : Money) =
+        (Money.value money).ToString("0.00", CultureInfo.InvariantCulture)
+
     let private parseDecimal (text : string) =
         match
             Decimal.TryParse (text, amountStyles, CultureInfo.InvariantCulture)
@@ -171,9 +179,11 @@ module Statement =
         | false, _ -> None
 
     /// <summary>Read one row's fields by the format. Every field that fails is
-    /// reported.</summary>
+    /// reported. <c>statementNumber</c> is the account number the preamble
+    /// names, if the format has one.</summary>
     let private readRow
         (format : Format)
+        (statementNumber : AccountNumber option)
         (header : string list)
         (line : CsvLine)
         : Result<ReadRow, string list> =
@@ -247,15 +257,15 @@ module Statement =
                         (money balance.Column)
 
             let accountNumber =
-                match format.Account with
-                | Preamble _ -> Ok None
-                | AccountColumn column ->
+                match format.Account, statementNumber with
+                | AccountColumn column, _ ->
                     text column
                     |> Result.bind (
                         AccountNumber.create
-                        >> Result.map Some
                         >> Result.mapError validationMessage
                     )
+                | Preamble _, Some number -> Ok number
+                | Preamble _, None -> Error "the preamble names no account"
 
             // Another party's account may be anything the bank recorded, so
             // a value that is not an account number is no account.
@@ -266,27 +276,58 @@ module Statement =
                     text column
                     |> Result.map (AccountNumber.create >> Result.toOption)
 
-            return!
+            let! (transactionDate,
+                  description,
+                  amount,
+                  balance,
+                  accountNumber,
+                  otherPartyAccount) =
                 validation {
-                    let! date = date format.Date
+                    let! transactionDate = date format.Date
                     and! description = description
                     and! amount = amount
                     and! balance = balance
                     and! accountNumber = accountNumber
                     and! otherPartyAccount = otherPartyAccount
 
-                    return {
-                        Row = {
-                            Line = line.Number
-                            Date = date
-                            Description = description
-                            Amount = amount
-                            Balance = balance
-                            OtherPartyAccount = otherPartyAccount
-                        }
-                        AccountNumber = accountNumber
-                    }
+                    return
+                        transactionDate,
+                        description,
+                        amount,
+                        balance,
+                        accountNumber,
+                        otherPartyAccount
                 }
+
+            let! identity =
+                format.Identity
+                |> List.traverseResultM (fun field ->
+                    match field with
+                    | Column column -> text column
+                    | DateColumn column ->
+                        date column
+                        |> Result.map (fun date -> date.ToString "O")
+                    | Amount -> Ok (canonical amount)
+                    | RunningBalance ->
+                        balance
+                        |> Option.map (fun after -> canonical after.Balance)
+                        |> Result.requireSome
+                            "the format identifies rows by a running balance \
+                            it does not have")
+                |> Result.mapError List.singleton
+
+            return {
+                Row = {
+                    Line = line.Number
+                    Date = transactionDate
+                    Description = description
+                    Amount = amount
+                    Balance = balance
+                    OtherPartyAccount = otherPartyAccount
+                    ImportHash = ImportHash.compute accountNumber identity
+                }
+                AccountNumber = accountNumber
+            }
         }
 
     /// <summary>The statement's account: the preamble's, or the account column
@@ -298,21 +339,23 @@ module Statement =
         | None, [] ->
             Error [ None, "has no transactions, so its account is unknown" ]
         | None, first :: _ ->
-            match first.AccountNumber with
-            | None -> Error [ Some first.Row.Line, "the row names no account" ]
-            | Some number ->
-                match
-                    rows
-                    |> List.filter (fun row -> row.AccountNumber <> Some number)
-                with
-                | [] -> Ok { Number = number; ProductName = None }
-                | others ->
-                    others
-                    |> List.map (fun row ->
-                        Some row.Row.Line,
-                        "the account number differs from the first row's, \
-                        but a statement holds one account")
-                    |> Error
+            match
+                rows
+                |> List.filter (fun row ->
+                    row.AccountNumber <> first.AccountNumber)
+            with
+            | [] ->
+                Ok {
+                    Number = first.AccountNumber
+                    ProductName = None
+                }
+            | others ->
+                others
+                |> List.map (fun row ->
+                    Some row.Row.Line,
+                    "the account number differs from the first row's, but a \
+                    statement holds one account")
+                |> Error
 
     /// <summary>The closing balance of each date, after checking the balance
     /// dates run in the format's row order.</summary>
@@ -393,7 +436,11 @@ module Statement =
             let! rows =
                 detected.Rows
                 |> List.map (fun line ->
-                    readRow detected.Format header line
+                    readRow
+                        detected.Format
+                        (detected.Account |> Option.map _.Number)
+                        header
+                        line
                     |> Result.mapError (
                         List.map (fun message ->
                             error (Some line.Number, message))

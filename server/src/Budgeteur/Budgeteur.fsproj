@@ -110,6 +110,7 @@
 
     <Compile Include="Feature/Import/Csv.fs" />
     <Compile Include="Feature/Import/Format.fs" />
+    <Compile Include="Feature/Import/ImportHash.fs" />
     <Compile Include="Feature/Import/Statement.fs" />
 
     <Compile Include="Feature/Status/GetStatus.fs" />

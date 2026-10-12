@@ -34,6 +34,7 @@
     <Compile Include="AutoTag/EndpointTests.fs" />
     <Compile Include="Import/CsvTests.fs" />
     <Compile Include="Import/StatementTests.fs" />
+    <Compile Include="Import/ImportHashTests.fs" />
     <Compile Include="Rule/EndpointTests.fs" />
     <Compile Include="Tag/EndpointTests.fs" />
     <Compile Include="Transaction/EndpointTests.fs" />

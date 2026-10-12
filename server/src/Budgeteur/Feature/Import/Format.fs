@@ -71,6 +71,18 @@ type AccountSource =
     /// with a reason when they are not the format's preamble.</summary>
     | Preamble of (string list -> Result<StatementAccount, string>)
 
+/// <summary>A field of a row that identifies the transaction across exports,
+/// for the import hash. See decision 6 in docs/csv-import.md.</summary>
+type IdentityField =
+    /// <summary>A column's text, trimmed.</summary>
+    | Column of string
+    /// <summary>A date column, in ISO form.</summary>
+    | DateColumn of string
+    /// <summary>The signed amount, with two decimal places.</summary>
+    | Amount
+    /// <summary>The running balance, with two decimal places.</summary>
+    | RunningBalance
+
 /// <summary>How to read one bank's CSV export, held as data and read by one
 /// interpreter. Fields name their columns by header name, and the header must
 /// match exactly, so any change to the columns fails detection instead of
@@ -95,6 +107,9 @@ type Format = {
     /// <summary>The other party's account number, for transfer
     /// detection.</summary>
     OtherPartyAccount : string option
+    /// <summary>Chosen deliberately per format: a hash over fields that change
+    /// when the export changes makes every overlapping row look new.</summary>
+    Identity : IdentityField list
 }
 
 /// <summary>The built-in formats.</summary>
@@ -120,6 +135,10 @@ module Formats =
                 Order = OldestFirst
             }
         OtherPartyAccount = Some "Other Party Account Number"
+        // The running balance tells apart two identical purchases on one day,
+        // and the transaction date is the one the balance changes on, so both
+        // come from the same ledger entry.
+        Identity = [ DateColumn "Transaction Date"; Amount; RunningBalance ]
     }
 
     /// <summary>The line naming the card, e.g. "Card Number
@@ -166,6 +185,8 @@ module Formats =
         Sign = Negated
         Balance = None
         OtherPartyAccount = None
+        // A date and a sequence number per card.
+        Identity = [ Column "Unique Id" ]
     }
 
     let all = [ kiwibank; asbCard ]
