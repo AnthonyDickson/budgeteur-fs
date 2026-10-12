@@ -101,6 +101,11 @@ check-architecture:
 		exit 1
 	fi
 
+# Anonymise a raw bank export (kept in the gitignored raw-exports/) into a test fixture, e.g.
+# just anonymise-csv raw-exports/kiwibank.csv server/tests/Budgeteur.Tests/Import/Fixtures/Kiwibank.csv
+anonymise-csv input output:
+	dotnet fsi server/scripts/anonymise.fsx "{{input}}" "{{output}}" raw-exports/anonymise.key
+
 # Audit the project dependencies for known vulnerabilities
 audit:
 	cd client && npm audit

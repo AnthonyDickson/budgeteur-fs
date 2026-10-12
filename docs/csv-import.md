@@ -406,7 +406,9 @@ line. Lessons from it are cited where they shaped a decision.
   - dates, amounts, and balances stay as they are, so running balances still add
     up.
 
-  Raw exports live in a gitignored folder.
+  The hash is keyed with a secret kept beside the raw exports, which live in a
+  gitignored folder, so the same key gives the same replacements on every run. A
+  plain hash of an account number could be reversed by trying every number.
 - **Why**: when a bank changes its export, the new file is anonymised, added as
   a fixture, and the failing tests show what changed. Working by column name
   lets the script handle a format the app does not know yet. Replacing free text
