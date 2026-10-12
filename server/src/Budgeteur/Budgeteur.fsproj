@@ -44,6 +44,7 @@
     <Compile Include="Data/TagCodec.fs" />
     <Compile Include="Data/TagAssignmentCodec.fs" />
     <Compile Include="Data/TagAssignmentStore.fs" />
+    <Compile Include="Data/TransactionCodec.fs" />
     <Compile Include="Data/BalanceSheetItemCodec.fs" />
     <Compile Include="Data/AccountCodec.fs" />
     <Compile Include="Data/BalanceObservationCodec.fs" />
@@ -89,7 +90,6 @@
     <Compile Include="Feature/Rule/DeleteRule.fs" />
     <Compile Include="Feature/Rule/RuleEndpoints.fs" />
 
-    <Compile Include="Feature/Transaction/TransactionCodec.fs" />
     <Compile Include="Feature/Transaction/TransactionResponse.fs" />
     <Compile Include="Feature/Transaction/TransactionQuery.fs" />
     <Compile Include="Feature/Transaction/CreateTransaction.fs" />

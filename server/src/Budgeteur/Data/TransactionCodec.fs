@@ -1,4 +1,4 @@
-namespace Budgeteur.Feature.Transaction
+namespace Budgeteur.Data
 
 module TransactionCodec =
     open Budgeteur.Data.Db
