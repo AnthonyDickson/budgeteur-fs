@@ -2,7 +2,7 @@
 //// transactions happen, shown as a line when its balance is known. See
 //// docs/csv-import.md.
 
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
+import budgeteur/balance_sheet_page/side.{type Side}
 import budgeteur/balance_sheet_page/term.{type Term}
 import budgeteur/shared/date
 import budgeteur/shared/money
@@ -30,8 +30,8 @@ pub type AccountLine {
   AccountLine(
     account: Account,
     // Asset when the balance is zero or more, liability when it is negative.
-    kind: ItemKind,
-    // The magnitude of the current balance. Direction is implied by kind.
+    side: Side,
+    // The magnitude of the current balance. Direction is implied by side.
     balance: Float,
     // The date the current balance is accurate as of.
     as_of: Date,
@@ -54,8 +54,8 @@ pub fn decoder() -> decode.Decoder(Account) {
 
 pub fn line_decoder() -> decode.Decoder(AccountLine) {
   use account <- decode.then(decoder())
-  use kind <- decode.field("kind", item_kind.decoder())
+  use side <- decode.field("side", side.decoder())
   use balance <- decode.field("balance", money.decode_decimal())
   use as_of <- decode.field("asOf", date.decoder())
-  decode.success(AccountLine(account:, kind:, balance:, as_of:))
+  decode.success(AccountLine(account:, side:, balance:, as_of:))
 }

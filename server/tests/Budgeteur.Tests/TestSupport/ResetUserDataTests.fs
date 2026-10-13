@@ -31,9 +31,9 @@ module ResetUserDataTests =
 
     let private item : WriteBalanceSheetItemRequest = {
         Name = "Chequing"
-        Kind = "Asset"
+        Side = "Asset"
         Term = "Current"
-        Balance = 2000m
+        Value = 2000m
         AsOf = DateOnly (2026, 3, 8)
     }
 

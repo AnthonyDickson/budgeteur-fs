@@ -4,6 +4,7 @@ open System
 open System.ComponentModel.DataAnnotations
 
 open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Side
 open Budgeteur.Domain.Term
 open Budgeteur.Shared.OpenApi
 
@@ -16,19 +17,19 @@ type WriteBalanceSheetItemRequest = {
     Name : string
 
     /// <summary>Whether the item is an asset or a liability.</summary>
-    [<SchemaHint.Enum(typeof<ItemKind>)>]
-    Kind : string
+    [<SchemaHint.Enum(typeof<Side>)>]
+    Side : string
 
     /// <summary>Whether the item is current or non-current.</summary>
     [<SchemaHint.Enum(typeof<Term>)>]
     Term : string
 
     /// <summary>The positive magnitude of the item's value. Direction is
-    /// implied by Kind.</summary>
+    /// implied by Side.</summary>
     [<SchemaHint.Decimal(NonNegative = true)>]
-    Balance : decimal
+    Value : decimal
 
-    /// <summary>The date the balance is accurate as of. At most one day after
+    /// <summary>The date the value is accurate as of. At most one day after
     /// the server's UTC date.</summary>
     AsOf : DateOnly
 }
@@ -48,20 +49,19 @@ module WriteBalanceSheetItemRequest =
         =
         validation {
             let! name = ItemName.create req.Name
-            and! balance = Balance.create req.Balance
+            and! value = Value.create req.Value
             and! asOf = AsOfDate.validate now req.AsOf
 
-            and! kind =
-                ItemKind.parse req.Kind |> Result.mapError ValidationFailed
+            and! side = Side.parse req.Side |> Result.mapError ValidationFailed
 
             and! term = Term.parse req.Term |> Result.mapError ValidationFailed
 
             let item : BalanceSheetItem = {
                 Id = id
                 Name = name
-                Kind = kind
+                Side = side
                 Term = term
-                Balance = balance
+                Value = value
                 AsOf = asOf
             }
 

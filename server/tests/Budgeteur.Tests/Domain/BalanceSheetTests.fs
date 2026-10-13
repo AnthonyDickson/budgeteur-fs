@@ -8,6 +8,7 @@ open FsCheck.FSharp
 open Budgeteur.Domain.Account
 open Budgeteur.Domain.BalanceSheet
 open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Side
 open Budgeteur.Domain.Money
 open Budgeteur.Domain.Term
 
@@ -18,12 +19,12 @@ module BalanceSheetTests =
         | Error error ->
             failtestf "%s: expected Ok, but got Error %A" label error
 
-    let private item name kind term balance = {
+    let private item name side term value = {
         Id = Guid.Empty
         Name = ItemName.create name |> okOrFail "name"
-        Kind = kind
+        Side = side
         Term = term
-        Balance = Balance.create balance |> okOrFail "balance"
+        Value = Value.create value |> okOrFail "value"
         AsOf = DateOnly (2026, 1, 1)
     }
 
@@ -31,66 +32,66 @@ module BalanceSheetTests =
 
     let private sampleSheet =
         sheet [
-            item "Chequing" ItemKind.Asset Term.Current 2000m
-            item "Savings" ItemKind.Asset Term.Current 5000m
-            item "House" ItemKind.Asset Term.NonCurrent 400000m
-            item "Credit card" ItemKind.Liability Term.Current 1500m
-            item "Mortgage" ItemKind.Liability Term.NonCurrent 300000m
+            item "Chequing" Side.Asset Term.Current 2000m
+            item "Savings" Side.Asset Term.Current 5000m
+            item "House" Side.Asset Term.NonCurrent 400000m
+            item "Credit card" Side.Liability Term.Current 1500m
+            item "Mortgage" Side.Liability Term.NonCurrent 300000m
         ]
 
-    let private propBalanceAcceptedIsNonNegativeCents (amount : decimal) =
-        match Balance.create amount with
+    let private propValueAcceptedIsNonNegativeCents (amount : decimal) =
+        match Value.create amount with
         | Ok balance ->
-            let value = Balance.value balance
+            let value = Value.value balance
             value >= 0m && value * 100m % 1m = 0m
         | Error _ -> true
 
-    let private propBalanceRejectsNegatives (amount : decimal) =
-        match Balance.create amount with
+    let private propValueRejectsNegatives (amount : decimal) =
+        match Value.create amount with
         | Ok _ -> amount >= 0m
         | Error _ -> amount < 0m
 
     [<Tests>]
-    let balanceTests =
-        testList "Balance" [
+    let valueTests =
+        testList "Value" [
             testProperty
-                "Accepted balances are exact, non-negative cents"
-                propBalanceAcceptedIsNonNegativeCents
+                "Accepted values are exact, non-negative cents"
+                propValueAcceptedIsNonNegativeCents
             testProperty
                 "Negative amounts are always rejected"
-                propBalanceRejectsNegatives
+                propValueRejectsNegatives
 
             testCase "create rounds to cents away from zero"
             <| fun () ->
-                let balance = Balance.create 13.375m |> okOrFail "balance"
+                let balance = Value.create 13.375m |> okOrFail "balance"
 
                 Expect.equal
-                    (Balance.value balance)
+                    (Value.value balance)
                     13.38m
                     "13.375 rounds up to 13.38"
 
             testCase "create leaves exact cents unchanged"
             <| fun () ->
-                let balance = Balance.create 12.50m |> okOrFail "balance"
+                let balance = Value.create 12.50m |> okOrFail "balance"
 
                 Expect.equal
-                    (Balance.value balance)
+                    (Value.value balance)
                     12.50m
                     "12.50 is already cents"
 
             testCase "create accepts zero"
             <| fun () ->
-                let balance = Balance.create 0m |> okOrFail "balance"
+                let balance = Value.create 0m |> okOrFail "balance"
 
                 Expect.equal
-                    (Balance.value balance)
+                    (Value.value balance)
                     0m
                     "zero is a valid magnitude"
 
             testCase
                 "create rejects a negative magnitude with a validation error"
             <| fun () ->
-                match Balance.create -10m with
+                match Value.create -10m with
                 | Error (Budgeteur.Shared.DomainError.ValidationFailed _) -> ()
                 | other ->
                     failtestf "Expected ValidationFailed, but got %A" other
@@ -130,9 +131,7 @@ module BalanceSheetTests =
             testCase "liabilities do not contribute to total assets"
             <| fun () ->
                 let liabilitiesOnly =
-                    sheet [
-                        item "Loan" ItemKind.Liability Term.NonCurrent 500m
-                    ]
+                    sheet [ item "Loan" Side.Liability Term.NonCurrent 500m ]
 
                 Expect.equal
                     (BalanceSheet.totalAssets liabilitiesOnly)
@@ -170,12 +169,8 @@ module BalanceSheetTests =
             <| fun () ->
                 let nonCurrentOnly =
                     sheet [
-                        item "House" ItemKind.Asset Term.NonCurrent 400000m
-                        item
-                            "Mortgage"
-                            ItemKind.Liability
-                            Term.NonCurrent
-                            300000m
+                        item "House" Side.Asset Term.NonCurrent 400000m
+                        item "Mortgage" Side.Liability Term.NonCurrent 300000m
                     ]
 
                 Expect.equal
@@ -220,17 +215,17 @@ module BalanceSheetTests =
             <| fun () ->
                 Expect.equal
                     (BalanceSheet.accountSide (Money.create 250m))
-                    (ItemKind.Asset, 250m)
+                    (Side.Asset, 250m)
                     "a positive balance is held"
 
                 Expect.equal
                     (BalanceSheet.accountSide (Money.create 0m))
-                    (ItemKind.Asset, 0m)
+                    (Side.Asset, 0m)
                     "a zero balance is an asset"
 
                 Expect.equal
                     (BalanceSheet.accountSide (Money.create -250m))
-                    (ItemKind.Liability, 250m)
+                    (Side.Liability, 250m)
                     "a negative balance is owed, as a magnitude"
 
             testCase "accounts count towards every total by side and term"

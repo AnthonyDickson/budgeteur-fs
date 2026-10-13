@@ -14,14 +14,14 @@ module EndpointTests =
     /// server-owned-id contract.
     let private request
         (name : string)
-        (kind : string)
+        (side : string)
         (term : string)
-        (balance : decimal)
+        (value : decimal)
         : WriteBalanceSheetItemRequest = {
         Name = name
-        Kind = kind
+        Side = side
         Term = term
-        Balance = balance
+        Value = value
         AsOf = DateOnly (2026, 1, 1)
     }
 
@@ -116,9 +116,9 @@ module EndpointTests =
             return statusOf response
         }
 
-    /// Four items, one per kind and term, so every total has a distinguishable
+    /// Four items, one per side and term, so every total has a distinguishable
     /// value.
-    let private createOneOfEachKindAndTerm (client : HttpClient) : Async<unit> =
+    let private createOneOfEachSideAndTerm (client : HttpClient) : Async<unit> =
         async {
             let! _ =
                 createItem client (request "Chequing" "Asset" "Current" 2000m)
@@ -236,8 +236,8 @@ module EndpointTests =
                 Expect.isEmpty empty.Items "a new user's sheet should be empty"
                 Expect.equal empty.NetWorth 0m "an empty sheet has no net worth"
 
-                // Given: one item per kind and term.
-                do! createOneOfEachKindAndTerm app.Client
+                // Given: one item per side and term.
+                do! createOneOfEachSideAndTerm app.Client
 
                 // When: the sheet is read.
                 let! response = getSheet app.Client
@@ -299,8 +299,8 @@ module EndpointTests =
 
                 Expect.stringContains
                     body
-                    "\"kind\":\"Asset\""
-                    "kinds should be serialised as strings"
+                    "\"side\":\"Asset\""
+                    "sides should be serialised as strings"
 
                 Expect.stringContains
                     body
@@ -320,7 +320,7 @@ module EndpointTests =
 
                 use otherUser = app.ClientForUser "other-user"
 
-                do! createOneOfEachKindAndTerm app.Client
+                do! createOneOfEachSideAndTerm app.Client
 
                 let! everyday =
                     Seed.account
@@ -343,7 +343,7 @@ module EndpointTests =
                 Expect.equal
                     (sheet.Accounts
                      |> List.map (fun line ->
-                         line.Id, line.Kind, line.Balance, line.AsOf))
+                         line.Id, line.Side, line.Balance, line.AsOf))
                     [
                         card, "Liability", 400m, DateOnly (2026, 3, 2)
                         everyday, "Asset", 1000m, DateOnly (2026, 3, 1)
@@ -355,7 +355,7 @@ module EndpointTests =
                     [ unknown ]
                     "the account without a balance is listed as unknown"
 
-                // Then: the items' totals (from createOneOfEachKindAndTerm)
+                // Then: the items' totals (from createOneOfEachSideAndTerm)
                 // gain the account lines, and the unknown balance adds
                 // nothing.
                 Expect.equal sheet.TotalCurrentAssets 3000m "current assets"

@@ -1,9 +1,9 @@
 import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/item_write_request.{ItemWriteRequest}
+import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{
@@ -26,16 +26,16 @@ fn item_id(n: Int) -> Uuid {
 
 fn item(
   name name: String,
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
-  balance balance: Float,
+  value value: Float,
 ) -> BalanceSheetItem {
   BalanceSheetItem(
     id: item_id(1),
     name: name,
-    kind: kind,
+    side: side,
     term: term,
-    balance: balance,
+    value: value,
     as_of: Date(2026, March, 1),
   )
 }
@@ -50,10 +50,10 @@ fn run(
   state
 }
 
-fn create_modal(kind: ItemKind) -> item_modal.Modal {
+fn create_modal(side: Side) -> item_modal.Modal {
   run(
     item_modal.hidden(),
-    item_modal.CreateRequested(kind:, today: Some(today)),
+    item_modal.CreateRequested(side:, today: Some(today)),
     [],
   )
 }
@@ -95,16 +95,16 @@ pub fn over_long_name_is_reported_while_typing_test() {
   ) = state
 }
 
-pub fn duplicate_requires_the_name_kind_and_term_to_all_match_test() {
+pub fn duplicate_requires_the_name_side_and_term_to_all_match_test() {
   let existing =
-    item(name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
+    item(name: "Chequing", side: Asset, term: Current, value: 2000.0)
 
-  // A second part of the sheet can reuse a name as long as the kind or the
-  // term differs, because the server's key is (name, kind, term).
+  // A second part of the sheet can reuse a name as long as the side or the
+  // term differs, because the server's key is (name, side, term).
   let filled = fn(state, name, term) {
     state
     |> run(item_modal.NameChanged(name), [existing])
-    |> run(item_modal.BalanceChanged("10"), [existing])
+    |> run(item_modal.ValueChanged("10"), [existing])
     |> run(item_modal.TermChanged(term), [existing])
   }
 
@@ -149,7 +149,7 @@ pub fn editing_an_item_does_not_count_it_as_its_own_duplicate_test() {
   // The page passes the other items only, so renaming an item back to its own
   // name is not a collision.
   let existing =
-    item(name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
+    item(name: "Chequing", side: Asset, term: Current, value: 2000.0)
   let state =
     run(item_modal.hidden(), item_modal.EditRequested(existing), [existing])
 
@@ -165,31 +165,31 @@ pub fn editing_an_item_does_not_count_it_as_its_own_duplicate_test() {
     existing.id,
     ItemWriteRequest(
       name: "Chequing",
-      kind: Asset,
+      side: Asset,
       term: Current,
-      balance: 2000.0,
+      value: 2000.0,
       as_of: Date(2026, March, 1),
     ),
   ))
 }
 
-pub fn balance_is_required_numeric_and_non_negative_test() {
-  let balance_error = fn(input) {
+pub fn value_is_required_numeric_and_non_negative_test() {
+  let value_error = fn(input) {
     let state =
       create_modal(Asset)
       |> run(item_modal.NameChanged("Chequing"), [])
-      |> run(item_modal.BalanceChanged(input), [])
+      |> run(item_modal.ValueChanged(input), [])
 
-    active_form(state).balance
+    active_form(state).value
   }
 
-  let assert field.Empty("") = balance_error("")
+  let assert field.Empty("") = value_error("")
   let assert field.Invalid(error: item_modal.NotANumber, ..) =
-    balance_error("twelve")
-  let assert field.Invalid(error: item_modal.Negative, ..) = balance_error("-1")
-  let assert field.Valid(value: 12.5, ..) = balance_error("12.50")
+    value_error("twelve")
+  let assert field.Invalid(error: item_modal.Negative, ..) = value_error("-1")
+  let assert field.Valid(value: 12.5, ..) = value_error("12.50")
 
-  // A blank balance is only reported once the user submits.
+  // A blank value is only reported once the user submits.
   let state =
     create_modal(Asset)
     |> run(item_modal.NameChanged("Chequing"), [])
@@ -197,27 +197,27 @@ pub fn balance_is_required_numeric_and_non_negative_test() {
 
   let assert Active(
     form: item_modal.Form(
-      balance: field.Invalid(error: item_modal.BalanceRequired, ..),
+      value: field.Invalid(error: item_modal.ValueRequired, ..),
       ..,
     ),
     ..,
   ) = state
 }
 
-pub fn balance_input_is_clipped_to_two_decimal_places_test() {
+pub fn value_input_is_clipped_to_two_decimal_places_test() {
   let state =
     create_modal(Asset)
-    |> run(item_modal.BalanceChanged("12.3456"), [])
+    |> run(item_modal.ValueChanged("12.3456"), [])
 
   let assert field.Valid(value: 12.34, input: "12.34") =
-    active_form(state).balance
+    active_form(state).value
 }
 
-pub fn create_builds_a_post_with_the_chosen_kind_test() {
+pub fn create_builds_a_post_with_the_chosen_side_test() {
   let state =
     create_modal(Liability)
     |> run(item_modal.NameChanged("  Mortgage  "), [])
-    |> run(item_modal.BalanceChanged("300000"), [])
+    |> run(item_modal.ValueChanged("300000"), [])
     |> run(item_modal.TermChanged("NonCurrent"), [])
 
   let assert #(Submitting(mode: Create, ..), Some(request), NoChange) =
@@ -227,9 +227,9 @@ pub fn create_builds_a_post_with_the_chosen_kind_test() {
   |> should.equal(
     Post(ItemWriteRequest(
       name: "Mortgage",
-      kind: Liability,
+      side: Liability,
       term: NonCurrent,
-      balance: 300_000.0,
+      value: 300_000.0,
       as_of: today,
     )),
   )
@@ -250,16 +250,16 @@ pub fn opening_the_form_always_starts_fresh_test() {
   let assert Active(
     form: item_modal.Form(
       name: field.Empty(""),
-      kind: Liability,
+      side: Liability,
       term: Current,
-      balance: field.Empty(""),
+      value: field.Empty(""),
       as_of: field.Valid(value: Date(2026, March, 8), input: "2026-03-08"),
     ),
     mode: Create,
   ) =
     run(
       filled,
-      item_modal.CreateRequested(kind: Liability, today: Some(today)),
+      item_modal.CreateRequested(side: Liability, today: Some(today)),
       [],
     )
 }
@@ -269,9 +269,9 @@ pub fn the_as_of_date_is_required_and_must_be_a_date_test() {
   // only reported once the user submits.
   let state =
     item_modal.hidden()
-    |> run(item_modal.CreateRequested(kind: Asset, today: None), [])
+    |> run(item_modal.CreateRequested(side: Asset, today: None), [])
     |> run(item_modal.NameChanged("Chequing"), [])
-    |> run(item_modal.BalanceChanged("10"), [])
+    |> run(item_modal.ValueChanged("10"), [])
 
   let assert field.Empty("") = active_form(state).as_of
 

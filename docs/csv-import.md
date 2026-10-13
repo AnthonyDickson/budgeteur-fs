@@ -80,7 +80,7 @@ line. Lessons from it are cited where they shaped a decision.
   current balance, and is an asset when it is zero or more and a liability when
   it is negative, with the balance's magnitude. Totals, net worth, and working
   capital include both sources. Item rules are unchanged: positive magnitude,
-  kind fixed at creation.
+  side fixed at creation.
 - **Deletion**: deleting an account deletes its observations and its
   transactions, including any entered by hand against it. Closed accounts get a
   close date ([reports](reports.md) decision 4), so deletion is for mistakes,
@@ -89,14 +89,14 @@ line. Lessons from it are cited where they shaped a decision.
   the transactions without an account was rejected: a re-import skips them as
   duplicates (decision 6), so they would stay without one for good.
 - **Why**: a bank account's sign changes (an overdrawn chequing account is a
-  current liability), which an item's fixed kind cannot follow. Keeping accounts
+  current liability), which an item's fixed side cannot follow. Keeping accounts
   apart leaves the item invariants intact, stores each balance once, lets a
   balance be unknown, and keeps an account, and the attribution of its
   transactions, when it has no place on the sheet. Balance sheet decision 3
   anticipated this rule: a negative balance becomes a liability.
 - **Rejected**:
   - Accounts as balance sheet items with an optional account number. One list
-    and one form, but kind becomes editable for some items, an item created by
+    and one form, but side becomes editable for some items, an item created by
     import has no balance to start with, and deleting a closed account's item
     clears the account from its transactions.
   - Accounts linked to items. The account and the item each have a name and a

@@ -50,9 +50,9 @@ module main =
         { Id: System.Guid
           UserId: string
           Name: string
-          Kind: string
+          Side: string
           Term: string
-          Balance: decimal
+          Value: decimal
           AsOf: System.DateOnly }
 
         interface IWriteColumns with
@@ -60,9 +60,9 @@ module main =
                 [ { WriteColumn.Name = "Id"; Value = box this.Id; ProviderDbType = None }
                   { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
                   { WriteColumn.Name = "Name"; Value = box this.Name; ProviderDbType = None }
-                  { WriteColumn.Name = "Kind"; Value = box this.Kind; ProviderDbType = None }
+                  { WriteColumn.Name = "Side"; Value = box this.Side; ProviderDbType = None }
                   { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None }
-                  { WriteColumn.Name = "Balance"; Value = box this.Balance; ProviderDbType = None }
+                  { WriteColumn.Name = "Value"; Value = box this.Value; ProviderDbType = None }
                   { WriteColumn.Name = "AsOf"; Value = box this.AsOf; ProviderDbType = None } ]
 
     let BalanceSheetItems = table<BalanceSheetItems>
@@ -209,9 +209,9 @@ module main =
             { Id: Option<System.Guid>
               UserId: Option<string>
               Name: Option<string>
-              Kind: Option<string>
+              Side: Option<string>
               Term: Option<string>
-              Balance: Option<decimal>
+              Value: Option<decimal>
               AsOf: Option<System.DateOnly> }
 
             interface ILeftViewOf<``BalanceSheetItems (base)``>
@@ -334,7 +334,7 @@ module LeftViewExtensions =
             match this.Id with
             | Some value ->
                 let record: main.BalanceSheetItems =
-                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Kind = this.Kind.Value; Term = this.Term.Value; Balance = this.Balance.Value; AsOf = this.AsOf.Value }
+                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Side = this.Side.Value; Term = this.Term.Value; Value = this.Value.Value; AsOf = this.AsOf.Value }
 
                 Some record
             | None -> None

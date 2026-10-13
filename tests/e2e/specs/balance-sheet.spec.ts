@@ -38,24 +38,24 @@ async function gotoNewBalanceSheet(page: Page) {
   await expect(page.getByTestId('no-items-empty-state')).toBeVisible();
 }
 
-/// Add an item through the modal. The kind is chosen by which header button
+/// Add an item through the modal. The side is chosen by which header button
 /// opens the form; the term defaults to the current one.
 async function addItem(
   page: Page,
   args: {
-    kind: 'asset' | 'liability';
+    side: 'asset' | 'liability';
     name: string;
-    balance: string;
+    value: string;
     nonCurrent?: boolean;
   },
 ) {
-  const button = args.kind === 'asset'
+  const button = args.side === 'asset'
     ? 'add-asset-button'
     : 'add-liability-button';
   await page.getByTestId(button).click();
   await expect(modal(page)).toBeVisible();
   await modal(page).getByTestId('item-name-input').fill(args.name);
-  await modal(page).getByTestId('item-balance-input').fill(args.balance);
+  await modal(page).getByTestId('item-value-input').fill(args.value);
   if (args.nonCurrent) {
     await modal(page).getByTestId('item-term-NonCurrent').check();
   }
@@ -82,27 +82,27 @@ test.describe('balance sheet', () => {
     async ({ page }, testInfo) => {
       await gotoNewBalanceSheet(page);
 
-      // ── Create: one item per kind and term ───────────────────────────────────
+      // ── Create: one item per side and term ───────────────────────────────────
       await addItem(page, {
-        kind: 'asset',
+        side: 'asset',
         name: 'Chequing',
-        balance: '2000.00',
+        value: '2000.00',
       });
       await addItem(page, {
-        kind: 'asset',
+        side: 'asset',
         name: 'House',
-        balance: '400000.00',
+        value: '400000.00',
         nonCurrent: true,
       });
       await addItem(page, {
-        kind: 'liability',
+        side: 'liability',
         name: 'Credit card',
-        balance: '1500.00',
+        value: '1500.00',
       });
       await addItem(page, {
-        kind: 'liability',
+        side: 'liability',
         name: 'Mortgage',
-        balance: '300000.00',
+        value: '300000.00',
         nonCurrent: true,
       });
 
@@ -127,7 +127,7 @@ test.describe('balance sheet', () => {
 
       // ── Update: a current asset moves every affected total ───────────────────
       await editItem(page, 'Chequing');
-      await modal(page).getByTestId('item-balance-input').fill('3000.00');
+      await modal(page).getByTestId('item-value-input').fill('3000.00');
       await modal(page).getByTestId('item-submit-button').click();
       await expect(modal(page)).toBeHidden();
 

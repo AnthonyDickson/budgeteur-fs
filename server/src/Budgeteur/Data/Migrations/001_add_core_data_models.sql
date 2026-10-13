@@ -64,12 +64,13 @@ CREATE TABLE BalanceSheetItems (
     Id      GUID     NOT NULL PRIMARY KEY,
     UserId  TEXT     NOT NULL,
     Name    TEXT     NOT NULL,
-    Kind    TEXT     NOT NULL CHECK (Kind IN ('Asset', 'Liability')),
+    Side    TEXT     NOT NULL CHECK (Side IN ('Asset', 'Liability')),
     Term    TEXT     NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
-    Balance CURRENCY NOT NULL CHECK (Balance >= 0),
-    -- The calendar date the balance is accurate as of, chosen by the user.
+    -- A positive magnitude: the direction comes from Side.
+    Value   CURRENCY NOT NULL CHECK (Value >= 0),
+    -- The calendar date the value is accurate as of, chosen by the user.
     AsOf    DATE     NOT NULL,
-    UNIQUE(UserId, Name, Kind, Term)
+    UNIQUE(UserId, Name, Side, Term)
 );
 
 -- Tags

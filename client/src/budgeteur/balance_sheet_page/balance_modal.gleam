@@ -10,7 +10,7 @@
 import budgeteur/balance_sheet_page/account.{type Account}
 import budgeteur/balance_sheet_page/account_write_request.{type BalanceEntry}
 import budgeteur/balance_sheet_page/balance_form
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
+import budgeteur/balance_sheet_page/side.{type Side}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/form_modal
@@ -25,7 +25,7 @@ import lustre/event
 
 /// An account's current balance, as its balance sheet line shows it.
 pub type CurrentBalance {
-  CurrentBalance(side: ItemKind, amount: Float, as_of: Date)
+  CurrentBalance(side: Side, amount: Float, as_of: Date)
 }
 
 pub type Form {
@@ -218,8 +218,8 @@ fn describe_current(current: Option(CurrentBalance)) -> String {
       money.format(amount)
       <> " "
       <> case side {
-        item_kind.Asset -> "asset"
-        item_kind.Liability -> "liability"
+        side.Asset -> "asset"
+        side.Liability -> "liability"
       }
       <> " as of "
       <> date.format(as_of)

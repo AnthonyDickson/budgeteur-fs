@@ -1,4 +1,4 @@
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
+import budgeteur/balance_sheet_page/side.{type Side}
 import budgeteur/balance_sheet_page/term.{type Term}
 import budgeteur/shared/date
 import budgeteur/shared/money
@@ -10,24 +10,23 @@ pub type ItemWriteRequest {
     // A human-readable name, e.g. "Chequing account" or "Mortgage".
     name: String,
     // Whether the item is an asset or a liability.
-    kind: ItemKind,
+    side: Side,
     // Whether the item is current or non-current.
     term: Term,
-    // The positive magnitude of the item's value. Direction is implied by Kind.
-    balance: Float,
-    // The date the balance is accurate as of.
+    // The positive magnitude of the item's value. Direction is implied by side.
+    value: Float,
+    // The date the value is accurate as of.
     as_of: Date,
   )
 }
 
 pub fn to_json(item_write_request: ItemWriteRequest) -> json.Json {
-  let ItemWriteRequest(name:, kind:, term:, balance:, as_of:) =
-    item_write_request
+  let ItemWriteRequest(name:, side:, term:, value:, as_of:) = item_write_request
   json.object([
     #("name", json.string(name)),
-    #("kind", item_kind.to_json(kind)),
+    #("side", side.to_json(side)),
     #("term", term.to_json(term)),
-    #("balance", money.encode_decimal(balance)),
+    #("value", money.encode_decimal(value)),
     #("asOf", date.encode(as_of)),
   ])
 }

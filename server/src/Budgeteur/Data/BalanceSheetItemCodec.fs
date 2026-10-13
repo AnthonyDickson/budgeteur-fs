@@ -4,6 +4,7 @@ module BalanceSheetItemCodec =
     open System
     open Budgeteur.Data.Db
     open Budgeteur.Domain.BalanceSheetItem
+    open Budgeteur.Domain.Side
     open Budgeteur.Domain.Term
 
     let toRow
@@ -13,18 +14,18 @@ module BalanceSheetItemCodec =
         Id = item.Id
         UserId = userId
         Name = ItemName.value item.Name
-        Kind = ItemKind.toString item.Kind
+        Side = Side.toString item.Side
         Term = Term.toString item.Term
-        Balance = Balance.value item.Balance
+        Value = Value.value item.Value
         AsOf = item.AsOf
     }
 
     let fromRow (row : main.BalanceSheetItems) : BalanceSheetItem = {
         Id = row.Id
         Name = ItemName.unsafeFromString row.Name
-        Kind =
-            match ItemKind.parse row.Kind with
-            | Ok kind -> kind
+        Side =
+            match Side.parse row.Side with
+            | Ok side -> side
             // The database checks this column, so in practice this arm is
             // unreachable
             | Error error -> failwith error
@@ -34,6 +35,6 @@ module BalanceSheetItemCodec =
             // The database checks this column, so in practice this arm is
             // unreachable
             | Error error -> failwith error
-        Balance = Balance.unsafeFromDecimal row.Balance
+        Value = Value.unsafeFromDecimal row.Value
         AsOf = row.AsOf
     }

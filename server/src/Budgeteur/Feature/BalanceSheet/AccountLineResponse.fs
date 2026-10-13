@@ -2,7 +2,7 @@ namespace Budgeteur.Feature.BalanceSheet
 
 open System
 
-open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Side
 open Budgeteur.Domain.Term
 open Budgeteur.Shared.OpenApi
 
@@ -21,15 +21,15 @@ type AccountLineResponse = {
 
     /// <summary>Asset when the balance is zero or more, liability when it is
     /// negative.</summary>
-    [<SchemaHint.Enum(typeof<ItemKind>)>]
-    Kind : string
+    [<SchemaHint.Enum(typeof<Side>)>]
+    Side : string
 
     /// <summary>Whether the account is current or non-current.</summary>
     [<SchemaHint.Enum(typeof<Term>)>]
     Term : string
 
     /// <summary>The magnitude of the current balance. Direction is implied by
-    /// Kind.</summary>
+    /// Side.</summary>
     [<SchemaHint.Decimal(NonNegative = true)>]
     Balance : decimal
 
@@ -64,14 +64,14 @@ module AccountLineResponse =
     let fromDomain (account : AccountBalance) : AccountLineResponse option =
         account.Current
         |> Option.map (fun current ->
-            let kind, balance = BalanceSheet.accountSide current.Balance
+            let side, balance = BalanceSheet.accountSide current.Balance
 
             {
                 Id = account.Account.Id
                 Name = AccountName.value account.Account.Name
                 Number =
                     account.Account.Number |> Option.map AccountNumber.value
-                Kind = ItemKind.toString kind
+                Side = Side.toString side
                 Term = Term.toString account.Account.Term
                 Balance = balance
                 AsOf = current.AsOf

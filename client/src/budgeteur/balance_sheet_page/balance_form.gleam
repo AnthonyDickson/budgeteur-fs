@@ -6,7 +6,7 @@
 import budgeteur/balance_sheet_page/account_write_request.{
   type BalanceEntry, BalanceEntry,
 }
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
+import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
 import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/modal_ui
@@ -38,14 +38,14 @@ pub type Form {
   Form(
     // Which side of the sheet the balance puts the account on. The amount is
     // a magnitude, so the user never types a sign.
-    side: ItemKind,
+    side: Side,
     amount: field.Field(Float, AmountError),
     as_of: field.Field(Date, AsOfError),
   )
 }
 
 pub type Msg {
-  SideChanged(side: ItemKind)
+  SideChanged(side: Side)
   AmountChanged(value: String)
   AsOfChanged(value: String)
 }
@@ -57,7 +57,7 @@ pub fn empty(today: Option(Date)) -> Form {
 
 /// A balance pre-filled with a side and magnitude, dated the client's today,
 /// when known.
-pub fn prefilled(side: ItemKind, amount: Float, today: Option(Date)) -> Form {
+pub fn prefilled(side: Side, amount: Float, today: Option(Date)) -> Form {
   Form(
     side:,
     amount: field.Valid(value: amount, input: money.to_string(amount)),
@@ -95,7 +95,7 @@ pub fn update(form: Form, msg: Msg) -> Form {
 }
 
 /// The signed balance for a magnitude on a side: a liability is negative.
-pub fn signed_balance(side: ItemKind, magnitude: Float) -> Float {
+pub fn signed_balance(side: Side, magnitude: Float) -> Float {
   case side {
     Asset -> magnitude
     Liability -> 0.0 -. magnitude

@@ -11,8 +11,8 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
 }
 import budgeteur/balance_sheet_page/balance_sheet_page
 import budgeteur/balance_sheet_page/item_delete_modal
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
+import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/api_route
@@ -38,16 +38,16 @@ fn item_id(n: Int) -> Uuid {
 fn item(
   id id: Int,
   name name: String,
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
-  balance balance: Float,
+  value value: Float,
 ) -> BalanceSheetItem {
   BalanceSheetItem(
     id: item_id(id),
     name:,
-    kind:,
+    side:,
     term:,
-    balance:,
+    value:,
     as_of: Date(2026, March, 1),
   )
 }
@@ -93,9 +93,9 @@ fn submitting_modal(mode: form_modal.Mode) -> item_modal.Modal {
   form_modal.Submitting(
     item_modal.Form(
       name: field.Empty(""),
-      kind: Asset,
+      side: Asset,
       term: Current,
-      balance: field.Empty(""),
+      value: field.Empty(""),
       as_of: field.Empty(""),
     ),
     mode,
@@ -124,13 +124,13 @@ fn sample_sheet() -> BalanceSheet {
     total_non_current_liabilities: 300_000.0,
     working_capital: 500.0,
     items: [
-      item(id: 1, name: "Chequing", kind: Asset, term: Current, balance: 2000.0),
+      item(id: 1, name: "Chequing", side: Asset, term: Current, value: 2000.0),
       item(
         id: 2,
         name: "Mortgage",
-        kind: Liability,
+        side: Liability,
         term: NonCurrent,
-        balance: 300_000.0,
+        value: 300_000.0,
       ),
     ],
     accounts: [],
@@ -194,7 +194,7 @@ pub fn a_failed_fetch_retries_or_keeps_the_loaded_sheet_test() {
 
 pub fn saving_an_item_closes_the_dialog_refetches_and_toasts_test() {
   let created =
-    item(id: 3, name: "Savings", kind: Asset, term: Current, balance: 500.0)
+    item(id: 3, name: "Savings", side: Asset, term: Current, value: 500.0)
 
   let #(after, effect, out_msg) =
     balance_sheet_page.update(
@@ -218,7 +218,7 @@ pub fn saving_an_item_closes_the_dialog_refetches_and_toasts_test() {
 
 pub fn updating_an_item_reports_the_updated_item_test() {
   let existing =
-    item(id: 1, name: "Chequing", kind: Asset, term: Current, balance: 2500.0)
+    item(id: 1, name: "Chequing", side: Asset, term: Current, value: 2500.0)
 
   let #(after, _, out_msg) =
     balance_sheet_page.update(
@@ -236,7 +236,7 @@ pub fn updating_an_item_reports_the_updated_item_test() {
 
 pub fn confirming_a_delete_arms_a_delete_request_test() {
   let target =
-    item(id: 1, name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
+    item(id: 1, name: "Chequing", side: Asset, term: Current, value: 2000.0)
 
   // Delete in the item's edit dialog swaps the dialog for the confirmation.
   let #(editing, _, _) =
@@ -273,7 +273,7 @@ pub fn confirming_a_delete_arms_a_delete_request_test() {
 
 pub fn a_deleted_item_hides_the_dialog_refetches_and_toasts_test() {
   let target =
-    item(id: 1, name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
+    item(id: 1, name: "Chequing", side: Asset, term: Current, value: 2000.0)
 
   let model = loaded_model(sample_sheet()) |> deleting_model(target)
 
@@ -310,7 +310,7 @@ pub fn a_deleted_item_hides_the_dialog_refetches_and_toasts_test() {
 
 pub fn a_delete_failure_shows_inline_and_logs_test() {
   let target =
-    item(id: 1, name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
+    item(id: 1, name: "Chequing", side: Asset, term: Current, value: 2000.0)
 
   let #(after, effect, out_msg) =
     balance_sheet_page.update(
@@ -331,9 +331,9 @@ pub fn cancelling_the_item_form_hides_it_test() {
         |> with_modal(form_modal.Active(
           item_modal.Form(
             name: field.Empty(""),
-            kind: Asset,
+            side: Asset,
             term: Current,
-            balance: field.Empty(""),
+            value: field.Empty(""),
             as_of: field.Empty(""),
           ),
           form_modal.Create,

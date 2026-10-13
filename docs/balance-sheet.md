@@ -21,20 +21,20 @@ was last set. Sheets for past dates come with [reports](reports.md).
 
 ## Ubiquitous language
 
-| Term                | Meaning                                                                                                                                                                                                   |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BalanceSheet`      | The aggregate: every item and account, drawn for one date, the statement date.                                                                                                                            |
-| Statement date      | The date the sheet is drawn for, in the financial-statement sense. Today on the current page; the period end for a report. Not stored. Unrelated to the bank statements CSV import reads.                 |
-| As-of date          | The date a line's balance is accurate as of. Every line has one.                                                                                                                                          |
-| `BalanceSheetItem`  | One line: a single asset or a single liability that is not an account.                                                                                                                                    |
-| Account             | Somewhere the user's transactions happen. Also a line, with a signed balance; see [CSV import](csv-import.md).                                                                                            |
-| `ItemKind`          | `Asset` (owned) or `Liability` (owed). Gives a value its direction.                                                                                                                                       |
-| `Term`              | `Current` or `NonCurrent`, set by the user. For an asset, `Current` means liquid. For a liability, `Current` means short-term (due within about 12 months).                                               |
-| `Balance`           | An item's balance: the positive magnitude of its value, in the base currency, rounded to cents. Direction comes from `ItemKind`. An account's balance is signed instead; see [CSV import](csv-import.md). |
-| Current assets      | Assets whose `Term` is `Current`.                                                                                                                                                                         |
-| Current liabilities | Liabilities whose `Term` is `Current`.                                                                                                                                                                    |
-| Net worth           | Total assets minus total liabilities.                                                                                                                                                                     |
-| Working capital     | Current assets minus current liabilities. The near-term position.                                                                                                                                         |
+| Term                | Meaning                                                                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BalanceSheet`      | The aggregate: every item and account, drawn for one date, the statement date.                                                                                                                        |
+| Statement date      | The date the sheet is drawn for, in the financial-statement sense. Today on the current page; the period end for a report. Not stored. Unrelated to the bank statements CSV import reads.             |
+| As-of date          | The date a line's value or balance is accurate as of. Every line has one.                                                                                                                             |
+| `BalanceSheetItem`  | One line: a single asset or a single liability that is not an account.                                                                                                                                |
+| Account             | Somewhere the user's transactions happen. Also a line, with a signed balance; see [CSV import](csv-import.md).                                                                                        |
+| `Side`              | `Asset` (owned) or `Liability` (owed). Fixed for an item; for an account, follows the sign of its balance.                                                                                            |
+| `Term`              | `Current` or `NonCurrent`, set by the user. For an asset, `Current` means liquid. For a liability, `Current` means short-term (due within about 12 months).                                           |
+| `Value`             | An item's worth, or what it owes: a positive magnitude in the base currency, rounded to cents. Direction comes from `Side`. An account has a signed balance instead; see [CSV import](csv-import.md). |
+| Current assets      | Assets whose `Term` is `Current`.                                                                                                                                                                     |
+| Current liabilities | Liabilities whose `Term` is `Current`.                                                                                                                                                                |
+| Net worth           | Total assets minus total liabilities.                                                                                                                                                                 |
+| Working capital     | Current assets minus current liabilities. The near-term position.                                                                                                                                     |
 
 The domain uses one axis, `Current` and `NonCurrent`, for both sides. Accounting
 calls assets "current or non-current"; planners call them "liquid or illiquid",
@@ -55,7 +55,7 @@ stores `Current` or `NonCurrent`.
 - **Goal**: the ubiquitous language stays unambiguous. An item is a holding that
   is not an account; accounts are a separate source of lines (decision 5).
 
-### 2. Two orthogonal axes: `ItemKind` and `Term`
+### 2. Two orthogonal axes: `Side` and `Term`
 
 - **Decision**: model asset-versus-liability and current-versus-non-current as
   two independent values, not one four-case union.
@@ -65,7 +65,7 @@ stores `Current` or `NonCurrent`.
   current items", and working capital fall out without enumerating cases, and a
   future dimension does not reshape existing ones.
 
-### 3. `Balance` is a positive magnitude; `ItemKind` gives direction
+### 3. `Value` is a positive magnitude; `Side` gives direction
 
 - **Decision**: values are stored as non-negative magnitudes with the direction
   supplied by the classification. A negative magnitude is rejected.
@@ -82,7 +82,7 @@ stores `Current` or `NonCurrent`.
 ### 4. Each line is dated; the sheet is drawn for a date
 
 - **Decision**: every line carries its as-of date. An item's is set with its
-  balance and defaults to the client's today; an account's is its current
+  value and defaults to the client's today; an account's is its current
   balance's ([CSV import](csv-import.md) decision 3). An as-of date later than
   the server's UTC date plus one day is rejected, as for account balances. The
   sheet stores no date of its own: its statement date is the date it is drawn
@@ -117,7 +117,7 @@ stores `Current` or `NonCurrent`.
   a `Liability` when it is negative, with the balance's magnitude. Accounts with
   an unknown balance are left out of totals and listed separately. Totals, net
   worth, and working capital include both sources.
-- **Why**: an account's side follows its balance, which a fixed `ItemKind`
+- **Why**: an account's side follows its balance, which an item's fixed `Side`
   cannot. Combining at read time keeps the item invariants and stores each
   balance once. The account model and the rejected alternatives are in
   [CSV import](csv-import.md) decisions 1 to 3.
@@ -191,12 +191,12 @@ stores `Current` or `NonCurrent`.
 - **No sheet row.** A sheet is the user's items and accounts, with nothing
   stored for the sheet itself, so a user with neither gets an empty sheet, not
   `404`. The client shows it as an empty state.
-- **Item shape.** `Id`, `Name`, `Kind`, `Term`, `Balance`, `AsOf`. No account
+- **Item shape.** `Id`, `Name`, `Side`, `Term`, `Value`, `AsOf`. No account
   reference, no currency.
-- **Kind is fixed at creation.** For items. The page creates assets and
-  liabilities from separate entry points, so `Kind` is never a field in the form
+- **Side is fixed at creation.** For items. The page creates assets and
+  liabilities from separate entry points, so `Side` is never a field in the form
   and a value cannot silently end up on the wrong side of the sheet. Moving an
-  item to the other side means deleting it and recreating it, which keeps `Kind`
+  item to the other side means deleting it and recreating it, which keeps `Side`
   immutable like the rest of the model.
 - **Classification edges.** Under the liquid test a car is `NonCurrent` (a use
   asset), and a 3-year term deposit is `NonCurrent` unless it is genuinely

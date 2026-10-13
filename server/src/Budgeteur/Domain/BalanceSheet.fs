@@ -3,6 +3,7 @@ namespace Budgeteur.Domain.BalanceSheet
 open Budgeteur.Domain.Account
 open Budgeteur.Domain.BalanceSheetItem
 open Budgeteur.Domain.Money
+open Budgeteur.Domain.Side
 open Budgeteur.Domain.Term
 
 /// <summary>The items and accounts a user tracks: the two sources of lines.
@@ -20,7 +21,7 @@ type BalanceSheet = {
 /// <summary>Where a line sits on the sheet and the magnitude it adds there.
 /// Both sources of lines reduce to this for the totals.</summary>
 type private Line = {
-    Kind : ItemKind
+    Side : Side
     Term : Term
     Amount : decimal
 }
@@ -30,13 +31,13 @@ module BalanceSheet =
     /// <summary>The side and magnitude of an account's balance: an asset when
     /// it is zero or more, a liability when it is negative. An overdrawn
     /// chequing account is a current liability.</summary>
-    let accountSide (balance : Money) : ItemKind * decimal =
+    let accountSide (balance : Money) : Side * decimal =
         let balance = Money.value balance
 
         if balance < 0m then
-            ItemKind.Liability, -balance
+            Side.Liability, -balance
         else
-            ItemKind.Asset, balance
+            Side.Asset, balance
 
     /// <summary>The accounts whose balance is unknown. They are left out of
     /// the totals, since an unknown balance is not zero.</summary>
@@ -49,9 +50,9 @@ module BalanceSheet =
         let items =
             sheet.Items
             |> List.map (fun item -> {
-                Kind = item.Kind
+                Side = item.Side
                 Term = item.Term
-                Amount = Balance.value item.Balance
+                Amount = Value.value item.Value
             })
 
         let accounts =
@@ -59,10 +60,10 @@ module BalanceSheet =
             |> List.choose (fun account ->
                 account.Current
                 |> Option.map (fun current ->
-                    let kind, amount = accountSide current.Balance
+                    let side, amount = accountSide current.Balance
 
                     {
-                        Kind = kind
+                        Side = side
                         Term = account.Account.Term
                         Amount = amount
                     }))
@@ -75,34 +76,32 @@ module BalanceSheet =
     /// <summary>Total value of everything owned, both current and
     /// non-current.</summary>
     let totalAssets (sheet : BalanceSheet) =
-        sumWhere (fun line -> line.Kind = ItemKind.Asset) sheet
+        sumWhere (fun line -> line.Side = Side.Asset) sheet
 
     /// <summary>Total value of everything owed, both current and
     /// non-current.</summary>
     let totalLiabilities (sheet : BalanceSheet) =
-        sumWhere (fun line -> line.Kind = ItemKind.Liability) sheet
+        sumWhere (fun line -> line.Side = Side.Liability) sheet
 
     /// <summary>Total value of assets expected to be realised within the
     /// current period.</summary>
     let totalCurrentAssets (sheet : BalanceSheet) =
         sumWhere
-            (fun line -> line.Kind = ItemKind.Asset && line.Term = Term.Current)
+            (fun line -> line.Side = Side.Asset && line.Term = Term.Current)
             sheet
 
     /// <summary>Total value of liabilities expected to be settled within the
     /// current period.</summary>
     let totalCurrentLiabilities (sheet : BalanceSheet) =
         sumWhere
-            (fun line ->
-                line.Kind = ItemKind.Liability && line.Term = Term.Current)
+            (fun line -> line.Side = Side.Liability && line.Term = Term.Current)
             sheet
 
     /// <summary>Total value of assets **not** expected to be realised within
     /// the current period.</summary>
     let totalNonCurrentAssets (sheet : BalanceSheet) =
         sumWhere
-            (fun line ->
-                line.Kind = ItemKind.Asset && line.Term = Term.NonCurrent)
+            (fun line -> line.Side = Side.Asset && line.Term = Term.NonCurrent)
             sheet
 
     /// <summary>Total value of liabilities **not** expected to be settled
@@ -110,7 +109,7 @@ module BalanceSheet =
     let totalNonCurrentLiabilities (sheet : BalanceSheet) =
         sumWhere
             (fun line ->
-                line.Kind = ItemKind.Liability && line.Term = Term.NonCurrent)
+                line.Side = Side.Liability && line.Term = Term.NonCurrent)
             sheet
 
     /// <summary>Total assets minus total liabilities.</summary>

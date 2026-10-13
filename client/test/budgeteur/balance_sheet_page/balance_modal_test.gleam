@@ -2,7 +2,7 @@ import budgeteur/balance_sheet_page/account.{type Account, Account}
 import budgeteur/balance_sheet_page/account_write_request.{BalanceEntry}
 import budgeteur/balance_sheet_page/balance_form
 import budgeteur/balance_sheet_page/balance_modal.{CurrentBalance}
-import budgeteur/balance_sheet_page/item_kind.{Asset, Liability}
+import budgeteur/balance_sheet_page/side.{Asset, Liability}
 import budgeteur/balance_sheet_page/term.{Current}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{Active, Edit, NoChange, Put, Updated}

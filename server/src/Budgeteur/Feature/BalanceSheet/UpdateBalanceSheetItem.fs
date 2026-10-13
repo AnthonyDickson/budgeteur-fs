@@ -40,7 +40,7 @@ module UpdateBalanceSheetItem =
                             row.Id <> item.Id
                             && row.UserId = item.UserId
                             && row.Name = item.Name
-                            && row.Kind = item.Kind
+                            && row.Side = item.Side
                             && row.Term = item.Term
                         )
 

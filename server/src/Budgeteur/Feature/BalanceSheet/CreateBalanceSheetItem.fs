@@ -39,7 +39,7 @@ module CreateBalanceSheetItem =
                         where (
                             b.UserId = userId
                             && b.Name = item.Name
-                            && b.Kind = item.Kind
+                            && b.Side = item.Side
                             && b.Term = item.Term
                         )
 

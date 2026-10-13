@@ -6,9 +6,9 @@ import budgeteur/balance_sheet_page/balance_modal
 import budgeteur/balance_sheet_page/balance_sheet.{type BalanceSheet}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_delete_modal
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/item_write_request
+import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
@@ -74,7 +74,7 @@ pub type Msg {
   // Retry after a failed first load.
   UserRequestedSheetReload
   // Item modal messages
-  UserRequestedItemCreation(kind: ItemKind)
+  UserRequestedItemCreation(side: Side)
   UserRequestedItemEdit(Uuid)
   ItemModalMsg(item_modal.Msg)
   // Item delete modal messages. The item modal's `DeleteRequested` opens it.
@@ -163,10 +163,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       None,
     )
 
-    UserRequestedItemCreation(kind:) ->
+    UserRequestedItemCreation(side:) ->
       run_item_modal(
         model,
-        item_modal.CreateRequested(kind:, today: model.today),
+        item_modal.CreateRequested(side:, today: model.today),
       )
 
     UserRequestedItemEdit(id) -> {
@@ -885,14 +885,14 @@ fn sheet_columns(sheet: BalanceSheet) -> Element(Msg) {
         line_group(
           sheet,
           "Current assets",
-          kind: Asset,
+          side: Asset,
           term: Current,
           subtotal: sheet.total_current_assets,
         ),
         line_group(
           sheet,
           "Non-current assets",
-          kind: Asset,
+          side: Asset,
           term: NonCurrent,
           subtotal: sheet.total_non_current_assets,
         ),
@@ -906,14 +906,14 @@ fn sheet_columns(sheet: BalanceSheet) -> Element(Msg) {
         line_group(
           sheet,
           "Current liabilities",
-          kind: Liability,
+          side: Liability,
           term: Current,
           subtotal: sheet.total_current_liabilities,
         ),
         line_group(
           sheet,
           "Non-current liabilities",
-          kind: Liability,
+          side: Liability,
           term: NonCurrent,
           subtotal: sheet.total_non_current_liabilities,
         ),
@@ -972,18 +972,18 @@ fn sheet_side(
   )
 }
 
-/// One kind and term's lines: its items, then its accounts, with the subtotal.
+/// One side and term's lines: its items, then its accounts, with the subtotal.
 fn line_group(
   sheet: BalanceSheet,
   title: String,
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
   subtotal subtotal: Float,
 ) -> Element(Msg) {
   let rows =
     list.append(
-      items_with(sheet.items, kind:, term:) |> list.map(item_row),
-      accounts_with(sheet.accounts, kind:, term:) |> list.map(account_row),
+      items_with(sheet.items, side:, term:) |> list.map(item_row),
+      accounts_with(sheet.accounts, side:, term:) |> list.map(account_row),
     )
 
   html.div([], [
@@ -1034,7 +1034,7 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
       children: [html.text(item.name)],
     ),
     details: ["As of " <> date.format(item.as_of)],
-    balance: item.balance,
+    amount: item.value,
   )
 }
 
@@ -1044,7 +1044,7 @@ fn account_row(line: AccountLine) -> Element(Msg) {
   let as_of = "As of " <> date.format(line.as_of)
   let current =
     balance_modal.CurrentBalance(
-      side: line.kind,
+      side: line.side,
       amount: line.balance,
       as_of: line.as_of,
     )
@@ -1056,7 +1056,7 @@ fn account_row(line: AccountLine) -> Element(Msg) {
       Some(number) -> [number, as_of]
       None -> [as_of]
     },
-    balance: line.balance,
+    amount: line.balance,
   )
 }
 
@@ -1068,7 +1068,7 @@ fn line_row(
   testid testid: String,
   name name: Element(Msg),
   details details: List(String),
-  balance balance: Float,
+  amount amount: Float,
 ) -> Element(Msg) {
   html.li(
     [
@@ -1093,9 +1093,9 @@ fn line_row(
             row_ui.selectable_class
             <> " text-right text-sm tabular-nums text-gray-900",
           ),
-          attribute.attribute("data-amount", float.to_string(balance)),
+          attribute.attribute("data-amount", float.to_string(amount)),
         ],
-        [html.text(money.format(balance))],
+        [html.text(money.format(amount))],
       ),
       row_ui.chevron(class: "mt-0.5"),
     ],
@@ -1220,18 +1220,18 @@ fn empty_card(
 
 fn items_with(
   items: List(BalanceSheetItem),
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
 ) -> List(BalanceSheetItem) {
-  list.filter(items, fn(item) { item.kind == kind && item.term == term })
+  list.filter(items, fn(item) { item.side == side && item.term == term })
 }
 
 fn accounts_with(
   accounts: List(AccountLine),
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
 ) -> List(AccountLine) {
   list.filter(accounts, fn(line) {
-    line.kind == kind && line.account.term == term
+    line.side == side && line.account.term == term
   })
 }
