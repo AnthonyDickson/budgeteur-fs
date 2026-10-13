@@ -1,6 +1,7 @@
 import budgeteur/balance_sheet_page/balance_sheet_page
 import budgeteur/dashboard_page/dashboard_page
 import budgeteur/header
+import budgeteur/quick_tagging_page/quick_tagging_page
 import budgeteur/shared/auth_route
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/guard
@@ -29,6 +30,7 @@ import youid/uuid.{type Uuid}
 pub type Page {
   DashboardPage(dashboard_page.Model)
   TransactionsPage(transaction_page.Model)
+  QuickTaggingPage(quick_tagging_page.Model)
   TaggingPage(tagging_page.Model)
   BalanceSheetPage(balance_sheet_page.Model)
   NotFound
@@ -42,6 +44,7 @@ pub type Msg {
   SessionExpired
   DashboardPageMsg(dashboard_page.Msg)
   TransactionsPageMsg(transaction_page.Msg)
+  QuickTaggingPageMsg(quick_tagging_page.Msg)
   TaggingPageMsg(tagging_page.Msg)
   BalanceSheetPageMsg(balance_sheet_page.Msg)
   ToastDismissed(id: Uuid)
@@ -109,6 +112,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           let #(_, page_effect) = transaction_page.init()
           #(model, effect.map(page_effect, TransactionsPageMsg))
         }
+        route.QuickTagging, QuickTaggingPage(_) -> {
+          let #(_, page_effect) = quick_tagging_page.init()
+          #(model, effect.map(page_effect, QuickTaggingPageMsg))
+        }
         route.Tagging, TaggingPage(_) -> {
           let #(_, page_effect) = tagging_page.init()
           #(model, effect.map(page_effect, TaggingPageMsg))
@@ -130,6 +137,14 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
           let model = Model(..model, page: TransactionsPage(inner_model))
           let effect = effect.map(inner_effect, TransactionsPageMsg)
+
+          #(model, effect)
+        }
+        route.QuickTagging, _ -> {
+          let #(inner_model, inner_effect) = quick_tagging_page.init()
+
+          let model = Model(..model, page: QuickTaggingPage(inner_model))
+          let effect = effect.map(inner_effect, QuickTaggingPageMsg)
 
           #(model, effect)
         }
@@ -172,6 +187,18 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       #(
         Model(..model, page: TransactionsPage(inner_model)),
         effect.map(inner_effect, TransactionsPageMsg),
+      )
+      |> with_out_msg(out_msg)
+    }
+    QuickTaggingPageMsg(inner_msg),
+      Model(page: QuickTaggingPage(inner_model), ..)
+    -> {
+      let #(inner_model, inner_effect, out_msg) =
+        quick_tagging_page.update(inner_model, inner_msg)
+
+      #(
+        Model(..model, page: QuickTaggingPage(inner_model)),
+        effect.map(inner_effect, QuickTaggingPageMsg),
       )
       |> with_out_msg(out_msg)
     }
@@ -262,6 +289,10 @@ pub fn view(model: Model) -> Element(Msg) {
       transaction_page.view(inner_model)
       |> element.map(TransactionsPageMsg)
 
+    QuickTaggingPage(inner_model) ->
+      quick_tagging_page.view(inner_model)
+      |> element.map(QuickTaggingPageMsg)
+
     TaggingPage(inner_model) ->
       tagging_page.view(inner_model)
       |> element.map(TaggingPageMsg)
@@ -290,6 +321,7 @@ fn current_route(page: Page) -> route.Route {
   case page {
     DashboardPage(_) -> route.Dashboard
     TransactionsPage(_) -> route.Transactions
+    QuickTaggingPage(_) -> route.QuickTagging
     TaggingPage(_) -> route.Tagging
     BalanceSheetPage(_) -> route.BalanceSheet
     NotFound -> route.NotFound

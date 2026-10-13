@@ -336,16 +336,16 @@ line. Lessons from it are cited where they shaped a decision.
 ### 11. Import, then review
 
 - **Decision**: the upload imports straight away. The result shows the counts
-  and the accounts created. Once quick-tagging exists, the response gains the
-  ids of the untagged transactions the import created, and the result offers
-  "Review untagged", which opens quick-tagging limited to them; each tag saves
-  as it is chosen. The client holds those ids in the page model only.
+  and the accounts created. The transactions rules did not tag join the quick
+  tagging queue, reached from the "Quick tag" link next to "Import", where each
+  tag saves as it is chosen. There is no review limited to one import; see
+  [quick tagging](quick-tagging.md) decision 7.
 - **Why**: tagging in a preview before saving holds minutes of work in unsaved
   state, needs a confirm request that re-sends the files or trusts rows parsed
   on the client, and saves nothing if the user stops halfway. Reviewing after
   the import uses the normal assignment writes, and an interrupted review leaves
-  the rest untagged for the general quick-tagging view. New rows are tagged by
-  rules during the import, so "untagged" and "matched no rule" are the same set.
+  the rest in the queue. New rows are tagged by rules during the import, so
+  "untagged" and "matched no rule" are the same set.
 - **Rejected**: a preview with confirm. Its other use, catching the wrong file,
   is mostly covered by format detection and duplicate skipping; an undo is
   deferred.
@@ -490,7 +490,6 @@ line. Lessons from it are cited where they shaped a decision.
 
 ## Deferred
 
-- **Quick-tagging.** The review step in decision 11 waits for it.
 - **ASB bank accounts.** The export cannot currently be downloaded. Build the
   format from an anonymised sample once it can. The previous project's parser
   shows the expected layout: a preamble with the account number split into bank,

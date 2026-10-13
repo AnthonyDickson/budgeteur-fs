@@ -30,6 +30,7 @@ pub type ApiRoute {
   RunAutoTag
   GetRuleMatches(pattern: String)
   ImportStatements
+  GetQuickTagQueue
 }
 
 const api_prefix = "/api"
@@ -62,6 +63,7 @@ pub fn to_string(route: ApiRoute) -> String {
       <> date.format(to)
     RunAutoTag -> api_prefix <> "/auto-tag"
     ImportStatements -> api_prefix <> "/imports"
+    GetQuickTagQueue -> api_prefix <> "/quick-tag"
     GetRuleMatches(pattern:) ->
       api_prefix
       <> "/auto-tag/matches?"

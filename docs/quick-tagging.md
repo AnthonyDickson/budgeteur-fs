@@ -218,8 +218,8 @@ Assignment, tag source, manual tag, and rule tag are defined in
   one line, then the tag buttons, wrapping as needed. The description can be
   selected and copied. Rows do not open the transaction form; other fields are
   edited on the transactions page.
-- **Empty state**: "No transactions are waiting for a tag", with links to the
-  transactions page and to importing.
+- **Empty state**: "No transactions are waiting for a tag", with a link to the
+  transactions page, where the user imports and records transactions.
 - **Errors**: a failed queue load shows the page's error state with a retry. A
   failed save uses the error toast (decision 4).
 - **Goal**: a row reads like a bank statement line, and the tags are the only
