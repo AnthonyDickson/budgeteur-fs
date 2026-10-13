@@ -19,13 +19,17 @@ module BalanceSheetTests =
         | Error error ->
             failtestf "%s: expected Ok, but got Error %A" label error
 
-    let private item name side term value = {
-        Id = Guid.Empty
-        Name = ItemName.create name |> okOrFail "name"
-        Side = side
-        Term = term
-        Value = Value.create value |> okOrFail "value"
-        AsOf = DateOnly (2026, 1, 1)
+    let private item name side term value : ItemValue = {
+        Item = {
+            Id = Guid.Empty
+            Name = ItemName.create name |> okOrFail "name"
+            Side = side
+            Term = term
+        }
+        Current = {
+            AsOf = DateOnly (2026, 1, 1)
+            Value = Value.create value |> okOrFail "value"
+        }
     }
 
     let private sheet items : BalanceSheet = { Items = items; Accounts = [] }

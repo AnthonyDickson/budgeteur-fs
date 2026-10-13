@@ -78,26 +78,39 @@ module Value =
     /// from the database.
     let internal unsafeFromDecimal amount = Value amount
 
-/// <summary>A single line on the balance sheet: one asset or one
-/// liability.</summary>
+/// <summary>A single line on the balance sheet that is not an account: one
+/// asset or one liability. Its values are observations.</summary>
 type BalanceSheetItem = {
     /// <summary>Unique identifier for the item.</summary>
     Id : Guid
 
-    /// <summary>A human-readable name, e.g. "Chequing account" or
-    /// "Mortgage".</summary>
+    /// <summary>A human-readable name, e.g. "House" or "Mortgage".</summary>
     Name : ItemName
 
-    /// <summary>Whether the item is an asset or a liability.</summary>
+    /// <summary>Whether the item is an asset or a liability. Fixed at
+    /// creation.</summary>
     Side : Side
 
     /// <summary>Whether the item is current or non-current.</summary>
     Term : Term
+}
+
+/// <summary>A value an item had as of a date, entered by hand. An item has at
+/// most one observation per date: a new one replaces any on its date. See
+/// decision 2 in docs/reports.md.</summary>
+type ItemObservation = {
+    AsOf : DateOnly
 
     /// <summary>The positive magnitude of the item's value. Direction is
-    /// implied by Side.</summary>
+    /// implied by the item's Side.</summary>
     Value : Value
+}
 
-    /// <summary>The date the value is accurate as of.</summary>
-    AsOf : DateOnly
+/// <summary>An item and its current value.</summary>
+type ItemValue = {
+    Item : BalanceSheetItem
+
+    /// <summary>The observation with the latest as-of date. Every item has
+    /// one: it is created with its first.</summary>
+    Current : ItemObservation
 }

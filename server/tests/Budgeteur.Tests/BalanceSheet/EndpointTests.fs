@@ -10,20 +10,30 @@ module EndpointTests =
     open Budgeteur.Shared.Clock
     open Budgeteur.Tests
 
-    /// A valid create or update payload. No id is supplied, matching the
+    /// A valid create payload. No id is supplied, matching the
     /// server-owned-id contract.
     let private request
         (name : string)
         (side : string)
         (term : string)
         (value : decimal)
-        : WriteBalanceSheetItemRequest = {
+        : CreateBalanceSheetItemRequest = {
         Name = name
         Side = side
         Term = term
         Value = value
         AsOf = DateOnly (2026, 1, 1)
     }
+
+    let private details
+        (name : string)
+        (term : string)
+        : UpdateBalanceSheetItemRequest = { Name = name; Term = term }
+
+    let private observation
+        (value : decimal)
+        (asOf : DateOnly)
+        : ItemObservationRequest = { Value = value; AsOf = asOf }
 
     let private newApp () =
         TestApp.create (
@@ -37,7 +47,7 @@ module EndpointTests =
     /// Create an item and return its server-assigned id.
     let private createItem
         (client : HttpClient)
-        (payload : WriteBalanceSheetItemRequest)
+        (payload : CreateBalanceSheetItemRequest)
         : Async<Guid> =
         async {
             let! response =
@@ -91,7 +101,7 @@ module EndpointTests =
     let private updateItem
         (client : HttpClient)
         (id : Guid)
-        (payload : WriteBalanceSheetItemRequest)
+        (payload : UpdateBalanceSheetItemRequest)
         : Async<HttpStatusCode> =
         async {
             let! response =
@@ -102,6 +112,30 @@ module EndpointTests =
                 |> Async.AwaitTask
 
             return statusOf response
+        }
+
+    let private recordValue
+        (client : HttpClient)
+        (id : Guid)
+        (payload : ItemObservationRequest)
+        : Async<HttpResponseMessage> =
+        TestHttp.postJson
+            client
+            (TestHttp.itemPath RecordItemObservation.Path id)
+            payload
+        |> Async.AwaitTask
+
+    /// The item's value and as-of date on the sheet.
+    let private currentValue
+        (client : HttpClient)
+        (id : Guid)
+        : Async<decimal * DateOnly> =
+        async {
+            let! sheet = getSheetBody client
+
+            match sheet.Items |> List.tryFind (fun item -> item.Id = id) with
+            | Some item -> return item.Value, item.AsOf
+            | None -> return failtestf "Item %O is not on the sheet" id
         }
 
     let private getItem
@@ -431,7 +465,7 @@ module EndpointTests =
                     TestHttp.putJson
                         app.Client
                         (TestHttp.itemPath UpdateBalanceSheetItem.Path existing)
-                        (request "Chequing" "Asset" "NonCurrent" 1m)
+                        (details "Chequing" "NonCurrent")
                     |> Async.AwaitTask
 
                 Expect.equal
@@ -444,7 +478,7 @@ module EndpointTests =
                     TestHttp.putJson
                         app.Client
                         (TestHttp.itemPath UpdateBalanceSheetItem.Path existing)
-                        (request "Chequing" "Asset" "Current" 2500m)
+                        (details "Chequing" "Current")
                     |> Async.AwaitTask
 
                 Expect.equal
@@ -517,11 +551,142 @@ module EndpointTests =
                 Expect.equal
                     response.StatusCode
                     HttpStatusCode.BadRequest
-                    "a negative balance should be rejected"
+                    "a negative value should be rejected"
 
                 // Nothing was written.
                 let! sheet = getSheetBody app.Client
                 Expect.isEmpty sheet.Items "a rejected write should add no item"
+            }
+
+            testCaseAsync "an item's value is its latest observation"
+            <| async {
+                let now = DateTime (2026, 3, 8, 23, 0, 0, DateTimeKind.Utc)
+
+                use app =
+                    TestApp.create (
+                        TestAppConfig.empty
+                        |> TestAppConfig.withBalanceSheet (
+                            fixedClock (DateTimeOffset now)
+                        )
+                    )
+
+                use otherUser = app.ClientForUser "other-user"
+
+                // Given: an item created with its first value.
+                let! id =
+                    createItem
+                        app.Client
+                        (request "House" "Asset" "NonCurrent" 2000m)
+
+                let! first = currentValue app.Client id
+
+                Expect.equal
+                    first
+                    (2000m, DateOnly (2026, 1, 1))
+                    "the first value is current"
+
+                // When: a newer value is recorded.
+                let! newer =
+                    recordValue
+                        app.Client
+                        id
+                        (observation 2500m (DateOnly (2026, 2, 1)))
+
+                Expect.equal newer.StatusCode HttpStatusCode.OK "record is 200"
+
+                let! recorded =
+                    TestHttp.readJson<BalanceSheetItemResponse> newer
+
+                Expect.equal
+                    (recorded.Value, recorded.AsOf)
+                    (2500m, DateOnly (2026, 2, 1))
+                    "the response has the item's current value"
+
+                // When: an older value is recorded.
+                let! _ =
+                    recordValue
+                        app.Client
+                        id
+                        (observation 1000m (DateOnly (2026, 1, 15)))
+
+                // Then: the newer value stays current.
+                let! afterOlder = currentValue app.Client id
+
+                Expect.equal
+                    afterOlder
+                    (2500m, DateOnly (2026, 2, 1))
+                    "an older value does not replace a newer one"
+
+                // When: a value is recorded on a date that has one.
+                let! _ =
+                    recordValue
+                        app.Client
+                        id
+                        (observation 2600m (DateOnly (2026, 2, 1)))
+
+                // Then: it replaces the value on that date.
+                let! corrected = currentValue app.Client id
+
+                Expect.equal
+                    corrected
+                    (2600m, DateOnly (2026, 2, 1))
+                    "a value on the same date replaces it"
+
+                // When: the item's details change.
+                let! updated =
+                    updateItem app.Client id (details "Home" "NonCurrent")
+
+                Expect.equal updated HttpStatusCode.OK "update is 200"
+
+                // Then: its value does not.
+                let! afterUpdate = currentValue app.Client id
+
+                Expect.equal
+                    afterUpdate
+                    (2600m, DateOnly (2026, 2, 1))
+                    "an update keeps the item's value"
+
+                // Then: invalid values are rejected, and another user's item
+                // is not found.
+                let! negative =
+                    recordValue
+                        app.Client
+                        id
+                        (observation -1m (DateOnly (2026, 3, 1)))
+
+                Expect.equal
+                    negative.StatusCode
+                    HttpStatusCode.BadRequest
+                    "a negative value is rejected"
+
+                let! future =
+                    recordValue
+                        app.Client
+                        id
+                        (observation 1m (DateOnly (2026, 3, 10)))
+
+                Expect.equal
+                    future.StatusCode
+                    HttpStatusCode.BadRequest
+                    "a value dated after tomorrow is rejected"
+
+                let! foreign =
+                    recordValue
+                        otherUser
+                        id
+                        (observation 1m (DateOnly (2026, 3, 1)))
+
+                Expect.equal
+                    foreign.StatusCode
+                    HttpStatusCode.NotFound
+                    "another user's item is not found"
+
+                let! unchanged = currentValue app.Client id
+
+                Expect.equal
+                    unchanged
+                    (2600m, DateOnly (2026, 2, 1))
+                    "rejected writes leave the value alone"
             }
 
             testCaseAsync "an item keeps its as-of date, which cannot be future"
@@ -565,18 +730,18 @@ module EndpointTests =
                     }
                     |> Async.AwaitTask
 
-                let! updated = updateItem app.Client id future
-
-                // Then: both writes are rejected.
+                // Then: it is rejected.
                 Expect.equal
                     created.StatusCode
                     HttpStatusCode.BadRequest
                     "a create dated after tomorrow should be rejected"
 
+                let! sheet = getSheetBody app.Client
+
                 Expect.equal
-                    updated
-                    HttpStatusCode.BadRequest
-                    "an update dated after tomorrow should be rejected"
+                    (sheet.Items |> List.map _.Id)
+                    [ id ]
+                    "the rejected create should add no item"
             }
 
 

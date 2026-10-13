@@ -191,8 +191,9 @@ stores `Current` or `NonCurrent`.
 - **No sheet row.** A sheet is the user's items and accounts, with nothing
   stored for the sheet itself, so a user with neither gets an empty sheet, not
   `404`. The client shows it as an empty state.
-- **Item shape.** `Id`, `Name`, `Side`, `Term`, `Value`, `AsOf`. No account
-  reference, no currency.
+- **Item shape.** `Id`, `Name`, `Side`, `Term`, with `Value` and `AsOf` from its
+  latest observation ([reports](reports.md) decision 2). No account reference,
+  no currency.
 - **Side is fixed at creation.** For items. The page creates assets and
   liabilities from separate entry points, so `Side` is never a field in the form
   and a value cannot silently end up on the wrong side of the sheet. Moving an

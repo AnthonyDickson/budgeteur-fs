@@ -8,14 +8,12 @@ open Budgeteur.Domain.Side
 open Budgeteur.Domain.Term
 open Budgeteur.Shared.OpenApi
 
-/// <summary>A single line on the balance sheet: one asset or one
-/// liability.</summary>
+/// <summary>A balance sheet item with its current value.</summary>
 type BalanceSheetItemResponse = {
     /// <summary>Unique identifier for the item.</summary>
     Id : Guid
 
-    /// <summary>A human-readable name, e.g. "Chequing account" or
-    /// "Mortgage".</summary>
+    /// <summary>A human-readable name, e.g. "House" or "Mortgage".</summary>
     [<MinLength(1)>]
     [<MaxLength(ItemName.MaxLength)>]
     Name : string
@@ -28,21 +26,21 @@ type BalanceSheetItemResponse = {
     [<SchemaHint.Enum(typeof<Term>)>]
     Term : string
 
-    /// <summary>The positive magnitude of the item's value. Direction is
-    /// implied by Side.</summary>
+    /// <summary>The positive magnitude of the item's current value: its latest
+    /// observation. Direction is implied by Side.</summary>
     [<SchemaHint.Decimal(NonNegative = true)>]
     Value : decimal
 
-    /// <summary>The date the value is accurate as of.</summary>
+    /// <summary>The date the current value is accurate as of.</summary>
     AsOf : DateOnly
 }
 
 module BalanceSheetItemResponse =
-    let fromDomain (item : BalanceSheetItem) : BalanceSheetItemResponse = {
-        Id = item.Id
-        Name = ItemName.value item.Name
-        Side = Side.toString item.Side
-        Term = Term.toString item.Term
-        Value = Value.value item.Value
-        AsOf = item.AsOf
+    let fromDomain (item : ItemValue) : BalanceSheetItemResponse = {
+        Id = item.Item.Id
+        Name = ItemName.value item.Item.Name
+        Side = Side.toString item.Item.Side
+        Term = Term.toString item.Item.Term
+        Value = Value.value item.Current.Value
+        AsOf = item.Current.AsOf
     }

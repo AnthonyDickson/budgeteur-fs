@@ -11,8 +11,9 @@ open Budgeteur.Domain.Term
 /// asks about, and each line carries its own as-of date. See decisions 4 and 5
 /// in docs/balance-sheet.md.</summary>
 type BalanceSheet = {
-    /// <summary>Every asset and liability that is not an account.</summary>
-    Items : BalanceSheetItem list
+    /// <summary>Every asset and liability that is not an account, with its
+    /// current value.</summary>
+    Items : ItemValue list
 
     /// <summary>Every account, whether its balance is known or not.</summary>
     Accounts : AccountBalance list
@@ -50,9 +51,9 @@ module BalanceSheet =
         let items =
             sheet.Items
             |> List.map (fun item -> {
-                Side = item.Side
-                Term = item.Term
-                Amount = Value.value item.Value
+                Side = item.Item.Side
+                Term = item.Item.Term
+                Amount = Value.value item.Current.Value
             })
 
         let accounts =

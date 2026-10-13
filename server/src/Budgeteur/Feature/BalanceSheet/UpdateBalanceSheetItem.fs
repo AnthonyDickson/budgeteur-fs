@@ -16,7 +16,6 @@ module UpdateBalanceSheetItem =
     open Budgeteur.Domain.BalanceSheetItem
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
-    open Budgeteur.Shared.Clock
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
@@ -25,109 +24,86 @@ module UpdateBalanceSheetItem =
     [<Literal>]
     let Path = "/api/balance-sheet/items/{%O:guid}"
 
-    let private requireBalanceSheetItemIsUnique
+    let private notFound (id : Guid) =
+        NotFound $"Could not find the balance sheet item %O{id}"
+
+    /// <summary>Write the item's details and read it back with its current
+    /// value, in one database transaction.</summary>
+    let private update
         (queryContext : QueryContextFactory)
-        (item : BalanceSheetItem)
         (userId : string)
+        (item : BalanceSheetItem)
         =
         task {
-            let item = BalanceSheetItemCodec.toRow item userId
-
-            let! rowCount =
-                selectTask queryContext {
-                    for row in main.BalanceSheetItems do
-                        where (
-                            row.Id <> item.Id
-                            && row.UserId = item.UserId
-                            && row.Name = item.Name
-                            && row.Side = item.Side
-                            && row.Term = item.Term
-                        )
-
-                        count
-                }
-
-            return
-                if rowCount = 0 then
-                    Ok ()
-                else
-                    Error (
-                        ConstraintError
-                            "An identical balance sheet item already exists."
-                    )
-        }
-
-    let private updateBalanceSheetItem
-        (queryContext : QueryContextFactory)
-        (item : BalanceSheetItem)
-        (userId : string)
-        =
-        task {
+            use! ctx = queryContext.OpenContextAsync ()
+            ctx.BeginTransaction ()
             let row = BalanceSheetItemCodec.toRow item userId
 
-            let! rowsUpdated =
-                updateTask queryContext {
+            let! _ =
+                updateTask ctx {
                     for b in main.BalanceSheetItems do
-                        entity row
+                        set b.Name row.Name
+                        set b.Term row.Term
                         where (b.Id = row.Id && b.UserId = userId)
                 }
 
-            if rowsUpdated = 0 then
-                return
-                    Error (
-                        NotFound
-                            $"Could not find the balance sheet item %O{item.Id}"
-                    )
-            else
-                return Ok ()
+            let! updated = ItemQuery.tryRead ctx userId item.Id
+            ctx.CommitTransaction ()
+            return updated |> Result.requireSome (notFound item.Id)
         }
 
     let private handler
         (queryContext : QueryContextFactory)
-        (clock : Clock)
         (id : Guid)
         : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! req = Json.read ctx
+                let! (req : UpdateBalanceSheetItemRequest) = Json.read ctx
 
-                let! item =
-                    WriteBalanceSheetItemRequest.validate (clock ()) req id
+                use! db = queryContext.OpenContextAsync ()
+
+                let! existing =
+                    ItemQuery.tryRead db userId id
+                    |> TaskResult.requireSome (notFound id)
+
+                let! item = ItemRequest.validateUpdate existing.Item req
 
                 do!
                     Constraints.requireOne (
-                        requireBalanceSheetItemIsUnique
-                            queryContext
-                            item
-                            userId
+                        ItemQuery.requireIsUnique queryContext userId item
                     )
 
-                do! updateBalanceSheetItem queryContext item userId
+                let! updated = update queryContext userId item
 
                 log.Info (
-                    $"Updated balance sheet item %O{item.Id}",
-                    LogProp.prop "balanceSheetItemId" (item.Id.ToString ())
+                    $"Updated balance sheet item %O{id}",
+                    LogProp.prop "balanceSheetItemId" (id.ToString ())
                 )
 
-                do! Json.write ctx (BalanceSheetItemResponse.fromDomain item)
+                do!
+                    Json.write
+                        ctx
+                        (BalanceSheetItemResponse.fromDomain updated)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =
         op.Summary <- "Update a balance sheet item"
 
-        op.Description <- "Replaces a balance sheet item."
+        op.Description <-
+            "Replaces a balance sheet item's name and term. Its side is fixed \
+            at creation, and its values are recorded as observations."
 
         op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
 
         Task.CompletedTask
 
-    let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
-        routef Path (handler queryContext clock)
+    let endpoint (queryContext : QueryContextFactory) =
+        routef Path (handler queryContext)
         |> addOpenApi (
             OpenApiConfig (
-                requestBody = RequestBody typeof<WriteBalanceSheetItemRequest>,
+                requestBody = RequestBody typeof<UpdateBalanceSheetItemRequest>,
                 responseBodies = [|
                     ResponseBody (
                         typeof<BalanceSheetItemResponse>,

@@ -66,11 +66,38 @@ CREATE TABLE BalanceSheetItems (
     Name    TEXT     NOT NULL,
     Side    TEXT     NOT NULL CHECK (Side IN ('Asset', 'Liability')),
     Term    TEXT     NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
-    -- A positive magnitude: the direction comes from Side.
-    Value   CURRENCY NOT NULL CHECK (Value >= 0),
-    -- The calendar date the value is accurate as of, chosen by the user.
-    AsOf    DATE     NOT NULL,
     UNIQUE(UserId, Name, Side, Term)
+);
+
+-- Item value observations
+
+-- A value an item had as of a date, entered by hand. One per item and date; the
+-- latest is the item's current value. Every item has at least one: it is
+-- created with its first, and its last cannot be deleted. See decision 2 in
+-- docs/reports.md.
+CREATE TABLE ItemObservations (
+    ItemId GUID     NOT NULL,
+    UserId TEXT     NOT NULL,
+    -- The calendar date the value is accurate as of.
+    AsOf   DATE     NOT NULL,
+    -- A positive magnitude: the direction comes from the item's Side.
+    Value  CURRENCY NOT NULL CHECK (Value >= 0),
+    PRIMARY KEY (ItemId, AsOf),
+    -- Deleting the item deletes its value history.
+    FOREIGN KEY(ItemId) REFERENCES BalanceSheetItems(Id) ON DELETE CASCADE
+);
+
+CREATE INDEX IX_ItemObservations_UserId ON ItemObservations(UserId);
+
+-- Each item's current value: the observation with the latest as-of date. A read
+-- model, as for CurrentBalances.
+CREATE VIEW CurrentItemValues AS
+SELECT o.ItemId, o.UserId, o.AsOf, o.Value
+FROM ItemObservations o
+WHERE o.AsOf = (
+    SELECT MAX(latest.AsOf)
+    FROM ItemObservations latest
+    WHERE latest.ItemId = o.ItemId
 );
 
 -- Tags

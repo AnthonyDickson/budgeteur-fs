@@ -1,15 +1,18 @@
+//// The item form: creates an item with its first value, or edits an item's
+//// name and term. An item's side is fixed at creation, and its later values
+//// are recorded with the value form. See decision 2 in docs/reports.md.
+
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_write_request.{
-  type ItemWriteRequest, ItemWriteRequest,
+  type ItemWriteRequest, CreateItem, UpdateItem,
 }
 import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
+import budgeteur/balance_sheet_page/value_form
 import budgeteur/shared/api_error.{type ApiError}
-import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
-import budgeteur/shared/money
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -33,33 +36,16 @@ pub type NameError {
   Duplicate
 }
 
-pub type ValueError {
-  ValueRequired
-  NotANumber
-  Negative
-}
-
-pub type AsOfError {
-  AsOfRequired
-  NotADate
-}
-
 pub type NameField =
   field.Field(String, NameError)
-
-pub type ValueField =
-  field.Field(Float, ValueError)
-
-pub type AsOfField =
-  field.Field(Date, AsOfError)
 
 pub type Form {
   Form(
     name: NameField,
     side: Side,
     term: Term,
-    value: ValueField,
-    as_of: AsOfField,
+    // The first value of a new item; None when editing.
+    opening_value: Option(value_form.Form),
   )
 }
 
@@ -81,13 +67,13 @@ pub fn hidden() -> Modal {
 pub type Msg {
   // The side is fixed by the entry point that opened the form; it is never a
   // field, so an item can't be created on the wrong side of the sheet. The
-  // as-of date starts at the client's today, when it is known.
+  // as-of date of the first value starts at the client's today, when it is
+  // known.
   CreateRequested(side: Side, today: Option(Date))
   EditRequested(item: BalanceSheetItem)
   NameChanged(value: String)
   TermChanged(value: String)
-  ValueChanged(value: String)
-  AsOfChanged(value: String)
+  ValueMsg(value_form.Msg)
   SaveRequested
   // Response to the in-flight create or update; the `Created`/`Updated`
   // outcome variant is chosen from the `mode` in the `Submitting` state.
@@ -118,12 +104,19 @@ pub fn update(
       }
     NameChanged(value:) -> #(set_name(state, value), None, form_modal.NoChange)
     TermChanged(value:) -> #(set_term(state, value), None, form_modal.NoChange)
-    ValueChanged(value:) -> #(
-      set_value(state, value),
+    ValueMsg(value_msg) -> #(
+      form_modal.set_form(state, fn(form) {
+        Form(
+          ..form,
+          opening_value: option.map(form.opening_value, value_form.update(
+            _,
+            value_msg,
+          )),
+        )
+      }),
       None,
       form_modal.NoChange,
     )
-    AsOfChanged(value:) -> #(set_as_of(state, value), None, form_modal.NoChange)
     SaveRequested -> save(state, items)
     SaveCompleted(result: Ok(item)) -> {
       let #(modal, outcome) = form_modal.succeeded(state, item)
@@ -142,24 +135,18 @@ pub fn update(
   }
 }
 
-/// An empty modal for creating a new item of the given side, dated today when
-/// today is known.
+/// An empty modal for creating a new item on the given side, with its first
+/// value dated today when today is known.
 fn create_modal(side: Side, today: Option(Date)) -> Modal {
-  form_modal.create(
-    Form(
-      name: field.Empty(""),
-      side:,
-      term: Current,
-      value: field.Empty(""),
-      as_of: case today {
-        Some(today) -> field.Valid(value: today, input: date.format(today))
-        None -> field.Empty("")
-      },
-    ),
-  )
+  form_modal.create(Form(
+    name: field.Empty(""),
+    side:,
+    term: Current,
+    opening_value: Some(value_form.empty(today)),
+  ))
 }
 
-/// A modal pre-filled with an existing item, ready for editing.
+/// A modal pre-filled with an existing item's details, ready for editing.
 fn edit_modal(item: BalanceSheetItem) -> Modal {
   form_modal.edit(
     item.id,
@@ -167,8 +154,7 @@ fn edit_modal(item: BalanceSheetItem) -> Modal {
       name: field.Valid(value: item.name, input: item.name),
       side: item.side,
       term: item.term,
-      value: field.Valid(value: item.value, input: money.to_string(item.value)),
-      as_of: field.Valid(value: item.as_of, input: date.format(item.as_of)),
+      opening_value: None,
     ),
   )
 }
@@ -186,27 +172,6 @@ fn set_term(state: Modal, value: String) -> Modal {
     Ok(term) -> form_modal.set_form(state, fn(form) { Form(..form, term:) })
     Error(Nil) -> state
   }
-}
-
-/// Validate and set the value field. No op for Hidden and Submitting states.
-fn set_value(state: Modal, value: String) -> Modal {
-  form_modal.set_form(state, fn(form) {
-    let value = money.clip_to_two_dp(value)
-    Form(
-      ..form,
-      value: field.validate(value, validate_value, is_value_required),
-    )
-  })
-}
-
-/// Validate and set the as-of date. No op for Hidden and Submitting states.
-fn set_as_of(state: Modal, value: String) -> Modal {
-  form_modal.set_form(state, fn(form) {
-    Form(
-      ..form,
-      as_of: field.validate(value, validate_as_of, is_as_of_required),
-    )
-  })
 }
 
 fn save(
@@ -233,52 +198,48 @@ fn save(
 /// Validate the form against the other items. On success returns the write
 /// request and the (finalized) form to keep while submitting; on failure
 /// returns the form with inline errors set. `other_items` excludes the item
-/// being edited, if any.
+/// being edited, if any. A form with a first value creates an item; one
+/// without updates it.
 fn validate_form(
   form: Form,
   other_items: List(BalanceSheetItem),
 ) -> Result(#(ItemWriteRequest, Form), Form) {
-  let form = finalize(form, other_items)
+  let name = finalize_name(form, other_items)
+  let opening = option.map(form.opening_value, value_form.validate)
+  let form =
+    Form(
+      ..form,
+      name:,
+      opening_value: option.map(opening, fn(result) {
+        case result {
+          Ok(#(_, value)) | Error(value) -> value
+        }
+      }),
+    )
 
-  case
-    field.value(form.name),
-    field.value(form.value),
-    field.value(form.as_of)
-  {
-    Some(name), Some(value), Some(as_of) ->
-      Ok(#(
-        ItemWriteRequest(
-          name:,
-          side: form.side,
-          term: form.term,
-          value:,
-          as_of:,
-        ),
-        form,
-      ))
-    _, _, _ -> Error(form)
+  case field.value(name), opening {
+    Some(name), Some(Ok(#(first, _))) ->
+      Ok(#(CreateItem(name:, side: form.side, term: form.term, first:), form))
+    Some(name), None -> Ok(#(UpdateItem(name:, term: form.term), form))
+    _, _ -> Error(form)
   }
 }
 
-/// Finalize the form after a submit attempt: blank fields become errors, and
-/// the name is checked against the other items with the same side and term.
-/// The duplicate check mirrors the server's `UNIQUE(UserId, Name, Side, Term)`
+/// Finalize the name after a submit attempt: a blank name is an error, and it
+/// is checked against the other items with the same side and term. The
+/// duplicate check mirrors the server's `UNIQUE(UserId, Name, Side, Term)`
 /// constraint so a duplicate is caught inline before the round trip; the server
 /// check remains authoritative when the client's list is stale.
-fn finalize(form: Form, other_items: List(BalanceSheetItem)) -> Form {
-  let Form(name:, side:, term:, value:, as_of:) = form
-  let name = field.finalize(name, fn() { NameRequired })
-  let name = case name {
+fn finalize_name(form: Form, other_items: List(BalanceSheetItem)) -> NameField {
+  let name = field.finalize(form.name, fn() { NameRequired })
+  case name {
     field.Valid(value:, ..) ->
-      case is_duplicate(other_items, value, side, term) {
+      case is_duplicate(other_items, value, form.side, form.term) {
         True -> field.mark_invalid(name, Duplicate)
         False -> name
       }
     field.Empty(..) | field.Invalid(..) -> name
   }
-  let value = field.finalize(value, fn() { ValueRequired })
-  let as_of = field.finalize(as_of, fn() { AsOfRequired })
-  Form(name:, side:, term:, value:, as_of:)
 }
 
 fn is_duplicate(
@@ -305,54 +266,12 @@ fn validate_name(name: String) -> Result(String, NameError) {
   }
 }
 
-fn validate_value(value: String) -> Result(Float, ValueError) {
-  let trimmed = string.trim(value)
-
-  case string.is_empty(trimmed) {
-    True -> Error(ValueRequired)
-    False ->
-      case money.parse_decimal(trimmed) {
-        Error(Nil) -> Error(NotANumber)
-        Ok(amount) ->
-          case amount <. 0.0 {
-            True -> Error(Negative)
-            False -> Ok(amount)
-          }
-      }
-  }
-}
-
 /// A parse error is demoted to a blank `Empty` field (no inline error while
 /// typing) only when it is the required error, e.g. a whitespace-only name.
 fn is_name_required(error: NameError) -> Bool {
   case error {
     NameRequired -> True
     TooLong | Duplicate -> False
-  }
-}
-
-fn is_value_required(error: ValueError) -> Bool {
-  case error {
-    ValueRequired -> True
-    NotANumber | Negative -> False
-  }
-}
-
-fn validate_as_of(as_of: String) -> Result(Date, AsOfError) {
-  case string.trim(as_of) {
-    "" -> Error(AsOfRequired)
-    trimmed ->
-      case date.parse(trimmed) {
-        Ok(as_of) -> Ok(as_of)
-        Error(Nil) -> Error(NotADate)
-      }
-  }
-}
-
-fn is_as_of_required(error: AsOfError) -> Bool {
-  case error {
-    AsOfRequired -> True
-    NotADate -> False
   }
 }
 
@@ -390,7 +309,7 @@ fn view_form(
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
-  let Form(name:, side:, term:, value:, as_of:) = form
+  let Form(name:, side:, term:, opening_value:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
     form_modal.Create ->
@@ -405,8 +324,10 @@ fn view_form(
       }
   }
 
-  let value_invalid = field.has_error(value)
-  let as_of_invalid = field.has_error(as_of)
+  let value_invalid = case opening_value {
+    Some(value) -> value_form.has_error(value)
+    None -> False
+  }
 
   [
     html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
@@ -435,7 +356,7 @@ fn view_form(
           html.input([
             attribute.type_("text"),
             attribute.attribute("data-testid", "item-name-input"),
-            attribute.placeholder("e.g. Chequing account"),
+            attribute.placeholder("e.g. House"),
             attribute.class(input_class),
             attribute.classes([
               #(modal_ui.error_border_style, field.has_error(name)),
@@ -451,48 +372,17 @@ fn view_form(
         html.p([attribute.class("text-xs text-gray-500")], [
           html.text(term_help(side)),
         ]),
-        html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Value")],
-          ),
-          html.input([
-            attribute.type_("text"),
-            attribute.attribute("data-testid", "item-value-input"),
-            attribute.inputmode("decimal"),
-            attribute.step("0.01"),
-            attribute.placeholder("0.00"),
-            attribute.min("0"),
-            attribute.class(input_class),
-            attribute.classes([#(modal_ui.error_border_style, value_invalid)]),
-            attribute.value(field.input(value)),
-            attribute.disabled(submitting),
-            event.on_input(ValueChanged),
-          ]),
-          view_value_error(field.error(value)),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
-            html.text(value_help(side)),
-          ]),
-        ]),
-        html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("As of")],
-          ),
-          html.input([
-            attribute.type_("date"),
-            attribute.attribute("data-testid", "item-as-of-input"),
-            attribute.class(input_class),
-            attribute.classes([#(modal_ui.error_border_style, as_of_invalid)]),
-            attribute.value(field.input(as_of)),
-            attribute.disabled(submitting),
-            event.on_input(AsOfChanged),
-          ]),
-          view_as_of_error(field.error(as_of)),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
-            html.text("The date the value is accurate as of."),
-          ]),
-        ]),
+        case opening_value {
+          Some(value) ->
+            value_form.view(
+              value,
+              side:,
+              submitting:,
+              note: "Later values are recorded from the item's line.",
+            )
+            |> element.map(ValueMsg)
+          None -> element.none()
+        },
         modal_ui.form_footer(
           leading: case mode {
             form_modal.Create -> None
@@ -513,7 +403,7 @@ fn view_form(
             idle_label: submit_label,
             busy_label: submitting_label,
             busy: submitting,
-            disabled: field.has_error(name) || value_invalid || as_of_invalid,
+            disabled: field.has_error(name) || value_invalid,
           ),
         ),
       ],
@@ -540,9 +430,9 @@ fn term_field(side: Side, term: Term, submitting: Bool) -> Element(Msg) {
   )
 }
 
-/// The term labels that read best for the selected side: assets are liquid or
-/// fixed, liabilities are short-term or long-term. The model always stores
-/// `Current` or `NonCurrent`.
+/// The term labels that read best for the side: assets are liquid or fixed,
+/// liabilities are short-term or long-term. The model always stores `Current`
+/// or `NonCurrent`.
 fn term_labels(side: Side) -> #(String, String) {
   case side {
     Asset -> #("Liquid", "Fixed")
@@ -559,13 +449,6 @@ fn term_help(side: Side) -> String {
   }
 }
 
-fn value_help(side: Side) -> String {
-  case side {
-    Asset -> "Enter what it is worth. Use zero if it is worth nothing."
-    Liability -> "Enter how much is owed. Use zero if nothing is outstanding."
-  }
-}
-
 fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
   case name_error {
     Some(NameRequired) -> modal_ui.form_error_message("Name cannot be empty")
@@ -579,26 +462,6 @@ fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
       modal_ui.form_error_message(
         "An identical item already exists for this side and term",
       )
-    None -> element.none()
-  }
-}
-
-fn view_value_error(value_error: Option(ValueError)) -> Element(Msg) {
-  case value_error {
-    Some(ValueRequired) -> modal_ui.form_error_message("Value cannot be empty")
-    Some(NotANumber) -> modal_ui.form_error_message("Not a valid number")
-    Some(Negative) ->
-      modal_ui.form_error_message(
-        "Value cannot be negative. Record what is owed as a liability.",
-      )
-    None -> element.none()
-  }
-}
-
-fn view_as_of_error(as_of_error: Option(AsOfError)) -> Element(Msg) {
-  case as_of_error {
-    Some(AsOfRequired) -> modal_ui.form_error_message("Date cannot be empty")
-    Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
     None -> element.none()
   }
 }

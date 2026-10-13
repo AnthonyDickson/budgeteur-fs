@@ -5,6 +5,7 @@ import { expect, test } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
 
 const modal = (page: Page) => page.getByTestId('balance-sheet-item-modal');
+const valueModal = (page: Page) => page.getByTestId('value-modal');
 
 const deleteModal = (page: Page) =>
   page.getByTestId('delete-balance-sheet-item-modal');
@@ -14,9 +15,17 @@ const itemRow = (page: Page, name: string) =>
     hasText: name,
   });
 
-/// Open an item's edit dialog by clicking its line.
+/// Open an item's value form by clicking its line.
+async function openItem(page: Page, name: string) {
+  await itemRow(page, name).getByTestId(/^record-value-item-/).click();
+  await expect(valueModal(page)).toBeVisible();
+}
+
+/// Open an item's edit dialog from its value form.
 async function editItem(page: Page, name: string) {
-  await itemRow(page, name).getByTestId(/^edit-item-/).click();
+  await openItem(page, name);
+  await valueModal(page).getByTestId('value-edit-item-button').click();
+  await expect(valueModal(page)).toBeHidden();
   await expect(modal(page)).toBeVisible();
 }
 
@@ -55,7 +64,7 @@ async function addItem(
   await page.getByTestId(button).click();
   await expect(modal(page)).toBeVisible();
   await modal(page).getByTestId('item-name-input').fill(args.name);
-  await modal(page).getByTestId('item-value-input').fill(args.value);
+  await modal(page).getByTestId('value-amount-input').fill(args.value);
   if (args.nonCurrent) {
     await modal(page).getByTestId('item-term-NonCurrent').check();
   }
@@ -125,11 +134,11 @@ test.describe('balance sheet', () => {
         fullPage: true,
       });
 
-      // ── Update: a current asset moves every affected total ───────────────────
-      await editItem(page, 'Chequing');
-      await modal(page).getByTestId('item-value-input').fill('3000.00');
-      await modal(page).getByTestId('item-submit-button').click();
-      await expect(modal(page)).toBeHidden();
+      // ── Record a value: a current asset moves every affected total ──────────
+      await openItem(page, 'Chequing');
+      await valueModal(page).getByTestId('value-amount-input').fill('3000.00');
+      await valueModal(page).getByTestId('value-submit-button').click();
+      await expect(valueModal(page)).toBeHidden();
 
       await expectAmount(itemGroup(page, 'Current assets'), 3000);
       await expectAmount(summaryCard(page, 'total-assets'), 403000);

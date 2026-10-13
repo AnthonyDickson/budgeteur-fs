@@ -17,60 +17,41 @@ module CreateBalanceSheetItem =
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.Clock
+    open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
     open Budgeteur.Shared.RequestLogging
 
-
     [<Literal>]
     let Path = "/api/balance-sheet/items"
 
-    let private requireBalanceSheetItemIsUnique
+    /// <summary>Insert the item and its first observation and read it back,
+    /// in one database transaction.</summary>
+    let private insert
         (queryContext : QueryContextFactory)
-        (item : BalanceSheetItem)
         (userId : string)
+        (item : BalanceSheetItem)
+        (first : ItemObservation)
         =
         task {
-            let item = BalanceSheetItemCodec.toRow item userId
-
-            let! rowCount =
-                selectTask queryContext {
-                    for b in main.BalanceSheetItems do
-                        where (
-                            b.UserId = userId
-                            && b.Name = item.Name
-                            && b.Side = item.Side
-                            && b.Term = item.Term
-                        )
-
-                        count
-                }
-
-            return
-                if rowCount = 0 then
-                    Ok ()
-                else
-                    Error (
-                        ConstraintError
-                            "An identical balance sheet item already exists."
-                    )
-        }
-
-    let private insertBalanceSheetItem
-        (queryContext : QueryContextFactory)
-        (item : BalanceSheetItem)
-        (userId : string)
-        =
-        task {
-            let row = BalanceSheetItemCodec.toRow item userId
+            use! ctx = queryContext.OpenContextAsync ()
+            ctx.BeginTransaction ()
 
             let! _ =
-                insertTask queryContext {
+                insertTask ctx {
                     for b in main.BalanceSheetItems do
-                        entity row
+                        entity (BalanceSheetItemCodec.toRow item userId)
                 }
 
-            return ()
+            do! ItemObservationStore.record ctx userId item.Id first
+            let! created = ItemQuery.tryRead ctx userId item.Id
+            ctx.CommitTransaction ()
+
+            return
+                created
+                |> Result.requireSome (
+                    NotFound $"Balance sheet item %O{item.Id} not found"
+                )
         }
 
     let private handler
@@ -81,23 +62,20 @@ module CreateBalanceSheetItem =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! req = Json.read ctx
+                let! (req : CreateBalanceSheetItemRequest) = Json.read ctx
 
-                let! item =
-                    WriteBalanceSheetItemRequest.validate
+                let! item, first =
+                    ItemRequest.validateCreate
                         (clock ())
                         req
                         (Guid.CreateVersion7 ())
 
                 do!
                     Constraints.requireOne (
-                        requireBalanceSheetItemIsUnique
-                            queryContext
-                            item
-                            userId
+                        ItemQuery.requireIsUnique queryContext userId item
                     )
 
-                do! insertBalanceSheetItem queryContext item userId
+                let! created = insert queryContext userId item first
 
                 log.Info (
                     $"Created balance sheet item %O{item.Id}",
@@ -105,14 +83,19 @@ module CreateBalanceSheetItem =
                 )
 
                 ctx.SetStatusCode 201
-                do! Json.write ctx (BalanceSheetItemResponse.fromDomain item)
+
+                do!
+                    Json.write
+                        ctx
+                        (BalanceSheetItemResponse.fromDomain created)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =
         op.Summary <- "Create a balance sheet item"
 
         op.Description <-
-            "Creates a new balance sheet item and returns it with status 201."
+            "Creates a balance sheet item with its first value and returns it \
+            with status 201."
 
         op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
 
@@ -122,7 +105,7 @@ module CreateBalanceSheetItem =
         route Path (handler queryContext clock)
         |> addOpenApi (
             OpenApiConfig (
-                requestBody = RequestBody typeof<WriteBalanceSheetItemRequest>,
+                requestBody = RequestBody typeof<CreateBalanceSheetItemRequest>,
                 responseBodies = [|
                     ResponseBody (
                         typeof<BalanceSheetItemResponse>,

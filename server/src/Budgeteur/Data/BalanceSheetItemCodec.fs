@@ -1,7 +1,6 @@
 namespace Budgeteur.Data
 
 module BalanceSheetItemCodec =
-    open System
     open Budgeteur.Data.Db
     open Budgeteur.Domain.BalanceSheetItem
     open Budgeteur.Domain.Side
@@ -16,8 +15,6 @@ module BalanceSheetItemCodec =
         Name = ItemName.value item.Name
         Side = Side.toString item.Side
         Term = Term.toString item.Term
-        Value = Value.value item.Value
-        AsOf = item.AsOf
     }
 
     let fromRow (row : main.BalanceSheetItems) : BalanceSheetItem = {
@@ -35,6 +32,4 @@ module BalanceSheetItemCodec =
             // The database checks this column, so in practice this arm is
             // unreachable
             | Error error -> failwith error
-        Value = Value.unsafeFromDecimal row.Value
-        AsOf = row.AsOf
     }

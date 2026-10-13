@@ -10,6 +10,7 @@ import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/item_write_request
 import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
+import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
@@ -54,6 +55,7 @@ pub type Model {
     account_modal: account_modal.Modal,
     account_delete_modal: account_delete_modal.DeleteModalState,
     balance_modal: balance_modal.Modal,
+    value_modal: value_modal.Modal,
   )
 }
 
@@ -75,7 +77,8 @@ pub type Msg {
   UserRequestedSheetReload
   // Item modal messages
   UserRequestedItemCreation(side: Side)
-  UserRequestedItemEdit(Uuid)
+  // The value modal's `EditItemRequested` opens the item modal for an existing
+  // item.
   ItemModalMsg(item_modal.Msg)
   // Item delete modal messages. The item modal's `DeleteRequested` opens it.
   UserConfirmedItemDelete
@@ -101,6 +104,9 @@ pub type Msg {
     current: Option(balance_modal.CurrentBalance),
   )
   BalanceModalMsg(balance_modal.Msg)
+  // Value modal messages
+  UserRequestedValueRecord(item: BalanceSheetItem)
+  ValueModalMsg(value_modal.Msg)
 }
 
 // Effects
@@ -133,6 +139,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       account_modal: account_modal.hidden(),
       account_delete_modal: account_delete_modal.empty(),
       balance_modal: balance_modal.hidden(),
+      value_modal: value_modal.hidden(),
     ),
     effect.batch([effect.GetLocalDate(ClientGotToday), fetch_sheet()]),
   )
@@ -168,13 +175,6 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         model,
         item_modal.CreateRequested(side:, today: model.today),
       )
-
-    UserRequestedItemEdit(id) -> {
-      case list.find(model_items(model), fn(item) { item.id == id }) {
-        Ok(item) -> run_item_modal(model, item_modal.EditRequested(item))
-        Error(Nil) -> #(model, effect.none(), None)
-      }
-    }
 
     ItemModalMsg(item_modal.DeleteRequested as inner_msg) ->
       open_item_delete(model) |> run_item_modal(inner_msg)
@@ -239,6 +239,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       open_account_edit(model) |> run_balance_modal(inner_msg)
 
     BalanceModalMsg(inner_msg) -> run_balance_modal(model, inner_msg)
+
+    UserRequestedValueRecord(item:) ->
+      run_value_modal(
+        model,
+        value_modal.OpenRequested(item:, today: model.today),
+      )
+
+    ValueModalMsg(value_modal.EditItemRequested as inner_msg) ->
+      open_item_edit(model) |> run_value_modal(inner_msg)
+
+    ValueModalMsg(inner_msg) -> run_value_modal(model, inner_msg)
   }
 }
 
@@ -304,6 +315,28 @@ fn open_item_delete(model: Model) -> Model {
   }
   case item {
     Ok(item) -> Model(..model, item_delete_modal: item_delete_modal.open(item))
+    Error(Nil) -> model
+  }
+}
+
+/// Open the item form for the item whose value is being recorded. The value
+/// modal closes itself on the same message.
+fn open_item_edit(model: Model) -> Model {
+  let item = {
+    use id <- result.try(editing_id(model.value_modal))
+    list.find(model_items(model), fn(item) { item.id == id })
+  }
+  case item {
+    Ok(item) -> {
+      // Opening the form sends no request and has no outcome.
+      let #(item_modal, _, _) =
+        item_modal.update(
+          model.item_modal,
+          item_modal.EditRequested(item:),
+          model_items(model),
+        )
+      Model(..model, item_modal:)
+    }
     Error(Nil) -> model
   }
 }
@@ -628,6 +661,66 @@ fn handle_balance_response(result) {
   }
 }
 
+fn run_value_modal(
+  model: Model,
+  msg: value_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(value_modal, request, outcome) =
+    value_modal.update(model.value_modal, msg)
+  let model = Model(..model, value_modal:)
+  let effects = case request {
+    Some(request) -> [interpret_value_modal_request(request)]
+    None -> []
+  }
+  let effects = case msg {
+    value_modal.SaveCompleted(result: Error(error)) -> [
+      effect.LogError(api_error.describe(error)),
+      ..effects
+    ]
+    _ -> effects
+  }
+  // A new value changes the totals the server computes, so the sheet is
+  // refetched.
+  let #(effects, out_msg) = case outcome {
+    form_modal.NoChange -> #(effects, None)
+    form_modal.Created(entity: item) | form_modal.Updated(entity: item) -> #(
+      list.append(effects, [fetch_sheet()]),
+      Some(out_msg.success_toast("Recorded a value for '" <> item.name <> "'")),
+    )
+  }
+  let effect = case effects {
+    [] -> effect.none()
+    [effect] -> effect
+    _ -> effect.batch(effects)
+  }
+  #(model, effect, out_msg)
+}
+
+fn interpret_value_modal_request(request: value_modal.Request) -> Effect(Msg) {
+  case request {
+    // The modal opens in edit mode only, so its request names the item.
+    form_modal.Put(id:, payload:) ->
+      effect.post(
+        api_route.RecordItemValue(id) |> api_route.to_string,
+        item_write_request.value_entry_json(payload) |> json.to_string,
+        fn(result) {
+          case result {
+            Ok(body) ->
+              response.decode_success(body, balance_sheet_item.decoder())
+              |> value_modal.SaveCompleted
+            Error(http_error) ->
+              value_modal.SaveCompleted(
+                Error(response.http_error_to_api_error(http_error)),
+              )
+          }
+        },
+      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(ValueModalMsg)
+    form_modal.Post(_) -> effect.none()
+  }
+}
+
 fn confirm_account_delete(
   model: Model,
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
@@ -707,6 +800,8 @@ pub fn view(model: Model) -> Element(Msg) {
         |> element.map(AccountModalMsg),
       balance_modal.view(model.balance_modal)
         |> element.map(BalanceModalMsg),
+      value_modal.view(model.value_modal)
+        |> element.map(ValueModalMsg),
       account_delete_modal.view(
         model.account_delete_modal,
         on_cancel: UserCancelledAccountDelete,
@@ -1028,8 +1123,8 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
   line_row(
     testid: "balance-sheet-item-" <> testid,
     name: row_ui.open_button(
-      testid: "edit-item-" <> testid,
-      on_click: UserRequestedItemEdit(item.id),
+      testid: "record-value-item-" <> testid,
+      on_click: UserRequestedValueRecord(item),
       class: "block max-w-full truncate",
       children: [html.text(item.name)],
     ),
@@ -1061,8 +1156,8 @@ fn account_row(line: AccountLine) -> Element(Msg) {
 }
 
 /// A line on the sheet. Clicking it, anywhere but its selectable text, opens
-/// the form that updates its amount: an item's form, or an account's balance form. Editing an
-/// account's details and deleting are reached from there. The trailing chevron
+/// the form that updates its amount: an item's value form, or an account's
+/// balance form. Editing a line's details and deleting are reached from there. The trailing chevron
 /// marks the line as one that opens, since touch screens have no hover.
 fn line_row(
   testid testid: String,

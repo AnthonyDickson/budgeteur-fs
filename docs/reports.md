@@ -187,12 +187,13 @@ always clear from context; where it is not, say "balance sheet line".
 - **Decision**: each item and account has a page listing its observations,
   newest first, with a delete action each, confirmed with the app's delete
   dialog. The page header shows the line's name, side, term, current balance,
-  and close date, with an action that records an observation using the existing
-  balance form. The line's name on the balance sheet links to it. The balance
-  sheet rows keep their action to record a balance, and items get one; editing a
-  line's details stays in its edit form. Deleting an account's last observation
-  leaves its balance unknown. Deleting an item's last observation is rejected:
-  an item always has a known value, so the user deletes the item instead.
+  and close date, with an action that records an observation using the line's
+  value or balance form. The line's name on the balance sheet links to it. A
+  line on the balance sheet opens that form, as an account's already did, and
+  editing a line's details is reached from there. Deleting an account's last
+  observation leaves its balance unknown. Deleting an item's last observation is
+  rejected: an item always has a known value, so the user deletes the item
+  instead.
 - **Why**: with history in reports, a wrong old observation changes past figures
   while being invisible on today's sheet, so the user needs to see and remove
   it. A page rather than a modal: Kiwibank imports record an observation per

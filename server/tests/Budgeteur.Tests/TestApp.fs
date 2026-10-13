@@ -77,9 +77,11 @@ module TestAppConfig =
     /// Includes the development-only item reads, which the tests use to observe
     /// item state.
     let withBalanceSheet (clock : Clock) =
-        withEndpoints [ "BalanceSheetItems" ] (fun queryContext ->
-            BalanceSheetEndpoints.all queryContext clock
-            @ BalanceSheetEndpoints.developmentOnly queryContext)
+        withEndpoints
+            [ "ItemObservations"; "BalanceSheetItems" ]
+            (fun queryContext ->
+                BalanceSheetEndpoints.all queryContext clock
+                @ BalanceSheetEndpoints.developmentOnly queryContext)
 
     let withAccounts (clock : Clock) =
         withEndpoints [ "BalanceObservations"; "Accounts" ] (fun queryContext ->

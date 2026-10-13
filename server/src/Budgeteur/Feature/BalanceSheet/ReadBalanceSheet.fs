@@ -105,13 +105,10 @@ module ReadBalanceSheet =
         (userId : string)
         : Task<BalanceSheet> =
         task {
-            let! items =
-                selectTask queryContext {
-                    for item in main.BalanceSheetItems do
-                        where (item.UserId = userId)
-                }
+            use! db = queryContext.OpenContextAsync ()
+            let! items = ItemQuery.readAll db userId
 
-            and! accounts =
+            let! accounts =
                 selectTask queryContext {
                     for a in main.Accounts do
                         leftJoin' c in main.LeftJoined.CurrentBalances
@@ -123,8 +120,7 @@ module ReadBalanceSheet =
                 }
 
             return {
-                Items =
-                    Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
+                Items = items
                 Accounts =
                     Seq.map AccountBalanceCodec.fromRow accounts |> List.ofSeq
             }

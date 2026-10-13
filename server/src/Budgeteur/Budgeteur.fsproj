@@ -47,6 +47,9 @@
     <Compile Include="Data/CategorisationStore.fs" />
     <Compile Include="Data/TransactionCodec.fs" />
     <Compile Include="Data/BalanceSheetItemCodec.fs" />
+    <Compile Include="Data/ItemObservationCodec.fs" />
+    <Compile Include="Data/ItemValueCodec.fs" />
+    <Compile Include="Data/ItemObservationStore.fs" />
     <Compile Include="Data/AccountCodec.fs" />
     <Compile Include="Data/BalanceObservationCodec.fs" />
     <Compile Include="Data/BalanceObservationStore.fs" />
@@ -55,14 +58,16 @@
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 
-    <Compile Include="Feature/BalanceSheet/WriteBalanceSheetItemRequest.fs" />
+    <Compile Include="Feature/BalanceSheet/ItemRequest.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetItemResponse.fs" />
     <Compile Include="Feature/BalanceSheet/AccountLineResponse.fs" />
+    <Compile Include="Feature/BalanceSheet/ItemQuery.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheet.fs" />
     <Compile Include="Feature/BalanceSheet/CreateBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/ReadAllBalanceSheetItems.fs" />
     <Compile Include="Feature/BalanceSheet/UpdateBalanceSheetItem.fs" />
+    <Compile Include="Feature/BalanceSheet/RecordItemObservation.fs" />
     <Compile Include="Feature/BalanceSheet/DeleteBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetEndpoints.fs" />
 

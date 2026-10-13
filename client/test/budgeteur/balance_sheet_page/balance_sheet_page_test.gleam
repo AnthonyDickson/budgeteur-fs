@@ -14,6 +14,8 @@ import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
+import budgeteur/balance_sheet_page/value_form
+import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/delete_modal
@@ -61,6 +63,7 @@ fn empty_model() -> balance_sheet_page.Model {
     account_modal: account_modal.hidden(),
     account_delete_modal: account_delete_modal.empty(),
     balance_modal: balance_modal.hidden(),
+    value_modal: value_modal.hidden(),
   )
 }
 
@@ -95,8 +98,7 @@ fn submitting_modal(mode: form_modal.Mode) -> item_modal.Modal {
       name: field.Empty(""),
       side: Asset,
       term: Current,
-      value: field.Empty(""),
-      as_of: field.Empty(""),
+      opening_value: None,
     ),
     mode,
   )
@@ -238,12 +240,25 @@ pub fn confirming_a_delete_arms_a_delete_request_test() {
   let target =
     item(id: 1, name: "Chequing", side: Asset, term: Current, value: 2000.0)
 
-  // Delete in the item's edit dialog swaps the dialog for the confirmation.
-  let #(editing, _, _) =
+  // The item's line opens the value form, and "Edit item" there swaps it for
+  // the item's edit dialog.
+  let #(recording, _, _) =
     balance_sheet_page.update(
       loaded_model(sample_sheet()),
-      balance_sheet_page.UserRequestedItemEdit(target.id),
+      balance_sheet_page.UserRequestedValueRecord(target),
     )
+  let #(editing, _, _) =
+    balance_sheet_page.update(
+      recording,
+      balance_sheet_page.ValueModalMsg(value_modal.EditItemRequested),
+    )
+
+  editing.value_modal |> should.equal(value_modal.hidden())
+  let assert form_modal.Active(mode: form_modal.Edit(id), ..) =
+    editing.item_modal
+  id |> should.equal(target.id)
+
+  // Delete in the item's edit dialog swaps the dialog for the confirmation.
   let #(opened, _, _) =
     balance_sheet_page.update(
       editing,
@@ -333,8 +348,7 @@ pub fn cancelling_the_item_form_hides_it_test() {
             name: field.Empty(""),
             side: Asset,
             term: Current,
-            value: field.Empty(""),
-            as_of: field.Empty(""),
+            opening_value: None,
           ),
           form_modal.Create,
         )),
@@ -402,6 +416,51 @@ pub fn recording_a_balance_posts_it_and_refetches_the_sheet_test() {
   after.balance_modal |> should.equal(balance_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(body:, ..)) = out_msg
   body |> should.equal("Recorded a balance for 'Everyday'")
+  let assert effect.HttpRequest(url:, ..) = effect
+  url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
+}
+
+pub fn recording_a_value_posts_it_and_refetches_the_sheet_test() {
+  let target =
+    item(id: 2, name: "Mortgage", side: Liability, term: NonCurrent, value: 1.0)
+  let model =
+    balance_sheet_page.Model(
+      ..loaded_model(sample_sheet()),
+      today: Some(Date(2026, March, 8)),
+    )
+
+  let #(opened, _, _) =
+    balance_sheet_page.update(
+      model,
+      balance_sheet_page.UserRequestedValueRecord(target),
+    )
+  let #(filled, _, _) =
+    balance_sheet_page.update(
+      opened,
+      balance_sheet_page.ValueModalMsg(
+        value_modal.ValueMsg(value_form.ValueChanged("299000")),
+      ),
+    )
+  let #(submitting, effect, _) =
+    balance_sheet_page.update(
+      filled,
+      balance_sheet_page.ValueModalMsg(value_modal.SaveRequested),
+    )
+
+  let assert effect.HttpRequest(method:, url:, ..) = effect
+  method |> should.equal(http_effect.Post)
+  url
+  |> should.equal(api_route.to_string(api_route.RecordItemValue(target.id)))
+
+  let #(after, effect, out_msg) =
+    balance_sheet_page.update(
+      submitting,
+      balance_sheet_page.ValueModalMsg(value_modal.SaveCompleted(Ok(target))),
+    )
+
+  after.value_modal |> should.equal(value_modal.hidden())
+  let assert Some(out_msg.PageRequestedToast(body:, ..)) = out_msg
+  body |> should.equal("Recorded a value for 'Mortgage'")
   let assert effect.HttpRequest(url:, ..) = effect
   url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
 }

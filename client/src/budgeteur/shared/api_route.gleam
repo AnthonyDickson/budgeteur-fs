@@ -26,6 +26,7 @@ pub type ApiRoute {
   UpdateAccount(id: Uuid)
   DeleteAccount(id: Uuid)
   RecordBalance(account_id: Uuid)
+  RecordItemValue(item_id: Uuid)
   GetIncomeStatement(from: Date, to: Date)
   RunAutoTag
   GetRuleMatches(pattern: String)
@@ -53,6 +54,11 @@ pub fn to_string(route: ApiRoute) -> String {
     CreateBalanceSheetItem -> api_prefix <> "/balance-sheet/items"
     UpdateBalanceSheetItem(id:) | DeleteBalanceSheetItem(id:) ->
       api_prefix <> "/balance-sheet/items/" <> uuid.to_string(id)
+    RecordItemValue(item_id:) ->
+      api_prefix
+      <> "/balance-sheet/items/"
+      <> uuid.to_string(item_id)
+      <> "/observations"
     CreateAccount | GetAllAccounts -> api_prefix <> "/accounts"
     UpdateAccount(id:) | DeleteAccount(id:) ->
       api_prefix <> "/accounts/" <> uuid.to_string(id)

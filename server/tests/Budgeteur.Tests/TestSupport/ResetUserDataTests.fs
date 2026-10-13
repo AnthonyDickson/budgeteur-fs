@@ -29,7 +29,7 @@ module ResetUserDataTests =
         AccountId = None
     }
 
-    let private item : WriteBalanceSheetItemRequest = {
+    let private item : CreateBalanceSheetItemRequest = {
         Name = "Chequing"
         Side = "Asset"
         Term = "Current"

@@ -11,8 +11,11 @@ module BalanceSheetEndpoints =
 
     let all (queryContext : QueryContextFactory) (clock : Clock) = [
         GET [ ReadBalanceSheet.endpoint queryContext ]
-        POST [ CreateBalanceSheetItem.endpoint queryContext clock ]
-        PUT [ UpdateBalanceSheetItem.endpoint queryContext clock ]
+        POST [
+            CreateBalanceSheetItem.endpoint queryContext clock
+            RecordItemObservation.endpoint queryContext clock
+        ]
+        PUT [ UpdateBalanceSheetItem.endpoint queryContext ]
         DELETE [ DeleteBalanceSheetItem.endpoint queryContext ]
     ]
 
