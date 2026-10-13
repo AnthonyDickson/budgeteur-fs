@@ -1,5 +1,5 @@
 import budgeteur/dashboard_page/period.{
-  Last28Days, LastMonth, Period, ThisFinancialYear, ThisMonth,
+  Last28Days, Last365Days, LastMonth, Period, ThisFinancialYear, ThisMonth,
 }
 import gleam/list
 import gleam/time/calendar.{
@@ -77,6 +77,19 @@ pub fn last_28_days_crosses_a_leap_day_test() {
     from: Date(2028, February, 12),
     to: Date(2028, March, 10),
   ))
+}
+
+pub fn last_365_days_includes_today_test() {
+  period.from_preset(Last365Days, Date(2026, October, 14))
+  |> should.equal(Period(
+    from: Date(2025, October, 15),
+    to: Date(2026, October, 14),
+  ))
+}
+
+pub fn last_365_days_crosses_a_leap_day_test() {
+  period.from_preset(Last365Days, Date(2028, March, 10))
+  |> should.equal(Period(from: Date(2027, March, 12), to: Date(2028, March, 10)))
 }
 
 pub fn financial_year_starts_on_1_april_this_year_from_april_test() {

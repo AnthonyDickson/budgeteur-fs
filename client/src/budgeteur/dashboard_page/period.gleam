@@ -20,6 +20,8 @@ pub type Preset {
   LastMonth
   /// Today and the 27 days before it.
   Last28Days
+  /// Today and the 364 days before it.
+  Last365Days
   /// From 1 April up to today.
   ThisFinancialYear
 }
@@ -27,7 +29,13 @@ pub type Preset {
 pub const default_preset = ThisMonth
 
 /// Every preset, in the order the page offers them.
-pub const presets = [ThisMonth, LastMonth, Last28Days, ThisFinancialYear]
+pub const presets = [
+  ThisMonth,
+  LastMonth,
+  Last28Days,
+  Last365Days,
+  ThisFinancialYear,
+]
 
 /// The period a preset covers on the given day.
 pub fn from_preset(preset: Preset, today: Date) -> Period {
@@ -39,6 +47,7 @@ pub fn from_preset(preset: Preset, today: Date) -> Period {
       Period(from: first_of_month(last_of_last_month), to: last_of_last_month)
     }
     Last28Days -> Period(from: add_days(today, -27), to: today)
+    Last365Days -> Period(from: add_days(today, -364), to: today)
     ThisFinancialYear -> {
       let year = case calendar.month_to_int(today.month) >= 4 {
         True -> today.year
@@ -55,6 +64,7 @@ pub fn label(preset: Preset) -> String {
     ThisMonth -> "This month"
     LastMonth -> "Last month"
     Last28Days -> "Last 28 days"
+    Last365Days -> "Last 365 days"
     ThisFinancialYear -> "This financial year"
   }
 }
@@ -65,6 +75,7 @@ pub fn preset_to_string(preset: Preset) -> String {
     ThisMonth -> "ThisMonth"
     LastMonth -> "LastMonth"
     Last28Days -> "Last28Days"
+    Last365Days -> "Last365Days"
     ThisFinancialYear -> "ThisFinancialYear"
   }
 }
@@ -75,6 +86,7 @@ pub fn parse_preset(value: String) -> Result(Preset, Nil) {
     "ThisMonth" -> Ok(ThisMonth)
     "LastMonth" -> Ok(LastMonth)
     "Last28Days" -> Ok(Last28Days)
+    "Last365Days" -> Ok(Last365Days)
     "ThisFinancialYear" -> Ok(ThisFinancialYear)
     _ -> Error(Nil)
   }
