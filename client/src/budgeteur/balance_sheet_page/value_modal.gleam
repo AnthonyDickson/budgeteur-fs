@@ -108,7 +108,9 @@ pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
 
 /// Renders nothing while `Hidden`, otherwise the open dialog. The dialog is
 /// locked while a request is in flight so it cannot be dismissed mid-request.
-pub fn view(state: Modal) -> Element(Msg) {
+/// `editable` offers the "Edit item" button, for pages that can open the
+/// edit form.
+pub fn view(state: Modal, editable editable: Bool) -> Element(Msg) {
   let open = fn(children, submitting) {
     modal_ui.dialog(
       testid: "value-modal",
@@ -121,16 +123,20 @@ pub fn view(state: Modal) -> Element(Msg) {
   case state {
     form_modal.Hidden -> element.none()
     form_modal.Active(form:, ..) ->
-      open(view_form(form, api_error: None, submitting: False), False)
+      open(view_form(form, editable, api_error: None, submitting: False), False)
     form_modal.Submitting(form:, ..) ->
-      open(view_form(form, api_error: None, submitting: True), True)
+      open(view_form(form, editable, api_error: None, submitting: True), True)
     form_modal.Errored(form:, error:, ..) ->
-      open(view_form(form, api_error: Some(error), submitting: False), False)
+      open(
+        view_form(form, editable, api_error: Some(error), submitting: False),
+        False,
+      )
   }
 }
 
 fn view_form(
   form: Form,
+  editable: Bool,
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
@@ -183,12 +189,16 @@ fn view_form(
         )
           |> element.map(ValueMsg),
         modal_ui.form_footer(
-          leading: Some(modal_ui.text_button(
-            label: "Edit item",
-            testid: "value-edit-item-button",
-            disabled: submitting,
-            on_click: EditItemRequested,
-          )),
+          leading: case editable {
+            True ->
+              Some(modal_ui.text_button(
+                label: "Edit item",
+                testid: "value-edit-item-button",
+                disabled: submitting,
+                on_click: EditItemRequested,
+              ))
+            False -> None
+          },
           cancel: modal_ui.cancel_button(
             testid: "value-cancel-button",
             disabled: submitting,

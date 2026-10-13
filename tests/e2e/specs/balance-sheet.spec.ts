@@ -214,6 +214,60 @@ test.describe('closing items', () => {
   });
 });
 
+test.describe('observation history', () => {
+  test("an item's history records and deletes values", async ({ page }) => {
+    await gotoNewBalanceSheet(page);
+    await addItem(page, {
+      side: 'asset',
+      name: 'House',
+      value: '400000.00',
+      nonCurrent: true,
+    });
+
+    // The line's history link opens its page, with the first value.
+    await itemRow(page, 'House').getByTestId(/^history-/).click();
+    await expect(page.getByTestId('observation-history-page')).toBeVisible();
+    const rows = page.locator('[data-testid^="observation-2"]');
+    await expect(rows).toHaveCount(1);
+
+    // An older value is recorded: it is listed below the current one.
+    await page.getByTestId('record-observation-button').click();
+    await expect(valueModal(page)).toBeVisible();
+    await expect(valueModal(page).getByTestId('value-edit-item-button'))
+      .toHaveCount(0);
+    await valueModal(page).getByTestId('value-amount-input').fill('380000.00');
+    await valueModal(page).getByTestId('value-as-of-input').fill('2026-01-01');
+    await valueModal(page).getByTestId('value-submit-button').click();
+    await expect(valueModal(page)).toBeHidden();
+
+    await expect(rows).toHaveCount(2);
+    await expectAmount(rows.first(), 400000);
+    await expectAmount(page.getByTestId('observation-2026-01-01'), 380000);
+
+    // The newer value is deleted: the older one becomes current.
+    await rows.first().getByTestId(/^delete-observation-/).click();
+    const deleteDialog = page.getByTestId('delete-observation-modal');
+    await expect(deleteDialog).toBeVisible();
+    await deleteDialog.getByTestId('delete-observation-confirm-button').click();
+    await expect(deleteDialog).toBeHidden();
+    await expect(rows).toHaveCount(1);
+    await expect(page.getByTestId('observation-history-current')).toContainText(
+      '2026-01-01',
+    );
+
+    // The only value left cannot be deleted: an item always has a value.
+    await rows.first().getByTestId(/^delete-observation-/).click();
+    await deleteDialog.getByTestId('delete-observation-confirm-button').click();
+    await expect(page.getByTestId('delete-observation-error')).toBeVisible();
+    await deleteDialog.getByTestId('delete-observation-cancel-button').click();
+
+    // Back on the balance sheet, the line shows the older value.
+    await page.getByTestId('observation-history-back').click();
+    await expect(itemRow(page, 'House')).toBeVisible();
+    await expectAmount(itemRow(page, 'House'), 380000);
+  });
+});
+
 const accountModal = (page: Page) => page.getByTestId('account-modal');
 const balanceModal = (page: Page) => page.getByTestId('balance-modal');
 

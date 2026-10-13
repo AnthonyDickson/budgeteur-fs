@@ -20,6 +20,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
+import budgeteur/shared/route
 import budgeteur/shared/row_ui
 import gleam/float
 import gleam/int
@@ -809,9 +810,9 @@ pub fn view(model: Model) -> Element(Msg) {
       ),
       account_modal.view(model.account_modal)
         |> element.map(AccountModalMsg),
-      balance_modal.view(model.balance_modal)
+      balance_modal.view(model.balance_modal, editable: True)
         |> element.map(BalanceModalMsg),
-      value_modal.view(model.value_modal)
+      value_modal.view(model.value_modal, editable: True)
         |> element.map(ValueModalMsg),
       account_delete_modal.view(
         model.account_delete_modal,
@@ -1225,6 +1226,7 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
       children: [html.text(item.name)],
     ),
     details: ["As of " <> date.format(item.as_of)],
+    history: route.ItemHistory(item.id),
     amount: item.value,
   )
 }
@@ -1247,18 +1249,22 @@ fn account_row(line: AccountLine) -> Element(Msg) {
       Some(number) -> [number, as_of]
       None -> [as_of]
     },
+    history: route.AccountHistory(line.account.id),
     amount: line.balance,
   )
 }
 
 /// A line on the sheet. Clicking it, anywhere but its selectable text, opens
 /// the form that updates its amount: an item's value form, or an account's
-/// balance form. Editing a line's details and deleting are reached from there. The trailing chevron
-/// marks the line as one that opens, since touch screens have no hover.
+/// balance form. Editing a line's details and deleting are reached from there.
+/// The trailing chevron marks the line as one that opens, since touch screens
+/// have no hover. The "History" link, above the click target, opens the line's
+/// observation history.
 fn line_row(
   testid testid: String,
   name name: Element(Msg),
   details details: List(String),
+  history history: route.Route,
   amount amount: Float,
 ) -> Element(Msg) {
   html.li(
@@ -1274,7 +1280,15 @@ fn line_row(
         html.p(
           [attribute.class(row_ui.selectable_class <> " text-xs text-gray-400")],
           [
-            html.text(string.join(details, " · ")),
+            html.text(string.join(details, " · ") <> " · "),
+            html.a(
+              [
+                attribute.href(route.to_string(history)),
+                attribute.class("text-indigo-600 hover:text-indigo-500"),
+                attribute.attribute("data-testid", "history-" <> testid),
+              ],
+              [html.text("History")],
+            ),
           ],
         ),
       ]),

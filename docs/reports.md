@@ -190,9 +190,9 @@ always clear from context; where it is not, say "balance sheet line".
   newest first, with a delete action each, confirmed with the app's delete
   dialog. The page header shows the line's name, side, term, current balance,
   and close date, with an action that records an observation using the line's
-  value or balance form. The line's name on the balance sheet links to it. A
-  line on the balance sheet opens that form, as an account's already did, and
-  editing a line's details is reached from there. Deleting an account's last
+  value or balance form. Each line on the balance sheet has a "History" link to
+  it. A line on the balance sheet opens that form, as an account's already did,
+  and editing a line's details is reached from there. Deleting an account's last
   observation leaves its balance unknown. Deleting an item's last observation is
   rejected: an item always has a known value, so the user deletes the item
   instead.

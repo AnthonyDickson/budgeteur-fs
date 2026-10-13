@@ -27,6 +27,12 @@ pub type ApiRoute {
   DeleteAccount(id: Uuid)
   RecordBalance(account_id: Uuid)
   RecordItemValue(item_id: Uuid)
+  GetBalanceSheetItem(id: Uuid)
+  GetItemObservations(item_id: Uuid)
+  DeleteItemObservation(item_id: Uuid, as_of: Date)
+  GetAccount(id: Uuid)
+  GetAccountObservations(account_id: Uuid)
+  DeleteAccountObservation(account_id: Uuid, as_of: Date)
   GetIncomeStatement(from: Date, to: Date)
   RunAutoTag
   GetRuleMatches(pattern: String)
@@ -52,17 +58,31 @@ pub fn to_string(route: ApiRoute) -> String {
       api_prefix <> "/rules/" <> uuid.to_string(id)
     GetBalanceSheet -> api_prefix <> "/balance-sheet"
     CreateBalanceSheetItem -> api_prefix <> "/balance-sheet/items"
-    UpdateBalanceSheetItem(id:) | DeleteBalanceSheetItem(id:) ->
+    GetBalanceSheetItem(id:)
+    | UpdateBalanceSheetItem(id:)
+    | DeleteBalanceSheetItem(id:) ->
       api_prefix <> "/balance-sheet/items/" <> uuid.to_string(id)
-    RecordItemValue(item_id:) ->
+    RecordItemValue(item_id:) | GetItemObservations(item_id:) ->
       api_prefix
       <> "/balance-sheet/items/"
       <> uuid.to_string(item_id)
       <> "/observations"
+    DeleteItemObservation(item_id:, as_of:) ->
+      api_prefix
+      <> "/balance-sheet/items/"
+      <> uuid.to_string(item_id)
+      <> "/observations/"
+      <> date.format(as_of)
+    DeleteAccountObservation(account_id:, as_of:) ->
+      api_prefix
+      <> "/accounts/"
+      <> uuid.to_string(account_id)
+      <> "/observations/"
+      <> date.format(as_of)
     CreateAccount | GetAllAccounts -> api_prefix <> "/accounts"
-    UpdateAccount(id:) | DeleteAccount(id:) ->
+    GetAccount(id:) | UpdateAccount(id:) | DeleteAccount(id:) ->
       api_prefix <> "/accounts/" <> uuid.to_string(id)
-    RecordBalance(account_id:) ->
+    RecordBalance(account_id:) | GetAccountObservations(account_id:) ->
       api_prefix
       <> "/accounts/"
       <> uuid.to_string(account_id)

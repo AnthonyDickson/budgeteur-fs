@@ -12,6 +12,7 @@ module BalanceSheetEndpoints =
     let all (queryContext : QueryContextFactory) (clock : Clock) = [
         GET [
             ReadBalanceSheet.endpoint queryContext
+            ReadBalanceSheetItem.endpoint queryContext
             ReadItemObservations.endpoint queryContext
         ]
         POST [
@@ -25,11 +26,8 @@ module BalanceSheetEndpoints =
         ]
     ]
 
-    /// <summary>Item reads for manual inspection. Development only, so they are
-    /// not advertised as supported API.</summary>
+    /// <summary>The item list, for manual inspection. Development only, so it
+    /// is not advertised as supported API.</summary>
     let developmentOnly (queryContext : QueryContextFactory) = [
-        GET [
-            ReadBalanceSheetItem.endpoint queryContext
-            ReadAllBalanceSheetItems.endpoint queryContext
-        ]
+        GET [ ReadAllBalanceSheetItems.endpoint queryContext ]
     ]

@@ -1,4 +1,7 @@
 import budgeteur/balance_sheet_page/balance_sheet_page
+import budgeteur/balance_sheet_page/observation_history_page.{
+  AccountRef, ItemRef,
+}
 import budgeteur/dashboard_page/dashboard_page
 import budgeteur/header
 import budgeteur/quick_tagging_page/quick_tagging_page
@@ -33,6 +36,7 @@ pub type Page {
   QuickTaggingPage(quick_tagging_page.Model)
   TaggingPage(tagging_page.Model)
   BalanceSheetPage(balance_sheet_page.Model)
+  ObservationHistoryPage(observation_history_page.Model)
   NotFound
 }
 
@@ -47,6 +51,7 @@ pub type Msg {
   QuickTaggingPageMsg(quick_tagging_page.Msg)
   TaggingPageMsg(tagging_page.Msg)
   BalanceSheetPageMsg(balance_sheet_page.Msg)
+  ObservationHistoryPageMsg(observation_history_page.Msg)
   ToastDismissed(id: Uuid)
   UrlChanged(url: String)
   NoOp
@@ -124,6 +129,18 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           let #(_, page_effect) = balance_sheet_page.init()
           #(model, effect.map(page_effect, BalanceSheetPageMsg))
         }
+        route.ItemHistory(id), ObservationHistoryPage(inner_model)
+          if inner_model.line_ref == ItemRef(id)
+        -> {
+          let #(_, page_effect) = observation_history_page.init(ItemRef(id))
+          #(model, effect.map(page_effect, ObservationHistoryPageMsg))
+        }
+        route.AccountHistory(id), ObservationHistoryPage(inner_model)
+          if inner_model.line_ref == AccountRef(id)
+        -> {
+          let #(_, page_effect) = observation_history_page.init(AccountRef(id))
+          #(model, effect.map(page_effect, ObservationHistoryPageMsg))
+        }
         route.Dashboard, _ -> {
           let #(inner_model, inner_effect) = dashboard_page.init()
 
@@ -164,6 +181,8 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
           #(model, effect)
         }
+        route.ItemHistory(id), _ -> open_history(model, ItemRef(id))
+        route.AccountHistory(id), _ -> open_history(model, AccountRef(id))
         route.NotFound, NotFound -> #(model, effect.none())
         route.NotFound, _ -> #(Model(..model, page: NotFound), effect.none())
       }
@@ -224,6 +243,18 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       )
       |> with_out_msg(out_msg)
     }
+    ObservationHistoryPageMsg(inner_msg),
+      Model(page: ObservationHistoryPage(inner_model), ..)
+    -> {
+      let #(inner_model, inner_effect, out_msg) =
+        observation_history_page.update(inner_model, inner_msg)
+
+      #(
+        Model(..model, page: ObservationHistoryPage(inner_model)),
+        effect.map(inner_effect, ObservationHistoryPageMsg),
+      )
+      |> with_out_msg(out_msg)
+    }
     ToastDismissed(id:), _ -> {
       let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
       #(Model(..model, toasts:), effect.none())
@@ -240,6 +271,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       #(model, effect.none())
     }
   }
+}
+
+fn open_history(
+  model: Model,
+  line_ref: observation_history_page.LineRef,
+) -> #(Model, Effect(Msg)) {
+  let #(inner_model, inner_effect) = observation_history_page.init(line_ref)
+  #(
+    Model(..model, page: ObservationHistoryPage(inner_model)),
+    effect.map(inner_effect, ObservationHistoryPageMsg),
+  )
 }
 
 /// Rewrite every `HttpRequest` effect so a 401 response dispatches
@@ -301,6 +343,10 @@ pub fn view(model: Model) -> Element(Msg) {
       balance_sheet_page.view(inner_model)
       |> element.map(BalanceSheetPageMsg)
 
+    ObservationHistoryPage(inner_model) ->
+      observation_history_page.view(inner_model)
+      |> element.map(ObservationHistoryPageMsg)
+
     NotFound -> view_not_found()
   }
 
@@ -324,6 +370,11 @@ fn current_route(page: Page) -> route.Route {
     QuickTaggingPage(_) -> route.QuickTagging
     TaggingPage(_) -> route.Tagging
     BalanceSheetPage(_) -> route.BalanceSheet
+    ObservationHistoryPage(inner_model) ->
+      case inner_model.line_ref {
+        ItemRef(id) -> route.ItemHistory(id)
+        AccountRef(id) -> route.AccountHistory(id)
+      }
     NotFound -> route.NotFound
   }
 }
