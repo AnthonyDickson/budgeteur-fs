@@ -285,3 +285,125 @@ module BalanceSheetTests =
                     (BalanceSheet.netWorth sampleSheet)
                     "an unknown balance is not counted as zero or anything else"
         ]
+
+    [<Tests>]
+    let asOfTests =
+        let day (d : int) = DateOnly (2026, 3, d)
+
+        let item
+            (name : string)
+            (closedOn : DateOnly option)
+            : BalanceSheetItem = {
+            Id = Guid.NewGuid ()
+            Name = ItemName.create name |> okOrFail "name"
+            Side = Side.Asset
+            Term = Term.NonCurrent
+            ClosedOn = closedOn
+        }
+
+        let value (d : int) (amount : decimal) : ItemObservation = {
+            AsOf = day d
+            Value = Value.create amount |> okOrFail "value"
+        }
+
+        let account (name : string) (closedOn : DateOnly option) : Account = {
+            Id = Guid.NewGuid ()
+            Number = None
+            Name = AccountName.create name |> okOrFail "name"
+            Term = Term.Current
+            ClosedOn = closedOn
+        }
+
+        let balance (d : int) (amount : decimal) : BalanceObservation = {
+            AsOf = day d
+            Balance = Money.create amount
+        }
+
+        let history items accounts : BalanceSheetHistory = {
+            ItemHistories = items
+            AccountHistories = accounts
+        }
+
+        let itemValues (sheet : BalanceSheet) =
+            sheet.Items
+            |> List.map (fun line ->
+                ItemName.value line.Item.Name,
+                line.Current.AsOf,
+                Value.value line.Current.Value)
+
+        testList "BalanceSheet.asOf" [
+            testCase
+                "each line takes its latest observation on or before the date"
+            <| fun () ->
+                let house = item "House" None
+
+                let sheet =
+                    BalanceSheet.asOf
+                        (day 10)
+                        (history [
+                            house, [ value 12 500m; value 1 300m; value 9 400m ]
+                        ] [])
+
+                Expect.equal
+                    (itemValues sheet)
+                    [ "House", day 9, 400m ]
+                    "the value on the 9th, not the later one on the 12th"
+
+                Expect.equal (BalanceSheet.netWorth sheet) 400m "net worth"
+
+            testCase "a line enters the sheet at its first observation"
+            <| fun () ->
+                let car = item "Car" None
+                let card = account "Credit card" None
+
+                let sheet =
+                    BalanceSheet.asOf
+                        (day 4)
+                        (history [ car, [ value 5 9000m ] ] [
+                            card, [ balance 6 -400m ]
+                        ])
+
+                Expect.isEmpty sheet.Items "the car has no value yet"
+
+                Expect.isEmpty
+                    sheet.Accounts
+                    "the card is left out, not listed as unknown"
+
+            testCase "an account without observations is unknown"
+            <| fun () ->
+                let card = account "Credit card" None
+
+                let sheet = BalanceSheet.asOf (day 4) (history [] [ card, [] ])
+
+                Expect.equal
+                    (BalanceSheet.unknownBalances sheet)
+                    [ card ]
+                    "listed as unknown, as on the current sheet"
+
+            testCase "a line leaves the sheet on its close date"
+            <| fun () ->
+                let sold = item "House" (Some (day 5))
+                let closed = account "Old card" (Some (day 5))
+
+                let draw d =
+                    BalanceSheet.asOf
+                        (day d)
+                        (history [ sold, [ value 1 300m ] ] [
+                            closed, [ balance 1 -50m ]
+                        ])
+
+                let before = draw 4
+
+                Expect.equal
+                    (BalanceSheet.netWorth before)
+                    250m
+                    "both lines count the day before"
+
+                let onTheDay = draw 5
+
+                Expect.isEmpty
+                    onTheDay.Items
+                    "the item is gone on its close date"
+
+                Expect.isEmpty onTheDay.Accounts "so is the account"
+        ]

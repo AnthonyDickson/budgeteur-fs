@@ -1,5 +1,7 @@
 namespace Budgeteur.Domain.BalanceSheet
 
+open System
+
 open Budgeteur.Domain.Account
 open Budgeteur.Domain.BalanceSheetItem
 open Budgeteur.Domain.Money
@@ -17,6 +19,14 @@ type BalanceSheet = {
 
     /// <summary>Every account, whether its balance is known or not.</summary>
     Accounts : AccountBalance list
+}
+
+/// <summary>Every item and account a user has, open or closed, each with its
+/// observation history in any order: what a balance sheet for any statement
+/// date is drawn from. See decision 3 in docs/reports.md.</summary>
+type BalanceSheetHistory = {
+    ItemHistories : (BalanceSheetItem * ItemObservation list) list
+    AccountHistories : (Account * BalanceObservation list) list
 }
 
 /// <summary>Where a line sits on the sheet and the magnitude it adds there.
@@ -124,3 +134,74 @@ module BalanceSheet =
     /// </summary>
     let workingCapital (sheet : BalanceSheet) =
         totalCurrentAssets sheet - totalCurrentLiabilities sheet
+
+    /// <summary>Whether a line closed on <c>closedOn</c>, if ever, is still
+    /// held on the date.</summary>
+    let private isOpenOn (date : DateOnly) (closedOn : DateOnly option) =
+        match closedOn with
+        | Some closedOn -> date < closedOn
+        | None -> true
+
+    /// <summary>The observation with the latest as-of date on or before the
+    /// date, if any.</summary>
+    let private latestOnOrBefore
+        (date : DateOnly)
+        (asOf : 'Observation -> DateOnly)
+        (observations : 'Observation list)
+        =
+        observations
+        |> List.filter (fun observation -> asOf observation <= date)
+        |> List.sortByDescending asOf
+        |> List.tryHead
+
+    /// <summary>
+    /// The balance sheet drawn for a statement date. Each line's balance is
+    /// its latest observation on or before the date. A line enters the sheet
+    /// at its first observation and leaves it on its close date. An account
+    /// with no observations at all has an unknown balance, as on the current
+    /// sheet. See decision 3 in docs/reports.md.
+    /// </summary>
+    /// <remarks>
+    /// Balances between observations are not interpolated: a line keeps its
+    /// latest value until the next, and its as-of date shows how old it is.
+    /// </remarks>
+    let asOf
+        (statementDate : DateOnly)
+        (history : BalanceSheetHistory)
+        : BalanceSheet =
+        let items =
+            history.ItemHistories
+            |> List.filter (fun (item, _) ->
+                isOpenOn statementDate item.ClosedOn)
+            |> List.choose (fun (item, observations) ->
+                latestOnOrBefore
+                    statementDate
+                    (fun (observation : ItemObservation) -> observation.AsOf)
+                    observations
+                |> Option.map (fun current -> {
+                    Item = item
+                    Current = current
+                }))
+
+        let accounts =
+            history.AccountHistories
+            |> List.filter (fun (account, _) ->
+                isOpenOn statementDate account.ClosedOn)
+            |> List.choose (fun (account, observations) ->
+                match
+                    observations,
+                    latestOnOrBefore
+                        statementDate
+                        (fun (observation : BalanceObservation) ->
+                            observation.AsOf)
+                        observations
+                with
+                | [], _ -> Some { Account = account; Current = None }
+                | _, Some current ->
+                    Some {
+                        Account = account
+                        Current = Some current
+                    }
+                | _, None -> None)
+
+        { Items = items; Accounts = accounts }
