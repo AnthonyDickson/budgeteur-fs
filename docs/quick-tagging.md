@@ -214,10 +214,12 @@ Assignment, tag source, manual tag, and rule tag are defined in
 - **Route**: `/quick-tagging`, a page module of its own.
 - **Header**: the page title and the number of transactions still waiting: the
   queue total less the rows quick tagged in this batch.
-- **Rows**: the description first, then the date, amount, and account name on
-  one line, then the tag buttons, wrapping as needed. The description can be
+- **Rows**: the description with the amount beside it, the date and account name
+  below, then the tag buttons, wrapping as needed. The description can be
   selected and copied. Rows do not open the transaction form; other fields are
   edited on the transactions page.
+- **No tags**: a note above the rows links to the tags page, and each row offers
+  only "Dismiss".
 - **Empty state**: "No transactions are waiting for a tag", with a link to the
   transactions page, where the user imports and records transactions.
 - **Errors**: a failed queue load shows the page's error state with a retry. A

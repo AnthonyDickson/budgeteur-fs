@@ -31,6 +31,8 @@ pub type ApiRoute {
   GetRuleMatches(pattern: String)
   ImportStatements
   GetQuickTagQueue
+  QuickTagTransaction(id: Uuid)
+  DismissTransaction(id: Uuid)
 }
 
 const api_prefix = "/api"
@@ -64,6 +66,8 @@ pub fn to_string(route: ApiRoute) -> String {
     RunAutoTag -> api_prefix <> "/auto-tag"
     ImportStatements -> api_prefix <> "/imports"
     GetQuickTagQueue -> api_prefix <> "/quick-tag"
+    QuickTagTransaction(id:) | DismissTransaction(id:) ->
+      api_prefix <> "/quick-tag/" <> uuid.to_string(id)
     GetRuleMatches(pattern:) ->
       api_prefix
       <> "/auto-tag/matches?"
