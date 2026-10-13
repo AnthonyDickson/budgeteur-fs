@@ -14,10 +14,10 @@ module AccountQuery =
 
     /// <summary>The user's accounts with their current balances, by
     /// name.</summary>
-    let readAll (queryContext : QueryContextFactory) (userId : string) =
+    let readAll (ctx : QueryContext) (userId : string) =
         task {
             let! rows =
-                selectTask queryContext {
+                selectTask ctx {
                     for a in main.Accounts do
                         leftJoin' c in main.LeftJoined.CurrentBalances
                         on' (Some a.Id = c.AccountId)
@@ -32,14 +32,10 @@ module AccountQuery =
 
     /// <summary>The user's account with its current balance, if the user has
     /// one with the id.</summary>
-    let tryRead
-        (queryContext : QueryContextFactory)
-        (userId : string)
-        (id : Guid)
-        =
+    let tryRead (ctx : QueryContext) (userId : string) (id : Guid) =
         task {
             let! row =
-                selectTask queryContext {
+                selectTask ctx {
                     for a in main.Accounts do
                         leftJoin' c in main.LeftJoined.CurrentBalances
                         on' (Some a.Id = c.AccountId)

@@ -47,16 +47,16 @@ client-test`. Finish with `just e2e-test`, `just lint`, and `just format`.
         not become current (account and balance sheet reads).
   - [x] Docs: decisions 3 and 12 in `docs/csv-import.md`: the current balance is
         a view because it is a read model, not a write-side decision.
-- [ ] **Read back inside the write transaction**
-  - [ ] `AccountQuery` takes a `QueryContext`; `ReadAccount` and
+- [x] **Read back inside the write transaction**
+  - [x] `AccountQuery` takes a `QueryContext`; `ReadAccount` and
         `ReadAllAccounts` open their own.
-  - [ ] `CreateAccount` and `UpdateAccount`: write, read back with the same
+  - [x] `CreateAccount` and `UpdateAccount`: write, read back with the same
         context, then commit. The `None` branch stays for the option type but
         cannot follow a successful write.
-  - [ ] Same change in the Transaction slice (`CreateTransaction`,
+  - [x] Same change in the Transaction slice (`CreateTransaction`,
         `UpdateTransaction`, `TransactionQuery`) so the reference implementation
         matches.
-  - [ ] Docs: if `docs/architecture.md` describes write responses, note the read
+  - [x] Docs: if `docs/architecture.md` describes write responses, note the read
         happens in the write transaction.
 - [ ] **Separate balance and details operations: server**
   - [ ] Rename `WriteAccountRequest.fs` to `BalanceEntryRequest.fs`, keeping the

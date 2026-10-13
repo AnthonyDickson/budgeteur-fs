@@ -26,8 +26,8 @@ module UpdateAccount =
     let Path = "/api/accounts/{%O:guid}"
 
     /// <summary>Replace the user's account and record its new balance, if
-    /// any, in one database transaction. Fails with <c>NotFound</c> when the
-    /// user has no account with the id.</summary>
+    /// any, and read it back, in one database transaction. Fails with
+    /// <c>NotFound</c> when the user has no account with the id.</summary>
     let private update
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -61,8 +61,14 @@ module UpdateAccount =
                             observation
                 | None -> ()
 
+                let! updated = AccountQuery.tryRead ctx userId account.Id
                 ctx.CommitTransaction ()
-                return Ok ()
+
+                return
+                    updated
+                    |> Result.requireSome (
+                        NotFound $"Account %O{account.Id} not found"
+                    )
         }
 
     let private handler
@@ -87,17 +93,14 @@ module UpdateAccount =
                             account
                     )
 
-                do! update queryContext userId account observation
+                let! updated = update queryContext userId account observation
 
                 log.Info (
                     $"Updated account %O{id}",
                     LogProp.prop "accountId" (id.ToString ())
                 )
 
-                match! AccountQuery.tryRead queryContext userId id with
-                | Some account ->
-                    do! Json.write ctx (AccountResponse.fromDomain account)
-                | None -> return! Error (NotFound $"Account %O{id} not found")
+                do! Json.write ctx (AccountResponse.fromDomain updated)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

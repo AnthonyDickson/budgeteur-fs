@@ -91,7 +91,9 @@ Shared Kernel pattern, which is a model shared between bounded contexts.
   and the test-support reset, also write across tables.
 - **Slices own their read shapes.** A feature needing a different shape (e.g. a
   dashboard aggregate) defines its own read model rather than growing the shared
-  type.
+  type. A write responds with its slice's read shape, read back inside the
+  write's database transaction, so the response is what was committed and one
+  query defines the shape.
 
 ### Domain types
 

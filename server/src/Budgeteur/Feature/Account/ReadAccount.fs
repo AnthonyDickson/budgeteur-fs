@@ -30,7 +30,9 @@ module ReadAccount =
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
 
-                match! AccountQuery.tryRead queryContext userId id with
+                use! db = queryContext.OpenContextAsync ()
+
+                match! AccountQuery.tryRead db userId id with
                 | Some account ->
                     log.Info (
                         $"Returned account %O{id}",

@@ -57,10 +57,10 @@ module UpdateTransaction =
         }
 
     /// <summary>Replace the user's transaction and set its assignment to the
-    /// requested tag, in one database transaction. The current assignment is
-    /// read inside the transaction, since keeping the same tag keeps its
-    /// source. Fails with <c>NotFound</c> when the user
-    /// has no transaction with the id.</summary>
+    /// requested tag, and read it back, in one database transaction. The
+    /// current assignment is read inside the transaction, since keeping the
+    /// same tag keeps its source. Fails with <c>NotFound</c> when the user has
+    /// no transaction with the id.</summary>
     let private update
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -91,8 +91,17 @@ module UpdateTransaction =
                 let! current = readAssignment ctx userId transaction.Id
                 let assignment = TagAssignment.onUpdate tagId current
                 do! TagAssignmentStore.save ctx userId transaction.Id assignment
+
+                let! updated =
+                    TransactionQuery.tryRead ctx userId transaction.Id
+
                 ctx.CommitTransaction ()
-                return Ok ()
+
+                return
+                    updated
+                    |> Result.requireSome (
+                        NotFound $"Transaction %O{transaction.Id} not found"
+                    )
         }
 
     let private handler
@@ -134,24 +143,21 @@ module UpdateTransaction =
                     AccountId = req.AccountId
                 }
 
-                do! update queryContext userId transaction req.TagId
+                let! transaction, assignment, accountName =
+                    update queryContext userId transaction req.TagId
 
                 log.Info (
                     $"Updated transaction %O{id}",
                     LogProp.prop "transactionId" (id.ToString ())
                 )
 
-                match! TransactionQuery.tryRead queryContext userId id with
-                | Some (transaction, assignment, accountName) ->
-                    do!
-                        Json.write
-                            ctx
-                            (TransactionResponse.fromDomain
-                                transaction
-                                assignment
-                                accountName)
-                | None ->
-                    return! Error (NotFound $"Transaction %O{id} not found")
+                do!
+                    Json.write
+                        ctx
+                        (TransactionResponse.fromDomain
+                            transaction
+                            assignment
+                            accountName)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

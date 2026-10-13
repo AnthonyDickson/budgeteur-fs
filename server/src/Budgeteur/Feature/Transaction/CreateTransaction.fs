@@ -38,8 +38,8 @@ module CreateTransaction =
     [<Literal>]
     let Path = "/api/transactions"
 
-    /// <summary>Insert the transaction and its assignment in one database
-    /// transaction.</summary>
+    /// <summary>Insert the transaction and its assignment, and read it back,
+    /// in one database transaction.</summary>
     let private insert
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -59,7 +59,14 @@ module CreateTransaction =
                 }
 
             do! TagAssignmentStore.save ctx userId transaction.Id assignment
+            let! created = TransactionQuery.tryRead ctx userId transaction.Id
             ctx.CommitTransaction ()
+
+            return
+                created
+                |> Result.requireSome (
+                    NotFound $"Transaction %O{transaction.Id} not found"
+                )
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -99,32 +106,24 @@ module CreateTransaction =
                 }
 
                 let assignment = TagAssignment.onCreate req.TagId
-                do! insert queryContext userId transaction assignment
+
+                let! transaction, assignment, accountName =
+                    insert queryContext userId transaction assignment
 
                 log.Info (
                     $"Created transaction %O{transaction.Id}",
                     LogProp.prop "transactionId" (transaction.Id.ToString ())
                 )
 
-                match!
-                    TransactionQuery.tryRead queryContext userId transaction.Id
-                with
-                | Some (transaction, assignment, accountName) ->
-                    ctx.SetStatusCode 201
+                ctx.SetStatusCode 201
 
-                    do!
-                        Json.write
-                            ctx
-                            (TransactionResponse.fromDomain
-                                transaction
-                                assignment
-                                accountName)
-                | None ->
-                    return!
-                        Error (
-                            NotFound
-                                $"Transaction %O{transaction.Id} not found"
-                        )
+                do!
+                    Json.write
+                        ctx
+                        (TransactionResponse.fromDomain
+                            transaction
+                            assignment
+                            accountName)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

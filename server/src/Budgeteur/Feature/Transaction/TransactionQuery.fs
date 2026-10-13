@@ -1,8 +1,8 @@
 namespace Budgeteur.Feature.Transaction
 
 /// <summary>The slice's read shape: a transaction with its tag, if any, and its
-/// account's name, if any. Writes respond with it too, so every response
-/// carries the same fields.</summary>
+/// account's name, if any. Writes respond with it too, read back inside their
+/// database transaction, so every response carries the same fields.</summary>
 module TransactionQuery =
     open System
 
@@ -23,10 +23,10 @@ module TransactionQuery =
         accountName
 
     /// <summary>Every transaction of the user.</summary>
-    let readAll (queryContext : QueryContextFactory) (userId : string) =
+    let readAll (ctx : QueryContext) (userId : string) =
         task {
             let! rows =
-                selectTask queryContext {
+                selectTask ctx {
                     for t in main.Transactions do
                         leftJoin a in main.LeftJoined.TagAssignments
                                           on
@@ -43,14 +43,10 @@ module TransactionQuery =
         }
 
     /// <summary>The user's transaction with the id, if any.</summary>
-    let tryRead
-        (queryContext : QueryContextFactory)
-        (userId : string)
-        (id : Guid)
-        =
+    let tryRead (ctx : QueryContext) (userId : string) (id : Guid) =
         task {
             let! row =
-                selectTask queryContext {
+                selectTask ctx {
                     for t in main.Transactions do
                         leftJoin a in main.LeftJoined.TagAssignments
                                           on

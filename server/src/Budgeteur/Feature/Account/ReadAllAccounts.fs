@@ -24,7 +24,8 @@ module ReadAllAccounts =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! accounts = AccountQuery.readAll queryContext userId
+                use! db = queryContext.OpenContextAsync ()
+                let! accounts = AccountQuery.readAll db userId
 
                 log.Info (
                     $"Returned %i{List.length accounts} accounts",

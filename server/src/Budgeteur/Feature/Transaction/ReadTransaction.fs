@@ -31,8 +31,8 @@ module ReadTransaction =
             taskResult {
                 let! userId = Auth.getUserId ctx
 
-                let! transaction =
-                    TransactionQuery.tryRead queryContext userId id
+                use! db = queryContext.OpenContextAsync ()
+                let! transaction = TransactionQuery.tryRead db userId id
 
                 let log = RequestLog.fromContext ctx
 

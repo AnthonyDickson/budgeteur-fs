@@ -25,8 +25,8 @@ module CreateAccount =
     [<Literal>]
     let Path = "/api/accounts"
 
-    /// <summary>Insert the account and its balance, if any, in one database
-    /// transaction.</summary>
+    /// <summary>Insert the account and its balance, if any, and read it back,
+    /// in one database transaction.</summary>
     let private insert
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -53,7 +53,14 @@ module CreateAccount =
                         observation
             | None -> ()
 
+            let! created = AccountQuery.tryRead ctx userId account.Id
             ctx.CommitTransaction ()
+
+            return
+                created
+                |> Result.requireSome (
+                    NotFound $"Account %O{account.Id} not found"
+                )
         }
 
     let private handler
@@ -80,21 +87,15 @@ module CreateAccount =
                             account
                     )
 
-                do! insert queryContext userId account observation
+                let! created = insert queryContext userId account observation
 
                 log.Info (
                     $"Created account %O{account.Id}",
                     LogProp.prop "accountId" (account.Id.ToString ())
                 )
 
-                match! AccountQuery.tryRead queryContext userId account.Id with
-                | Some account ->
-                    ctx.SetStatusCode 201
-
-                    do! Json.write ctx (AccountResponse.fromDomain account)
-                | None ->
-                    return!
-                        Error (NotFound $"Account %O{account.Id} not found")
+                ctx.SetStatusCode 201
+                do! Json.write ctx (AccountResponse.fromDomain created)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =
