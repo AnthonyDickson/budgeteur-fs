@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 
 import { expectAmount } from '../support/amount';
 import { expect, test } from '../support/fixtures';
@@ -161,23 +161,31 @@ test.describe('balance sheet', () => {
 });
 
 const accountModal = (page: Page) => page.getByTestId('account-modal');
+const balanceModal = (page: Page) => page.getByTestId('balance-modal');
 
 const accountRow = (page: Page, name: string) =>
   page.locator('[data-testid^="balance-sheet-account-"]').filter({
     hasText: name,
   });
 
-/// Fill the open account modal's balance as held or owed, and save.
-async function saveBalance(
-  page: Page,
-  args: { side: 'Held' | 'Owed'; balance: string },
+/// Fill the balance fields of the open account or balance modal.
+async function fillBalance(
+  dialog: Locator,
+  args: { side: 'Asset' | 'Liability'; amount: string },
 ) {
-  await accountModal(page).getByTestId(`account-side-${args.side}`).check();
-  await accountModal(page).getByTestId('account-balance-input').fill(
-    args.balance,
-  );
-  await accountModal(page).getByTestId('account-submit-button').click();
-  await expect(accountModal(page)).toBeHidden();
+  await dialog.getByTestId(`balance-side-${args.side}`).check();
+  await dialog.getByTestId('balance-amount-input').fill(args.amount);
+}
+
+/// Record a balance through the open balance modal.
+async function recordBalance(
+  page: Page,
+  args: { side: 'Asset' | 'Liability'; amount: string },
+) {
+  await expect(balanceModal(page)).toBeVisible();
+  await fillBalance(balanceModal(page), args);
+  await balanceModal(page).getByTestId('balance-submit-button').click();
+  await expect(balanceModal(page)).toBeHidden();
 }
 
 test.describe('balance sheet accounts', () => {
@@ -186,7 +194,7 @@ test.describe('balance sheet accounts', () => {
     async ({ page }, testInfo) => {
       await gotoNewBalanceSheet(page);
 
-      // An account with a held balance is a current asset.
+      // An account with an asset balance is a current asset.
       await page.getByTestId('add-account-button').click();
       await expect(accountModal(page)).toBeVisible();
       await accountModal(page).getByTestId('account-name-input').fill(
@@ -195,7 +203,12 @@ test.describe('balance sheet accounts', () => {
       await accountModal(page).getByTestId('account-number-input').fill(
         '12-3456-0789012-00',
       );
-      await saveBalance(page, { side: 'Held', balance: '1000.00' });
+      await fillBalance(accountModal(page), {
+        side: 'Asset',
+        amount: '1000.00',
+      });
+      await accountModal(page).getByTestId('account-submit-button').click();
+      await expect(accountModal(page)).toBeHidden();
       await expect(accountRow(page, 'Everyday')).toContainText(
         '12-3456-0789012-000',
       );
@@ -212,10 +225,9 @@ test.describe('balance sheet accounts', () => {
       await expect(unknown).toContainText('Credit card');
       await expectAmount(summaryCard(page, 'net-worth'), 1000);
 
-      // An owed balance makes it a current liability.
-      await unknown.getByRole('button', { name: 'Enter balance' }).click();
-      await expect(accountModal(page)).toBeVisible();
-      await saveBalance(page, { side: 'Owed', balance: '400.00' });
+      // A liability balance makes it a current liability.
+      await unknown.getByRole('button', { name: 'Record balance' }).click();
+      await recordBalance(page, { side: 'Liability', amount: '400.00' });
       await expect(unknown).toBeHidden();
       await expectAmount(itemGroup(page, 'Current liabilities'), 400);
       await expectAmount(summaryCard(page, 'net-worth'), 600);
@@ -235,6 +247,50 @@ test.describe('balance sheet accounts', () => {
       await expect(deleteAccount).toBeHidden();
       await expect(accountRow(page, 'Everyday')).toHaveCount(0);
       await expectAmount(summaryCard(page, 'net-worth'), -400);
+    },
+  );
+
+  test(
+    'an overdrawn account moves sides, and editing it keeps its balance',
+    async ({ page }) => {
+      await gotoNewBalanceSheet(page);
+
+      await page.getByTestId('add-account-button').click();
+      await accountModal(page).getByTestId('account-name-input').fill(
+        'Everyday',
+      );
+      await fillBalance(accountModal(page), {
+        side: 'Asset',
+        amount: '1000.00',
+      });
+      await accountModal(page).getByTestId('account-submit-button').click();
+      await expect(accountModal(page)).toBeHidden();
+      await expectAmount(itemGroup(page, 'Current assets'), 1000);
+
+      // The balance form opens on the current balance.
+      await accountRow(page, 'Everyday').getByRole('button', {
+        name: 'Record balance',
+      }).click();
+      await expect(balanceModal(page).getByTestId('balance-amount-input'))
+        .toHaveValue('1000.00');
+
+      // Recording an overdrawn balance moves the line to the liabilities.
+      await recordBalance(page, { side: 'Liability', amount: '50.00' });
+      await expectAmount(itemGroup(page, 'Current assets'), 0);
+      await expectAmount(itemGroup(page, 'Current liabilities'), 50);
+      await expectAmount(summaryCard(page, 'net-worth'), -50);
+
+      // Editing the details changes the name and leaves the balance.
+      await accountRow(page, 'Everyday').getByRole('button', { name: 'Edit' })
+        .click();
+      await expect(accountModal(page)).toBeVisible();
+      await expect(accountModal(page).getByTestId('balance-amount-input'))
+        .toHaveCount(0);
+      await accountModal(page).getByTestId('account-name-input').fill('Bills');
+      await accountModal(page).getByTestId('account-submit-button').click();
+      await expect(accountModal(page)).toBeHidden();
+      await expect(accountRow(page, 'Bills')).toBeVisible();
+      await expectAmount(itemGroup(page, 'Current liabilities'), 50);
     },
   );
 });

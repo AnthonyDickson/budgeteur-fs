@@ -73,34 +73,34 @@ client-test`. Finish with `just e2e-test`, `just lint`, and `just format`.
   - [x] Tests: split requests; record, replace on the same date, another user's
         account, future date; `PUT` leaves balance history unchanged.
   - [x] Docs: decision 12 in `docs/csv-import.md`.
-- [ ] **Separate balance and details operations: client**
-  - [ ] Extract `balance_form.gleam` from `account_modal`: side, amount, as-of
+- [x] **Separate balance and details operations: client**
+  - [x] Extract `balance_form.gleam` from `account_modal`: side, amount, as-of
         date, validation, signed balance, view. Radios "Asset" and "Liability",
         legend "Balance", help text: "Liability when the account is overdrawn or
         a card balance is owing. The line moves sides when the balance changes
         sign."
-  - [ ] New `balance_modal.gleam` titled "Record balance", on `form_modal` in
+  - [x] New `balance_modal.gleam` titled "Record balance", on `form_modal` in
         edit mode, mapping its `Put` to a record-balance request. Prefills side
         and amount from the current balance and the date with today; shows the
         current balance and its date; help text that keeping the current
         balance's date corrects it. Blank amount for an unknown balance.
-  - [ ] `account_modal`: create has details plus an optional balance form; edit
+  - [x] `account_modal`: create has details plus an optional balance form; edit
         has details only. Update its module doc.
-  - [ ] Split `account_write_request.gleam` into create, update, and balance
+  - [x] Split `account_write_request.gleam` into create, update, and balance
         entry payloads.
-  - [ ] Line actions move under the details (`line_row` takes a list of actions;
+  - [x] Line actions move under the details (`line_row` takes a list of actions;
         row `items-start`; `text-xs` buttons), so amounts line up with section
         totals. Accounts: "Record balance · Edit · Delete"; items: "Edit ·
         Delete". Add `data-testid`s.
-  - [ ] Unknown-balance callout: heading "Unknown balances"; its button opens
+  - [x] Unknown-balance callout: heading "Unknown balances"; its button opens
         the balance modal.
-  - [ ] Client tests: update `account_modal_test.gleam`; add
+  - [x] Client tests: update `account_modal_test.gleam`; add
         `balance_modal_test.gleam` (prefill, side flips sign, date required,
         negative rejected, unknown balance starts blank).
-  - [ ] E2E: recording a liability balance on an asset account moves the line
+  - [x] E2E: recording a liability balance on an asset account moves the line
         and updates totals; editing details leaves the balance; update
         selectors.
-  - [ ] Docs: decision 13 in `docs/csv-import.md`; `docs/balance-sheet.md` if it
+  - [x] Docs: decision 13 in `docs/csv-import.md`; `docs/balance-sheet.md` if it
         describes line actions.
 - [ ] **Docstrings and language**
   - [ ] `BalanceAfter` in `Statement.fs`: "The balance a row's running-balance

@@ -1,6 +1,8 @@
 import budgeteur/balance_sheet_page/account.{type Account, Account}
 import budgeteur/balance_sheet_page/account_delete_modal
 import budgeteur/balance_sheet_page/account_modal
+import budgeteur/balance_sheet_page/balance_form
+import budgeteur/balance_sheet_page/balance_modal
 import budgeteur/balance_sheet_page/balance_sheet.{
   type BalanceSheet, BalanceSheet,
 }
@@ -58,6 +60,7 @@ fn empty_model() -> balance_sheet_page.Model {
     item_delete_modal: item_delete_modal.empty(),
     account_modal: account_modal.hidden(),
     account_delete_modal: account_delete_modal.empty(),
+    balance_modal: balance_modal.hidden(),
   )
 }
 
@@ -340,27 +343,60 @@ fn sample_account() -> Account {
   Account(id: item_id(5), name: "Everyday", number: None, term: Current)
 }
 
-pub fn the_account_form_opens_with_today_for_a_new_balance_test() {
+pub fn recording_a_balance_posts_it_and_refetches_the_sheet_test() {
   let model =
     balance_sheet_page.Model(
       ..loaded_model(sample_sheet()),
       today: Some(Date(2026, March, 8)),
     )
 
-  // "Enter balance" on an unknown balance opens the account for editing.
-  let #(after, effect, out_msg) =
+  // "Record balance" on an unknown balance opens the balance form, dated
+  // today.
+  let #(opened, _, _) =
     balance_sheet_page.update(
       model,
-      balance_sheet_page.UserRequestedAccountEdit(sample_account()),
+      balance_sheet_page.UserRequestedBalanceRecord(sample_account(), None),
     )
 
   let assert form_modal.Active(form:, mode: form_modal.Edit(id)) =
-    after.account_modal
+    opened.balance_modal
   id |> should.equal(sample_account().id)
-  form.as_of
+  form.balance.as_of
   |> should.equal(field.Valid(value: Date(2026, March, 8), input: "2026-03-08"))
-  effect |> should.equal(effect.none())
-  out_msg |> should.equal(None)
+
+  let #(filled, _, _) =
+    balance_sheet_page.update(
+      opened,
+      balance_sheet_page.BalanceModalMsg(
+        balance_modal.BalanceMsg(balance_form.AmountChanged("12.50")),
+      ),
+    )
+  let #(submitting, effect, _) =
+    balance_sheet_page.update(
+      filled,
+      balance_sheet_page.BalanceModalMsg(balance_modal.SaveRequested),
+    )
+
+  let assert effect.HttpRequest(method:, url:, ..) = effect
+  method |> should.equal(http_effect.Post)
+  url
+  |> should.equal(
+    api_route.to_string(api_route.RecordBalance(sample_account().id)),
+  )
+
+  let #(after, effect, out_msg) =
+    balance_sheet_page.update(
+      submitting,
+      balance_sheet_page.BalanceModalMsg(
+        balance_modal.SaveCompleted(Ok(sample_account())),
+      ),
+    )
+
+  after.balance_modal |> should.equal(balance_modal.hidden())
+  let assert Some(out_msg.PageRequestedToast(body:, ..)) = out_msg
+  body |> should.equal("Recorded a balance for 'Everyday'")
+  let assert effect.HttpRequest(url:, ..) = effect
+  url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
 }
 
 pub fn saving_an_account_refetches_the_sheet_and_toasts_test() {

@@ -120,10 +120,11 @@ line. Lessons from it are cited where they shaped a decision.
   memory.
 - **Same date**: a new observation replaces any observation on its date, whether
   it came from a statement or was entered by hand.
-- **Manual entry**: the account form records an observation with a balance and
-  an as-of date, which defaults to the client's today. An as-of date later than
-  the server's UTC date plus one day is rejected, so a mistyped future date
-  cannot stay current. Re-entering a balance on the same date corrects it.
+- **Manual entry**: the balance form records an observation with a balance and
+  an as-of date, which defaults to the client's today. A new account may take an
+  opening balance the same way. An as-of date later than the server's UTC date
+  plus one day is rejected, so a mistyped future date cannot stay current.
+  Re-entering a balance on the same date corrects it.
 - **Sources**:
   - Kiwibank: one observation per transaction (processing) date in the
     statement: the running balance after the last row of that date, by the
@@ -394,11 +395,19 @@ line. Lessons from it are cited where they shaped a decision.
 - **Balance sheet page**: account lines sit in the same asset and liability,
   current and non-current groups as items, marked with the account number and
   the current balance's as-of date. A callout lists accounts with an unknown
-  balance. An "Add account" button sits next to the item buttons. Clicking an
-  account line opens the account form: name, number, term, and a new balance
-  (entered as held or owed and a magnitude) with its as-of date, which records
-  an observation. Deleting an account warns that its transactions and balance
-  history are deleted with it.
+  balance. An "Add account" button sits next to the item buttons. Each line's
+  actions sit under its details, so its amount lines up with the subtotals: an
+  account has "Record balance", "Edit", and "Delete"; an item has "Edit" and
+  "Delete". The account form edits the name, number, and term; a new account
+  also takes an optional opening balance. The balance form opens on the current
+  balance's side and amount, dated today, and records an observation: an asset
+  or liability and an amount without a sign. Keeping the current balance's date
+  corrects it. The unknown-balance callout opens the same form. Deleting an
+  account warns that its transactions and balance history are deleted with it.
+- **Why separate forms**: editing details and recording a balance take different
+  fields and do different things: one replaces the account's details, the other
+  adds to its balance history. In one form, a blank balance meant "keep the
+  current one", so changing only the side recorded nothing.
 - **Goal**: importing starts where the user reviews transactions, and account
   balances are managed where they count.
 
@@ -472,7 +481,7 @@ line. Lessons from it are cited where they shaped a decision.
   - Account CRUD: deleting an account deletes its transactions; balance sheet
     totals with account lines, a negative balance, and an unknown one.
   - Client: the import modal's flow (files read, request, toast, errors shown);
-    account form conversion between held or owed and a signed balance.
+    balance form conversion between asset or liability and a signed balance.
   - E2E: upload the Kiwibank chequing and savings samples; transactions appear
     with their account, the transfer is marked, and both accounts appear on the
     balance sheet.

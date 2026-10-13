@@ -2,6 +2,7 @@ import budgeteur/balance_sheet_page/account.{type Account, type AccountLine}
 import budgeteur/balance_sheet_page/account_delete_modal
 import budgeteur/balance_sheet_page/account_modal
 import budgeteur/balance_sheet_page/account_write_request
+import budgeteur/balance_sheet_page/balance_modal
 import budgeteur/balance_sheet_page/balance_sheet.{type BalanceSheet}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_delete_modal
@@ -45,6 +46,7 @@ pub type Model {
     item_delete_modal: item_delete_modal.DeleteModalState,
     account_modal: account_modal.Modal,
     account_delete_modal: account_delete_modal.DeleteModalState,
+    balance_modal: balance_modal.Modal,
   )
 }
 
@@ -86,6 +88,12 @@ pub type Msg {
   UserCancelledAccountDelete
   // As for items, 404 is folded into Ok.
   ServerDeletedAccount(account: Account, result: Result(Nil, ApiError))
+  // Balance modal messages
+  UserRequestedBalanceRecord(
+    account: Account,
+    current: Option(balance_modal.CurrentBalance),
+  )
+  BalanceModalMsg(balance_modal.Msg)
 }
 
 // Effects
@@ -117,6 +125,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       item_delete_modal: item_delete_modal.empty(),
       account_modal: account_modal.hidden(),
       account_delete_modal: account_delete_modal.empty(),
+      balance_modal: balance_modal.hidden(),
     ),
     effect.batch([effect.GetLocalDate(ClientGotToday), fetch_sheet()]),
   )
@@ -194,10 +203,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       )
 
     UserRequestedAccountEdit(account) ->
-      run_account_modal(
-        model,
-        account_modal.EditRequested(account:, today: model.today),
-      )
+      run_account_modal(model, account_modal.EditRequested(account:))
 
     AccountModalMsg(inner_msg) -> run_account_modal(model, inner_msg)
 
@@ -224,6 +230,14 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       effect.none(),
       None,
     )
+
+    UserRequestedBalanceRecord(account:, current:) ->
+      run_balance_modal(
+        model,
+        balance_modal.OpenRequested(account:, current:, today: model.today),
+      )
+
+    BalanceModalMsg(inner_msg) -> run_balance_modal(model, inner_msg)
   }
 }
 
@@ -424,8 +438,9 @@ fn run_account_modal(
     ]
     _ -> effects
   }
-  // A save may record a balance, which moves the account's line and the
-  // totals the server computes, so the sheet is refetched.
+  // A save may record an opening balance or change the term, which moves the
+  // account's line and the totals the server computes, so the sheet is
+  // refetched.
   let #(effects, out_msg) = case outcome {
     form_modal.NoChange -> #(effects, None)
     form_modal.Created(entity: account) -> #(
@@ -452,13 +467,13 @@ fn interpret_account_modal_request(
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateAccount |> api_route.to_string,
-        account_write_request.to_json(payload) |> json.to_string,
+        account_write_request.create_json(payload) |> json.to_string,
         handle_account_response,
       )
     form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateAccount(id) |> api_route.to_string,
-        account_write_request.to_json(payload) |> json.to_string,
+        account_write_request.update_json(payload) |> json.to_string,
         handle_account_response,
       )
   }
@@ -473,6 +488,72 @@ fn handle_account_response(result) {
       |> account_modal.SaveCompleted
     Error(http_error) ->
       account_modal.SaveCompleted(
+        Error(response.http_error_to_api_error(http_error)),
+      )
+  }
+}
+
+fn run_balance_modal(
+  model: Model,
+  msg: balance_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(balance_modal, request, outcome) =
+    balance_modal.update(model.balance_modal, msg)
+  let model = Model(..model, balance_modal:)
+  let effects = case request {
+    Some(request) -> [interpret_balance_modal_request(request)]
+    None -> []
+  }
+  let effects = case msg {
+    balance_modal.SaveCompleted(result: Error(error)) -> [
+      effect.LogError(api_error.describe(error)),
+      ..effects
+    ]
+    _ -> effects
+  }
+  // A new balance can move the account's line and changes the totals the
+  // server computes, so the sheet is refetched.
+  let #(effects, out_msg) = case outcome {
+    form_modal.NoChange -> #(effects, None)
+    form_modal.Created(entity: account) | form_modal.Updated(entity: account) -> #(
+      list.append(effects, [fetch_sheet()]),
+      Some(out_msg.success_toast(
+        "Recorded a balance for '" <> account.name <> "'",
+      )),
+    )
+  }
+  let effect = case effects {
+    [] -> effect.none()
+    [effect] -> effect
+    _ -> effect.batch(effects)
+  }
+  #(model, effect, out_msg)
+}
+
+fn interpret_balance_modal_request(
+  request: balance_modal.Request,
+) -> Effect(Msg) {
+  case request {
+    // The modal opens in edit mode only, so its request names the account.
+    form_modal.Put(id:, payload:) ->
+      effect.post(
+        api_route.RecordBalance(id) |> api_route.to_string,
+        account_write_request.balance_entry_json(payload) |> json.to_string,
+        handle_balance_response,
+      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(BalanceModalMsg)
+    form_modal.Post(_) -> effect.none()
+  }
+}
+
+fn handle_balance_response(result) {
+  case result {
+    Ok(body) ->
+      response.decode_success(body, account.decoder())
+      |> balance_modal.SaveCompleted
+    Error(http_error) ->
+      balance_modal.SaveCompleted(
         Error(response.http_error_to_api_error(http_error)),
       )
   }
@@ -555,6 +636,8 @@ pub fn view(model: Model) -> Element(Msg) {
       ),
       account_modal.view(model.account_modal)
         |> element.map(AccountModalMsg),
+      balance_modal.view(model.balance_modal)
+        |> element.map(BalanceModalMsg),
       account_delete_modal.view(
         model.account_delete_modal,
         on_cancel: UserCancelledAccountDelete,
@@ -869,14 +952,17 @@ fn line_group(
 }
 
 fn item_row(item: BalanceSheetItem) -> Element(Msg) {
+  let testid = uuid.to_string(item.id)
+
   line_row(
-    line: "item",
-    id: item.id,
+    testid: "balance-sheet-item-" <> testid,
     name: item.name,
     details: ["As of " <> date.format(item.as_of)],
     balance: item.balance,
-    on_edit: UserRequestedItemEdit(item.id),
-    on_delete: UserRequestedItemDelete(item),
+    actions: [
+      edit_action("edit-item-" <> testid, UserRequestedItemEdit(item.id)),
+      delete_action("delete-item-" <> testid, UserRequestedItemDelete(item)),
+    ],
   )
 }
 
@@ -884,41 +970,60 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
 /// balance's as-of date.
 fn account_row(line: AccountLine) -> Element(Msg) {
   let as_of = "As of " <> date.format(line.as_of)
+  let current =
+    balance_modal.CurrentBalance(
+      side: line.kind,
+      amount: line.balance,
+      as_of: line.as_of,
+    )
 
   line_row(
-    line: "account",
-    id: line.account.id,
+    testid: "balance-sheet-account-" <> uuid.to_string(line.account.id),
     name: line.account.name,
     details: case line.account.number {
       Some(number) -> [number, as_of]
       None -> [as_of]
     },
     balance: line.balance,
-    on_edit: UserRequestedAccountEdit(line.account),
-    on_delete: UserRequestedAccountDelete(line.account),
+    actions: account_actions(line.account, Some(current)),
   )
 }
 
-/// A line on the sheet with its edit and delete buttons. `line` names the
-/// source ("item" or "account") in the test ids.
+/// What a user can do with an account, wherever it is listed.
+fn account_actions(
+  account: Account,
+  current: Option(balance_modal.CurrentBalance),
+) -> List(Element(Msg)) {
+  let testid = uuid.to_string(account.id)
+
+  [
+    line_action(
+      label: "Record balance",
+      testid: "record-balance-account-" <> testid,
+      class: "text-indigo-600 hover:text-indigo-800",
+      on_click: UserRequestedBalanceRecord(account:, current:),
+    ),
+    edit_action("edit-account-" <> testid, UserRequestedAccountEdit(account)),
+    delete_action(
+      "delete-account-" <> testid,
+      UserRequestedAccountDelete(account),
+    ),
+  ]
+}
+
+/// A line on the sheet. Its actions sit under its details, so every amount is
+/// at the right edge and lines up with the subtotals.
 fn line_row(
-  line line: String,
-  id id: Uuid,
+  testid testid: String,
   name name: String,
   details details: List(String),
   balance balance: Float,
-  on_edit on_edit: Msg,
-  on_delete on_delete: Msg,
+  actions actions: List(Element(Msg)),
 ) -> Element(Msg) {
-  let testid = uuid.to_string(id)
-
   html.li(
     [
-      attribute.class("flex items-center gap-3 px-4 py-3"),
-      attribute.attribute(
-        "data-testid",
-        "balance-sheet-" <> line <> "-" <> testid,
-      ),
+      attribute.class("flex items-start gap-3 px-4 py-3"),
+      attribute.attribute("data-testid", testid),
     ],
     [
       html.div([attribute.class("min-w-0 flex-1")], [
@@ -928,6 +1033,7 @@ fn line_row(
         html.p([attribute.class("text-xs text-gray-400")], [
           html.text(string.join(details, " · ")),
         ]),
+        html.div([attribute.class("mt-1 flex flex-wrap gap-x-3")], actions),
       ]),
       html.span(
         [
@@ -936,38 +1042,44 @@ fn line_row(
         ],
         [html.text(money.format(balance))],
       ),
-      html.div([attribute.class("flex items-center gap-1")], [
-        html.button(
-          [
-            attribute.class(
-              "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
-              <> "hover:bg-indigo-50 hover:text-indigo-700 "
-              <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-              <> "focus:ring-offset-2",
-            ),
-            attribute.attribute("data-testid", "edit-" <> line <> "-" <> testid),
-            event.on_click(on_edit),
-          ],
-          [html.text("Edit")],
-        ),
-        html.button(
-          [
-            attribute.class(
-              "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
-              <> "hover:bg-red-50 hover:text-red-700 "
-              <> "focus:outline-none focus:ring-2 focus:ring-red-500 "
-              <> "focus:ring-offset-2",
-            ),
-            attribute.attribute(
-              "data-testid",
-              "delete-" <> line <> "-" <> testid,
-            ),
-            event.on_click(on_delete),
-          ],
-          [html.text("Delete")],
-        ),
-      ]),
     ],
+  )
+}
+
+fn edit_action(testid: String, on_click: Msg) -> Element(Msg) {
+  line_action(
+    label: "Edit",
+    testid:,
+    class: "text-indigo-600 hover:text-indigo-800",
+    on_click:,
+  )
+}
+
+fn delete_action(testid: String, on_click: Msg) -> Element(Msg) {
+  line_action(
+    label: "Delete",
+    testid:,
+    class: "text-red-600 hover:text-red-800",
+    on_click:,
+  )
+}
+
+fn line_action(
+  label label: String,
+  testid testid: String,
+  class class: String,
+  on_click on_click: Msg,
+) -> Element(Msg) {
+  html.button(
+    [
+      attribute.class(
+        "rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+        <> class,
+      ),
+      attribute.attribute("data-testid", testid),
+      event.on_click(on_click),
+    ],
+    [html.text(label)],
   )
 }
 
@@ -986,7 +1098,7 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
         ],
         [
           html.h2([attribute.class("text-sm font-semibold text-amber-900")], [
-            html.text("Balances needed"),
+            html.text("Unknown balances"),
           ]),
           html.p([attribute.class("mt-1 text-sm text-amber-800")], [
             html.text(
@@ -996,59 +1108,28 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
           html.ul(
             [attribute.class("mt-2 divide-y divide-amber-200")],
             list.map(accounts, fn(account) {
-              let testid = uuid.to_string(account.id)
-
               html.li(
                 [
-                  attribute.class("flex items-center gap-3 py-2"),
+                  attribute.class("py-2"),
                   attribute.attribute(
                     "data-testid",
-                    "unknown-balance-" <> testid,
+                    "unknown-balance-" <> uuid.to_string(account.id),
                   ),
                 ],
                 [
-                  html.span(
-                    [attribute.class("min-w-0 flex-1 truncate text-sm")],
-                    [
-                      html.text(account.name),
-                      case account.number {
-                        Some(number) ->
-                          html.span([attribute.class("ml-2 text-amber-700")], [
-                            html.text(number),
-                          ])
-                        None -> element.none()
-                      },
-                    ],
-                  ),
-                  html.button(
-                    [
-                      attribute.class(
-                        "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
-                        <> "hover:bg-indigo-50 hover:text-indigo-700 "
-                        <> "focus:outline-none focus:ring-2 focus:ring-indigo-500",
-                      ),
-                      attribute.attribute(
-                        "data-testid",
-                        "enter-balance-" <> testid,
-                      ),
-                      event.on_click(UserRequestedAccountEdit(account)),
-                    ],
-                    [html.text("Enter balance")],
-                  ),
-                  html.button(
-                    [
-                      attribute.class(
-                        "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
-                        <> "hover:bg-red-50 hover:text-red-700 "
-                        <> "focus:outline-none focus:ring-2 focus:ring-red-500",
-                      ),
-                      attribute.attribute(
-                        "data-testid",
-                        "delete-account-" <> testid,
-                      ),
-                      event.on_click(UserRequestedAccountDelete(account)),
-                    ],
-                    [html.text("Delete")],
+                  html.p([attribute.class("truncate text-sm")], [
+                    html.text(account.name),
+                    case account.number {
+                      Some(number) ->
+                        html.span([attribute.class("ml-2 text-amber-700")], [
+                          html.text(number),
+                        ])
+                      None -> element.none()
+                    },
+                  ]),
+                  html.div(
+                    [attribute.class("mt-1 flex flex-wrap gap-x-3")],
+                    account_actions(account, None),
                   ),
                 ],
               )
