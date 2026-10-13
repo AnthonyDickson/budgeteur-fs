@@ -33,8 +33,7 @@ module ReadAllAccounts =
 
                 do!
                     accounts
-                    |> List.map (fun (account, current) ->
-                        AccountResponse.fromDomain account current)
+                    |> List.map AccountResponse.fromDomain
                     |> Json.write ctx
             })
 

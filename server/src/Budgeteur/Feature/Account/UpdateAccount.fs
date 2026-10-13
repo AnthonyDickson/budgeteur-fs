@@ -95,11 +95,8 @@ module UpdateAccount =
                 )
 
                 match! AccountQuery.tryRead queryContext userId id with
-                | Some (account, current) ->
-                    do!
-                        Json.write
-                            ctx
-                            (AccountResponse.fromDomain account current)
+                | Some account ->
+                    do! Json.write ctx (AccountResponse.fromDomain account)
                 | None -> return! Error (NotFound $"Account %O{id} not found")
             })
 

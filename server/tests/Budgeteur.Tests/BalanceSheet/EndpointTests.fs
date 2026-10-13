@@ -368,6 +368,36 @@ module EndpointTests =
                 Expect.equal sheet.NetWorth 101100m "net worth"
                 Expect.equal sheet.WorkingCapital 1100m "working capital"
 
+                // When: a balance dated before the current one is recorded.
+                let! _ =
+                    TestHttp.putJson
+                        app.Client
+                        (TestHttp.itemPath
+                            Budgeteur.Feature.Account.UpdateAccount.Path
+                            everyday)
+                        ({
+                            Name = "Everyday"
+                            Number = None
+                            Term = "Current"
+                            Balance =
+                                Some {
+                                    Balance = 50m
+                                    AsOf = DateOnly (2026, 2, 1)
+                                }
+                        }
+                        : Budgeteur.Feature.Account.WriteAccountRequest)
+                    |> Async.AwaitTask
+
+                // Then: the newer balance stays current.
+                let! sheet = getSheetBody app.Client
+
+                Expect.equal
+                    (sheet.Accounts
+                     |> List.filter (fun line -> line.Id = everyday)
+                     |> List.map (fun line -> line.Balance, line.AsOf))
+                    [ 1000m, DateOnly (2026, 3, 1) ]
+                    "an older balance does not replace a newer one"
+
                 // Then: another user's sheet has none of the accounts.
                 let! otherSheet = getSheetBody otherUser
                 Expect.isEmpty otherSheet.Accounts "no account lines"

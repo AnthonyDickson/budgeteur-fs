@@ -40,18 +40,18 @@ type AccountResponse = {
 }
 
 module AccountResponse =
-    let fromDomain
-        (account : Account)
-        (current : BalanceObservation option)
-        : AccountResponse = {
-        Id = account.Id
-        Name = AccountName.value account.Name
-        Number = account.Number |> Option.map AccountNumber.value
-        Term = Term.toString account.Term
-        Balance =
-            current
-            |> Option.map (fun observation -> {
-                Balance = Money.value observation.Balance
-                AsOf = observation.AsOf
-            })
-    }
+    let fromDomain (accountBalance : AccountBalance) : AccountResponse =
+        let account = accountBalance.Account
+
+        {
+            Id = account.Id
+            Name = AccountName.value account.Name
+            Number = account.Number |> Option.map AccountNumber.value
+            Term = Term.toString account.Term
+            Balance =
+                accountBalance.Current
+                |> Option.map (fun observation -> {
+                    Balance = Money.value observation.Balance
+                    AsOf = observation.AsOf
+                })
+        }

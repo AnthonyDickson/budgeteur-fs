@@ -68,6 +68,22 @@ module main =
     let BalanceSheetItems = table<BalanceSheetItems>
 
     [<CLIMutable>]
+    type CurrentBalances =
+        { AccountId: Option<System.Guid>
+          UserId: Option<string>
+          AsOf: Option<System.DateOnly>
+          Balance: Option<decimal> }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "AccountId"; Value = box this.AccountId; ProviderDbType = None }
+                  { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
+                  { WriteColumn.Name = "AsOf"; Value = box this.AsOf; ProviderDbType = None }
+                  { WriteColumn.Name = "Balance"; Value = box this.Balance; ProviderDbType = None } ]
+
+    let CurrentBalances = table<CurrentBalances>
+
+    [<CLIMutable>]
     type Rules =
         { Id: System.Guid
           UserId: string
@@ -201,6 +217,19 @@ module main =
             interface ILeftViewOf<``BalanceSheetItems (base)``>
 
         let BalanceSheetItems = leftTable<``BalanceSheetItems (base)``, BalanceSheetItems>
+
+        type private ``CurrentBalances (base)`` = CurrentBalances
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type CurrentBalances =
+            { AccountId: Option<System.Guid>
+              UserId: Option<string>
+              AsOf: Option<System.DateOnly>
+              Balance: Option<decimal> }
+
+            interface ILeftViewOf<``CurrentBalances (base)``>
+
+        let CurrentBalances = leftTable<``CurrentBalances (base)``, CurrentBalances>
 
         type private ``Rules (base)`` = Rules
 

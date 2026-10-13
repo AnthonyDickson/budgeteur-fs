@@ -12,47 +12,22 @@ module AccountQuery =
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Account
 
-    /// <summary>Pair each account with its current balance.</summary>
-    let private withCurrent
-        (accounts : main.Accounts seq)
-        (observations : main.BalanceObservations seq)
-        : (Account * BalanceObservation option) list =
-        let observationsByAccount =
-            observations
-            |> Seq.groupBy _.AccountId
-            |> Seq.map (fun (accountId, rows) ->
-                accountId,
-                rows |> Seq.map BalanceObservationCodec.fromRow |> List.ofSeq)
-            |> Map.ofSeq
-
-        accounts
-        |> Seq.map (fun row ->
-            let observations =
-                observationsByAccount
-                |> Map.tryFind row.Id
-                |> Option.defaultValue []
-
-            AccountCodec.fromRow row, BalanceObservation.current observations)
-        |> List.ofSeq
-
     /// <summary>The user's accounts with their current balances, by
     /// name.</summary>
     let readAll (queryContext : QueryContextFactory) (userId : string) =
         task {
-            let! accounts =
+            let! rows =
                 selectTask queryContext {
                     for a in main.Accounts do
+                        leftJoin' c in main.LeftJoined.CurrentBalances
+                        on' (Some a.Id = c.AccountId)
+
                         where (a.UserId = userId)
                         orderBy a.Name
+                        select (a, c)
                 }
 
-            and! observations =
-                selectTask queryContext {
-                    for o in main.BalanceObservations do
-                        where (o.UserId = userId)
-                }
-
-            return withCurrent accounts observations
+            return rows |> Seq.map AccountBalanceCodec.fromRow |> List.ofSeq
         }
 
     /// <summary>The user's account with its current balance, if the user has
@@ -63,19 +38,18 @@ module AccountQuery =
         (id : Guid)
         =
         task {
-            let! accounts =
+            let! row =
                 selectTask queryContext {
                     for a in main.Accounts do
+                        leftJoin' c in main.LeftJoined.CurrentBalances
+                        on' (Some a.Id = c.AccountId)
+
                         where (a.Id = id && a.UserId = userId)
+                        select (a, c)
+                        tryHead
                 }
 
-            and! observations =
-                selectTask queryContext {
-                    for o in main.BalanceObservations do
-                        where (o.AccountId = id && o.UserId = userId)
-                }
-
-            return withCurrent accounts observations |> List.tryHead
+            return Option.map AccountBalanceCodec.fromRow row
         }
 
     /// <summary>Verify that no other account of the user has the account's

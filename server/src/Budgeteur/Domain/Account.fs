@@ -177,12 +177,13 @@ module BalanceObservation =
             Balance = Money.create balance
         })
 
-    /// <summary>The current balance: the observation with the latest as-of
-    /// date, so an old statement never replaces a newer balance. None, an
-    /// unknown balance, when the account has no observations.</summary>
-    let current
-        (observations : BalanceObservation list)
-        : BalanceObservation option =
-        match observations with
-        | [] -> None
-        | _ -> Some (List.maxBy _.AsOf observations)
+/// <summary>An account and its current balance. See decision 3 in
+/// docs/csv-import.md.</summary>
+type AccountBalance = {
+    Account : Account
+
+    /// <summary>The observation with the latest as-of date, so an old
+    /// statement never replaces a newer balance. None when the account has no
+    /// observations: its balance is unknown.</summary>
+    Current : BalanceObservation option
+}

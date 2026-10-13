@@ -98,30 +98,6 @@ module ReadBalanceSheet =
             WorkingCapital = BalanceSheet.workingCapital sheet
         }
 
-    /// <summary>Pair each account with its current balance.</summary>
-    let private accountBalances
-        (accounts : main.Accounts seq)
-        (observations : main.BalanceObservations seq)
-        : AccountBalance list =
-        let observationsByAccount =
-            observations
-            |> Seq.groupBy _.AccountId
-            |> Seq.map (fun (accountId, rows) ->
-                accountId,
-                rows |> Seq.map BalanceObservationCodec.fromRow |> List.ofSeq)
-            |> Map.ofSeq
-
-        accounts
-        |> Seq.map (fun row -> {
-            Account = AccountCodec.fromRow row
-            Current =
-                observationsByAccount
-                |> Map.tryFind row.Id
-                |> Option.defaultValue []
-                |> BalanceObservation.current
-        })
-        |> List.ofSeq
-
     /// <summary>The user's balance sheet: every item and account they track. A
     /// user with neither has an empty sheet.</summary>
     let private readBalanceSheet
@@ -138,20 +114,19 @@ module ReadBalanceSheet =
             and! accounts =
                 selectTask queryContext {
                     for a in main.Accounts do
+                        leftJoin' c in main.LeftJoined.CurrentBalances
+                        on' (Some a.Id = c.AccountId)
+
                         where (a.UserId = userId)
                         orderBy a.Name
-                }
-
-            and! observations =
-                selectTask queryContext {
-                    for o in main.BalanceObservations do
-                        where (o.UserId = userId)
+                        select (a, c)
                 }
 
             return {
                 Items =
                     Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
-                Accounts = accountBalances accounts observations
+                Accounts =
+                    Seq.map AccountBalanceCodec.fromRow accounts |> List.ofSeq
             }
         }
 

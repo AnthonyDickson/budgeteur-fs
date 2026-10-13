@@ -49,6 +49,7 @@
     <Compile Include="Data/AccountCodec.fs" />
     <Compile Include="Data/BalanceObservationCodec.fs" />
     <Compile Include="Data/BalanceObservationStore.fs" />
+    <Compile Include="Data/AccountBalanceCodec.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />

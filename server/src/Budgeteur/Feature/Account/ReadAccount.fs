@@ -31,16 +31,13 @@ module ReadAccount =
                 let! userId = Auth.getUserId ctx
 
                 match! AccountQuery.tryRead queryContext userId id with
-                | Some (account, current) ->
+                | Some account ->
                     log.Info (
                         $"Returned account %O{id}",
                         LogProp.prop "accountId" (id.ToString ())
                     )
 
-                    do!
-                        Json.write
-                            ctx
-                            (AccountResponse.fromDomain account current)
+                    do! Json.write ctx (AccountResponse.fromDomain account)
                 | None ->
                     log.Warn (
                         $"Account %O{id} not found",

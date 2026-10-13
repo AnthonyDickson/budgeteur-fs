@@ -88,13 +88,10 @@ module CreateAccount =
                 )
 
                 match! AccountQuery.tryRead queryContext userId account.Id with
-                | Some (account, current) ->
+                | Some account ->
                     ctx.SetStatusCode 201
 
-                    do!
-                        Json.write
-                            ctx
-                            (AccountResponse.fromDomain account current)
+                    do! Json.write ctx (AccountResponse.fromDomain account)
                 | None ->
                     return!
                         Error (NotFound $"Account %O{account.Id} not found")

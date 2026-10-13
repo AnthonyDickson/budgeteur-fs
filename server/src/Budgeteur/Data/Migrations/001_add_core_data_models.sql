@@ -44,6 +44,19 @@ CREATE TABLE BalanceObservations (
 
 CREATE INDEX IX_BalanceObservations_UserId ON BalanceObservations(UserId);
 
+-- Each account's current balance: the observation with the latest as-of date,
+-- so an old statement never replaces a newer balance. An account without
+-- observations has no row: its balance is unknown. A read model; see decision
+-- 3 in docs/csv-import.md.
+CREATE VIEW CurrentBalances AS
+SELECT o.AccountId, o.UserId, o.AsOf, o.Balance
+FROM BalanceObservations o
+WHERE o.AsOf = (
+    SELECT MAX(latest.AsOf)
+    FROM BalanceObservations latest
+    WHERE latest.AccountId = o.AccountId
+);
+
 -- Balance Sheet Items
 
 CREATE TABLE BalanceSheetItems (

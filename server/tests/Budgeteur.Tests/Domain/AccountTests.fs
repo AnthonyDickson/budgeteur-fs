@@ -127,27 +127,6 @@ module AccountTests =
         }
 
         testList "BalanceObservation" [
-            testCase "the latest observation is current, whatever the order"
-            <| fun () ->
-                let latest = observation 20 150m
-
-                let observations = [
-                    observation 10 100m
-                    latest
-                    observation 15 -50m
-                ]
-
-                Expect.equal
-                    (BalanceObservation.current observations)
-                    (Some latest)
-                    "the 20th is the latest"
-
-            testCase "an account without observations has an unknown balance"
-            <| fun () ->
-                Expect.isNone
-                    (BalanceObservation.current [])
-                    "unknown, not zero"
-
             testCase "a manual balance cannot be dated in the future"
             <| fun () ->
                 let now = DateTimeOffset (2026, 3, 8, 12, 0, 0, TimeSpan.Zero)

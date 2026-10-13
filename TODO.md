@@ -30,22 +30,22 @@ client-test`. Finish with `just e2e-test`, `just lint`, and `just format`.
         applies before the options exist, so it shows the first tag. Mark the
         matching option `selected`, as `transaction_modal.gleam` does. E2E:
         select the second tag, open "New rule", assert the select shows it.
-- [ ] **Current balances as a view**
-  - [ ] Add a `CurrentBalances` view to migration 001 (unreleased): each
+- [x] **Current balances as a view**
+  - [x] Add a `CurrentBalances` view to migration 001 (unreleased): each
         observation whose as-of date is the latest for its account. Comment it
         as the "latest observation is current" rule. Run `just db-update`.
-  - [ ] Verify SqlHydra generates the view. SQLite reports view columns as
+  - [x] Verify SqlHydra generates the view. SQLite reports view columns as
         nullable, so its fields may be options. Fallback: a correlated subquery
         (`correlate`, `subqueryOne`) in one shared reader in `Data/`.
-  - [ ] Move `AccountBalance` from `Domain/BalanceSheet.fs` to
+  - [x] Move `AccountBalance` from `Domain/BalanceSheet.fs` to
         `Domain/Account.fs`; delete `BalanceObservation.current`.
-  - [ ] `AccountQuery.readAll`/`tryRead` and the balance sheet reader become one
+  - [x] `AccountQuery.readAll`/`tryRead` and the balance sheet reader become one
         query each: accounts left joined to `CurrentBalances`. Removes
         `AccountQuery.withCurrent` and `ReadBalanceSheet.accountBalances`.
-  - [ ] Tests: drop the `BalanceObservation.current` unit tests; add an endpoint
+  - [x] Tests: drop the `BalanceObservation.current` unit tests; add an endpoint
         test that a balance recorded for an older date after a newer one does
         not become current (account and balance sheet reads).
-  - [ ] Docs: decisions 3 and 12 in `docs/csv-import.md`: the current balance is
+  - [x] Docs: decisions 3 and 12 in `docs/csv-import.md`: the current balance is
         a view because it is a read model, not a write-side decision.
 - [ ] **Read back inside the write transaction**
   - [ ] `AccountQuery` takes a `QueryContext`; `ReadAccount` and

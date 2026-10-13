@@ -5,16 +5,6 @@ open Budgeteur.Domain.BalanceSheetItem
 open Budgeteur.Domain.Money
 open Budgeteur.Domain.Term
 
-/// <summary>An account and its current balance, as the balance sheet reads
-/// it.</summary>
-type AccountBalance = {
-    Account : Account
-
-    /// <summary>The latest observation, or none when the balance is
-    /// unknown.</summary>
-    Current : BalanceObservation option
-}
-
 /// <summary>The items and accounts a user tracks: the two sources of lines.
 /// The sheet stores no date of its own: it is drawn for the date the client
 /// asks about, and each line carries its own as-of date. See decisions 4 and 5

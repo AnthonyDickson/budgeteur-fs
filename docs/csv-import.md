@@ -113,6 +113,11 @@ line. Lessons from it are cited where they shaped a decision.
   balance. An account with no observations has an unknown balance, which is left
   out of totals and listed in a callout above the sheet, asking the user to
   enter it.
+- **Current balance as a view**: a database view selects each account's latest
+  observation, and reads left join accounts to it. Which observation is current
+  decides nothing on the write side, so it is a read model, and a query states
+  the rule once instead of each reader loading the whole history and choosing in
+  memory.
 - **Same date**: a new observation replaces any observation on its date, whether
   it came from a statement or was entered by hand.
 - **Manual entry**: the account form records an observation with a balance and
@@ -354,10 +359,12 @@ line. Lessons from it are cited where they shaped a decision.
     transfer detection, as pure functions apart from the handler.
   - `Feature/Account/` owns account CRUD at `/api/accounts`.
   - The `Account` type, its number and name rules, and the observation rules
-    (one per date, the latest is current, no future dates) are in `Domain/`,
-    with their mapping in `Data/`, because both slices write accounts and
-    observations. The transaction mapping moves from the Transaction slice to
-    `Data/`, because Import also writes transactions.
+    (one per date, no future dates) are in `Domain/`, with their mapping in
+    `Data/`, because both slices write accounts and observations. The rule that
+    the latest observation is current is the current balances view (decision 3),
+    which the Account and balance sheet slices both read. The transaction
+    mapping moves from the Transaction slice to `Data/`, because Import also
+    writes transactions.
   - The balance sheet slice reads accounts into its own read model. The
     Transaction slice reads account names for its responses.
 - **Why**: the formats are the banks' model, not ours; the parser is an adapter
