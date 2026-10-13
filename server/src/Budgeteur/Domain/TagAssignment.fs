@@ -111,3 +111,11 @@ module TagAssignment =
         | Some TagAssignment.Dismissed -> current
         | Some (TagAssignment.Tagged (_, TagSource.Rule))
         | None -> Option.map byRule winningTagId
+
+    /// <summary>Quick tagging with a tag makes it manual, whatever the
+    /// transaction had. See decision 1 in docs/quick-tagging.md.</summary>
+    let onQuickTag (tagId : Guid) : TagAssignment option = Some (manual tagId)
+
+    /// <summary>Dismissing records that the transaction has no tag, whatever it
+    /// had.</summary>
+    let onDismiss : TagAssignment option = Some TagAssignment.Dismissed

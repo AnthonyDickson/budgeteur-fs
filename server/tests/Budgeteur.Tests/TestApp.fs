@@ -40,6 +40,7 @@ module TestAppConfig =
     open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Feature.Import
     open Budgeteur.Feature.IncomeStatement
+    open Budgeteur.Feature.QuickTag
     open Budgeteur.Feature.Rule
     open Budgeteur.Feature.Tag
     open Budgeteur.Feature.TestSupport
@@ -70,6 +71,8 @@ module TestAppConfig =
     let withIncomeStatement = withEndpoints [] IncomeStatementEndpoints.all
 
     let withAutoTag = withEndpoints [ "TagAssignments" ] AutoTagEndpoints.all
+
+    let withQuickTag = withEndpoints [ "TagAssignments" ] QuickTagEndpoints.all
 
     /// Includes the development-only item reads, which the tests use to observe
     /// item state.
