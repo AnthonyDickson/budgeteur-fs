@@ -6,3 +6,6 @@ tests/e2e/node_modules/
 tests/e2e/test-results/
 tests/e2e/playwright-report/
 docker/docker-compose.prod.yml
+
+# Raw bank exports and the anonymiser key, see docs/csv-import.md
+raw-exports/

@@ -75,8 +75,10 @@ services:
     environment:
       - BASE_URL=http://localhost:5173
       - CI=1
+      - CSV_FIXTURES=/csv-fixtures
     volumes:
       - ../tests/e2e:/tests
+      - ../server/tests/Budgeteur.Tests/Import/Fixtures:/csv-fixtures:ro
       - e2e-node-modules:/tests/node_modules
     depends_on:
       authelia:

@@ -1,8 +1,10 @@
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
 import budgeteur/balance_sheet_page/term.{type Term}
+import budgeteur/shared/date
 import budgeteur/shared/money
 import budgeteur/shared/uuid as uuid_decoder
 import gleam/dynamic/decode
+import gleam/time/calendar.{type Date}
 import youid/uuid.{type Uuid}
 
 pub type BalanceSheetItem {
@@ -17,6 +19,8 @@ pub type BalanceSheetItem {
     term: Term,
     // The positive magnitude of the item's value. Direction is implied by Kind.
     balance: Float,
+    // The date the balance is accurate as of.
+    as_of: Date,
   )
 }
 
@@ -26,5 +30,6 @@ pub fn decoder() -> decode.Decoder(BalanceSheetItem) {
   use kind <- decode.field("kind", item_kind.decoder())
   use term <- decode.field("term", term.decoder())
   use balance <- decode.field("balance", money.decode_decimal())
-  decode.success(BalanceSheetItem(id:, name:, kind:, term:, balance:))
+  use as_of <- decode.field("asOf", date.decoder())
+  decode.success(BalanceSheetItem(id:, name:, kind:, term:, balance:, as_of:))
 }

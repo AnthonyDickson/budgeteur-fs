@@ -10,30 +10,54 @@
 
 -- Accounts
 
+-- Somewhere the user's transactions happen: chequing, savings, credit card. See docs/csv-import.md.
 CREATE TABLE Accounts (
     -- v7 UUID
-    Id          GUID     NOT NULL PRIMARY KEY,
-    UserId      TEXT     NOT NULL,
-    -- The account number from a bank statement
-    Number      TEXT     NOT NULL,
-    -- The account name, defaults to the account number. May be set by the user to a custom name.
-    Name        TEXT     NOT NULL,
-    -- The amount of money held in the account. Positive values indicate credit whereas negative values indicate debit.
-    Balance     CURRENCY NOT NULL,
-    -- When the balance snapshot was taken (the date the balance is accurate as of).
-    CurrentAsOf DATE     NOT NULL
+    Id     GUID NOT NULL PRIMARY KEY,
+    UserId TEXT NOT NULL,
+    -- The number statements identify the account by, in canonical form: an NZ bank account
+    -- number or a masked card number. NULL for an account without one.
+    Number TEXT,
+    -- The user's alias for the account. Defaults to the account number.
+    Name   TEXT NOT NULL,
+    Term   TEXT NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
+    -- Unique per user. SQLite treats NULLs as distinct, so any number of accounts can lack one.
+    -- Also serves as the index for reading a user's accounts.
+    UNIQUE(UserId, Number)
 );
 
-CREATE INDEX IX_Accounts_UserId on Accounts(UserId);
+-- Account balance observations
 
--- Balance Sheet + Items
-
-CREATE TABLE BalanceSheets (
-    -- One balance sheet per user
-    UserId        TEXT     NOT NULL PRIMARY KEY,
-    -- When the balance snapshot was taken (the date the balance is accurate as of).
-    StatementDate DATETIME NOT NULL
+-- A balance an account had as of a date, from a statement or entered by hand. One per account
+-- and date; the latest is the account's current balance. See decision 3 in docs/csv-import.md.
+CREATE TABLE BalanceObservations (
+    AccountId GUID     NOT NULL,
+    UserId    TEXT     NOT NULL,
+    -- The calendar date the balance is accurate as of.
+    AsOf      DATE     NOT NULL,
+    -- Signed: positive is an asset (owned), negative a liability (owed).
+    Balance   CURRENCY NOT NULL,
+    PRIMARY KEY (AccountId, AsOf),
+    -- Deleting the account deletes its balance history.
+    FOREIGN KEY(AccountId) REFERENCES Accounts(Id) ON DELETE CASCADE
 );
+
+CREATE INDEX IX_BalanceObservations_UserId ON BalanceObservations(UserId);
+
+-- Each account's current balance: the observation with the latest as-of date,
+-- so an old statement never replaces a newer balance. An account without
+-- observations has no row: its balance is unknown. A read model; see decision
+-- 3 in docs/csv-import.md.
+CREATE VIEW CurrentBalances AS
+SELECT o.AccountId, o.UserId, o.AsOf, o.Balance
+FROM BalanceObservations o
+WHERE o.AsOf = (
+    SELECT MAX(latest.AsOf)
+    FROM BalanceObservations latest
+    WHERE latest.AccountId = o.AccountId
+);
+
+-- Balance Sheet Items
 
 CREATE TABLE BalanceSheetItems (
     -- v7 UUID
@@ -43,6 +67,8 @@ CREATE TABLE BalanceSheetItems (
     Kind    TEXT     NOT NULL CHECK (Kind IN ('Asset', 'Liability')),
     Term    TEXT     NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
     Balance CURRENCY NOT NULL CHECK (Balance >= 0),
+    -- The calendar date the balance is accurate as of, chosen by the user.
+    AsOf    DATE     NOT NULL,
     UNIQUE(UserId, Name, Kind, Term)
 );
 
@@ -82,13 +108,19 @@ CREATE TABLE Transactions (
     -- The account associated with the transaction.
     -- NULL indicates the account info is not available or not applicable (e.g., cash).
     AccountId   GUID,
-    -- The hash of the CSV row that uniquely identifies a transaction imported from a CSV file.
-    -- NULL for transactions directly created by the user.
+    -- A hash of the identity fields of the statement row the transaction was imported from, unique
+    -- per user, so a re-import skips it. NULL for transactions created by the user. See decision 6
+    -- in docs/csv-import.md.
     ImportHash  TEXT,
-    FOREIGN KEY(AccountId) REFERENCES Accounts(Id) ON UPDATE CASCADE ON DELETE SET NULL
+    -- Deleting an account deletes its transactions, see decision 2 in docs/csv-import.md.
+    FOREIGN KEY(AccountId) REFERENCES Accounts(Id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
 CREATE INDEX IX_Transactions_UserId_Date ON Transactions(UserId, Date);
+-- SQLite treats NULLs as distinct, so transactions created by the user never collide.
+CREATE UNIQUE INDEX UX_Transactions_UserId_ImportHash ON Transactions(UserId, ImportHash);
+-- Lets deleting an account find its transactions without a table scan.
+CREATE INDEX IX_Transactions_AccountId ON Transactions(AccountId);
 
 -- Auto-tagging rules
 

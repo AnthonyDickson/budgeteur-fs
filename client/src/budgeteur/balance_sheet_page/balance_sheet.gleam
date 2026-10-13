@@ -1,12 +1,10 @@
+import budgeteur/balance_sheet_page/account.{type Account, type AccountLine}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/shared/money
-import budgeteur/shared/timestamp_helpers
 import gleam/dynamic/decode
-import gleam/time/timestamp.{type Timestamp}
 
 pub type BalanceSheet {
   BalanceSheet(
-    statement_date: Timestamp,
     total_assets: Float,
     total_liabilities: Float,
     net_worth: Float,
@@ -16,14 +14,14 @@ pub type BalanceSheet {
     total_non_current_liabilities: Float,
     working_capital: Float,
     items: List(BalanceSheetItem),
+    // Accounts with a known balance, as lines.
+    accounts: List(AccountLine),
+    // Accounts whose balance is unknown, left out of the totals.
+    unknown_balances: List(Account),
   )
 }
 
 pub fn decoder() -> decode.Decoder(BalanceSheet) {
-  use statement_date <- decode.field(
-    "statementDate",
-    timestamp_helpers.decoder(),
-  )
   use total_assets <- decode.field("totalAssets", money.decode_decimal())
   use total_liabilities <- decode.field(
     "totalLiabilities",
@@ -48,8 +46,12 @@ pub fn decoder() -> decode.Decoder(BalanceSheet) {
   )
   use working_capital <- decode.field("workingCapital", money.decode_decimal())
   use items <- decode.field("items", decode.list(balance_sheet_item.decoder()))
+  use accounts <- decode.field("accounts", decode.list(account.line_decoder()))
+  use unknown_balances <- decode.field(
+    "unknownBalances",
+    decode.list(account.decoder()),
+  )
   decode.success(BalanceSheet(
-    statement_date:,
     total_assets:,
     total_liabilities:,
     net_worth:,
@@ -59,5 +61,7 @@ pub fn decoder() -> decode.Decoder(BalanceSheet) {
     total_non_current_liabilities:,
     working_capital:,
     items:,
+    accounts:,
+    unknown_balances:,
   ))
 }

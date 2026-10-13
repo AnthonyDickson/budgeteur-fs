@@ -1,10 +1,15 @@
+import budgeteur/balance_sheet_page/account.{type Account, type AccountLine}
+import budgeteur/balance_sheet_page/account_delete_modal
+import budgeteur/balance_sheet_page/account_modal
+import budgeteur/balance_sheet_page/account_write_request
+import budgeteur/balance_sheet_page/balance_modal
 import budgeteur/balance_sheet_page/balance_sheet.{type BalanceSheet}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
+import budgeteur/balance_sheet_page/item_write_request
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
-import budgeteur/balance_sheet_page/write_item_request
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
@@ -18,9 +23,8 @@ import gleam/float
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/pair
-import gleam/time/calendar
-import gleam/time/timestamp
+import gleam/string
+import gleam/time/calendar.{type Date}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -36,8 +40,13 @@ const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-me
 pub type Model {
   Model(
     sheet: SheetState,
+    /// The client's local date, once the `GetLocalDate` effect has reported it.
+    today: Option(Date),
     item_modal: item_modal.Modal,
     item_delete_modal: item_delete_modal.DeleteModalState,
+    account_modal: account_modal.Modal,
+    account_delete_modal: account_delete_modal.DeleteModalState,
+    balance_modal: balance_modal.Modal,
   )
 }
 
@@ -45,16 +54,14 @@ pub type Model {
 pub type SheetState {
   /// No response yet.
   Loading
-  /// The user has no balance sheet yet. The server creates the sheet on the
-  /// first item write, so a missing sheet is an expected state, not a failure.
-  Empty
-  /// The sheet loaded. Its item list may be empty (every item was deleted).
+  /// The sheet loaded. It is empty for a user who tracks nothing yet.
   Loaded(BalanceSheet)
   /// The first load failed.
   Failed
 }
 
 pub type Msg {
+  ClientGotToday(Date)
   // API responses
   ClientFetchedSheet(Result(BalanceSheet, ApiError))
   // Retry after a failed first load.
@@ -71,6 +78,22 @@ pub type Msg {
   // (the end state matches the user's intent), so this only carries genuine
   // failures.
   ServerDeletedItem(item: BalanceSheetItem, result: Result(Nil, ApiError))
+  // Account modal messages
+  UserRequestedAccountCreation
+  UserRequestedAccountEdit(Account)
+  AccountModalMsg(account_modal.Msg)
+  // Account delete modal messages
+  UserRequestedAccountDelete(Account)
+  UserConfirmedAccountDelete
+  UserCancelledAccountDelete
+  // As for items, 404 is folded into Ok.
+  ServerDeletedAccount(account: Account, result: Result(Nil, ApiError))
+  // Balance modal messages
+  UserRequestedBalanceRecord(
+    account: Account,
+    current: Option(balance_modal.CurrentBalance),
+  )
+  BalanceModalMsg(balance_modal.Msg)
 }
 
 // Effects
@@ -97,10 +120,14 @@ pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
       sheet: Loading,
+      today: None,
       item_modal: item_modal.hidden(),
       item_delete_modal: item_delete_modal.empty(),
+      account_modal: account_modal.hidden(),
+      account_delete_modal: account_delete_modal.empty(),
+      balance_modal: balance_modal.hidden(),
     ),
-    fetch_sheet(),
+    effect.batch([effect.GetLocalDate(ClientGotToday), fetch_sheet()]),
   )
 }
 
@@ -109,18 +136,19 @@ pub fn init() -> #(Model, Effect(Msg)) {
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   case msg {
+    ClientGotToday(today) -> #(
+      Model(..model, today: Some(today)),
+      effect.none(),
+      None,
+    )
+
     ClientFetchedSheet(Ok(sheet)) -> #(
       Model(..model, sheet: Loaded(sheet)),
       effect.none(),
       None,
     )
 
-    ClientFetchedSheet(Error(error)) ->
-      case api_error.is_not_found(error) {
-        // A user with no sheet yet. Expected, so it is not an error.
-        True -> #(Model(..model, sheet: Empty), effect.none(), None)
-        False -> on_fetch_failed(model, error)
-      }
+    ClientFetchedSheet(Error(error)) -> on_fetch_failed(model, error)
 
     UserRequestedSheetReload -> #(
       Model(..model, sheet: Loading),
@@ -129,7 +157,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     )
 
     UserRequestedItemCreation(kind:) ->
-      run_item_modal(model, item_modal.CreateRequested(kind))
+      run_item_modal(
+        model,
+        item_modal.CreateRequested(kind:, today: model.today),
+      )
 
     UserRequestedItemEdit(id) -> {
       case list.find(model_items(model), fn(item) { item.id == id }) {
@@ -164,12 +195,55 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       effect.none(),
       None,
     )
+
+    UserRequestedAccountCreation ->
+      run_account_modal(
+        model,
+        account_modal.CreateRequested(today: model.today),
+      )
+
+    UserRequestedAccountEdit(account) ->
+      run_account_modal(model, account_modal.EditRequested(account:))
+
+    AccountModalMsg(inner_msg) -> run_account_modal(model, inner_msg)
+
+    UserRequestedAccountDelete(account) -> #(
+      Model(..model, account_delete_modal: account_delete_modal.open(account)),
+      effect.none(),
+      None,
+    )
+
+    UserConfirmedAccountDelete -> confirm_account_delete(model)
+
+    ServerDeletedAccount(account, result) ->
+      case result {
+        Ok(_) -> on_account_delete_succeeded(model, account)
+        Error(error) ->
+          case api_error.is_not_found(error) {
+            True -> on_account_delete_succeeded(model, account)
+            False -> on_account_delete_failed(model, error)
+          }
+      }
+
+    UserCancelledAccountDelete -> #(
+      Model(..model, account_delete_modal: account_delete_modal.empty()),
+      effect.none(),
+      None,
+    )
+
+    UserRequestedBalanceRecord(account:, current:) ->
+      run_balance_modal(
+        model,
+        balance_modal.OpenRequested(account:, current:, today: model.today),
+      )
+
+    BalanceModalMsg(inner_msg) -> run_balance_modal(model, inner_msg)
   }
 }
 
-/// A fetch failed for a reason other than a missing sheet. A sheet loaded
-/// earlier (e.g. before a refetch after a write) is more useful than an error
-/// page; without one there is nothing to show, so the page offers a retry.
+/// A fetch failed. A sheet loaded earlier (e.g. before a refetch after a write)
+/// is more useful than an error page; without one there is nothing to show, so
+/// the page offers a retry.
 fn on_fetch_failed(
   model: Model,
   error: ApiError,
@@ -183,7 +257,7 @@ fn on_fetch_failed(
         "Showing the balance sheet loaded earlier",
       )),
     )
-    Loading | Empty | Failed -> #(
+    Loading | Failed -> #(
       Model(..model, sheet: Failed),
       effect.LogError(api_error.describe(error)),
       None,
@@ -195,7 +269,7 @@ fn on_fetch_failed(
 fn model_items(model: Model) -> List(BalanceSheetItem) {
   case model.sheet {
     Loaded(sheet) -> sheet.items
-    Loading | Empty | Failed -> []
+    Loading | Failed -> []
   }
 }
 
@@ -219,8 +293,7 @@ fn run_item_modal(
     _ -> effects
   }
   // A create or update response carries only the item. The server owns the
-  // statement date and the totals, so the sheet is refetched rather than
-  // recomputed here.
+  // totals, so the sheet is refetched rather than recomputed here.
   let effects = case outcome {
     form_modal.NoChange -> effects
     form_modal.Created(_) | form_modal.Updated(_) ->
@@ -258,7 +331,7 @@ fn interpret_item_modal_request(request: item_modal.Request) -> Effect(Msg) {
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateBalanceSheetItem |> api_route.to_string,
-        write_item_request.to_json(payload) |> json.to_string,
+        item_write_request.to_json(payload) |> json.to_string,
         handle_item_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
@@ -266,7 +339,7 @@ fn interpret_item_modal_request(request: item_modal.Request) -> Effect(Msg) {
     form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateBalanceSheetItem(id) |> api_route.to_string,
-        write_item_request.to_json(payload) |> json.to_string,
+        item_write_request.to_json(payload) |> json.to_string,
         handle_item_response,
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
@@ -347,6 +420,198 @@ fn on_item_delete_failed(
   }
 }
 
+fn run_account_modal(
+  model: Model,
+  msg: account_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(account_modal, request, outcome) =
+    account_modal.update(model.account_modal, msg)
+  let model = Model(..model, account_modal:)
+  let effects = case request {
+    Some(request) -> [interpret_account_modal_request(request)]
+    None -> []
+  }
+  let effects = case msg {
+    account_modal.SaveCompleted(result: Error(error)) -> [
+      effect.LogError(api_error.describe(error)),
+      ..effects
+    ]
+    _ -> effects
+  }
+  // A save may record an opening balance or change the term, which moves the
+  // account's line and the totals the server computes, so the sheet is
+  // refetched.
+  let #(effects, out_msg) = case outcome {
+    form_modal.NoChange -> #(effects, None)
+    form_modal.Created(entity: account) -> #(
+      list.append(effects, [fetch_sheet()]),
+      Some(out_msg.success_toast("Created account '" <> account.name <> "'")),
+    )
+    form_modal.Updated(entity: account) -> #(
+      list.append(effects, [fetch_sheet()]),
+      Some(out_msg.success_toast("Updated account '" <> account.name <> "'")),
+    )
+  }
+  let effect = case effects {
+    [] -> effect.none()
+    [effect] -> effect
+    _ -> effect.batch(effects)
+  }
+  #(model, effect, out_msg)
+}
+
+fn interpret_account_modal_request(
+  request: account_modal.Request,
+) -> Effect(Msg) {
+  case request {
+    form_modal.Post(payload) ->
+      effect.post(
+        api_route.CreateAccount |> api_route.to_string,
+        account_write_request.create_json(payload) |> json.to_string,
+        handle_account_response,
+      )
+    form_modal.Put(id:, payload:) ->
+      effect.put(
+        api_route.UpdateAccount(id) |> api_route.to_string,
+        account_write_request.update_json(payload) |> json.to_string,
+        handle_account_response,
+      )
+  }
+  |> effect.with_timeout(form_modal.submit_timeout_ms)
+  |> effect.map(AccountModalMsg)
+}
+
+fn handle_account_response(result) {
+  case result {
+    Ok(body) ->
+      response.decode_success(body, account.decoder())
+      |> account_modal.SaveCompleted
+    Error(http_error) ->
+      account_modal.SaveCompleted(
+        Error(response.http_error_to_api_error(http_error)),
+      )
+  }
+}
+
+fn run_balance_modal(
+  model: Model,
+  msg: balance_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(balance_modal, request, outcome) =
+    balance_modal.update(model.balance_modal, msg)
+  let model = Model(..model, balance_modal:)
+  let effects = case request {
+    Some(request) -> [interpret_balance_modal_request(request)]
+    None -> []
+  }
+  let effects = case msg {
+    balance_modal.SaveCompleted(result: Error(error)) -> [
+      effect.LogError(api_error.describe(error)),
+      ..effects
+    ]
+    _ -> effects
+  }
+  // A new balance can move the account's line and changes the totals the
+  // server computes, so the sheet is refetched.
+  let #(effects, out_msg) = case outcome {
+    form_modal.NoChange -> #(effects, None)
+    form_modal.Created(entity: account) | form_modal.Updated(entity: account) -> #(
+      list.append(effects, [fetch_sheet()]),
+      Some(out_msg.success_toast(
+        "Recorded a balance for '" <> account.name <> "'",
+      )),
+    )
+  }
+  let effect = case effects {
+    [] -> effect.none()
+    [effect] -> effect
+    _ -> effect.batch(effects)
+  }
+  #(model, effect, out_msg)
+}
+
+fn interpret_balance_modal_request(
+  request: balance_modal.Request,
+) -> Effect(Msg) {
+  case request {
+    // The modal opens in edit mode only, so its request names the account.
+    form_modal.Put(id:, payload:) ->
+      effect.post(
+        api_route.RecordBalance(id) |> api_route.to_string,
+        account_write_request.balance_entry_json(payload) |> json.to_string,
+        handle_balance_response,
+      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(BalanceModalMsg)
+    form_modal.Post(_) -> effect.none()
+  }
+}
+
+fn handle_balance_response(result) {
+  case result {
+    Ok(body) ->
+      response.decode_success(body, account.decoder())
+      |> balance_modal.SaveCompleted
+    Error(http_error) ->
+      balance_modal.SaveCompleted(
+        Error(response.http_error_to_api_error(http_error)),
+      )
+  }
+}
+
+fn confirm_account_delete(
+  model: Model,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  case delete_modal.confirm(model.account_delete_modal) {
+    Ok(#(state, account)) -> #(
+      Model(..model, account_delete_modal: state),
+      effect.delete(
+        api_route.DeleteAccount(account.id) |> api_route.to_string,
+        fn(result) {
+          case result {
+            Ok(_) -> ServerDeletedAccount(account, Ok(Nil))
+            Error(http_error) ->
+              ServerDeletedAccount(
+                account,
+                Error(response.http_error_to_api_error(http_error)),
+              )
+          }
+        },
+      )
+        |> effect.with_timeout(delete_modal.delete_timeout_ms),
+      None,
+    )
+    Error(Nil) -> #(model, effect.none(), None)
+  }
+}
+
+fn on_account_delete_succeeded(
+  model: Model,
+  account: Account,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  #(
+    Model(..model, account_delete_modal: account_delete_modal.empty()),
+    fetch_sheet(),
+    Some(out_msg.success_toast("Deleted account '" <> account.name <> "'")),
+  )
+}
+
+/// As for items, a stale response leaves a newer dialog session alone.
+fn on_account_delete_failed(
+  model: Model,
+  error: ApiError,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let updated = delete_modal.fail(model.account_delete_modal, error)
+  case updated == model.account_delete_modal {
+    True -> #(model, effect.none(), None)
+    False -> #(
+      Model(..model, account_delete_modal: updated),
+      effect.LogError(api_error.describe(error)),
+      None,
+    )
+  }
+}
+
 // View
 // ----
 
@@ -359,8 +624,7 @@ pub fn view(model: Model) -> Element(Msg) {
     [
       case model.sheet {
         Loading -> loading_state()
-        Empty -> no_sheet_state()
-        Loaded(sheet) -> loaded_sheet(sheet)
+        Loaded(sheet) -> loaded_sheet(sheet, model.today)
         Failed -> failed_state()
       },
       item_modal.view(model.item_modal)
@@ -370,40 +634,38 @@ pub fn view(model: Model) -> Element(Msg) {
         on_cancel: UserCancelledItemDelete,
         on_confirm: UserConfirmedItemDelete,
       ),
+      account_modal.view(model.account_modal)
+        |> element.map(AccountModalMsg),
+      balance_modal.view(model.balance_modal)
+        |> element.map(BalanceModalMsg),
+      account_delete_modal.view(
+        model.account_delete_modal,
+        on_cancel: UserCancelledAccountDelete,
+        on_confirm: UserConfirmedAccountDelete,
+      ),
     ],
   )
 }
 
-fn loaded_sheet(sheet: BalanceSheet) -> Element(Msg) {
+fn loaded_sheet(sheet: BalanceSheet, today: Option(Date)) -> Element(Msg) {
   html.div([], [
-    page_header(statement_date_subtitle(sheet)),
+    page_header(statement_date_subtitle(today)),
     summary_cards(sheet),
-    case list.is_empty(sheet.items) {
-      True -> empty_state()
-      False -> sheet_columns(sheet)
+    unknown_balances_callout(sheet.unknown_balances),
+    case sheet.items, sheet.accounts, sheet.unknown_balances {
+      [], [], [] -> empty_state()
+      _, _, _ -> sheet_columns(sheet)
     },
   ])
 }
 
-fn statement_date_subtitle(sheet: BalanceSheet) -> String {
-  "Balances as of "
-  <> date.format(
-    sheet.statement_date
-    |> timestamp.to_calendar(calendar.local_offset())
-    |> pair.first,
-  )
-}
-
-/// A user who has never added an item has no balance sheet on the server yet.
-fn no_sheet_state() -> Element(Msg) {
-  html.div([], [
-    page_header("No balances recorded yet"),
-    empty_card(
-      testid: "no-balance-sheet-empty-state",
-      heading: "No balance sheet yet",
-      body: "Add what you own and owe to see your net worth and working capital.",
-    ),
-  ])
+/// The sheet is drawn for the client's today, its statement date. Each line
+/// shows its own as-of date.
+fn statement_date_subtitle(today: Option(Date)) -> String {
+  case today {
+    Some(today) -> "Balances as of " <> date.format(today)
+    None -> ""
+  }
 }
 
 /// The first load failed; the page offers a retry rather than an indefinite
@@ -466,7 +728,7 @@ fn page_header(subtitle: String) -> Element(Msg) {
           html.text(subtitle),
         ]),
       ]),
-      html.div([attribute.class("flex items-center gap-2")], [
+      html.div([attribute.class("flex flex-wrap items-center gap-2")], [
         html.button(
           [
             attribute.class(primary_button_class),
@@ -482,6 +744,14 @@ fn page_header(subtitle: String) -> Element(Msg) {
             event.on_click(UserRequestedItemCreation(Liability)),
           ],
           [html.text("Add liability")],
+        ),
+        html.button(
+          [
+            attribute.class(primary_button_class),
+            attribute.attribute("data-testid", "add-account-button"),
+            event.on_click(UserRequestedAccountCreation),
+          ],
+          [html.text("Add account")],
         ),
       ]),
     ],
@@ -543,14 +813,18 @@ fn sheet_columns(sheet: BalanceSheet) -> Element(Msg) {
     sheet_side(
       title: "Assets",
       groups: [
-        item_group(
+        line_group(
+          sheet,
           "Current assets",
-          items_with(sheet.items, kind: Asset, term: Current),
+          kind: Asset,
+          term: Current,
           subtotal: sheet.total_current_assets,
         ),
-        item_group(
+        line_group(
+          sheet,
           "Non-current assets",
-          items_with(sheet.items, kind: Asset, term: NonCurrent),
+          kind: Asset,
+          term: NonCurrent,
           subtotal: sheet.total_non_current_assets,
         ),
       ],
@@ -560,14 +834,18 @@ fn sheet_columns(sheet: BalanceSheet) -> Element(Msg) {
     sheet_side(
       title: "Liabilities",
       groups: [
-        item_group(
+        line_group(
+          sheet,
           "Current liabilities",
-          items_with(sheet.items, kind: Liability, term: Current),
+          kind: Liability,
+          term: Current,
           subtotal: sheet.total_current_liabilities,
         ),
-        item_group(
+        line_group(
+          sheet,
           "Non-current liabilities",
-          items_with(sheet.items, kind: Liability, term: NonCurrent),
+          kind: Liability,
+          term: NonCurrent,
           subtotal: sheet.total_non_current_liabilities,
         ),
       ],
@@ -624,11 +902,20 @@ fn sheet_side(
   )
 }
 
-fn item_group(
+/// One kind and term's lines: its items, then its accounts, with the subtotal.
+fn line_group(
+  sheet: BalanceSheet,
   title: String,
-  items: List(BalanceSheetItem),
+  kind kind: ItemKind,
+  term term: Term,
   subtotal subtotal: Float,
 ) -> Element(Msg) {
+  let rows =
+    list.append(
+      items_with(sheet.items, kind:, term:) |> list.map(item_row),
+      accounts_with(sheet.accounts, kind:, term:) |> list.map(account_row),
+    )
+
   html.div([], [
     html.div(
       [
@@ -654,16 +941,12 @@ fn item_group(
         ),
       ],
     ),
-    case list.is_empty(items) {
-      True ->
+    case rows {
+      [] ->
         html.p([attribute.class("px-4 py-3 text-sm text-gray-400")], [
           html.text("None"),
         ])
-      False ->
-        html.ul(
-          [attribute.class("divide-y divide-gray-100")],
-          list.map(items, item_row),
-        )
+      _ -> html.ul([attribute.class("divide-y divide-gray-100")], rows)
     },
   ])
 }
@@ -671,52 +954,190 @@ fn item_group(
 fn item_row(item: BalanceSheetItem) -> Element(Msg) {
   let testid = uuid.to_string(item.id)
 
+  line_row(
+    testid: "balance-sheet-item-" <> testid,
+    name: item.name,
+    details: ["As of " <> date.format(item.as_of)],
+    balance: item.balance,
+    actions: [
+      edit_action("edit-item-" <> testid, UserRequestedItemEdit(item.id)),
+      delete_action("delete-item-" <> testid, UserRequestedItemDelete(item)),
+    ],
+  )
+}
+
+/// An account line is marked with its number, when it has one, and its current
+/// balance's as-of date.
+fn account_row(line: AccountLine) -> Element(Msg) {
+  let as_of = "As of " <> date.format(line.as_of)
+  let current =
+    balance_modal.CurrentBalance(
+      side: line.kind,
+      amount: line.balance,
+      as_of: line.as_of,
+    )
+
+  line_row(
+    testid: "balance-sheet-account-" <> uuid.to_string(line.account.id),
+    name: line.account.name,
+    details: case line.account.number {
+      Some(number) -> [number, as_of]
+      None -> [as_of]
+    },
+    balance: line.balance,
+    actions: account_actions(line.account, Some(current)),
+  )
+}
+
+/// What a user can do with an account, wherever it is listed.
+fn account_actions(
+  account: Account,
+  current: Option(balance_modal.CurrentBalance),
+) -> List(Element(Msg)) {
+  let testid = uuid.to_string(account.id)
+
+  [
+    line_action(
+      label: "Record balance",
+      testid: "record-balance-account-" <> testid,
+      class: "text-indigo-600 hover:text-indigo-800",
+      on_click: UserRequestedBalanceRecord(account:, current:),
+    ),
+    edit_action("edit-account-" <> testid, UserRequestedAccountEdit(account)),
+    delete_action(
+      "delete-account-" <> testid,
+      UserRequestedAccountDelete(account),
+    ),
+  ]
+}
+
+/// A line on the sheet. Its actions sit under its details, so every amount is
+/// at the right edge and lines up with the subtotals.
+fn line_row(
+  testid testid: String,
+  name name: String,
+  details details: List(String),
+  balance balance: Float,
+  actions actions: List(Element(Msg)),
+) -> Element(Msg) {
   html.li(
     [
-      attribute.class("flex items-center gap-3 px-4 py-3"),
-      attribute.attribute("data-testid", "balance-sheet-item-" <> testid),
+      attribute.class("flex items-start gap-3 px-4 py-3"),
+      attribute.attribute("data-testid", testid),
     ],
     [
-      html.span([attribute.class("flex-1 truncate text-sm text-gray-700")], [
-        html.text(item.name),
+      html.div([attribute.class("min-w-0 flex-1")], [
+        html.p([attribute.class("truncate text-sm text-gray-700")], [
+          html.text(name),
+        ]),
+        html.p([attribute.class("text-xs text-gray-400")], [
+          html.text(string.join(details, " · ")),
+        ]),
+        html.div([attribute.class("mt-1 flex flex-wrap gap-x-3")], actions),
       ]),
       html.span(
         [
           attribute.class("text-right text-sm tabular-nums text-gray-900"),
-          attribute.attribute("data-amount", float.to_string(item.balance)),
+          attribute.attribute("data-amount", float.to_string(balance)),
         ],
-        [html.text(money.format(item.balance))],
+        [html.text(money.format(balance))],
       ),
-      html.div([attribute.class("flex items-center gap-1")], [
-        html.button(
-          [
-            attribute.class(
-              "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
-              <> "hover:bg-indigo-50 hover:text-indigo-700 "
-              <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-              <> "focus:ring-offset-2",
-            ),
-            attribute.attribute("data-testid", "edit-item-" <> testid),
-            event.on_click(UserRequestedItemEdit(item.id)),
-          ],
-          [html.text("Edit")],
-        ),
-        html.button(
-          [
-            attribute.class(
-              "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
-              <> "hover:bg-red-50 hover:text-red-700 "
-              <> "focus:outline-none focus:ring-2 focus:ring-red-500 "
-              <> "focus:ring-offset-2",
-            ),
-            attribute.attribute("data-testid", "delete-item-" <> testid),
-            event.on_click(UserRequestedItemDelete(item)),
-          ],
-          [html.text("Delete")],
-        ),
-      ]),
     ],
   )
+}
+
+fn edit_action(testid: String, on_click: Msg) -> Element(Msg) {
+  line_action(
+    label: "Edit",
+    testid:,
+    class: "text-indigo-600 hover:text-indigo-800",
+    on_click:,
+  )
+}
+
+fn delete_action(testid: String, on_click: Msg) -> Element(Msg) {
+  line_action(
+    label: "Delete",
+    testid:,
+    class: "text-red-600 hover:text-red-800",
+    on_click:,
+  )
+}
+
+fn line_action(
+  label label: String,
+  testid testid: String,
+  class class: String,
+  on_click on_click: Msg,
+) -> Element(Msg) {
+  html.button(
+    [
+      attribute.class(
+        "rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+        <> class,
+      ),
+      attribute.attribute("data-testid", testid),
+      event.on_click(on_click),
+    ],
+    [html.text(label)],
+  )
+}
+
+/// Accounts whose balance is unknown are left out of the totals, so the page
+/// asks for their balances above the sheet.
+fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
+  case accounts {
+    [] -> element.none()
+    _ ->
+      html.div(
+        [
+          attribute.class(
+            "mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3",
+          ),
+          attribute.attribute("data-testid", "unknown-balances"),
+        ],
+        [
+          html.h2([attribute.class("text-sm font-semibold text-amber-900")], [
+            html.text("Unknown balances"),
+          ]),
+          html.p([attribute.class("mt-1 text-sm text-amber-800")], [
+            html.text(
+              "These accounts have no balance yet, so they are left out of the totals.",
+            ),
+          ]),
+          html.ul(
+            [attribute.class("mt-2 divide-y divide-amber-200")],
+            list.map(accounts, fn(account) {
+              html.li(
+                [
+                  attribute.class("py-2"),
+                  attribute.attribute(
+                    "data-testid",
+                    "unknown-balance-" <> uuid.to_string(account.id),
+                  ),
+                ],
+                [
+                  html.p([attribute.class("truncate text-sm")], [
+                    html.text(account.name),
+                    case account.number {
+                      Some(number) ->
+                        html.span([attribute.class("ml-2 text-amber-700")], [
+                          html.text(number),
+                        ])
+                      None -> element.none()
+                    },
+                  ]),
+                  html.div(
+                    [attribute.class("mt-1 flex flex-wrap gap-x-3")],
+                    account_actions(account, None),
+                  ),
+                ],
+              )
+            }),
+          ),
+        ],
+      )
+  }
 }
 
 fn empty_state() -> Element(Msg) {
@@ -756,4 +1177,14 @@ fn items_with(
   term term: Term,
 ) -> List(BalanceSheetItem) {
   list.filter(items, fn(item) { item.kind == kind && item.term == term })
+}
+
+fn accounts_with(
+  accounts: List(AccountLine),
+  kind kind: ItemKind,
+  term term: Term,
+) -> List(AccountLine) {
+  list.filter(accounts, fn(line) {
+    line.kind == kind && line.account.term == term
+  })
 }

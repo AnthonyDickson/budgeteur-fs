@@ -20,40 +20,61 @@
     <Compile Include="Shared/RequestLogging.fs" />
     <Compile Include="Shared/Coders.fs" />
     <Compile Include="Shared/Config.fs" />
+    <Compile Include="Shared/Clock.fs" />
+    <Compile Include="Shared/Logging.fs" />
     <Compile Include="Shared/Auth.fs" />
     <Compile Include="Shared/OpenApi.fs" />
     <Compile Include="Shared/Json.fs" />
     <Compile Include="Shared/Endpoint.fs" />
-    <Compile Include="Shared/Money.fs" />
 
+    <Compile Include="Domain/Money.fs" />
+    <Compile Include="Domain/AsOfDate.fs" />
+    <Compile Include="Domain/Term.fs" />
     <Compile Include="Domain/Tag.fs" />
     <Compile Include="Domain/Transaction.fs" />
     <Compile Include="Domain/Rule.fs" />
     <Compile Include="Domain/TagAssignment.fs" />
     <Compile Include="Domain/BalanceSheetItem.fs" />
+    <Compile Include="Domain/Account.fs" />
     <Compile Include="Domain/BalanceSheet.fs" />
 
     <Compile Include="Data/Db.fs" />
     <Compile Include="Data/Constraints.fs" />
-    <Compile Include="Data/UtcDateTime.fs" />
     <Compile Include="Data/RuleCodec.fs" />
     <Compile Include="Data/TagCodec.fs" />
     <Compile Include="Data/TagAssignmentCodec.fs" />
     <Compile Include="Data/TagAssignmentStore.fs" />
+    <Compile Include="Data/TransactionCodec.fs" />
     <Compile Include="Data/BalanceSheetItemCodec.fs" />
-    <Compile Include="Data/BalanceSheetCodec.fs" />
+    <Compile Include="Data/AccountCodec.fs" />
+    <Compile Include="Data/BalanceObservationCodec.fs" />
+    <Compile Include="Data/BalanceObservationStore.fs" />
+    <Compile Include="Data/AccountBalanceCodec.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 
-    <Compile Include="Feature/BalanceSheet/Shared.fs" />
-    <Compile Include="Feature/BalanceSheet/ReadSheet.fs" />
-    <Compile Include="Feature/BalanceSheet/CreateItem.fs" />
-    <Compile Include="Feature/BalanceSheet/ReadItem.fs" />
-    <Compile Include="Feature/BalanceSheet/ReadAllItems.fs" />
-    <Compile Include="Feature/BalanceSheet/UpdateItem.fs" />
-    <Compile Include="Feature/BalanceSheet/DeleteItem.fs" />
+    <Compile Include="Feature/BalanceSheet/WriteBalanceSheetItemRequest.fs" />
+    <Compile Include="Feature/BalanceSheet/BalanceSheetItemResponse.fs" />
+    <Compile Include="Feature/BalanceSheet/AccountLineResponse.fs" />
+    <Compile Include="Feature/BalanceSheet/ReadBalanceSheet.fs" />
+    <Compile Include="Feature/BalanceSheet/CreateBalanceSheetItem.fs" />
+    <Compile Include="Feature/BalanceSheet/ReadBalanceSheetItem.fs" />
+    <Compile Include="Feature/BalanceSheet/ReadAllBalanceSheetItems.fs" />
+    <Compile Include="Feature/BalanceSheet/UpdateBalanceSheetItem.fs" />
+    <Compile Include="Feature/BalanceSheet/DeleteBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetEndpoints.fs" />
+
+    <Compile Include="Feature/Account/AccountRequest.fs" />
+    <Compile Include="Feature/Account/AccountResponse.fs" />
+    <Compile Include="Feature/Account/AccountQuery.fs" />
+    <Compile Include="Feature/Account/CreateAccount.fs" />
+    <Compile Include="Feature/Account/ReadAccount.fs" />
+    <Compile Include="Feature/Account/ReadAllAccounts.fs" />
+    <Compile Include="Feature/Account/UpdateAccount.fs" />
+    <Compile Include="Feature/Account/RecordBalance.fs" />
+    <Compile Include="Feature/Account/DeleteAccount.fs" />
+    <Compile Include="Feature/Account/AccountEndpoints.fs" />
 
     <Compile Include="Feature/Tag/TagResponse.fs" />
     <Compile Include="Feature/Tag/CreateTag.fs" />
@@ -71,8 +92,8 @@
     <Compile Include="Feature/Rule/DeleteRule.fs" />
     <Compile Include="Feature/Rule/RuleEndpoints.fs" />
 
-    <Compile Include="Feature/Transaction/TransactionCodec.fs" />
     <Compile Include="Feature/Transaction/TransactionResponse.fs" />
+    <Compile Include="Feature/Transaction/TransactionQuery.fs" />
     <Compile Include="Feature/Transaction/CreateTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadAllTransactions.fs" />
@@ -89,7 +110,15 @@
     <Compile Include="Feature/AutoTag/ReadMatches.fs" />
     <Compile Include="Feature/AutoTag/AutoTagEndpoints.fs" />
 
-    <Compile Include="Feature/GetStatus.fs" />
+    <Compile Include="Feature/Import/Csv.fs" />
+    <Compile Include="Feature/Import/Format.fs" />
+    <Compile Include="Feature/Import/ImportHash.fs" />
+    <Compile Include="Feature/Import/Statement.fs" />
+    <Compile Include="Feature/Import/Import.fs" />
+    <Compile Include="Feature/Import/ImportStatements.fs" />
+    <Compile Include="Feature/Import/ImportEndpoints.fs" />
+
+    <Compile Include="Feature/Status/GetStatus.fs" />
 
     <Compile Include="Feature/TestSupport/ResetUserData.fs" />
 

@@ -3,7 +3,7 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/number
-import budgeteur/tag.{type Tag}
+import budgeteur/shared/tag.{type Tag}
 import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
 import budgeteur/tagging_page/rule_write_request.{
@@ -80,13 +80,6 @@ fn field_tag_error(field: TagField) -> Bool {
   case field {
     InvalidTag -> True
     _ -> False
-  }
-}
-
-fn field_tag_id(field: TagField) -> String {
-  case field {
-    ValidTag(id) -> uuid.to_string(id)
-    _ -> ""
   }
 }
 
@@ -504,12 +497,20 @@ fn view_form(
               attribute.classes([
                 #(modal_ui.error_border_style, tag_error),
               ]),
-              attribute.value(field_tag_id(tag_id)),
               attribute.disabled(submitting),
               event.on_change(TagChanged),
             ],
+            // The options carry the selection: a `value` on the select is
+            // applied before its options exist, so the browser would show the
+            // first tag.
             list.map(tags, fn(tag) {
-              html.option([attribute.value(uuid.to_string(tag.id))], tag.name)
+              html.option(
+                [
+                  attribute.value(uuid.to_string(tag.id)),
+                  attribute.selected(tag_id == ValidTag(tag.id)),
+                ],
+                tag.name,
+              )
             }),
           ),
           case tag_error {

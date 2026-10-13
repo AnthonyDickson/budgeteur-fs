@@ -1,6 +1,6 @@
 import budgeteur/shared/guard
+import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/tag_ui
-import budgeteur/tag.{type Tag}
 import budgeteur/tagging_page/rule.{type Rule}
 import gleam/list
 import gleam/option.{type Option}

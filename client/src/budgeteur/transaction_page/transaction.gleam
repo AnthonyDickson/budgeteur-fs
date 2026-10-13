@@ -18,6 +18,8 @@ pub type Transaction {
     // Whether the transaction represents an internal transfer between one's own accounts.
     is_transfer: Bool,
     account_id: Option(Uuid),
+    // The name of the transaction's account, when it has one.
+    account_name: Option(String),
     // The transaction's tag, or None when it is untagged.
     tag: Option(TransactionTag),
   )
@@ -45,6 +47,11 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
     None,
     decode.optional(uuid_codec.decoder()),
   )
+  use account_name <- decode.optional_field(
+    "accountName",
+    None,
+    decode.optional(decode.string),
+  )
   use tag <- decode.optional_field(
     "tag",
     None,
@@ -57,6 +64,7 @@ pub fn transaction_decoder() -> decode.Decoder(Transaction) {
     date:,
     is_transfer:,
     account_id:,
+    account_name:,
     tag:,
   ))
 }

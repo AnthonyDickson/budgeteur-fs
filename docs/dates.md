@@ -5,7 +5,7 @@ Two kinds of time value, never mixed:
 |         | Calendar date                               | Instant                                           |
 | ------- | ------------------------------------------- | ------------------------------------------------- |
 | Use for | A day given by the user or a bank statement | An event the server records                       |
-| Example | A transaction's date                        | A balance sheet's statement date                  |
+| Example | A transaction's date                        | When the server logs a request                    |
 | SQLite  | `DATE`                                      | `DATETIME`, UTC                                   |
 | F#      | `DateOnly`                                  | `DateTimeOffset` in code, UTC `DateTime` in rows  |
 | Gleam   | `calendar.Date`                             | `Timestamp`                                       |
@@ -41,10 +41,9 @@ say so in its migration comment.
 - **Display.** Instants are converted to local time on the client, only for
   display.
 
-Both conversions live in one kernel module (`Data/UtcDateTime.fs`). `just lint`
-fails if a codec or other `Data/` file relabels a `DateTime` kind itself, so the
-rule is written once. Code converting between UTC and local time is not covered
-and does not need to be: it translates instants rather than relabelling them.
+No column stores an instant yet. The first one should put both conversions in
+one shared module in `Data/`, so the rule is written once, rather than in each
+codec.
 
 ## Not yet decided
 

@@ -37,6 +37,7 @@ implementations of the patterns in [docs/architecture.md](docs/architecture.md).
 | [balance-sheet.md](docs/balance-sheet.md)       | Balance sheet design brief: decisions, rationale, glossary     |
 | [dashboard.md](docs/dashboard.md)               | Dashboard and income statement design brief                    |
 | [auto-tagging.md](docs/auto-tagging.md)         | Auto-tagging design brief: matching, tag assignments, actions  |
+| [csv-import.md](docs/csv-import.md)             | CSV import and accounts design brief: formats, hashes, flow    |
 | [fp-showcase.md](docs/fp-showcase.md)           | Tour of the codebase's functional programming ideas (tutorial) |
 
 Docs record requirements, design decisions and their rationale, and conventions
@@ -110,11 +111,12 @@ and trade-offs.
 
 Each rule is explained in the linked doc.
 
-- **Slices and the kernel** — server features live in `Feature/<Name>/`, one
-  file per HTTP operation. `Domain/`, `Data/`, and `Shared/` form the shared
-  kernel. Features depend on the kernel, never the reverse, and slices never
-  import each other (enforced by `just lint`). See
-  [architecture](docs/architecture.md#dependency-rules).
+- **Slices and shared modules** — server features live in `Feature/<Name>/`, one
+  file per HTTP operation, with the workflow's pure domain logic in its own
+  module. `Domain/` (the shared model), `Data/`, and `Shared/` are the shared
+  modules. Slices depend on them, never the reverse, and slices never import
+  each other (enforced by `just lint`). See
+  [architecture](docs/architecture.md#where-domain-logic-lives).
 - **User scoping** — every query filters by the user id from the `sub` claim. A
   slice that skips this leaks data across users.
 - **Errors** — handlers return `Result<unit, DomainError>`; no exceptions escape
@@ -159,5 +161,6 @@ log message names the local command to reproduce it.
   in query expressions. Bind them to local `let` values first.
 - **Central Package Management**: versions live in `Directory.Packages.props`;
   project files use bare `<PackageReference Include="..." />`.
-- **Request body limit**: Kestrel caps request bodies at 64 KB — relevant for
-  the CSV import.
+- **Request body limit**: Kestrel caps request bodies at 64 KB. `POST
+  /api/imports` raises its own limit to 1 MB through endpoint metadata; a new
+  endpoint that needs more does the same rather than raising the global limit.

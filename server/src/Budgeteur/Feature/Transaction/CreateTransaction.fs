@@ -13,14 +13,15 @@ module CreateTransaction =
 
     open Budgeteur.Data
     open Budgeteur.Data.Db
+    open Budgeteur.Domain.Money
     open Budgeteur.Domain.TagAssignment
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
+    open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
-    open Budgeteur.Shared.Money
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for creating a transaction. The id is generated
@@ -37,8 +38,8 @@ module CreateTransaction =
     [<Literal>]
     let Path = "/api/transactions"
 
-    /// <summary>Insert the transaction and its assignment in one database
-    /// transaction.</summary>
+    /// <summary>Insert the transaction and its assignment, and read it back,
+    /// in one database transaction.</summary>
     let private insert
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -58,7 +59,14 @@ module CreateTransaction =
                 }
 
             do! TagAssignmentStore.save ctx userId transaction.Id assignment
+            let! created = TransactionQuery.tryRead ctx userId transaction.Id
             ctx.CommitTransaction ()
+
+            return
+                created
+                |> Result.requireSome (
+                    NotFound $"Transaction %O{transaction.Id} not found"
+                )
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -98,7 +106,9 @@ module CreateTransaction =
                 }
 
                 let assignment = TagAssignment.onCreate req.TagId
-                do! insert queryContext userId transaction assignment
+
+                let! transaction, assignment, accountName =
+                    insert queryContext userId transaction assignment
 
                 log.Info (
                     $"Created transaction %O{transaction.Id}",
@@ -110,7 +120,10 @@ module CreateTransaction =
                 do!
                     Json.write
                         ctx
-                        (TransactionResponse.fromDomain transaction assignment)
+                        (TransactionResponse.fromDomain
+                            transaction
+                            assignment
+                            accountName)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

@@ -8,7 +8,7 @@
 - [x] Balances (Assets, Liabilities) CRUD
 - [x] Dashboard MVP
 - [x] Auto-tagging
-- [ ] CSV Imports
+- [x] CSV Imports
 - [ ] Quick-tagging
 - [ ] Full dashboard w/ charts
 - [ ] Transaction search
@@ -17,11 +17,18 @@
 
 ## Current Tasks
 
-None. Auto-tagging is done; its deferred work (e.g. auto-tagging on CSV import)
-is listed in `docs/auto-tagging.md`.
+None
 
 ## Backlog
 
+- Cent level precision is probably only needed for transaction table and data
+  entry
+- Language renames deferred from the CSV import feedback:
+  - An item's `Balance` (a magnitude) and an account's balance (signed) share a
+    word. Consider renaming the item's to `Value`; touches the item type, codec,
+    API, and client.
+  - Account lines use `ItemKind` for their side, though an account is not an
+    item. Consider a `Side` type; touches the API.
 - Dates after the dashboard MVP.
   - Server-side timezone, needed only once the server works out periods without
     a client request (e.g. the regular snapshots on the roadmap): a configured
@@ -32,21 +39,6 @@ is listed in `docs/auto-tagging.md`.
   - Per-user timezone: start with the browser's zone
     (`Intl.DateTimeFormat().resolvedOptions().timeZone`); add a settings page
     once there are other preferences to store.
-  - The balance sheet subtitle converts `StatementDate` with today's offset
-    (`calendar.local_offset()`), so an instant from the other side of a DST
-    change can show the wrong date within an hour of midnight. Convert with the
-    offset at that instant (e.g. via a JS `Date` FFI) or the user's IANA
-    timezone.
-  - `Accounts.CurrentAsOf` needs no work: `Accounts` is only used as the target
-    of `Transactions.AccountId` and may be replaced by the balance sheet.
-    Revisit when CSV imports decide what an account is.
-- Kiwibank statements have enough info to mark internal transfers without a
-  dedicated rule
-  - If both the source and target account numbers are in the user's accounts,
-    the transaction is an internal transfer.
-  - This should only apply on import; manually created transactions are marked
-    by hand.
-  - Initial imports will be missed if the accounts are not added beforehand
 - Page transactions in table view
   - Next page should append to list, search should replace paging many times.
   - Response could include path with query params to get next page or none if at
@@ -61,52 +53,3 @@ is listed in `docs/auto-tagging.md`.
   the wrapping DOM element instead of calling `.close()` on the native dialog.
 - Authelia: Check why Authelia keeps showing consents screen
 - Scalar docs: refresh tokens for Authelia
-
-## CSV Parsing
-
-We can use representative example CSVs for each format (schema) to generate type
-providers for type safe access and parsing:
-
-```fsharp
-open FSharp.Data
-
-// One type per known format, each generated from a representative sample
-type FormatA = CsvProvider<"samples/formatA.csv">
-type FormatB = CsvProvider<"samples/formatB.csv">
-type FormatC = CsvProvider<"samples/formatC.csv">
-
-// A DU the user (or your detection logic) selects at runtime
-type CsvFormat =
-    | FormatA
-    | FormatB
-    | FormatC
-
-// A common domain type all formats get normalized into
-type Record =
-    { Id: string
-      Name: string
-      Amount: decimal
-      Date: System.DateTime }
-
-let parse (format: CsvFormat) (path: string) : Record seq =
-    match format with
-    | CsvFormat.FormatA ->
-        FormatA.Load(path).Rows
-        |> Seq.map (fun r -> { Id = r.Id; Name = r.Name; Amount = r.Amount; Date = r.Date })
-    | CsvFormat.FormatB ->
-        FormatB.Load(path).Rows
-        |> Seq.map (fun r -> { Id = r.RecordId; Name = r.FullName; Amount = r.Total; Date = r.TxDate })
-    | CsvFormat.FormatC ->
-        FormatC.Load(path).Rows
-        |> Seq.map (fun r -> { Id = r.Code; Name = r.Description; Amount = r.Value; Date = r.Timestamp })
-```
-
-We also need a function to detect the format/schema of a given CSV file such as:
-
-```fsharp
-let detectFormat (path: string) : CsvFormat =
-    let header = (System.IO.File.ReadLines path |> Seq.head).Split(',')
-    if Array.contains "RecordId" header then CsvFormat.FormatB
-    elif Array.contains "Code" header then CsvFormat.FormatC
-    else CsvFormat.FormatA
-```

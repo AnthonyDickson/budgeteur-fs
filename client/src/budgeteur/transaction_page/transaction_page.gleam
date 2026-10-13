@@ -8,13 +8,15 @@ import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
-import budgeteur/tag.{type Tag}
-import budgeteur/transaction_page/create_transaction_request
+import budgeteur/shared/tag.{type Tag}
+import budgeteur/transaction_page/account.{type Account}
+import budgeteur/transaction_page/import_modal
 import budgeteur/transaction_page/transaction.{type Transaction}
 import budgeteur/transaction_page/transaction_delete_modal.{
   type DeleteModalState,
 }
 import budgeteur/transaction_page/transaction_modal
+import budgeteur/transaction_page/transaction_write_request
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/float
@@ -38,14 +40,19 @@ pub type Model {
     /// Names the transactions' tags and fills the modal's tag select. Empty
     /// until loaded; if the fetch fails, transactions show without tag names.
     tags: List(Tag),
+    /// Fills the modal's account select. Empty until loaded; if the fetch
+    /// fails, the select offers no accounts.
+    accounts: List(Account),
     modal: transaction_modal.Modal,
     delete_modal: DeleteModalState,
+    import_modal: import_modal.State,
   )
 }
 
 pub type Msg {
   ClientFetchedTransactions(Result(List(Transaction), ApiError))
   ClientFetchedTags(Result(List(Tag), ApiError))
+  ClientFetchedAccounts(Result(List(Account), ApiError))
   // Retry after a failed first load.
   UserRequestedReload
   // Modal messages
@@ -57,6 +64,8 @@ pub type Msg {
   UserConfirmedDelete
   ServerDeletedTransaction(Transaction, Result(Nil, ApiError))
   UserCancelledDeleteModal
+  // Import modal messages
+  ImportModalMsg(import_modal.Msg)
 }
 
 fn fetch_tags() -> Effect(Msg) {
@@ -69,6 +78,22 @@ fn fetch_tags() -> Effect(Msg) {
         ))
       Error(http_error) ->
         ClientFetchedTags(Error(response.http_error_to_api_error(http_error)))
+    }
+  })
+}
+
+fn fetch_accounts() -> Effect(Msg) {
+  effect.get(api_route.GetAllAccounts |> api_route.to_string, fn(result) {
+    case result {
+      Ok(body) ->
+        ClientFetchedAccounts(response.decode_success(
+          body,
+          decode.list(account.decoder()),
+        ))
+      Error(http_error) ->
+        ClientFetchedAccounts(
+          Error(response.http_error_to_api_error(http_error)),
+        )
     }
   })
 }
@@ -128,10 +153,12 @@ pub fn init() -> #(Model, Effect(Msg)) {
     Model(
       transactions: Loading,
       tags: [],
+      accounts: [],
       modal: transaction_modal.hidden(),
       delete_modal: transaction_delete_modal.empty(),
+      import_modal: import_modal.Hidden,
     ),
-    effect.batch([fetch_transactions(), fetch_tags()]),
+    effect.batch([fetch_transactions(), fetch_tags(), fetch_accounts()]),
   )
 }
 
@@ -177,9 +204,24 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       )),
     )
 
+    ClientFetchedAccounts(Ok(accounts)) -> #(
+      Model(..model, accounts:),
+      effect.none(),
+      None,
+    )
+
+    ClientFetchedAccounts(Error(error)) -> #(
+      model,
+      effect.LogError(api_error.describe(error)),
+      Some(out_msg.error_toast(
+        "Could not load accounts",
+        "The transaction form offers no accounts",
+      )),
+    )
+
     UserRequestedReload -> #(
       Model(..model, transactions: Loading),
-      effect.batch([fetch_transactions(), fetch_tags()]),
+      effect.batch([fetch_transactions(), fetch_tags(), fetch_accounts()]),
       None,
     )
 
@@ -232,7 +274,72 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       effect.none(),
       None,
     )
+
+    ImportModalMsg(msg) -> run_import_modal(model, msg)
   }
+}
+
+fn run_import_modal(
+  model: Model,
+  msg: import_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(import_modal, command, outcome) =
+    import_modal.update(model.import_modal, msg)
+  let model = Model(..model, import_modal:)
+  let effects = case command {
+    Some(import_modal.ReadFiles) -> [
+      effect.ReadFiles(import_modal.file_input_id, fn(result) {
+        ImportModalMsg(import_modal.FilesRead(result))
+      }),
+    ]
+    Some(import_modal.Upload(files)) -> [
+      effect.post(
+        api_route.ImportStatements |> api_route.to_string,
+        import_modal.request_json(files) |> json.to_string,
+        fn(result) {
+          ImportModalMsg(
+            import_modal.ImportCompleted(case result {
+              Ok(body) ->
+                response.decode_success(body, import_modal.result_decoder())
+              Error(http_error) ->
+                Error(response.http_error_to_api_error(http_error))
+            }),
+          )
+        },
+      )
+      |> effect.with_timeout(import_modal.import_timeout_ms),
+    ]
+    None -> []
+  }
+  let effects = case msg {
+    import_modal.ImportCompleted(Error(error)) -> [
+      effect.LogError(api_error.describe(error)),
+      ..effects
+    ]
+    _ -> effects
+  }
+  // The import added transactions and maybe accounts, so both are fetched
+  // again rather than merged in here.
+  let #(effects, out_msg) = case outcome {
+    import_modal.NoChange -> #(effects, None)
+    import_modal.Imported(result) -> #(
+      list.append(effects, [fetch_transactions(), fetch_accounts()]),
+      // The counts and created accounts take a while to read, so the toast
+      // stays until dismissed.
+      Some(
+        out_msg.PageRequestedToast(
+          ..out_msg.success_toast(import_modal.describe(result)),
+          dismiss_after_ms: None,
+        ),
+      ),
+    )
+  }
+  let effect = case effects {
+    [] -> effect.none()
+    [effect] -> effect
+    _ -> effect.batch(effects)
+  }
+  #(model, effect, out_msg)
 }
 
 fn run_transaction_modal(
@@ -294,7 +401,7 @@ fn interpret_transaction_request(
     form_modal.Post(payload) ->
       effect.post(
         api_route.CreateTransaction |> api_route.to_string,
-        create_transaction_request.create_transaction_request_to_json(payload)
+        transaction_write_request.to_json(payload)
           |> json.to_string,
         handle_save_response,
       )
@@ -303,7 +410,7 @@ fn interpret_transaction_request(
     form_modal.Put(id:, payload:) ->
       effect.put(
         api_route.UpdateTransaction(id) |> api_route.to_string,
-        create_transaction_request.create_transaction_request_to_json(payload)
+        transaction_write_request.to_json(payload)
           |> json.to_string,
         handle_save_response,
       )
@@ -403,14 +510,24 @@ pub fn view(model: Model) -> Element(Msg) {
       // has a list to join.
       case model.transactions {
         Loaded(_) ->
-          html.button(
-            [
-              attribute.class(primary_button_class),
-              attribute.attribute("data-testid", "record-transaction-button"),
-              event.on_click(UserRequestedCreationForm),
-            ],
-            [html.text("Record Transaction")],
-          )
+          html.div([attribute.class("flex items-center gap-2")], [
+            html.button(
+              [
+                attribute.class(secondary_button_class),
+                attribute.attribute("data-testid", "import-button"),
+                event.on_click(ImportModalMsg(import_modal.OpenRequested)),
+              ],
+              [html.text("Import")],
+            ),
+            html.button(
+              [
+                attribute.class(primary_button_class),
+                attribute.attribute("data-testid", "record-transaction-button"),
+                event.on_click(UserRequestedCreationForm),
+              ],
+              [html.text("Record Transaction")],
+            ),
+          ])
         Loading | Failed -> element.none()
       },
     ]),
@@ -419,13 +536,14 @@ pub fn view(model: Model) -> Element(Msg) {
       Failed -> failed_state()
       Loaded(transactions) -> transactions_table(transactions, tag_names_by_id)
     },
-    transaction_modal.view(model.modal, model.tags)
+    transaction_modal.view(model.modal, model.tags, model.accounts)
       |> element.map(TransactionModalMsg),
     transaction_delete_modal.view(
       model.delete_modal,
       on_cancel: UserCancelledDeleteModal,
       on_confirm: UserConfirmedDelete,
     ),
+    import_modal.view(model.import_modal) |> element.map(ImportModalMsg),
   ])
 }
 
@@ -478,6 +596,9 @@ fn transactions_table(
                     html.text("Description"),
                   ]),
                   html.th([attribute.class("px-4 py-3 font-medium")], [
+                    html.text("Account"),
+                  ]),
+                  html.th([attribute.class("px-4 py-3 font-medium")], [
                     html.text("Tag"),
                   ]),
                   html.th(
@@ -526,9 +647,21 @@ fn transactions_table(
                       [attribute.class("px-4 py-3 text-sm text-gray-700")],
                       [
                         html.text(
-                          tag_name(transaction, tag_names_by_id)
-                          |> option.unwrap("-"),
+                          transaction.account_name |> option.unwrap("-"),
                         ),
+                      ],
+                    ),
+                    html.td(
+                      [attribute.class("px-4 py-3 text-sm text-gray-700")],
+                      [
+                        html.text(case transaction.is_transfer {
+                          // A transfer has no tag: it is neither income nor
+                          // an expense.
+                          True -> "Transfer"
+                          False ->
+                            tag_name(transaction, tag_names_by_id)
+                            |> option.unwrap("-")
+                        }),
                       ],
                     ),
                     html.td(
@@ -618,6 +751,10 @@ fn no_transactions_empty_state() -> Element(Msg) {
     ],
   )
 }
+
+const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
+  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 "
+  <> "focus:ring-indigo-500 focus:ring-offset-2"
 
 const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
   <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "

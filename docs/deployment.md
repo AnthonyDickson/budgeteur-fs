@@ -115,3 +115,10 @@ have their source of truth elsewhere (e.g. a build step that copies them in).
 
 The web server is intended to run behind a reverse proxy such as nginx or Caddy.
 No effort is made to make the web server secure to deploy on its own.
+
+The server caps request bodies at 64 KB, except the CSV import (`POST
+/api/imports`), which accepts up to 1 MB: about a year of statements. The proxy
+must allow bodies of at least 1 MB on that path. nginx's default
+`client_max_body_size` is `1m`, which fits; Caddy sets no limit by default.
+Raising the proxy's limit beyond 1 MB has no effect, since the server rejects
+larger bodies.

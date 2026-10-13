@@ -21,9 +21,15 @@ pub type ApiRoute {
   CreateBalanceSheetItem
   UpdateBalanceSheetItem(id: Uuid)
   DeleteBalanceSheetItem(id: Uuid)
+  CreateAccount
+  GetAllAccounts
+  UpdateAccount(id: Uuid)
+  DeleteAccount(id: Uuid)
+  RecordBalance(account_id: Uuid)
   GetIncomeStatement(from: Date, to: Date)
   RunAutoTag
   GetRuleMatches(pattern: String)
+  ImportStatements
 }
 
 const api_prefix = "/api"
@@ -43,6 +49,11 @@ pub fn to_string(route: ApiRoute) -> String {
     CreateBalanceSheetItem -> api_prefix <> "/balance-sheet/items"
     UpdateBalanceSheetItem(id:) | DeleteBalanceSheetItem(id:) ->
       api_prefix <> "/balance-sheet/items/" <> uuid.to_string(id)
+    CreateAccount | GetAllAccounts -> api_prefix <> "/accounts"
+    UpdateAccount(id:) | DeleteAccount(id:) ->
+      api_prefix <> "/accounts/" <> uuid.to_string(id)
+    RecordBalance(account_id:) ->
+      api_prefix <> "/accounts/" <> uuid.to_string(account_id) <> "/balances"
     GetIncomeStatement(from:, to:) ->
       api_prefix
       <> "/income-statement?from="
@@ -50,6 +61,7 @@ pub fn to_string(route: ApiRoute) -> String {
       <> "&to="
       <> date.format(to)
     RunAutoTag -> api_prefix <> "/auto-tag"
+    ImportStatements -> api_prefix <> "/imports"
     GetRuleMatches(pattern:) ->
       api_prefix
       <> "/auto-tag/matches?"

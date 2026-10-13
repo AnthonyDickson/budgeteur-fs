@@ -3,10 +3,8 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
 }
 import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
+import budgeteur/balance_sheet_page/item_write_request.{ItemWriteRequest}
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
-import budgeteur/balance_sheet_page/write_item_request.{
-  WriteBalanceSheetItemRequest,
-}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{
   Active, Create, Edit, Hidden, NoChange, Post, Put, Submitting,
@@ -14,8 +12,11 @@ import budgeteur/shared/form_modal.{
 import gleam/int
 import gleam/option.{None, Some}
 import gleam/string
+import gleam/time/calendar.{Date, March}
 import gleeunit/should
 import youid/uuid.{type Uuid}
+
+const today = Date(2026, March, 8)
 
 fn item_id(n: Int) -> Uuid {
   let assert Ok(id) =
@@ -35,6 +36,7 @@ fn item(
     kind: kind,
     term: term,
     balance: balance,
+    as_of: Date(2026, March, 1),
   )
 }
 
@@ -49,7 +51,11 @@ fn run(
 }
 
 fn create_modal(kind: ItemKind) -> item_modal.Modal {
-  run(item_modal.hidden(), item_modal.CreateRequested(kind), [])
+  run(
+    item_modal.hidden(),
+    item_modal.CreateRequested(kind:, today: Some(today)),
+    [],
+  )
 }
 
 fn active_form(state: item_modal.Modal) -> item_modal.Form {
@@ -157,11 +163,12 @@ pub fn editing_an_item_does_not_count_it_as_its_own_duplicate_test() {
   request
   |> should.equal(Put(
     existing.id,
-    WriteBalanceSheetItemRequest(
+    ItemWriteRequest(
       name: "Chequing",
       kind: Asset,
       term: Current,
       balance: 2000.0,
+      as_of: Date(2026, March, 1),
     ),
   ))
 }
@@ -218,11 +225,12 @@ pub fn create_builds_a_post_with_the_chosen_kind_test() {
 
   request
   |> should.equal(
-    Post(WriteBalanceSheetItemRequest(
+    Post(ItemWriteRequest(
       name: "Mortgage",
       kind: Liability,
       term: NonCurrent,
       balance: 300_000.0,
+      as_of: today,
     )),
   )
 }
@@ -245,7 +253,48 @@ pub fn opening_the_form_always_starts_fresh_test() {
       kind: Liability,
       term: Current,
       balance: field.Empty(""),
+      as_of: field.Valid(value: Date(2026, March, 8), input: "2026-03-08"),
     ),
     mode: Create,
-  ) = run(filled, item_modal.CreateRequested(Liability), [])
+  ) =
+    run(
+      filled,
+      item_modal.CreateRequested(kind: Liability, today: Some(today)),
+      [],
+    )
+}
+
+pub fn the_as_of_date_is_required_and_must_be_a_date_test() {
+  // Before the page knows today the date starts blank, and a blank date is
+  // only reported once the user submits.
+  let state =
+    item_modal.hidden()
+    |> run(item_modal.CreateRequested(kind: Asset, today: None), [])
+    |> run(item_modal.NameChanged("Chequing"), [])
+    |> run(item_modal.BalanceChanged("10"), [])
+
+  let assert field.Empty("") = active_form(state).as_of
+
+  let assert #(
+    Active(
+      form: item_modal.Form(
+        as_of: field.Invalid(error: item_modal.AsOfRequired, ..),
+        ..,
+      ),
+      ..,
+    ),
+    None,
+    NoChange,
+  ) = item_modal.update(state, item_modal.SaveRequested, [])
+
+  let assert field.Invalid(error: item_modal.NotADate, ..) =
+    active_form(run(state, item_modal.AsOfChanged("yesterday"), [])).as_of
+
+  let assert #(_, Some(Post(ItemWriteRequest(as_of: as_of, ..))), NoChange) =
+    item_modal.update(
+      run(state, item_modal.AsOfChanged("2026-02-28"), []),
+      item_modal.SaveRequested,
+      [],
+    )
+  as_of |> should.equal(Date(2026, calendar.February, 28))
 }

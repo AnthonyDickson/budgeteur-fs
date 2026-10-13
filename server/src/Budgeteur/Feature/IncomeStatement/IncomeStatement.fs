@@ -2,8 +2,8 @@ namespace Budgeteur.Feature.IncomeStatement
 
 open System
 
+open Budgeteur.Domain.Money
 open Budgeteur.Domain.Tag
-open Budgeteur.Shared.Money
 
 /// <summary>An inclusive range of calendar dates, at most <c>Period.MaxDays</c>
 /// long.</summary>

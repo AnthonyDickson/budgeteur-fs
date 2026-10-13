@@ -184,7 +184,7 @@ sum type that _describes_ work (`HttpRequest`, `SaveToStore`, `PushUrl`,
 form_modal.Post(payload) ->
   effect.post(
     api_route.CreateTransaction |> api_route.to_string,
-    create_transaction_request.create_transaction_request_to_json(payload)
+    transaction_write_request.to_json(payload)
       |> json.to_string,
     handle_save_response,
   )

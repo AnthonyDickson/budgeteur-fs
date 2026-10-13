@@ -41,5 +41,8 @@ docker compose -f docker/docker-compose.e2e.yml run --rm e2e \
 
 - Tests capture screenshots of the test subject.
 - Tests create the data they need; they never depend on data from other tests.
+- Bank statement uploads use the server tests' anonymised CSV fixtures, which
+  Docker Compose mounts into the Playwright container, so one set of samples
+  serves both.
 - Selectors use `data-testid` attributes. Add them to page views when
   introducing interactive elements.

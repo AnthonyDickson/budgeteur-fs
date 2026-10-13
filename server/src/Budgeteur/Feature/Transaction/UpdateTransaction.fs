@@ -14,6 +14,7 @@ module UpdateTransaction =
 
     open Budgeteur.Data
     open Budgeteur.Data.Db
+    open Budgeteur.Domain.Money
     open Budgeteur.Domain.TagAssignment
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
@@ -22,7 +23,6 @@ module UpdateTransaction =
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
-    open Budgeteur.Shared.Money
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for updating a transaction.</summary>
@@ -57,10 +57,10 @@ module UpdateTransaction =
         }
 
     /// <summary>Replace the user's transaction and set its assignment to the
-    /// requested tag, in one database transaction. Returns the new assignment.
-    /// The current assignment is read inside the transaction, since keeping
-    /// the same tag keeps its source. Fails with <c>NotFound</c> when the user
-    /// has no transaction with the id.</summary>
+    /// requested tag, and read it back, in one database transaction. The
+    /// current assignment is read inside the transaction, since keeping the
+    /// same tag keeps its source. Fails with <c>NotFound</c> when the user has
+    /// no transaction with the id.</summary>
     let private update
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -91,8 +91,17 @@ module UpdateTransaction =
                 let! current = readAssignment ctx userId transaction.Id
                 let assignment = TagAssignment.onUpdate tagId current
                 do! TagAssignmentStore.save ctx userId transaction.Id assignment
+
+                let! updated =
+                    TransactionQuery.tryRead ctx userId transaction.Id
+
                 ctx.CommitTransaction ()
-                return Ok assignment
+
+                return
+                    updated
+                    |> Result.requireSome (
+                        NotFound $"Transaction %O{transaction.Id} not found"
+                    )
         }
 
     let private handler
@@ -134,7 +143,7 @@ module UpdateTransaction =
                     AccountId = req.AccountId
                 }
 
-                let! assignment =
+                let! transaction, assignment, accountName =
                     update queryContext userId transaction req.TagId
 
                 log.Info (
@@ -145,7 +154,10 @@ module UpdateTransaction =
                 do!
                     Json.write
                         ctx
-                        (TransactionResponse.fromDomain transaction assignment)
+                        (TransactionResponse.fromDomain
+                            transaction
+                            assignment
+                            accountName)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

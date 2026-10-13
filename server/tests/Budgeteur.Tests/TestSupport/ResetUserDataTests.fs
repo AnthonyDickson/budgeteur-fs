@@ -9,6 +9,7 @@ module ResetUserDataTests =
     open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Feature.TestSupport
     open Budgeteur.Feature.Transaction
+    open Budgeteur.Shared.Clock
     open Budgeteur.Tests
 
     let private newApp () =
@@ -33,9 +34,10 @@ module ResetUserDataTests =
         Kind = "Asset"
         Term = "Current"
         Balance = 2000m
+        AsOf = DateOnly (2026, 3, 8)
     }
 
-    /// Give a user a transaction, a balance sheet, and a balance sheet item.
+    /// Give a user a transaction and a balance sheet item.
     let private seed (client : HttpClient) =
         async {
             let! created =
@@ -68,12 +70,16 @@ module ResetUserDataTests =
             return List.length transactions
         }
 
-    let private sheetStatus (client : HttpClient) =
+    let private itemCount (client : HttpClient) =
         async {
             let! response =
                 client.GetAsync ReadBalanceSheet.Path |> Async.AwaitTask
 
-            return response.StatusCode
+            let! sheet =
+                TestHttp.readJson<ReadBalanceSheet.BalanceSheetResponse>
+                    response
+
+            return List.length sheet.Items
         }
 
     [<Tests>]
@@ -97,20 +103,12 @@ module ResetUserDataTests =
 
                 let! count = transactionCount app.Client
                 Expect.equal count 0 "the user's transactions should be deleted"
-                let! status = sheetStatus app.Client
-
-                Expect.equal
-                    status
-                    HttpStatusCode.NotFound
-                    "the user's balance sheet should be deleted"
+                let! count = itemCount app.Client
+                Expect.equal count 0 "the user's items should be deleted"
 
                 let! count = transactionCount otherUser
                 Expect.equal count 1 "another user's transactions should remain"
-                let! status = sheetStatus otherUser
-
-                Expect.equal
-                    status
-                    HttpStatusCode.OK
-                    "another user's balance sheet should remain"
+                let! count = itemCount otherUser
+                Expect.equal count 1 "another user's items should remain"
             }
         ]

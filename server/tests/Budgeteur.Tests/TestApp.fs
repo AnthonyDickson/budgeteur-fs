@@ -35,13 +35,16 @@ type TestAppConfig = {
 /// filter.
 module TestAppConfig =
     open Budgeteur.Data.Db
+    open Budgeteur.Feature.Account
     open Budgeteur.Feature.AutoTag
     open Budgeteur.Feature.BalanceSheet
+    open Budgeteur.Feature.Import
     open Budgeteur.Feature.IncomeStatement
     open Budgeteur.Feature.Rule
     open Budgeteur.Feature.Tag
     open Budgeteur.Feature.TestSupport
     open Budgeteur.Feature.Transaction
+    open Budgeteur.Shared.Clock
 
     let empty = {
         EndpointProviders = []
@@ -71,11 +74,15 @@ module TestAppConfig =
     /// Includes the development-only item reads, which the tests use to observe
     /// item state.
     let withBalanceSheet (clock : Clock) =
-        withEndpoints
-            [ "BalanceSheetItems"; "BalanceSheets" ]
-            (fun queryContext ->
-                BalanceSheetEndpoints.all queryContext clock
-                @ BalanceSheetEndpoints.developmentOnly queryContext)
+        withEndpoints [ "BalanceSheetItems" ] (fun queryContext ->
+            BalanceSheetEndpoints.all queryContext clock
+            @ BalanceSheetEndpoints.developmentOnly queryContext)
+
+    let withAccounts (clock : Clock) =
+        withEndpoints [ "BalanceObservations"; "Accounts" ] (fun queryContext ->
+            AccountEndpoints.all queryContext clock)
+
+    let withImports = withEndpoints [] ImportEndpoints.all
 
     let withResetUserData =
         withEndpoints [] (fun queryContext -> [

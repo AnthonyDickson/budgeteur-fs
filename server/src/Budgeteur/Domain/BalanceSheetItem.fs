@@ -2,8 +2,9 @@ namespace Budgeteur.Domain.BalanceSheetItem
 
 open System
 
+open Budgeteur.Domain.Money
+open Budgeteur.Domain.Term
 open Budgeteur.Shared.DomainError
-open Budgeteur.Shared.Money
 
 type ItemName = private ItemName of string
 
@@ -65,29 +66,6 @@ module ItemKind =
                 one of \"Asset\" or \"Liability\"."
 
 /// <summary>
-/// Whether an item is expected to be realised (assets) or settled (liabilities)
-/// within the current accounting period, conventionally within about 12 months.
-/// </summary>
-type Term =
-    | Current
-    | NonCurrent
-
-module Term =
-    let toString term =
-        match term with
-        | Current -> "Current"
-        | NonCurrent -> "NonCurrent"
-
-    let parse string =
-        match string with
-        | "Current" -> Ok Current
-        | "NonCurrent" -> Ok NonCurrent
-        | other ->
-            Error
-                $"\"{other}\" is not a valid value for Term, expecting one \
-                of \"Current\" or \"NonCurrent\"."
-
-/// <summary>
 /// An item's value as a positive magnitude. The direction of the value is
 /// implied by the owning item's <see cref="ItemKind"/>, so a magnitude can
 /// never disagree with its classification.
@@ -138,4 +116,7 @@ type BalanceSheetItem = {
     /// <summary>The positive magnitude of the item's value. Direction is
     /// implied by Kind.</summary>
     Balance : Balance
+
+    /// <summary>The date the balance is accurate as of.</summary>
+    AsOf : DateOnly
 }

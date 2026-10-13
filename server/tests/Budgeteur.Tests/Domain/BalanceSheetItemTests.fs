@@ -7,6 +7,7 @@ open FsCheck.FSharp
 
 open Budgeteur.Domain.BalanceSheet
 open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Term
 
 module BalanceSheetItemTests =
     module Arbitraries =

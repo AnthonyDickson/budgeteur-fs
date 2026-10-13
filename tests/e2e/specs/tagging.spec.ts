@@ -368,6 +368,20 @@ test.describe('tagging', () => {
     await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(1);
   });
 
+  test('a new rule starts on the selected tag', async ({ page }) => {
+    await gotoEmptyTagging(page);
+    await createFirstTag(page, 'Groceries');
+    await createTag(page, 'Transport');
+    await tagRow(page, 'Transport').click();
+
+    await page.getByTestId('new-rule-button').click();
+    const modal = ruleModal(page);
+    await expect(modal).toBeVisible();
+    await expect(
+      modal.getByTestId('rule-tag-select').locator('option:checked'),
+    ).toHaveText('Transport');
+  });
+
   test('shows saved tags and rules after a reload', async ({ page }) => {
     await gotoEmptyTagging(page);
     await createFirstTag(page, 'Groceries');

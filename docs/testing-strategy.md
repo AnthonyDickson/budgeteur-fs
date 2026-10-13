@@ -31,9 +31,9 @@ Work in order, and stop at the first step that settles the question.
    illegal states unrepresentable, the schema carries constraints, and shared
    middleware maps errors. High detection means a test adds little.
 4. **Likelihood.** Read git churn for the file, plus its position in the
-   dependency graph. The kernel (`Domain/`, `Data/`, `Shared/`) changes rarely
-   and is depended on widely, so it yields the most value per test. Slices and
-   pages churn.
+   dependency graph. The shared modules (`Domain/`, `Data/`, `Shared/`) change
+   rarely and is depended on widely, so it yields the most value per test.
+   Slices and pages churn.
 5. **Maintenance.** Churn raises the cost of a test, not its likelihood: a
    surface that keeps changing keeps rewriting its tests. Defer tests against
    unstable UI.
