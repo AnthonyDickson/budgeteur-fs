@@ -92,7 +92,7 @@ module Seed =
         (balance : (DateOnly * decimal) option)
         : Async<Guid> =
         async {
-            let request : WriteAccountRequest = {
+            let request : CreateAccount.CreateAccountRequest = {
                 Name = name
                 Number = None
                 Term = "Current"
@@ -115,6 +115,32 @@ module Seed =
 
             let! account = TestHttp.readJson<AccountResponse> response
             return account.Id
+        }
+
+    /// Record a balance for the account as of the date.
+    let balance
+        (client : HttpClient)
+        (accountId : Guid)
+        (asOf : DateOnly)
+        (balance : decimal)
+        : Async<unit> =
+        async {
+            let request : BalanceEntryRequest = {
+                Balance = balance
+                AsOf = asOf
+            }
+
+            let! response =
+                TestHttp.postJson
+                    client
+                    (TestHttp.itemPath RecordBalance.Path accountId)
+                    request
+                |> Async.AwaitTask
+
+            Expect.equal
+                response.StatusCode
+                HttpStatusCode.OK
+                "recording a balance should return 200"
         }
 
 /// Assertions for user scoping: every query must filter by the `sub` claim.

@@ -10,11 +10,14 @@ module AccountEndpoints =
     open Budgeteur.Shared.Clock
 
     let all (queryContext : QueryContextFactory) (clock : Clock) = [
-        POST [ CreateAccount.endpoint queryContext clock ]
+        POST [
+            CreateAccount.endpoint queryContext clock
+            RecordBalance.endpoint queryContext clock
+        ]
         GET [
             ReadAccount.endpoint queryContext
             ReadAllAccounts.endpoint queryContext
         ]
-        PUT [ UpdateAccount.endpoint queryContext clock ]
+        PUT [ UpdateAccount.endpoint queryContext ]
         DELETE [ DeleteAccount.endpoint queryContext ]
     ]

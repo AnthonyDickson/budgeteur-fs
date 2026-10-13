@@ -369,24 +369,7 @@ module EndpointTests =
                 Expect.equal sheet.WorkingCapital 1100m "working capital"
 
                 // When: a balance dated before the current one is recorded.
-                let! _ =
-                    TestHttp.putJson
-                        app.Client
-                        (TestHttp.itemPath
-                            Budgeteur.Feature.Account.UpdateAccount.Path
-                            everyday)
-                        ({
-                            Name = "Everyday"
-                            Number = None
-                            Term = "Current"
-                            Balance =
-                                Some {
-                                    Balance = 50m
-                                    AsOf = DateOnly (2026, 2, 1)
-                                }
-                        }
-                        : Budgeteur.Feature.Account.WriteAccountRequest)
-                    |> Async.AwaitTask
+                do! Seed.balance app.Client everyday (DateOnly (2026, 2, 1)) 50m
 
                 // Then: the newer balance stays current.
                 let! sheet = getSheetBody app.Client

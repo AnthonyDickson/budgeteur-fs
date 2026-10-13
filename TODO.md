@@ -58,20 +58,21 @@ client-test`. Finish with `just e2e-test`, `just lint`, and `just format`.
         matches.
   - [x] Docs: if `docs/architecture.md` describes write responses, note the read
         happens in the write transaction.
-- [ ] **Separate balance and details operations: server**
-  - [ ] Rename `WriteAccountRequest.fs` to `BalanceEntryRequest.fs`, keeping the
-        balance entry and its validation.
-  - [ ] `CreateAccount.fs` defines `CreateAccountRequest` with an optional
+- [x] **Separate balance and details operations: server**
+  - [x] Rename `WriteAccountRequest.fs` to `AccountRequest.fs`, keeping the
+        balance entry and the validation the requests share (details and
+        balance).
+  - [x] `CreateAccount.fs` defines `CreateAccountRequest` with an optional
         opening balance.
-  - [ ] `UpdateAccount.fs` defines `UpdateAccountRequest` (name, number, term)
+  - [x] `UpdateAccount.fs` defines `UpdateAccountRequest` (name, number, term)
         and writes only the account row.
-  - [ ] New `RecordBalance.fs`: `POST /api/accounts/{id}/balances` takes a
+  - [x] New `RecordBalance.fs`: `POST /api/accounts/{id}/balances` takes a
         balance entry, checks the account is the user's (404 otherwise), upserts
         through `BalanceObservationStore`, reads back in the same transaction,
         and returns the account. Responses 200, 400, 401, 404.
-  - [ ] Tests: split requests; record, replace on the same date, another user's
+  - [x] Tests: split requests; record, replace on the same date, another user's
         account, future date; `PUT` leaves balance history unchanged.
-  - [ ] Docs: decision 12 in `docs/csv-import.md`.
+  - [x] Docs: decision 12 in `docs/csv-import.md`.
 - [ ] **Separate balance and details operations: client**
   - [ ] Extract `balance_form.gleam` from `account_modal`: side, amount, as-of
         date, validation, signed balance, view. Radios "Asset" and "Liability",

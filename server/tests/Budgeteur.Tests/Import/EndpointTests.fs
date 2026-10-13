@@ -245,12 +245,16 @@ module EndpointTests =
                 use app = newApp ()
 
                 let! created =
-                    TestHttp.postJson app.Client CreateAccount.Path {
-                        Name = "Everyday"
-                        Number = Some "12-3456-789012-00"
-                        Term = "Current"
-                        Balance = None
-                    }
+                    TestHttp.postJson
+                        app.Client
+                        CreateAccount.Path
+                        ({
+                            Name = "Everyday"
+                            Number = Some "12-3456-789012-00"
+                            Term = "Current"
+                            Balance = None
+                        }
+                        : CreateAccount.CreateAccountRequest)
                     |> Async.AwaitTask
 
                 let! everyday = TestHttp.readJson<AccountResponse> created

@@ -23,13 +23,20 @@ module EndpointTests =
             Term = "Current"
             Balance = None
         }
-        : WriteAccountRequest
+        : CreateAccount.CreateAccountRequest
 
-    let private balance (day : int) (amount : decimal) =
-        Some {
-            Balance = amount
-            AsOf = DateOnly (2026, 3, day)
+    let private details (name : string) (number : string option) =
+        {
+            Name = name
+            Number = number
+            Term = "Current"
         }
+        : UpdateAccount.UpdateAccountRequest
+
+    let private balance (day : int) (amount : decimal) : BalanceEntryRequest = {
+        Balance = amount
+        AsOf = DateOnly (2026, 3, day)
+    }
 
     let private newApp () =
         TestApp.create (
@@ -38,7 +45,10 @@ module EndpointTests =
             |> TestAppConfig.withTransactions
         )
 
-    let private create (client : HttpClient) (payload : WriteAccountRequest) =
+    let private create
+        (client : HttpClient)
+        (payload : CreateAccount.CreateAccountRequest)
+        =
         async {
             let! response =
                 TestHttp.postJson client CreateAccount.Path payload
@@ -55,12 +65,20 @@ module EndpointTests =
     let private update
         (client : HttpClient)
         (id : Guid)
-        (payload : WriteAccountRequest)
+        (payload : UpdateAccount.UpdateAccountRequest)
         =
         TestHttp.putJson
             client
             (TestHttp.itemPath UpdateAccount.Path id)
             payload
+        |> Async.AwaitTask
+
+    let private record
+        (client : HttpClient)
+        (id : Guid)
+        (entry : BalanceEntryRequest)
+        =
+        TestHttp.postJson client (TestHttp.itemPath RecordBalance.Path id) entry
         |> Async.AwaitTask
 
     let private read (client : HttpClient) (id : Guid) =
@@ -82,7 +100,7 @@ module EndpointTests =
                 let! created =
                     create app.Client {
                         request "  Everyday  " (Some "12-3456-789012-00") with
-                            Balance = balance 8 -12.345m
+                            Balance = Some (balance 8 -12.345m)
                     }
 
                 Expect.equal created.Name "Everyday" "the name is trimmed"
@@ -113,24 +131,40 @@ module EndpointTests =
                 Expect.isNone bare.Balance "the balance is unknown"
             }
 
-            testCaseAsync "the latest balance is current"
+            testCaseAsync "a recorded balance is current unless an older one"
             <| async {
                 use app = newApp ()
+                let! created = create app.Client (request "Savings" None)
 
-                let! created =
-                    create app.Client {
-                        request "Savings" None with
-                            Balance = balance 5 100m
-                    }
+                // When: a balance is recorded for an account with none.
+                let! response = record app.Client created.Id (balance 5 100m)
 
-                let enter day amount =
-                    update app.Client created.Id {
-                        request "Savings" None with
-                            Balance = balance day amount
-                    }
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.OK
+                    "recording a balance should return 200"
 
-                // When: a balance on the same date is entered.
-                let! _ = enter 5 120m
+                let! recorded = TestHttp.readJson<AccountResponse> response
+
+                Expect.equal
+                    recorded.Balance
+                    (Some {
+                        Balance = 100m
+                        AsOf = DateOnly (2026, 3, 5)
+                    })
+                    "the response carries the current balance"
+
+                // When: a balance on the same date is recorded.
+                let! _ = record app.Client created.Id (balance 5 120m)
+                let! account = read app.Client created.Id
+
+                Expect.equal
+                    (account.Balance |> Option.map _.Balance)
+                    (Some 120m)
+                    "a balance on the same date replaces it"
+
+                // When: an older balance is recorded.
+                let! _ = record app.Client created.Id (balance 1 50m)
                 let! account = read app.Client created.Id
 
                 Expect.equal
@@ -139,19 +173,10 @@ module EndpointTests =
                         Balance = 120m
                         AsOf = DateOnly (2026, 3, 5)
                     })
-                    "a balance on the same date replaces it"
-
-                // When: an older balance is entered.
-                let! _ = enter 1 50m
-                let! account = read app.Client created.Id
-
-                Expect.equal
-                    (account.Balance |> Option.map _.Balance)
-                    (Some 120m)
                     "an older balance does not replace a newer one"
 
-                // When: an update carries no balance.
-                let! _ = update app.Client created.Id (request "Renamed" None)
+                // When: the account's details are updated.
+                let! _ = update app.Client created.Id (details "Renamed" None)
                 let! account = read app.Client created.Id
                 Expect.equal account.Name "Renamed" "the name changes"
 
@@ -161,12 +186,37 @@ module EndpointTests =
                     "the balance is kept"
 
                 // When: a balance is dated after tomorrow.
-                let! future = enter 10 1m
+                let! future = record app.Client created.Id (balance 10 1m)
 
                 Expect.equal
                     future.StatusCode
                     HttpStatusCode.BadRequest
                     "a future balance is rejected"
+            }
+
+            testCaseAsync "a balance is recorded only for the user's account"
+            <| async {
+                use app = newApp ()
+                use otherUser = app.ClientForUser "other-user"
+                let! created = create app.Client (request "Savings" None)
+
+                let! response = record otherUser created.Id (balance 5 100m)
+
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.NotFound
+                    "another user's account should be 404"
+
+                let! missing =
+                    record app.Client (Guid.NewGuid ()) (balance 5 1m)
+
+                Expect.equal
+                    missing.StatusCode
+                    HttpStatusCode.NotFound
+                    "a missing account should be 404"
+
+                let! account = read app.Client created.Id
+                Expect.isNone account.Balance "the balance is still unknown"
             }
 
             testCaseAsync "numbers are unique per user"
@@ -196,7 +246,7 @@ module EndpointTests =
                     update
                         app.Client
                         existing.Id
-                        (request "Everyday" (Some "12-3456-0789012-00"))
+                        (details "Everyday" (Some "12-3456-0789012-00"))
 
                 Expect.equal
                     own.StatusCode
@@ -236,7 +286,7 @@ module EndpointTests =
                         otherUser
                         ReadAllAccounts.Path
                         (TestHttp.itemPath ReadAccount.Path created.Id)
-                        (request "Hijacked" None)
+                        (details "Hijacked" None)
             }
 
             testCaseAsync "deleting an account deletes its transactions"

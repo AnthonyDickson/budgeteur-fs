@@ -65,13 +65,14 @@
     <Compile Include="Feature/BalanceSheet/DeleteBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetEndpoints.fs" />
 
-    <Compile Include="Feature/Account/WriteAccountRequest.fs" />
+    <Compile Include="Feature/Account/AccountRequest.fs" />
     <Compile Include="Feature/Account/AccountResponse.fs" />
     <Compile Include="Feature/Account/AccountQuery.fs" />
     <Compile Include="Feature/Account/CreateAccount.fs" />
     <Compile Include="Feature/Account/ReadAccount.fs" />
     <Compile Include="Feature/Account/ReadAllAccounts.fs" />
     <Compile Include="Feature/Account/UpdateAccount.fs" />
+    <Compile Include="Feature/Account/RecordBalance.fs" />
     <Compile Include="Feature/Account/DeleteAccount.fs" />
     <Compile Include="Feature/Account/AccountEndpoints.fs" />
 
