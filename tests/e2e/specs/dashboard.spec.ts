@@ -118,7 +118,7 @@ test.describe('dashboard', () => {
       await expect(expenseLines.nth(1)).toContainText('Untagged expenses');
       await expectAmount(expenseLines.nth(1), 25);
 
-      await expect(page.getByTestId('dashboard-untagged-notice')).toContainText(
+      await expect(page.getByTestId('dashboard-untagged-note')).toContainText(
         '1 transaction',
       );
       await expect(page.getByTestId('dashboard-empty-balance-sheet'))

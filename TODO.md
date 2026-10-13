@@ -17,9 +17,6 @@
 
 ## Current Tasks
 
-- The untagged transaction callout is obnoxious, there are always going to be
-  transactions I leave untagged so the callout should be replaced with less
-  attention grabbing UI
 - The table/list action UI is now inconsistent: For the balance sheet, rows are
   clickable. Everything else uses inline action buttons
 

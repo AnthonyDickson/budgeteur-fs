@@ -408,7 +408,6 @@ fn loaded_statement(statement: IncomeStatement) -> Element(Msg) {
             "dashboard-net-income",
           ),
         ]),
-        untagged_notice(statement.untagged_count),
         html.div([attribute.class("grid grid-cols-1 gap-6 lg:grid-cols-2")], [
           lines_table(
             title: "Income",
@@ -423,20 +422,21 @@ fn loaded_statement(statement: IncomeStatement) -> Element(Msg) {
             rows: list.map(statement.expense_lines, expense_row),
           ),
         ]),
+        untagged_note(statement.untagged_count),
       ])
   }
 }
 
-fn untagged_notice(untagged_count: Int) -> Element(Msg) {
+/// A footnote to the untagged lines rather than a callout: leaving some
+/// transactions untagged is normal.
+fn untagged_note(untagged_count: Int) -> Element(Msg) {
   case untagged_count {
     0 -> element.none()
     count ->
       html.p(
         [
-          attribute.class(
-            "rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800",
-          ),
-          attribute.attribute("data-testid", "dashboard-untagged-notice"),
+          attribute.class("text-sm text-gray-500"),
+          attribute.attribute("data-testid", "dashboard-untagged-note"),
         ],
         [
           html.text(case count {

@@ -154,8 +154,9 @@ and history are later work (see [Deferred](#deferred)).
   are in the OpenAPI document.
 - **Empty states.** A period with no transactions shows a link to the
   transactions page. An empty balance sheet is an empty state with a link to the
-  balance sheet page, as on that page. Untagged transactions in the period show
-  a link to the transactions page.
+  balance sheet page, as on that page. Untagged transactions in the period get a
+  muted note below the lines with a link to the transactions page, not a
+  warning: some transactions are left untagged on purpose.
 - **Route.** The dashboard is the `/` route.
 - **Client read shapes.** The dashboard page decodes only the balance sheet
   fields it shows, with its own decoder, rather than importing the balance sheet
