@@ -174,11 +174,12 @@ module ReadIncomeStatement =
         task {
             let fromDate = Period.fromDate period
             let toDate = Period.toDate period
+            let transfer = Some CategorisationCodec.TransferKind
 
             let! transactions =
                 selectTask queryContext {
                     for t in main.Transactions do
-                        leftJoin a in main.LeftJoined.TagAssignments
+                        leftJoin a in main.LeftJoined.Categorisations
                                           on
                                           (t.Id = a.TransactionId)
 
@@ -186,7 +187,7 @@ module ReadIncomeStatement =
                             t.UserId = userId
                             && t.Date >= fromDate
                             && t.Date <= toDate
-                            && not t.IsTransfer
+                            && (isNullValue a.Kind || a.Kind <> transfer)
                         )
 
                         select (t.Amount, a.TagId)

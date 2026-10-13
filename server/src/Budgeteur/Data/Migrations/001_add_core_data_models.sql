@@ -101,10 +101,6 @@ CREATE TABLE Transactions (
     Description TEXT     NOT NULL,
     -- The calendar date the transaction occurred, as given by the bank statement or the user (not an instant).
     Date        DATE     NOT NULL,
-    -- Whether the transaction represents an internal transfer between a user's own accounts.
-    -- If true, the transaction should only be shown in the transactions table, but not anywhere else.
-    -- It should not contribute to any statistics or charts.
-    IsTransfer  BOOL     NOT NULL,
     -- The account associated with the transaction.
     -- NULL indicates the account info is not available or not applicable (e.g., cash).
     AccountId   GUID,
@@ -139,25 +135,31 @@ CREATE TABLE Rules (
     UNIQUE(UserId, Pattern COLLATE NOCASE)
 );
 
--- Tag assignments
+-- Categorisations
 
--- A transaction's tag and where it came from, kept apart from the transaction so tagging changes
--- without touching its facts. One row per tagged or dismissed transaction; an untagged transaction
--- has none. See docs/auto-tagging.md and docs/quick-tagging.md.
-CREATE TABLE TagAssignments (
+-- How a transaction is categorised: its tag and where it came from, a dismissal, or a transfer.
+-- Kept apart from the transaction so categorising changes without touching its facts. One row per
+-- tagged, dismissed, or transfer transaction; an untagged transaction has none. See
+-- docs/auto-tagging.md and docs/quick-tagging.md.
+CREATE TABLE Categorisations (
     TransactionId GUID NOT NULL PRIMARY KEY,
     UserId        TEXT NOT NULL,
-    -- NULL for a dismissed transaction: the user decided it has no tag.
+    -- Tagged: the transaction has the tag. Dismissed: the user decided it has no tag. Transfer: it
+    -- moves money between the user's own accounts, so it has no tag and is neither income nor
+    -- expense; it is shown in the transactions table but counts towards no statistics.
+    Kind          TEXT NOT NULL CHECK (Kind IN ('Tagged', 'Dismissed', 'Transfer')),
+    -- Set only when tagged.
     TagId         GUID,
-    -- Whether the user set the tag or a rule did. Rules never change a manual tag.
-    Source        TEXT NOT NULL CHECK (Source IN ('Manual', 'Rule')),
-    -- Only the user dismisses a transaction.
-    CHECK (TagId IS NOT NULL OR Source = 'Manual'),
-    -- Deleting the transaction or the tag removes the assignment, leaving the transaction untagged.
+    -- Whether the user set the tag or a rule did. Rules never change a manual tag. Set only when
+    -- tagged.
+    Source        TEXT CHECK (Source IN ('Manual', 'Rule')),
+    CHECK ((Kind = 'Tagged') = (TagId IS NOT NULL)),
+    CHECK ((Kind = 'Tagged') = (Source IS NOT NULL)),
+    -- Deleting the transaction or the tag removes the categorisation: the transaction is untagged.
     FOREIGN KEY(TransactionId) REFERENCES Transactions(Id) ON DELETE CASCADE,
     FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
-CREATE INDEX IX_TagAssignments_UserId ON TagAssignments(UserId);
--- Lets deleting a tag find its assignments without a table scan.
-CREATE INDEX IX_TagAssignments_TagId ON TagAssignments(TagId);
+CREATE INDEX IX_Categorisations_UserId ON Categorisations(UserId);
+-- Lets deleting a tag find its categorisations without a table scan.
+CREATE INDEX IX_Categorisations_TagId ON Categorisations(TagId);

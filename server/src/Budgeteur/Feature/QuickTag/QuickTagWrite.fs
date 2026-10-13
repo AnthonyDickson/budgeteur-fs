@@ -1,7 +1,7 @@
 namespace Budgeteur.Feature.QuickTag
 
-/// <summary>The write both quick tag operations share: set one queued
-/// transaction's assignment.</summary>
+/// <summary>The write the quick tag operations share: set one queued
+/// transaction's categorisation, replacing whatever it had.</summary>
 module QuickTagWrite =
     open System
 
@@ -9,45 +9,42 @@ module QuickTagWrite =
 
     open Budgeteur.Data
     open Budgeteur.Data.Db
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
     open Budgeteur.Shared.DomainError
 
-    /// <summary>Set the user's transaction's assignment, reading the
+    /// <summary>Set the user's transaction's categorisation, reading the
     /// transaction in the same database transaction as the write. Fails with
-    /// <c>NotFound</c> when the user has no transaction with the id, and with
-    /// <c>ValidationFailed</c> for a transfer, which has no assignment. The
-    /// caller checks that a tag belongs to the user.</summary>
+    /// <c>NotFound</c> when the user has no transaction with the id. The caller
+    /// checks that a tag belongs to the user.</summary>
     let save
         (queryContext : QueryContextFactory)
         (userId : string)
         (transactionId : Guid)
-        (assignment : TagAssignment option)
+        (categorisation : Categorisation option)
         =
         task {
             use! ctx = queryContext.OpenContextAsync ()
             ctx.BeginTransaction ()
 
-            let! isTransfer =
+            let! found =
                 selectTask ctx {
                     for t in main.Transactions do
                         where (t.Id = transactionId && t.UserId = userId)
-                        select t.IsTransfer
-                        tryHead
+                        count
                 }
 
-            match isTransfer with
-            | None ->
+            match found with
+            | 0 ->
                 return
                     Error (NotFound $"Transaction %O{transactionId} not found")
-            | Some true ->
-                return
-                    Error (
-                        ValidationFailed
-                            "A transfer has no tag, so it cannot be tagged or \
-                            dismissed"
-                    )
-            | Some false ->
-                do! TagAssignmentStore.save ctx userId transactionId assignment
+            | _ ->
+                do!
+                    CategorisationStore.save
+                        ctx
+                        userId
+                        transactionId
+                        categorisation
+
                 ctx.CommitTransaction ()
                 return Ok ()
         }

@@ -366,7 +366,7 @@ module EndpointTests =
                     use cmd = conn.CreateCommand ()
 
                     cmd.CommandText <-
-                        "UPDATE TagAssignments SET Source = 'Rule'"
+                        "UPDATE Categorisations SET Source = 'Rule'"
 
                     cmd.ExecuteNonQuery () |> ignore
 
@@ -445,6 +445,44 @@ module EndpointTests =
                     updateResponse.StatusCode
                     HttpStatusCode.BadRequest
                     "tagging a transfer should be rejected"
+            }
+
+            testCaseAsync
+                "marking a transfer replaces the tag and unmarking clears it"
+            <| async {
+                use app = newAppWithTags ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+
+                let! created =
+                    create app.Client {
+                        request "To savings" -100.00m with
+                            TagId = Some groceries
+                    }
+
+                let update isTransfer =
+                    async {
+                        let! response =
+                            TestHttp.putJson
+                                app.Client
+                                (TestHttp.itemPath
+                                    UpdateTransaction.Path
+                                    created.Id)
+                                {
+                                    request "To savings" -100.00m with
+                                        IsTransfer = isTransfer
+                                }
+                            |> Async.AwaitTask
+
+                        return! TestHttp.readJson<TransactionResponse> response
+                    }
+
+                let! marked = update true
+                Expect.isTrue marked.IsTransfer "it should be a transfer"
+                Expect.isNone marked.Tag "a transfer has no tag"
+
+                let! unmarked = update false
+                Expect.isFalse unmarked.IsTransfer "it should not be a transfer"
+                Expect.isNone unmarked.Tag "unmarking should leave it untagged"
             }
 
             testCaseAsync "deleting a tag untags its transactions"

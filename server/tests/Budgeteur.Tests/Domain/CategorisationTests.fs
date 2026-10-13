@@ -3,32 +3,35 @@ namespace Budgeteur.Tests
 open System
 open Expecto
 
-open Budgeteur.Domain.TagAssignment
+open Budgeteur.Domain.Categorisation
 
-module TagAssignmentTests =
+module CategorisationTests =
     let private tagA = Guid.NewGuid ()
     let private tagB = Guid.NewGuid ()
 
     let private manual tagId =
-        Some (TagAssignment.Tagged (tagId, TagSource.Manual))
+        Some (Categorisation.Tagged (tagId, TagSource.Manual))
 
     let private byRule tagId =
-        Some (TagAssignment.Tagged (tagId, TagSource.Rule))
+        Some (Categorisation.Tagged (tagId, TagSource.Rule))
 
-    let private dismissed = Some TagAssignment.Dismissed
+    let private dismissed = Some Categorisation.Dismissed
+
+    let private transfer = Some Categorisation.Transfer
 
     [<Tests>]
     let tests =
-        testList "TagAssignment" [
-            testCase "onCreate makes a tag manual"
+        testList "Categorisation" [
+            testCase "onCreate makes a tag manual and a transfer a transfer"
             <| fun () ->
-                let onCreate = TagAssignment.onCreate
-                Expect.equal (onCreate (Some tagA)) (manual tagA) "tagged"
-                Expect.equal (onCreate None) None "untagged"
+                let onCreate = Categorisation.onCreate
+                Expect.equal (onCreate false (Some tagA)) (manual tagA) "tagged"
+                Expect.equal (onCreate false None) None "untagged"
+                Expect.equal (onCreate true None) transfer "transfer"
 
             testCase "onUpdate keeps the source only when the tag is unchanged"
             <| fun () ->
-                let onUpdate = TagAssignment.onUpdate false
+                let onUpdate = Categorisation.onUpdate false
                 let expect = Expect.equal
 
                 expect (onUpdate (Some tagA) (byRule tagA)) (byRule tagA) "same"
@@ -39,31 +42,39 @@ module TagAssignmentTests =
 
             testCase "onUpdate keeps a dismissal until the user picks a tag"
             <| fun () ->
-                let onUpdate = TagAssignment.onUpdate false
+                let onUpdate = Categorisation.onUpdate false
                 let expect = Expect.equal
 
                 expect (onUpdate None dismissed) dismissed "no tag"
                 expect (onUpdate (Some tagA) dismissed) (manual tagA) "tag"
 
-            testCase "onUpdate removes a transfer's assignment"
+            testCase "onUpdate marks and unmarks a transfer"
             <| fun () ->
-                let onUpdate = TagAssignment.onUpdate true
+                let markTransfer = Categorisation.onUpdate true None
+                let onUpdate = Categorisation.onUpdate false
                 let expect = Expect.equal
 
-                expect (onUpdate None (manual tagA)) None "manual tag"
-                expect (onUpdate None (byRule tagA)) None "rule tag"
-                expect (onUpdate None dismissed) None "dismissal"
+                expect (markTransfer (manual tagA)) transfer "manual tag"
+                expect (markTransfer (byRule tagA)) transfer "rule tag"
+                expect (markTransfer dismissed) transfer "dismissal"
+                expect (markTransfer None) transfer "untagged"
+                expect (onUpdate None transfer) None "unmarked, no tag"
+
+                expect
+                    (onUpdate (Some tagA) transfer)
+                    (manual tagA)
+                    "unmarked, tag"
 
             testCase "a transfer cannot have a tag"
             <| fun () ->
-                let require = TagAssignment.requireNoTagOnTransfer
+                let require = Categorisation.requireNoTagOnTransfer
                 Expect.isError (require true (Some tagA)) "tagged transfer"
                 Expect.isOk (require true None) "untagged transfer"
                 Expect.isOk (require false (Some tagA)) "tagged transaction"
 
             testCase "tagUntagged only tags untagged transactions"
             <| fun () ->
-                let tagUntagged = TagAssignment.tagUntagged
+                let tagUntagged = Categorisation.tagUntagged
                 let expect = Expect.equal
 
                 expect (tagUntagged (Some tagA) None) (byRule tagA) "untagged"
@@ -80,10 +91,11 @@ module TagAssignmentTests =
                     "manual"
 
                 expect (tagUntagged (Some tagA) dismissed) dismissed "dismissed"
+                expect (tagUntagged (Some tagA) transfer) transfer "transfer"
 
             testCase "retag recomputes everything but manual decisions"
             <| fun () ->
-                let retag = TagAssignment.retag
+                let retag = Categorisation.retag
                 let expect = Expect.equal
 
                 expect (retag (Some tagA) None) (byRule tagA) "untagged"
@@ -97,4 +109,5 @@ module TagAssignmentTests =
                     "manual, no winner"
 
                 expect (retag (Some tagA) dismissed) dismissed "dismissed"
+                expect (retag (Some tagA) transfer) transfer "transfer"
         ]

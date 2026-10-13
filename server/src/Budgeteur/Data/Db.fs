@@ -68,6 +68,24 @@ module main =
     let BalanceSheetItems = table<BalanceSheetItems>
 
     [<CLIMutable>]
+    type Categorisations =
+        { TransactionId: System.Guid
+          UserId: string
+          Kind: string
+          TagId: Option<System.Guid>
+          Source: Option<string> }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "TransactionId"; Value = box this.TransactionId; ProviderDbType = None }
+                  { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
+                  { WriteColumn.Name = "Kind"; Value = box this.Kind; ProviderDbType = None }
+                  { WriteColumn.Name = "TagId"; Value = box this.TagId; ProviderDbType = None }
+                  { WriteColumn.Name = "Source"; Value = box this.Source; ProviderDbType = None } ]
+
+    let Categorisations = table<Categorisations>
+
+    [<CLIMutable>]
     type CurrentBalances =
         { AccountId: Option<System.Guid>
           UserId: Option<string>
@@ -114,22 +132,6 @@ module main =
     let SchemaVersions = table<SchemaVersions>
 
     [<CLIMutable>]
-    type TagAssignments =
-        { TransactionId: System.Guid
-          UserId: string
-          TagId: Option<System.Guid>
-          Source: string }
-
-        interface IWriteColumns with
-            member this.WriteColumns =
-                [ { WriteColumn.Name = "TransactionId"; Value = box this.TransactionId; ProviderDbType = None }
-                  { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
-                  { WriteColumn.Name = "TagId"; Value = box this.TagId; ProviderDbType = None }
-                  { WriteColumn.Name = "Source"; Value = box this.Source; ProviderDbType = None } ]
-
-    let TagAssignments = table<TagAssignments>
-
-    [<CLIMutable>]
     type Tags =
         { Id: System.Guid
           UserId: string
@@ -154,7 +156,6 @@ module main =
           Amount: decimal
           Description: string
           Date: System.DateOnly
-          IsTransfer: bool
           AccountId: Option<System.Guid>
           ImportHash: Option<string> }
 
@@ -165,7 +166,6 @@ module main =
                   { WriteColumn.Name = "Amount"; Value = box this.Amount; ProviderDbType = None }
                   { WriteColumn.Name = "Description"; Value = box this.Description; ProviderDbType = None }
                   { WriteColumn.Name = "Date"; Value = box this.Date; ProviderDbType = None }
-                  { WriteColumn.Name = "IsTransfer"; Value = box this.IsTransfer; ProviderDbType = None }
                   { WriteColumn.Name = "AccountId"; Value = box this.AccountId; ProviderDbType = None }
                   { WriteColumn.Name = "ImportHash"; Value = box this.ImportHash; ProviderDbType = None } ]
 
@@ -218,6 +218,20 @@ module main =
 
         let BalanceSheetItems = leftTable<``BalanceSheetItems (base)``, BalanceSheetItems>
 
+        type private ``Categorisations (base)`` = Categorisations
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type Categorisations =
+            { TransactionId: Option<System.Guid>
+              UserId: Option<string>
+              Kind: Option<string>
+              TagId: Option<System.Guid>
+              Source: Option<string> }
+
+            interface ILeftViewOf<``Categorisations (base)``>
+
+        let Categorisations = leftTable<``Categorisations (base)``, Categorisations>
+
         type private ``CurrentBalances (base)`` = CurrentBalances
 
         [<CLIMutable; NoEquality; NoComparison>]
@@ -256,19 +270,6 @@ module main =
 
         let SchemaVersions = leftTable<``SchemaVersions (base)``, SchemaVersions>
 
-        type private ``TagAssignments (base)`` = TagAssignments
-
-        [<CLIMutable; NoEquality; NoComparison>]
-        type TagAssignments =
-            { TransactionId: Option<System.Guid>
-              UserId: Option<string>
-              TagId: Option<System.Guid>
-              Source: Option<string> }
-
-            interface ILeftViewOf<``TagAssignments (base)``>
-
-        let TagAssignments = leftTable<``TagAssignments (base)``, TagAssignments>
-
         type private ``Tags (base)`` = Tags
 
         [<CLIMutable; NoEquality; NoComparison>]
@@ -292,7 +293,6 @@ module main =
               Amount: Option<decimal>
               Description: Option<string>
               Date: Option<System.DateOnly>
-              IsTransfer: Option<bool>
               AccountId: Option<System.Guid>
               ImportHash: Option<string> }
 
@@ -339,6 +339,18 @@ module LeftViewExtensions =
                 Some record
             | None -> None
 
+    type main.LeftJoined.Categorisations with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.Categorisations option =
+            match this.TransactionId with
+            | Some value ->
+                let record: main.Categorisations =
+                    { TransactionId = value; UserId = this.UserId.Value; Kind = this.Kind.Value; TagId = this.TagId; Source = this.Source }
+
+                Some record
+            | None -> None
+
     type main.LeftJoined.Rules with
         /// Recovers the whole-record option after materialization (pure .NET, not SQL):
         /// Some when the left join matched, None when it did not.
@@ -359,18 +371,6 @@ module LeftViewExtensions =
             | Some value ->
                 let record: main.SchemaVersions =
                     { SchemaVersionID = value; ScriptName = this.ScriptName.Value; Applied = this.Applied.Value }
-
-                Some record
-            | None -> None
-
-    type main.LeftJoined.TagAssignments with
-        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
-        /// Some when the left join matched, None when it did not.
-        member this.ToOption() : main.TagAssignments option =
-            match this.TransactionId with
-            | Some value ->
-                let record: main.TagAssignments =
-                    { TransactionId = value; UserId = this.UserId.Value; TagId = this.TagId; Source = this.Source.Value }
 
                 Some record
             | None -> None
@@ -399,7 +399,6 @@ module LeftViewExtensions =
                       Amount = this.Amount.Value
                       Description = this.Description.Value
                       Date = this.Date.Value
-                      IsTransfer = this.IsTransfer.Value
                       AccountId = this.AccountId
                       ImportHash = this.ImportHash }
 

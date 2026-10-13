@@ -44,7 +44,7 @@ line. Lessons from it are cited where they shaped a decision.
 | Identity fields   | The fields of a row that identify a transaction across exports, such as account, date, amount, and running balance.                                                                                                      |
 | Import hash       | A hash of a row's identity fields, stored on the transaction. Unique per user.                                                                                                                                           |
 | Duplicate         | A row whose import hash the user already has. Skipped.                                                                                                                                                                   |
-| Internal transfer | A row whose other party is one of the user's own accounts. Imported with `IsTransfer` set.                                                                                                                               |
+| Internal transfer | A row whose other party is one of the user's own accounts. Imported as a transfer.                                                                                                                                       |
 
 ## Decisions
 
@@ -308,9 +308,10 @@ line. Lessons from it are cited where they shaped a decision.
 
 - **Decision**: a row whose other party account number, in canonical form,
   equals one of the user's account numbers, including accounts the same request
-  creates, is imported with `IsTransfer` set and no tag. Only Kiwibank exports
-  carry the other party's account. Rows imported earlier are not revisited when
-  a new account is added.
+  creates, is imported as a transfer: a categorisation with no tag
+  ([quick tagging](quick-tagging.md) decision 1). Only Kiwibank exports carry
+  the other party's account. Rows imported earlier are not revisited when a new
+  account is added.
 - **Why**: untagged transfers count as income and expenses on the dashboard. In
   the sample data, a transfer from chequing to savings would show as $3,865 of
   income. Importing related accounts in one request catches both sides.
@@ -343,9 +344,9 @@ line. Lessons from it are cited where they shaped a decision.
 - **Why**: tagging in a preview before saving holds minutes of work in unsaved
   state, needs a confirm request that re-sends the files or trusts rows parsed
   on the client, and saves nothing if the user stops halfway. Reviewing after
-  the import uses the normal assignment writes, and an interrupted review leaves
-  the rest in the queue. New rows are tagged by rules during the import, so
-  "untagged" and "matched no rule" are the same set.
+  the import uses the normal categorisation writes, and an interrupted review
+  leaves the rest in the queue. New rows are tagged by rules during the import,
+  so "untagged" and "matched no rule" are the same set.
 - **Rejected**: a preview with confirm. Its other use, catching the wrong file,
   is mostly covered by format detection and duplicate skipping; an undo is
   deferred.
@@ -378,7 +379,8 @@ line. Lessons from it are cited where they shaped a decision.
   they stay with it. A table's rules and mapping have one owner in the shared
   modules once a second slice writes it
   ([architecture](architecture.md#where-domain-logic-lives)). Import needs no
-  other slice: the matcher and assignment transitions are already in `Domain/`.
+  other slice: the matcher and categorisation transitions are already in
+  `Domain/`.
 - **Goal**: import is one slice that changes when formats or the import workflow
   change.
 

@@ -23,19 +23,19 @@ decision.
 
 ## Ubiquitous language
 
-| Term         | Meaning                                                                                                    |
-| ------------ | ---------------------------------------------------------------------------------------------------------- |
-| Rule         | A pattern and the tag it applies. Rule CRUD already exists.                                                |
-| Match        | A rule matches a transaction when its pattern occurs anywhere in the description, ignoring case.           |
-| Comparison   | How patterns and descriptions are compared: ordinal, ignoring case. Used by matching and rule uniqueness.  |
-| Winning rule | The matching rule with the longest pattern. Equal lengths are ordered by the pattern's ordinal comparison. |
-| Assignment   | A transaction's tag and its source, or a dismissal. Kept apart from the transaction; untagged means none.  |
-| Tag source   | Where a transaction's tag came from: `Manual` or `Rule`.                                                   |
-| Manual tag   | A tag the user set. Rules never change it.                                                                 |
-| Rule tag     | A tag set by auto-tagging. Derived data: re-tagging recomputes it.                                         |
-| Tag untagged | The action that applies rules to untagged transactions only.                                               |
-| Re-tag       | The action that recomputes every transaction without a manual tag. Asks for confirmation first.            |
-| Match count  | The number of the user's non-transfer transactions a pattern matches, shown in the rule modal.             |
+| Term           | Meaning                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------- |
+| Rule           | A pattern and the tag it applies. Rule CRUD already exists.                                                |
+| Match          | A rule matches a transaction when its pattern occurs anywhere in the description, ignoring case.           |
+| Comparison     | How patterns and descriptions are compared: ordinal, ignoring case. Used by matching and rule uniqueness.  |
+| Winning rule   | The matching rule with the longest pattern. Equal lengths are ordered by the pattern's ordinal comparison. |
+| Categorisation | A transaction's tag and its source, a dismissal, or a transfer. Kept apart; untagged means none.           |
+| Tag source     | Where a transaction's tag came from: `Manual` or `Rule`.                                                   |
+| Manual tag     | A tag the user set. Rules never change it.                                                                 |
+| Rule tag       | A tag set by auto-tagging. Derived data: re-tagging recomputes it.                                         |
+| Tag untagged   | The action that applies rules to untagged transactions only.                                               |
+| Re-tag         | The action that recomputes every transaction without a manual tag. Asks for confirmation first.            |
+| Match count    | The number of the user's non-transfer transactions a pattern matches, shown in the rule modal.             |
 
 ## Decisions
 
@@ -80,12 +80,12 @@ decision.
 - **Goal**: for a given description and rule set there is exactly one answer,
   and it does not depend on storage order.
 
-### 3. Tag assignments are separate from transactions
+### 3. Categorisations are separate from transactions
 
-- **Decision**: a transaction's tag is a tag assignment, held in its own table
+- **Decision**: a transaction's tag is a categorisation, held in its own table
   and its own domain type, keyed by transaction id. `Transactions` and the
   `Transaction` type keep the facts only: amount, description, date, account,
-  transfer flag, and import hash. `Transactions.TagId` moves to the new table.
+  and import hash. `Transactions.TagId` moves to the new table.
 - **Why**: facts and categorisation have different lifecycles and writers. Facts
   are set on creation or import and rarely change. The tag is changed by the
   user, by rules, and later by quick-tagging and smart tagging. Keeping them in
@@ -97,24 +97,27 @@ decision.
   id and holding the user id, the tag, and the tag source. Untagged means no
   row.
   - Transaction id references `Transactions` and tag references `Tags`, both `ON
-    DELETE CASCADE`: deleting either removes the assignment.
+    DELETE CASCADE`: deleting either removes the categorisation.
   - The source is `NOT NULL` and is `Manual` or `Rule`. The tag is `NULL` only
     for a dismissal, which has the `Manual` source
     ([quick tagging](quick-tagging.md) decision 1).
-  - Indexed by user id, for reading a user's assignments, and by tag id, so
-    deleting a tag finds its assignments without a table scan.
-  - Verified with SQLite 3.53: deleting a tag deletes its assignments and the
-    constraints hold. The same constraints on columns in `Transactions` would
-    fail, because a tag's `ON DELETE SET NULL` would leave a source with no tag.
-- **Ownership**: the assignment type in `Domain/` owns the transitions in
+  - Indexed by user id, for reading a user's categorisations, and by tag id, so
+    deleting a tag finds its categorisations without a table scan.
+  - Verified with SQLite 3.53: deleting a tag deletes its categorisations and
+    the constraints hold. The same constraints on columns in `Transactions`
+    would fail, because a tag's `ON DELETE SET NULL` would leave a source with
+    no tag.
+- **Ownership**: the categorisation type in `Domain/` owns the transitions in
   decision 4. Its row mapping is in `Data/`, because the Transaction and AutoTag
   slices both write it (decision 8).
-- **Transfers**: a transfer has no assignment. It moves money between the user's
-  own accounts, so it is neither income nor expense and a tag on it would mean
-  nothing. The Transaction slice rejects a tag on a transfer (`400`), the
-  transaction form clears and disables the tag while the transfer box is
-  checked, and auto-tagging and the match count skip transfers. The schema
-  cannot express a rule across two tables, so the slices enforce it.
+- **Transfers**: a transfer is a categorisation of its own, not a flag on the
+  transaction ([quick tagging](quick-tagging.md) decision 1). It moves money
+  between the user's own accounts, so it is neither income nor expense and a tag
+  on it would mean nothing. One row per transaction means a tagged transfer
+  cannot be stored. The Transaction slice rejects a request that marks a
+  transfer and gives it a tag (`400`), the transaction form clears and disables
+  the tag while the transfer box is checked, and auto-tagging and the match
+  count skip transfers.
 - **Rejected**:
   - Tag columns on `Transactions`: no join, but the schema cannot enforce the
     constraints above, so the codec has to read a missing tag as untagged, and
@@ -122,18 +125,19 @@ decision.
     those columns later rebuild the largest table.
   - A separate table with the tag still on the `Transaction` type: the same
     storage, but the transaction model still changes with every tagging change.
-  - Only categorisation slices write assignments, and transaction CRUD stops
+  - Only categorisation slices write categorisations, and transaction CRUD stops
     accepting a tag: saving the transaction form becomes two requests, and a
     failed second request leaves the transaction untagged. Revisit if
     categorisation needs a single writer.
 - **Goal**: `Transactions` stays a stable record of what happened, and tagging
   develops independently of it.
 
-### 4. Assignments record where the tag came from
+### 4. Categorisations record where the tag came from
 
-- **Decision**: a transaction is untagged, manually tagged, tagged by a rule, or
-  dismissed: the user decided it has no tag ([quick tagging](quick-tagging.md)
-  decision 1). A rule tag does not record which rule set it.
+- **Decision**: a transaction is untagged, manually tagged, tagged by a rule,
+  dismissed (the user decided it has no tag), or a transfer
+  ([quick tagging](quick-tagging.md) decision 1). A rule tag does not record
+  which rule set it.
 - **Why**: re-tagging has to tell the user's decisions from derived ones. The
   previous project could not, so its "auto-tag all" overwrote manual tags. Smart
   auto-tagging (roadmap) can use manual tags as user-confirmed training labels.
@@ -142,30 +146,32 @@ decision.
   - Updating to a different tag makes it manual; clearing the tag makes it
     untagged; keeping the same tag keeps its source, so editing the amount of a
     rule-tagged transaction does not make it manual. Saving a dismissed
-    transaction without a tag keeps it dismissed, and marking a transaction as a
-    transfer removes its assignment.
-  - Auto-tagging sets rule tags, and never changes a manual tag or a dismissal.
+    transaction without a tag keeps it dismissed. Marking a transaction as a
+    transfer makes it a transfer, whatever it had, and unmarking makes it
+    untagged, or manually tagged with the chosen tag.
+  - Auto-tagging sets rule tags, and never changes a manual tag, a dismissal, or
+    a transfer.
   - Editing or deleting a rule leaves the rule tags it set unchanged until the
     next re-tag.
-  - Deleting a tag removes its assignments, which makes those transactions
+  - Deleting a tag removes its categorisations, which makes those transactions
     untagged.
 - **Known limitation**: clearing a tag by hand makes the transaction untagged,
   so the next run can tag it again unless the user dismisses it. Clearing does
   not dismiss, because a cleared tag usually means the tag was wrong, not that
   the transaction has none.
 - **Rejected**: a reference to the rule that set the tag, so the transactions
-  table can name it. Rule edits do not change assignments (decision 5), so after
-  an edit the reference names a pattern the description may not contain, or a
-  rule that now applies another tag. Re-tag recomputes from the current rules
-  and smart tagging uses manual tags, so nothing else needs it. Storing the
-  pattern at assignment time would stay accurate; add it if the user needs to
-  know which rule set a tag.
+  table can name it. Rule edits do not change categorisations (decision 5), so
+  after an edit the reference names a pattern the description may not contain,
+  or a rule that now applies another tag. Re-tag recomputes from the current
+  rules and smart tagging uses manual tags, so nothing else needs it. Storing
+  the pattern at categorisation time would stay accurate; add it if the user
+  needs to know which rule set a tag.
 - **Goal**: re-tagging is safe to run at any time.
 
 ### 5. Auto-tagging runs when the user asks
 
 - **Decision**: two actions. Rule create, update, and delete do not change
-  assignments.
+  categorisations.
   - **Tag untagged** applies rules to untagged transactions only.
   - **Re-tag** recomputes every transaction without a manual tag: untagged ones
     get the winning rule's tag, rule tags change to the current winner, and rule
@@ -177,20 +183,22 @@ decision.
   tags; decision 4 makes that possible. Re-tag cannot be undone, and a user who
   deleted a rule to stop future tagging may not expect past tags to be cleared,
   so it is confirmed. Tag untagged only fills in missing tags, so it is not.
-- **Transfers**: have no tag (decision 3), so runs skip them.
+- **Transfers**: are categorisations of their own (decision 3), so runs skip
+  them.
 - **Rejected**: live rules, where every rule change re-tags immediately. That
-  removes both buttons, but every rule save rewrites assignments, and a pattern
-  being typed would tag transactions part way through editing.
+  removes both buttons, but every rule save rewrites categorisations, and a
+  pattern being typed would tag transactions part way through editing.
 - **Goal**: two predictable actions, both safe to repeat.
 
 ### 6. Matching is a pure function in `Domain/`; only changes are written
 
 - **Decision**: the matcher (which rule wins for a description) and the
   comparison it uses live with the `Rule` type in `Domain/`. A pure function
-  takes the rules, the candidate transactions with their assignments, and the
-  action, and returns the assignment changes. The handler loads the user's rules
-  and candidates and writes the changed assignments in one database transaction,
-  and returns how many transactions were tagged, changed, and cleared.
+  takes the rules, the candidate transactions with their categorisations, and
+  the action, and returns the categorisation changes. The handler loads the
+  user's rules and candidates and writes the changed categorisations in one
+  database transaction, and returns how many transactions were tagged, changed,
+  and cleared.
 - **Why**: the matcher defines what a rule means, so it lives with the type, as
   an invariant does. The Rule slice's uniqueness check uses the comparison, and
   CSV import will be the matcher's second consumer. SQLite's `LIKE` folds ASCII
@@ -226,26 +234,26 @@ decision.
   - `GET /api/auto-tag/matches?pattern=` returning the match count and sample
     descriptions. The pattern is validated like a rule pattern (`400`).
 
-  It writes assignments only, through the assignment type and its shared
-  mapping. The Transaction slice also writes assignments, for the tag in the
+  It writes categorisations only, through the categorisation type and its shared
+  mapping. The Transaction slice also writes categorisations, for the tag in the
   transaction form, in the same database transaction as the facts.
 - **Why**: slices are grouped by workflow, and a table has one owner of its
   invariants and mapping rather than one writing slice (see
   [architecture](architecture.md#dependency-rules)). Auto-tagging reads rules
-  and changes assignments, a workflow neither the Rule nor the Transaction slice
-  is about.
+  and changes categorisations, a workflow neither the Rule nor the Transaction
+  slice is about.
 - **Rejected**:
   - Auto-tagging in the Transaction slice, so each table has one writing slice.
     Import, auto-tagging, quick-tagging, and smart tagging would all collect
     there, and single user actions that span tables, such as CSV import or
     creating a rule from a transaction, could not be one database transaction
     without slices calling each other.
-  - Auto-tagging in the Rule slice. It would write assignments from a slice
+  - Auto-tagging in the Rule slice. It would write categorisations from a slice
     about rule CRUD, without the clarity of a single writer.
 - **Transaction responses**: carry the tag and its source. The Transaction slice
-  reads assignments for this as its own read shape.
+  reads categorisations for this as its own read shape.
 - **Goal**: each slice changes for one reason, and the rules for writing an
-  assignment exist once.
+  categorisation exist once.
 
 ### 9. UI
 
@@ -267,24 +275,25 @@ decision.
 ## Consequences
 
 - **Schema**: migration `001` is unreleased (no version tag contains it), so it
-  is edited in place: the `Rules` uniqueness from decision 2, the assignment
+  is edited in place: the `Rules` uniqueness from decision 2, the categorisation
   table and its indexes from decision 3, `TagId` and its index removed from
   `Transactions`, and `TaggingQueue` and its trigger removed. Then `just
   db-reset` and `just db-update`.
 - **Tagging queue**: removed. Nothing writes to it, and what it holds (which
   transactions await review, and whether rule tags count as reviewed) belongs to
-  the quick-tagging design, which replaced it with a query over assignments
+  the quick-tagging design, which replaced it with a query over categorisations
   ([quick tagging](quick-tagging.md) decision 2).
-- **Income statement**: reads assignments to find each transaction's tag. Its
-  rules do not change.
-- **Transaction slice**: create and update write the facts and the assignment in
-  one database transaction. Update inserts, replaces, or deletes the assignment.
+- **Income statement**: reads categorisations to find each transaction's tag.
+  Its rules do not change.
+- **Transaction slice**: create and update write the facts and the
+  categorisation in one database transaction. Update inserts, replaces, or
+  deletes the categorisation.
 - **Highest-value tests**:
   - Matcher: substring, case, longest wins, the ordinal tie-break, no match.
   - Application: `TagUntagged` leaves rule tags alone; `Retag` tags, changes,
     and clears rule tags and never touches manual tags.
   - Tag source transitions on transaction create and update.
-  - Deleting a tag that has assignments (the cascade in decision 3).
+  - Deleting a tag that has categorisations (the cascade in decision 3).
   - Both endpoints read and write only the caller's data.
   - Client: each button produces its request and result toast; re-tag sends no
     request until confirmed and none when cancelled; a settled pattern requests
@@ -307,7 +316,7 @@ decision.
   Internal transfer detection from account numbers is a separate backlog item.
 - **Wildcards or regular expressions.** Substring patterns first.
 - **User-ordered priority.** See decision 2.
-- **Single writer for assignments.** See the rejected options in decision 3.
+- **Single writer for categorisations.** See the rejected options in decision 3.
 
 ## Assumptions
 

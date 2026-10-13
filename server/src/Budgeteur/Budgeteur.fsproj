@@ -33,7 +33,7 @@
     <Compile Include="Domain/Tag.fs" />
     <Compile Include="Domain/Transaction.fs" />
     <Compile Include="Domain/Rule.fs" />
-    <Compile Include="Domain/TagAssignment.fs" />
+    <Compile Include="Domain/Categorisation.fs" />
     <Compile Include="Domain/BalanceSheetItem.fs" />
     <Compile Include="Domain/Account.fs" />
     <Compile Include="Domain/BalanceSheet.fs" />
@@ -42,8 +42,8 @@
     <Compile Include="Data/Constraints.fs" />
     <Compile Include="Data/RuleCodec.fs" />
     <Compile Include="Data/TagCodec.fs" />
-    <Compile Include="Data/TagAssignmentCodec.fs" />
-    <Compile Include="Data/TagAssignmentStore.fs" />
+    <Compile Include="Data/CategorisationCodec.fs" />
+    <Compile Include="Data/CategorisationStore.fs" />
     <Compile Include="Data/TransactionCodec.fs" />
     <Compile Include="Data/BalanceSheetItemCodec.fs" />
     <Compile Include="Data/AccountCodec.fs" />
@@ -114,6 +114,7 @@
     <Compile Include="Feature/QuickTag/QuickTagWrite.fs" />
     <Compile Include="Feature/QuickTag/QuickTagTransaction.fs" />
     <Compile Include="Feature/QuickTag/DismissTransaction.fs" />
+    <Compile Include="Feature/QuickTag/MarkTransfer.fs" />
     <Compile Include="Feature/QuickTag/QuickTagEndpoints.fs" />
 
     <Compile Include="Feature/Import/Csv.fs" />

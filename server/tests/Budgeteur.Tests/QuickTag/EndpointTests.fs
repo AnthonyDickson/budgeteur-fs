@@ -74,6 +74,10 @@ module EndpointTests =
         client.DeleteAsync (TestHttp.itemPath DismissTransaction.Path id)
         |> Async.AwaitTask
 
+    let private markTransfer (client : HttpClient) (id : Guid) =
+        client.PutAsync (TestHttp.itemPath MarkTransfer.Path id, null)
+        |> Async.AwaitTask
+
     let private expectStatus
         (expected : HttpStatusCode)
         (message : string)
@@ -215,6 +219,13 @@ module EndpointTests =
                     "dismissing is 404"
                     response
 
+                let! response = markTransfer other id
+
+                expectStatus
+                    HttpStatusCode.NotFound
+                    "a transfer is 404"
+                    response
+
                 let! tagged = tagUntagged app.Client
                 Expect.equal tagged 1 "the transaction should still be untagged"
             }
@@ -237,7 +248,41 @@ module EndpointTests =
                 Expect.isNone tag "the transaction should stay untagged"
             }
 
-            testCaseAsync "a transfer cannot be tagged or dismissed"
+            testCaseAsync "quick tagging a transfer replaces it"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+
+                let! id =
+                    create app.Client {
+                        untagged "Countdown" with
+                            IsTransfer = true
+                    }
+
+                let! response = quickTag app.Client id groceries
+                expectStatus HttpStatusCode.NoContent "tagging is 204" response
+
+                let! response =
+                    app.Client.GetAsync (
+                        TestHttp.itemPath ReadTransaction.Path id
+                    )
+                    |> Async.AwaitTask
+
+                let! transaction =
+                    TestHttp.readJson<TransactionResponse> response
+
+                Expect.isFalse
+                    transaction.IsTransfer
+                    "the transaction should no longer be a transfer"
+
+                Expect.equal
+                    transaction.Tag
+                    (Some { Id = groceries; Source = "Manual" })
+                    "the tag should be manual"
+            }
+
+            testCaseAsync
+                "marking a transfer takes a transaction out of the queue"
             <| async {
                 use app = newApp ()
                 let! groceries = Seed.tag app.Client "Groceries" "Expense"
@@ -245,18 +290,38 @@ module EndpointTests =
                 let! id =
                     create app.Client {
                         untagged "To savings" with
-                            IsTransfer = true
+                            TagId = Some groceries
                     }
 
-                let! response = quickTag app.Client id groceries
-                expectStatus HttpStatusCode.BadRequest "tagging is 400" response
+                let! response = markTransfer app.Client id
+                expectStatus HttpStatusCode.NoContent "marking is 204" response
 
-                let! response = dismiss app.Client id
+                let! response = markTransfer app.Client id
 
                 expectStatus
-                    HttpStatusCode.BadRequest
-                    "dismissing is 400"
+                    HttpStatusCode.NoContent
+                    "repeating is 204"
                     response
+
+                let! response =
+                    app.Client.GetAsync (
+                        TestHttp.itemPath ReadTransaction.Path id
+                    )
+                    |> Async.AwaitTask
+
+                let! transaction =
+                    TestHttp.readJson<TransactionResponse> response
+
+                Expect.isTrue transaction.IsTransfer "it should be a transfer"
+                Expect.isNone transaction.Tag "the tag should be replaced"
+
+                let! _ = dismiss app.Client id
+                let! queue = readQueue app.Client
+                Expect.isEmpty queue.Transactions "a dismissal leaves the queue"
+
+                let! _ = markTransfer app.Client id
+                let! queue = readQueue app.Client
+                Expect.equal queue.Total 0 "a transfer is not in the queue"
             }
 
             testCaseAsync

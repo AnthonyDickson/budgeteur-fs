@@ -12,7 +12,7 @@ module QuickTagTransaction =
 
     open Budgeteur.Data
     open Budgeteur.Data.Db
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.Endpoint
@@ -51,7 +51,7 @@ module QuickTagTransaction =
                         queryContext
                         userId
                         id
-                        (TagAssignment.onQuickTag req.TagId)
+                        (Categorisation.onQuickTag req.TagId)
 
                 log.Info (
                     $"Quick tagged transaction %O{id}",

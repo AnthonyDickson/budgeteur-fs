@@ -5,7 +5,7 @@ module ChangesTests =
     open Expecto
 
     open Budgeteur.Domain.Rule
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.AutoTag
 
@@ -24,14 +24,14 @@ module ChangesTests =
         rule "COUNTDOWN FUEL" fuel
     ]
 
-    let private candidate description assignment = {
+    let private candidate description categorisation = {
         TransactionId = Guid.CreateVersion7 ()
         Description = TransactionDescription.unsafeFromString description
-        Assignment = assignment
+        Categorisation = categorisation
     }
 
     let private ruleTag tagId =
-        TagAssignment.Tagged (tagId, TagSource.Rule)
+        Categorisation.Tagged (tagId, TagSource.Rule)
 
     let private untaggedMatch = candidate "PAY Countdown Ponsonby" None
     let private untaggedNoMatch = candidate "Rent" None
@@ -47,7 +47,7 @@ module ChangesTests =
     let private manualTag =
         candidate
             "Countdown Fuel"
-            (Some (TagAssignment.Tagged (dining, TagSource.Manual)))
+            (Some (Categorisation.Tagged (dining, TagSource.Manual)))
 
     let private all = [
         untaggedMatch

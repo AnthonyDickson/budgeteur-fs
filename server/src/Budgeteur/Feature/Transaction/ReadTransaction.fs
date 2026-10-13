@@ -37,7 +37,7 @@ module ReadTransaction =
                 let log = RequestLog.fromContext ctx
 
                 match transaction with
-                | Some (transaction, assignment, accountName) ->
+                | Some (transaction, categorisation, accountName) ->
                     log.Info (
                         $"Returned transaction %O{id}",
                         LogProp.prop "transactionId" (id.ToString ())
@@ -48,7 +48,7 @@ module ReadTransaction =
                             ctx
                             (TransactionResponse.fromDomain
                                 transaction
-                                assignment
+                                categorisation
                                 accountName)
                 | None ->
                     log.Warn (

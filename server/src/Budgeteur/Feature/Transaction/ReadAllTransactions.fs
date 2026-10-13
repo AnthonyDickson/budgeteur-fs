@@ -37,10 +37,10 @@ module ReadAllTransactions =
 
                 let response =
                     List.map
-                        (fun (transaction, assignment, accountName) ->
+                        (fun (transaction, categorisation, accountName) ->
                             TransactionResponse.fromDomain
                                 transaction
-                                assignment
+                                categorisation
                                 accountName)
                         transactions
 

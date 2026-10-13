@@ -4,16 +4,16 @@ open System
 
 open Budgeteur.Domain.Account
 open Budgeteur.Domain.Rule
-open Budgeteur.Domain.TagAssignment
+open Budgeteur.Domain.Categorisation
 open Budgeteur.Domain.Transaction
 
 /// <summary>A statement row to insert as a transaction.</summary>
 type NewTransaction = {
     Transaction : Transaction
     ImportHash : string
-    /// <summary>The winning rule's tag, for a row that is not a
-    /// transfer.</summary>
-    Assignment : TagAssignment option
+    /// <summary>A transfer, or the winning rule's tag for a row that is not
+    /// one.</summary>
+    Categorisation : Categorisation option
 }
 
 /// <summary>What an import did with the rows of its statements.</summary>
@@ -105,13 +105,11 @@ module Import =
         let transactions =
             rows
             |> List.map (fun (statement, row) ->
-                let isTransfer = isTransfer userNumbers row
-
-                let assignment =
-                    if isTransfer then
-                        None
+                let categorisation =
+                    if isTransfer userNumbers row then
+                        Categorisation.onTransfer
                     else
-                        TagAssignment.tagUntagged
+                        Categorisation.tagUntagged
                             (winner row.Description |> Option.map _.TagId)
                             None
 
@@ -121,12 +119,11 @@ module Import =
                         Amount = row.Amount
                         Description = row.Description
                         Date = row.Date
-                        IsTransfer = isTransfer
                         AccountId =
                             Map.tryFind statement.Account.Number accountIds
                     }
                     ImportHash = row.ImportHash
-                    Assignment = assignment
+                    Categorisation = categorisation
                 })
 
         transactions,
@@ -135,11 +132,16 @@ module Import =
             SkippedDuplicates = skipped
             Transfers =
                 transactions
-                |> List.filter _.Transaction.IsTransfer
+                |> List.filter (fun transaction ->
+                    Categorisation.isTransfer transaction.Categorisation)
                 |> List.length
             TaggedByRules =
                 transactions
                 |> List.filter (fun transaction ->
-                    Option.isSome transaction.Assignment)
+                    match transaction.Categorisation with
+                    | Some (Categorisation.Tagged _) -> true
+                    | Some Categorisation.Dismissed
+                    | Some Categorisation.Transfer
+                    | None -> false)
                 |> List.length
         }

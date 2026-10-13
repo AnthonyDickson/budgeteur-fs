@@ -15,7 +15,6 @@ module TransactionCodec =
         Amount = Money.value transaction.Amount
         Description = TransactionDescription.value transaction.Description
         Date = transaction.Date
-        IsTransfer = transaction.IsTransfer
         AccountId = transaction.AccountId
         ImportHash = importHash
     }
@@ -25,6 +24,5 @@ module TransactionCodec =
         Amount = Money.unsafeFromDecimal row.Amount
         Description = TransactionDescription.unsafeFromString row.Description
         Date = row.Date
-        IsTransfer = row.IsTransfer
         AccountId = row.AccountId
     }

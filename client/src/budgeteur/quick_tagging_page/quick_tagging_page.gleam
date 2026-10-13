@@ -1,5 +1,6 @@
 //// Quick tagging: the transactions waiting for a tag, a batch at a time, each
-//// tagged or dismissed with one click. See docs/quick-tagging.md.
+//// tagged, marked as a transfer, or dismissed with one click. See
+//// docs/quick-tagging.md.
 
 import budgeteur/quick_tagging_page/queue.{type Queue, type QueuedTransaction}
 import budgeteur/shared/api_error.{type ApiError}
@@ -50,6 +51,7 @@ const link_class = "font-medium text-indigo-600 hover:text-indigo-500"
 /// What the user chose for a queued transaction.
 pub type Choice {
   TagWith(tag_id: Uuid)
+  Transfer
   Dismiss
 }
 
@@ -132,6 +134,13 @@ fn save(transaction_id: Uuid, choice: Choice) -> Effect(Msg) {
         api_route.QuickTagTransaction(transaction_id) |> api_route.to_string,
         json.object([#("tagId", json.string(uuid.to_string(tag_id)))])
           |> json.to_string,
+        callback,
+      )
+    // The transfer endpoint takes no body.
+    Transfer ->
+      effect.put(
+        api_route.MarkTransfer(transaction_id) |> api_route.to_string,
+        "",
         callback,
       )
     Dismiss ->
@@ -260,6 +269,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
           Some(out_msg.error_toast(
             case choice {
               TagWith(_) -> "Could not tag the transaction"
+              Transfer -> "Could not mark the transaction as a transfer"
               Dismiss -> "Could not dismiss the transaction"
             },
             error.details,
@@ -407,9 +417,9 @@ fn no_tags_note() -> Element(Msg) {
   ])
 }
 
-/// A row reads like a statement line, followed by a button per tag and
-/// "Dismiss". The buttons are native buttons and the row has no open-row
-/// overlay, so Vimium's link hints find every choice. See decision 5 in
+/// A row reads like a statement line, followed by a button per tag,
+/// "Transfer", and "Dismiss". The buttons are native buttons and the row has
+/// no open-row overlay, so Vimium's link hints find every choice. See decision 5 in
 /// docs/quick-tagging.md.
 fn transaction_row(
   transaction: QueuedTransaction,
@@ -476,6 +486,13 @@ fn transaction_row(
             choice_button(
               transaction.id,
               row,
+              Transfer,
+              testid: "quick-tag-transfer",
+              children: [html.text("Transfer")],
+            ),
+            choice_button(
+              transaction.id,
+              row,
               Dismiss,
               testid: "quick-tag-dismiss",
               children: [html.text("Dismiss")],
@@ -510,6 +527,8 @@ fn choice_button(
     TagWith(_), True -> "border-indigo-600 bg-indigo-50 text-indigo-700"
     TagWith(_), False ->
       "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+    Transfer, True -> "border-gray-600 bg-gray-100 text-gray-800"
+    Transfer, False -> "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
     Dismiss, True -> "border-dashed border-gray-500 bg-gray-100 text-gray-700"
     Dismiss, False ->
       "border-dashed border-gray-300 bg-white text-gray-500 hover:bg-gray-50"

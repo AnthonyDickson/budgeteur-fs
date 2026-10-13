@@ -2,7 +2,7 @@ namespace Budgeteur.Feature.Transaction
 
 open System
 
-open Budgeteur.Domain.TagAssignment
+open Budgeteur.Domain.Categorisation
 open Budgeteur.Shared.OpenApi
 
 /// <summary>A transaction's tag and where it came from.</summary>
@@ -41,8 +41,8 @@ type TransactionResponse = {
     /// <summary>The name of the transaction's account, if it has one.</summary>
     AccountName : string option
 
-    /// <summary>The transaction's tag, or none when it is untagged or
-    /// dismissed.</summary>
+    /// <summary>The transaction's tag, or none when it is untagged,
+    /// dismissed, or a transfer.</summary>
     Tag : TransactionTagResponse option
 }
 
@@ -52,23 +52,24 @@ module TransactionResponse =
 
     let fromDomain
         (t : Transaction)
-        (assignment : TagAssignment option)
+        (categorisation : Categorisation option)
         (accountName : string option)
         : TransactionResponse = {
         Id = t.Id
         Amount = Money.value t.Amount
         Description = TransactionDescription.value t.Description
         Date = t.Date
-        IsTransfer = t.IsTransfer
+        IsTransfer = Categorisation.isTransfer categorisation
         AccountId = t.AccountId
         AccountName = accountName
         Tag =
-            match assignment with
-            | Some (TagAssignment.Tagged (tagId, source)) ->
+            match categorisation with
+            | Some (Categorisation.Tagged (tagId, source)) ->
                 Some {
                     Id = tagId
                     Source = TagSource.toString source
                 }
-            | Some TagAssignment.Dismissed
+            | Some Categorisation.Dismissed
+            | Some Categorisation.Transfer
             | None -> None
     }

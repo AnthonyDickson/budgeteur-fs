@@ -15,11 +15,11 @@ module TransactionQuery =
     let private fromJoinedRow
         (
             row : main.Transactions,
-            assignment : main.LeftJoined.TagAssignments,
+            categorisation : main.LeftJoined.Categorisations,
             accountName : string option
         ) =
         TransactionCodec.fromRow row,
-        assignment.ToOption () |> Option.map TagAssignmentCodec.fromRow,
+        categorisation.ToOption () |> Option.map CategorisationCodec.fromRow,
         accountName
 
     /// <summary>Every transaction of the user.</summary>
@@ -28,7 +28,7 @@ module TransactionQuery =
             let! rows =
                 selectTask ctx {
                     for t in main.Transactions do
-                        leftJoin a in main.LeftJoined.TagAssignments
+                        leftJoin a in main.LeftJoined.Categorisations
                                           on
                                           (t.Id = a.TransactionId)
 
@@ -48,7 +48,7 @@ module TransactionQuery =
             let! row =
                 selectTask ctx {
                     for t in main.Transactions do
-                        leftJoin a in main.LeftJoined.TagAssignments
+                        leftJoin a in main.LeftJoined.Categorisations
                                           on
                                           (t.Id = a.TransactionId)
 
