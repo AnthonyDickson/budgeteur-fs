@@ -22,6 +22,8 @@ pub type Account {
     number: Option(String),
     // Whether the account is current or non-current.
     term: Term,
+    // The date the account was closed; None while it is open.
+    closed_on: Option(Date),
   )
 }
 
@@ -49,7 +51,12 @@ pub fn decoder() -> decode.Decoder(Account) {
     decode.optional(decode.string),
   )
   use term <- decode.field("term", term.decoder())
-  decode.success(Account(id:, name:, number:, term:))
+  use closed_on <- decode.optional_field(
+    "closedOn",
+    None,
+    decode.optional(date.decoder()),
+  )
+  decode.success(Account(id:, name:, number:, term:, closed_on:))
 }
 
 pub fn line_decoder() -> decode.Decoder(AccountLine) {

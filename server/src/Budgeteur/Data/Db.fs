@@ -17,7 +17,8 @@ module main =
           UserId: string
           Number: Option<string>
           Name: string
-          Term: string }
+          Term: string
+          ClosedOn: Option<System.DateOnly> }
 
         interface IWriteColumns with
             member this.WriteColumns =
@@ -25,7 +26,8 @@ module main =
                   { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
                   { WriteColumn.Name = "Number"; Value = box this.Number; ProviderDbType = None }
                   { WriteColumn.Name = "Name"; Value = box this.Name; ProviderDbType = None }
-                  { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None } ]
+                  { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None }
+                  { WriteColumn.Name = "ClosedOn"; Value = box this.ClosedOn; ProviderDbType = None } ]
 
     let Accounts = table<Accounts>
 
@@ -51,7 +53,8 @@ module main =
           UserId: string
           Name: string
           Side: string
-          Term: string }
+          Term: string
+          ClosedOn: Option<System.DateOnly> }
 
         interface IWriteColumns with
             member this.WriteColumns =
@@ -59,7 +62,8 @@ module main =
                   { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
                   { WriteColumn.Name = "Name"; Value = box this.Name; ProviderDbType = None }
                   { WriteColumn.Name = "Side"; Value = box this.Side; ProviderDbType = None }
-                  { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None } ]
+                  { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None }
+                  { WriteColumn.Name = "ClosedOn"; Value = box this.ClosedOn; ProviderDbType = None } ]
 
     let BalanceSheetItems = table<BalanceSheetItems>
 
@@ -210,7 +214,8 @@ module main =
               UserId: Option<string>
               Number: Option<string>
               Name: Option<string>
-              Term: Option<string> }
+              Term: Option<string>
+              ClosedOn: Option<System.DateOnly> }
 
             interface ILeftViewOf<``Accounts (base)``>
 
@@ -238,7 +243,8 @@ module main =
               UserId: Option<string>
               Name: Option<string>
               Side: Option<string>
-              Term: Option<string> }
+              Term: Option<string>
+              ClosedOn: Option<System.DateOnly> }
 
             interface ILeftViewOf<``BalanceSheetItems (base)``>
 
@@ -362,7 +368,7 @@ module LeftViewExtensions =
             match this.Id with
             | Some value ->
                 let record: main.Accounts =
-                    { Id = value; UserId = this.UserId.Value; Number = this.Number; Name = this.Name.Value; Term = this.Term.Value }
+                    { Id = value; UserId = this.UserId.Value; Number = this.Number; Name = this.Name.Value; Term = this.Term.Value; ClosedOn = this.ClosedOn }
 
                 Some record
             | None -> None
@@ -386,7 +392,7 @@ module LeftViewExtensions =
             match this.Id with
             | Some value ->
                 let record: main.BalanceSheetItems =
-                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Side = this.Side.Value; Term = this.Term.Value }
+                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Side = this.Side.Value; Term = this.Term.Value; ClosedOn = this.ClosedOn }
 
                 Some record
             | None -> None

@@ -18,6 +18,10 @@ pub type BalanceSheet {
     accounts: List(AccountLine),
     // Accounts whose balance is unknown, left out of the totals.
     unknown_balances: List(Account),
+    // Items that were sold or repaid, left out of the sheet.
+    closed_items: List(BalanceSheetItem),
+    // Accounts that were closed, left out of the sheet.
+    closed_accounts: List(Account),
   )
 }
 
@@ -51,6 +55,14 @@ pub fn decoder() -> decode.Decoder(BalanceSheet) {
     "unknownBalances",
     decode.list(account.decoder()),
   )
+  use closed_items <- decode.field(
+    "closedItems",
+    decode.list(balance_sheet_item.decoder()),
+  )
+  use closed_accounts <- decode.field(
+    "closedAccounts",
+    decode.list(account.decoder()),
+  )
   decode.success(BalanceSheet(
     total_assets:,
     total_liabilities:,
@@ -63,5 +75,7 @@ pub fn decoder() -> decode.Decoder(BalanceSheet) {
     items:,
     accounts:,
     unknown_balances:,
+    closed_items:,
+    closed_accounts:,
   ))
 }

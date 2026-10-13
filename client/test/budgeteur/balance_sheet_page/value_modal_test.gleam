@@ -29,6 +29,7 @@ fn house() -> BalanceSheetItem {
     term: NonCurrent,
     value: 400_000.0,
     as_of: Date(2026, March, 1),
+    closed_on: None,
   )
 }
 

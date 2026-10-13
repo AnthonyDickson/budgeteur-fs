@@ -55,6 +55,26 @@ type UnknownBalanceResponse = {
     Term : string
 }
 
+/// <summary>A closed account. It is left out of the sheet.</summary>
+type ClosedAccountResponse = {
+    /// <summary>The account's id.</summary>
+    Id : Guid
+
+    /// <summary>The user's alias for the account.</summary>
+    Name : string
+
+    /// <summary>The number statements identify the account by, if
+    /// any.</summary>
+    Number : string option
+
+    /// <summary>Whether the account is current or non-current.</summary>
+    [<SchemaHint.Enum(typeof<Term>)>]
+    Term : string
+
+    /// <summary>The date the account was closed.</summary>
+    ClosedOn : DateOnly
+}
+
 module AccountLineResponse =
     open Budgeteur.Domain.Account
     open Budgeteur.Domain.BalanceSheet
@@ -86,3 +106,17 @@ module UnknownBalanceResponse =
         Number = account.Number |> Option.map AccountNumber.value
         Term = Term.toString account.Term
     }
+
+module ClosedAccountResponse =
+    open Budgeteur.Domain.Account
+
+    /// <summary>The account's entry, or none when it is open.</summary>
+    let fromDomain (account : Account) : ClosedAccountResponse option =
+        account.ClosedOn
+        |> Option.map (fun closedOn -> {
+            Id = account.Id
+            Name = AccountName.value account.Name
+            Number = account.Number |> Option.map AccountNumber.value
+            Term = Term.toString account.Term
+            ClosedOn = closedOn
+        })

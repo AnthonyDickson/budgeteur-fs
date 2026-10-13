@@ -10,6 +10,7 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
 import budgeteur/balance_sheet_page/balance_sheet_page
+import budgeteur/balance_sheet_page/close_date
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
@@ -51,6 +52,7 @@ fn item(
     term:,
     value:,
     as_of: Date(2026, March, 1),
+    closed_on: None,
   )
 }
 
@@ -99,6 +101,7 @@ fn submitting_modal(mode: form_modal.Mode) -> item_modal.Modal {
       side: Asset,
       term: Current,
       opening_value: None,
+      closed_on: close_date.from(None),
     ),
     mode,
   )
@@ -137,6 +140,8 @@ fn sample_sheet() -> BalanceSheet {
     ],
     accounts: [],
     unknown_balances: [],
+    closed_items: [],
+    closed_accounts: [],
   )
 }
 
@@ -349,6 +354,7 @@ pub fn cancelling_the_item_form_hides_it_test() {
             side: Asset,
             term: Current,
             opening_value: None,
+            closed_on: close_date.from(None),
           ),
           form_modal.Create,
         )),
@@ -361,7 +367,13 @@ pub fn cancelling_the_item_form_hides_it_test() {
 }
 
 fn sample_account() -> Account {
-  Account(id: item_id(5), name: "Everyday", number: None, term: Current)
+  Account(
+    id: item_id(5),
+    name: "Everyday",
+    number: None,
+    term: Current,
+    closed_on: None,
+  )
 }
 
 pub fn recording_a_balance_posts_it_and_refetches_the_sheet_test() {

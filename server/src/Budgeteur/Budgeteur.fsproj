@@ -29,6 +29,7 @@
 
     <Compile Include="Domain/Money.fs" />
     <Compile Include="Domain/AsOfDate.fs" />
+    <Compile Include="Domain/CloseDate.fs" />
     <Compile Include="Domain/Term.fs" />
     <Compile Include="Domain/Side.fs" />
     <Compile Include="Domain/Tag.fs" />

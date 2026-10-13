@@ -93,6 +93,10 @@ type BalanceSheetItem = {
 
     /// <summary>Whether the item is current or non-current.</summary>
     Term : Term
+
+    /// <summary>The date the item was sold or repaid, or none while it is
+    /// held. See decision 4 in docs/reports.md.</summary>
+    ClosedOn : DateOnly option
 }
 
 /// <summary>A value an item had as of a date, entered by hand. An item has at

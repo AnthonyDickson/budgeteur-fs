@@ -4,6 +4,7 @@ import budgeteur/shared/date
 import budgeteur/shared/money
 import budgeteur/shared/uuid as uuid_decoder
 import gleam/dynamic/decode
+import gleam/option.{type Option, None}
 import gleam/time/calendar.{type Date}
 import youid/uuid.{type Uuid}
 
@@ -21,6 +22,8 @@ pub type BalanceSheetItem {
     value: Float,
     // The date the value is accurate as of.
     as_of: Date,
+    // The date the item was sold or repaid; None while it is held.
+    closed_on: Option(Date),
   )
 }
 
@@ -31,5 +34,18 @@ pub fn decoder() -> decode.Decoder(BalanceSheetItem) {
   use term <- decode.field("term", term.decoder())
   use value <- decode.field("value", money.decode_decimal())
   use as_of <- decode.field("asOf", date.decoder())
-  decode.success(BalanceSheetItem(id:, name:, side:, term:, value:, as_of:))
+  use closed_on <- decode.optional_field(
+    "closedOn",
+    None,
+    decode.optional(date.decoder()),
+  )
+  decode.success(BalanceSheetItem(
+    id:,
+    name:,
+    side:,
+    term:,
+    value:,
+    as_of:,
+    closed_on:,
+  ))
 }

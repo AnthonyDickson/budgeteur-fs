@@ -6,6 +6,7 @@ module EndpointTests =
     open System.Net.Http
     open Expecto
 
+    open Budgeteur.Feature.Account
     open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Shared.Clock
     open Budgeteur.Tests
@@ -28,7 +29,11 @@ module EndpointTests =
     let private details
         (name : string)
         (term : string)
-        : UpdateBalanceSheetItemRequest = { Name = name; Term = term }
+        : UpdateBalanceSheetItemRequest = {
+        Name = name
+        Term = term
+        ClosedOn = None
+    }
 
     let private observation
         (value : decimal)
@@ -419,6 +424,118 @@ module EndpointTests =
                 let! otherSheet = getSheetBody otherUser
                 Expect.isEmpty otherSheet.Accounts "no account lines"
                 Expect.isEmpty otherSheet.UnknownBalances "no unknown balances"
+            }
+
+            testCaseAsync "closed lines leave the sheet and are listed apart"
+            <| async {
+                let now = DateTime (2026, 3, 8, 23, 0, 0, DateTimeKind.Utc)
+                let clock = fixedClock (DateTimeOffset now)
+
+                use app =
+                    TestApp.create (
+                        TestAppConfig.empty
+                        |> TestAppConfig.withBalanceSheet clock
+                        |> TestAppConfig.withAccounts clock
+                    )
+
+                let! house =
+                    createItem
+                        app.Client
+                        (request "House" "Asset" "NonCurrent" 400000m)
+
+                let! _ =
+                    createItem
+                        app.Client
+                        (request "Car" "Asset" "NonCurrent" 9000m)
+
+                let! card =
+                    Seed.account
+                        app.Client
+                        "Credit card"
+                        (Some (DateOnly (2026, 3, 1), -400m))
+
+                let closeAccount (closedOn : DateOnly option) =
+                    let request : UpdateAccount.UpdateAccountRequest = {
+                        Name = "Credit card"
+                        Number = None
+                        Term = "Current"
+                        ClosedOn = closedOn
+                    }
+
+                    TestHttp.putJson
+                        app.Client
+                        (TestHttp.itemPath UpdateAccount.Path card)
+                        request
+                    |> Async.AwaitTask
+
+                // When: the house is sold and the card closed.
+                let! sold =
+                    updateItem app.Client house {
+                        details "House" "NonCurrent" with
+                            ClosedOn = Some (DateOnly (2026, 3, 5))
+                    }
+
+                Expect.equal sold HttpStatusCode.OK "closing an item is 200"
+                let! closed = closeAccount (Some (DateOnly (2026, 3, 6)))
+
+                Expect.equal
+                    closed.StatusCode
+                    HttpStatusCode.OK
+                    "closing an account is 200"
+
+                // Then: they leave the sheet and its totals, and are listed
+                // apart with their close dates.
+                let! sheet = getSheetBody app.Client
+
+                Expect.equal
+                    (sheet.Items |> List.map _.Name)
+                    [ "Car" ]
+                    "the sold item leaves the sheet"
+
+                Expect.isEmpty sheet.Accounts "the closed account leaves it"
+                Expect.equal sheet.NetWorth 9000m "only the car counts"
+
+                Expect.equal
+                    (sheet.ClosedItems |> List.map (fun i -> i.Id, i.ClosedOn))
+                    [ house, Some (DateOnly (2026, 3, 5)) ]
+                    "the sold item is listed with its close date"
+
+                Expect.equal
+                    (sheet.ClosedAccounts
+                     |> List.map (fun a -> a.Id, a.ClosedOn))
+                    [ card, DateOnly (2026, 3, 6) ]
+                    "the closed account is listed with its close date"
+
+                // When: the house is reopened.
+                let! reopened =
+                    updateItem app.Client house (details "House" "NonCurrent")
+
+                Expect.equal reopened HttpStatusCode.OK "reopening is 200"
+
+                // Then: it is back on the sheet with its value.
+                let! sheet = getSheetBody app.Client
+                Expect.equal sheet.NetWorth 409000m "the house counts again"
+                Expect.isEmpty sheet.ClosedItems "no item is closed"
+
+                // Then: a close date after tomorrow is rejected.
+                let! future =
+                    updateItem app.Client house {
+                        details "House" "NonCurrent" with
+                            ClosedOn = Some (DateOnly (2026, 3, 10))
+                    }
+
+                Expect.equal
+                    future
+                    HttpStatusCode.BadRequest
+                    "an item closed in the future is rejected"
+
+                let! futureAccount =
+                    closeAccount (Some (DateOnly (2026, 3, 10)))
+
+                Expect.equal
+                    futureAccount.StatusCode
+                    HttpStatusCode.BadRequest
+                    "an account closed in the future is rejected"
             }
 
             testCaseAsync "uniqueness includes the term"

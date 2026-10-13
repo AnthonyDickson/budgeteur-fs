@@ -185,9 +185,10 @@ stores `Current` or `NonCurrent`.
 
 - **Read DTO.** The response carries the computed totals (total assets, total
   liabilities, net worth, current and non-current subtotals for each side,
-  working capital), the items and account lines with their as-of dates, and the
-  accounts with an unknown balance. It has no statement date: the client shows
-  its today. The client computes no figures.
+  working capital), the items and account lines with their as-of dates, the
+  accounts with an unknown balance, and, apart from the sheet, the closed items
+  and accounts ([reports](reports.md) decision 4). It has no statement date: the
+  client shows its today. The client computes no figures.
 - **No sheet row.** A sheet is the user's items and accounts, with nothing
   stored for the sheet itself, so a user with neither gets an empty sheet, not
   `404`. The client shows it as an empty state.

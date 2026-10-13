@@ -25,6 +25,7 @@ module BalanceSheetTests =
             Name = ItemName.create name |> okOrFail "name"
             Side = side
             Term = term
+            ClosedOn = None
         }
         Current = {
             AsOf = DateOnly (2026, 1, 1)
@@ -203,6 +204,7 @@ module BalanceSheetTests =
                 Number = None
                 Name = AccountName.create name |> okOrFail "name"
                 Term = term
+                ClosedOn = None
             }
             Current =
                 balance

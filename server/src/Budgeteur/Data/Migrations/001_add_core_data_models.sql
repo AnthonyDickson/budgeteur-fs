@@ -21,6 +21,9 @@ CREATE TABLE Accounts (
     -- The user's alias for the account. Defaults to the account number.
     Name   TEXT NOT NULL,
     Term   TEXT NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
+    -- The calendar date the account was closed. NULL while it is open. A balance sheet drawn on
+    -- or after it leaves the account out. See decision 4 in docs/reports.md.
+    ClosedOn DATE,
     -- Unique per user. SQLite treats NULLs as distinct, so any number of accounts can lack one.
     -- Also serves as the index for reading a user's accounts.
     UNIQUE(UserId, Number)
@@ -66,6 +69,9 @@ CREATE TABLE BalanceSheetItems (
     Name    TEXT     NOT NULL,
     Side    TEXT     NOT NULL CHECK (Side IN ('Asset', 'Liability')),
     Term    TEXT     NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
+    -- The calendar date the item was sold or repaid. NULL while it is held. A balance sheet
+    -- drawn on or after it leaves the item out. See decision 4 in docs/reports.md.
+    ClosedOn DATE,
     UNIQUE(UserId, Name, Side, Term)
 );
 

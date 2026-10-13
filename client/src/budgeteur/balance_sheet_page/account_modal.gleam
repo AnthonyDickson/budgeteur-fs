@@ -7,6 +7,7 @@ import budgeteur/balance_sheet_page/account_write_request.{
   type AccountWriteRequest, AccountWriteRequest,
 }
 import budgeteur/balance_sheet_page/balance_form
+import budgeteur/balance_sheet_page/close_date
 import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
@@ -41,6 +42,8 @@ pub type Form {
     term: Term,
     // The opening balance of a new account; None when editing.
     opening_balance: Option(balance_form.Form),
+    // Shown when editing only: a new account is open.
+    closed_on: close_date.Field,
   )
 }
 
@@ -68,6 +71,7 @@ pub type Msg {
   NumberChanged(value: String)
   TermChanged(value: String)
   BalanceMsg(balance_form.Msg)
+  ClosedOnChanged(value: String)
   SaveRequested
   // Response to the in-flight create or update. Transport timeouts surface
   // here as `Error(NetworkError(...))`.
@@ -134,6 +138,13 @@ pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
       None,
       form_modal.NoChange,
     )
+    ClosedOnChanged(value:) -> #(
+      form_modal.set_form(state, fn(form) {
+        Form(..form, closed_on: close_date.update(value))
+      }),
+      None,
+      form_modal.NoChange,
+    )
     SaveRequested -> {
       let #(modal, request) = form_modal.submit(state, validate_form)
       #(modal, request, form_modal.NoChange)
@@ -163,6 +174,7 @@ fn empty_form(today: Option(Date)) -> Form {
     number: "",
     term: Current,
     opening_balance: Some(balance_form.empty(today)),
+    closed_on: close_date.from(None),
   )
 }
 
@@ -173,6 +185,7 @@ fn from_account(account: Account) -> Form {
     number: option.unwrap(account.number, ""),
     term: account.term,
     opening_balance: None,
+    closed_on: close_date.from(account.closed_on),
   )
 }
 
@@ -198,13 +211,19 @@ fn validate_form(form: Form) -> Result(#(AccountWriteRequest, Form), Form) {
     number -> Some(number)
   }
 
-  case field.value(name), opening {
-    Some(name), Ok(opening_balance) ->
+  case field.value(name), opening, close_date.value(form.closed_on) {
+    Some(name), Ok(opening_balance), Ok(closed_on) ->
       Ok(#(
-        AccountWriteRequest(name:, number:, term: form.term, opening_balance:),
+        AccountWriteRequest(
+          name:,
+          number:,
+          term: form.term,
+          opening_balance:,
+          closed_on:,
+        ),
         form,
       ))
-    _, _ -> Error(form)
+    _, _, _ -> Error(form)
   }
 }
 
@@ -255,7 +274,7 @@ fn view_form(
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
-  let Form(name:, number:, term:, opening_balance:) = form
+  let Form(name:, number:, term:, opening_balance:, closed_on:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
     form_modal.Create -> #("Add account", "Add account", "Adding account...")
@@ -264,6 +283,7 @@ fn view_form(
 
   let has_error =
     field.has_error(name)
+    || field.has_error(closed_on)
     || case opening_balance {
       Some(balance) -> balance_form.has_error(balance)
       None -> False
@@ -366,6 +386,17 @@ fn view_form(
             )
             |> element.map(BalanceMsg)
           None -> element.none()
+        },
+        case mode {
+          form_modal.Create -> element.none()
+          form_modal.Edit(_) ->
+            close_date.view(
+              closed_on,
+              testid: "account-closed-on-input",
+              help: "The date the account was closed; blank while it is open. A closed account is left off the balance sheet from that date, and stays on earlier ones.",
+              submitting:,
+              on_input: ClosedOnChanged,
+            )
         },
         modal_ui.form_footer(
           leading: case mode {

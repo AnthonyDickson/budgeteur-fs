@@ -33,6 +33,10 @@ type BalanceSheetItemResponse = {
 
     /// <summary>The date the current value is accurate as of.</summary>
     AsOf : DateOnly
+
+    /// <summary>The date the item was sold or repaid, or none while it is
+    /// held.</summary>
+    ClosedOn : DateOnly option
 }
 
 module BalanceSheetItemResponse =
@@ -43,4 +47,5 @@ module BalanceSheetItemResponse =
         Term = Term.toString item.Item.Term
         Value = Value.value item.Current.Value
         AsOf = item.Current.AsOf
+        ClosedOn = item.Item.ClosedOn
     }

@@ -175,6 +175,45 @@ test.describe('balance sheet', () => {
   );
 });
 
+test.describe('closing items', () => {
+  test('a closed item leaves the sheet and can be reopened', async ({ page }) => {
+    await gotoNewBalanceSheet(page);
+    await addItem(page, {
+      side: 'asset',
+      name: 'House',
+      value: '400000.00',
+      nonCurrent: true,
+    });
+    await expectAmount(summaryCard(page, 'net-worth'), 400000);
+
+    // Sold: the item leaves the sheet and its totals.
+    await editItem(page, 'House');
+    await modal(page).getByTestId('item-closed-on-input').fill('2026-01-15');
+    await modal(page).getByTestId('item-submit-button').click();
+    await expect(modal(page)).toBeHidden();
+
+    await expect(itemRow(page, 'House')).toHaveCount(0);
+    await expectAmount(summaryCard(page, 'net-worth'), 0);
+
+    // It is listed, collapsed, with its close date.
+    const closed = page.getByTestId('closed-lines');
+    await expect(closed).toContainText('Closed (1)');
+    await closed.locator('summary').click();
+    await expect(closed).toContainText('Closed on 2026-01-15');
+
+    // Reopened: clearing the date puts it back on the sheet.
+    await closed.getByTestId(/^edit-closed-item-/).click();
+    await expect(modal(page)).toBeVisible();
+    await modal(page).getByTestId('item-closed-on-input').fill('');
+    await modal(page).getByTestId('item-submit-button').click();
+    await expect(modal(page)).toBeHidden();
+
+    await expect(itemRow(page, 'House')).toBeVisible();
+    await expectAmount(summaryCard(page, 'net-worth'), 400000);
+    await expect(closed).toHaveCount(0);
+  });
+});
+
 const accountModal = (page: Page) => page.getByTestId('account-modal');
 const balanceModal = (page: Page) => page.getByTestId('balance-modal');
 

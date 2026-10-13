@@ -27,7 +27,7 @@ fn balance(msg: balance_form.Msg) -> balance_modal.Msg {
 
 fn everyday() -> Account {
   let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000007")
-  Account(id:, name: "Everyday", number: None, term: Current)
+  Account(id:, name: "Everyday", number: None, term: Current, closed_on: None)
 }
 
 fn open(current: option.Option(balance_modal.CurrentBalance)) {

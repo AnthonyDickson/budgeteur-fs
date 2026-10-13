@@ -150,6 +150,10 @@ type Account = {
     /// <summary>Which balance sheet group the account's line goes in. Its side
     /// follows the sign of its balance.</summary>
     Term : Term
+
+    /// <summary>The date the account was closed, or none while it is open.
+    /// See decision 4 in docs/reports.md.</summary>
+    ClosedOn : DateOnly option
 }
 
 /// <summary>A balance an account had as of a date, from a statement or entered

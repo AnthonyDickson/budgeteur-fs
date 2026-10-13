@@ -106,9 +106,11 @@ always clear from context; where it is not, say "balance sheet line".
 
 - **Decision**: items and accounts get an optional close date, set and cleared
   in their edit forms. A sheet drawn on or after the close date leaves the line
-  out; earlier sheets keep it. The balance sheet page lists closed lines in a
-  collapsed section, so they can be reopened or viewed. Deleting stays for
-  mistakes, and removes the line's balance history.
+  out; earlier sheets keep it. A close date later than the server's UTC date
+  plus one day is rejected, as for as-of dates, so the current sheet leaves out
+  every closed line without knowing the client's today. The balance sheet page
+  lists closed lines in a collapsed section, so they can be reopened or viewed.
+  Deleting stays for mistakes, and removes the line's balance history.
 - **Why**: deleting a sold or repaid line removes it from every past sheet and
   changes past net worth. A close date is one stored fact. The CSV import brief
   planned a final $0 observation instead; that needs a convention to tell a

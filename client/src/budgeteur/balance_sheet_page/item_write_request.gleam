@@ -3,6 +3,7 @@ import budgeteur/balance_sheet_page/term.{type Term}
 import budgeteur/shared/date
 import budgeteur/shared/money
 import gleam/json
+import gleam/option.{type Option}
 import gleam/time/calendar.{type Date}
 
 /// What the item form saves.
@@ -11,7 +12,7 @@ pub type ItemWriteRequest {
   CreateItem(name: String, side: Side, term: Term, first: ValueEntry)
   /// An item's details. Its side is fixed at creation, and its values are
   /// observations.
-  UpdateItem(name: String, term: Term)
+  UpdateItem(name: String, term: Term, closed_on: Option(Date))
 }
 
 /// A value entered by hand, recorded as an observation on the server.
@@ -35,10 +36,11 @@ pub fn to_json(request: ItemWriteRequest) -> json.Json {
         #("value", money.encode_decimal(first.value)),
         #("asOf", date.encode(first.as_of)),
       ])
-    UpdateItem(name:, term:) ->
+    UpdateItem(name:, term:, closed_on:) ->
       json.object([
         #("name", json.string(name)),
         #("term", term.to_json(term)),
+        #("closedOn", json.nullable(closed_on, date.encode)),
       ])
   }
 }

@@ -15,9 +15,11 @@ module UpdateAccount =
     open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Account
+    open Budgeteur.Domain.CloseDate
     open Budgeteur.Domain.Term
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
+    open Budgeteur.Shared.Clock
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
@@ -40,6 +42,10 @@ module UpdateAccount =
         /// <summary>Whether the account is current or non-current.</summary>
         [<SchemaHint.Enum(typeof<Term>)>]
         Term : string
+
+        /// <summary>The date the account was closed, or none to keep it open.
+        /// At most one day after the server's UTC date.</summary>
+        ClosedOn : DateOnly option
     }
 
     [<Literal>]
@@ -77,8 +83,27 @@ module UpdateAccount =
                 )
         }
 
+    /// <summary>Validate the request as of the instant <c>now</c>, which bounds
+    /// the close date.</summary>
+    let private validate
+        (now : DateTimeOffset)
+        (req : UpdateAccountRequest)
+        (id : Guid)
+        =
+        validation {
+            let! account =
+                AccountRequest.details id req.Name req.Number req.Term
+
+            and! closedOn =
+                req.ClosedOn |> Option.traverseResult (CloseDate.validate now)
+
+            return { account with ClosedOn = closedOn }
+        }
+        |> DomainError.joinValidationErrors
+
     let private handler
         (queryContext : QueryContextFactory)
+        (clock : Clock)
         (id : Guid)
         : EndpointHandler =
         Endpoint.handler (fun ctx ->
@@ -87,9 +112,7 @@ module UpdateAccount =
                 let! userId = Auth.getUserId ctx
                 let! (req : UpdateAccountRequest) = Json.read ctx
 
-                let! account =
-                    AccountRequest.details id req.Name req.Number req.Term
-                    |> DomainError.joinValidationErrors
+                let! account = validate (clock ()) req id
 
                 do!
                     Constraints.requireOne (
@@ -113,16 +136,16 @@ module UpdateAccount =
         op.Summary <- "Update an account"
 
         op.Description <-
-            "Replaces the account's name, number, and term, leaving its \
-            balance history as it is. Returns the account with its current \
-            balance."
+            "Replaces the account's name, number, term, and close date, \
+            leaving its balance history as it is. Returns the account with its \
+            current balance."
 
         op.Tags <- HashSet [ OpenApiTagReference "Accounts" ]
 
         Task.CompletedTask
 
-    let endpoint (queryContext : QueryContextFactory) =
-        routef Path (handler queryContext)
+    let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
+        routef Path (handler queryContext clock)
         |> addOpenApi (
             OpenApiConfig (
                 requestBody = RequestBody typeof<UpdateAccountRequest>,

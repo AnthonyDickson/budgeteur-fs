@@ -38,6 +38,10 @@ type AccountResponse = {
     /// <summary>The current balance, or none when the balance is
     /// unknown.</summary>
     Balance : AccountBalanceResponse option
+
+    /// <summary>The date the account was closed, or none while it is
+    /// open.</summary>
+    ClosedOn : DateOnly option
 }
 
 module AccountResponse =
@@ -55,4 +59,5 @@ module AccountResponse =
                     Balance = Money.value observation.Balance
                     AsOf = observation.AsOf
                 })
+            ClosedOn = account.ClosedOn
         }

@@ -15,6 +15,7 @@ module BalanceSheetItemCodec =
         Name = ItemName.value item.Name
         Side = Side.toString item.Side
         Term = Term.toString item.Term
+        ClosedOn = item.ClosedOn
     }
 
     let fromRow (row : main.BalanceSheetItems) : BalanceSheetItem = {
@@ -32,4 +33,5 @@ module BalanceSheetItemCodec =
             // The database checks this column, so in practice this arm is
             // unreachable
             | Error error -> failwith error
+        ClosedOn = row.ClosedOn
     }

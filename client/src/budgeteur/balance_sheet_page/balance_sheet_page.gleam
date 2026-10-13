@@ -22,6 +22,7 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/row_ui
 import gleam/float
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -78,7 +79,8 @@ pub type Msg {
   // Item modal messages
   UserRequestedItemCreation(side: Side)
   // The value modal's `EditItemRequested` opens the item modal for an existing
-  // item.
+  // item; a closed item opens it directly.
+  UserRequestedItemEdit(item: BalanceSheetItem)
   ItemModalMsg(item_modal.Msg)
   // Item delete modal messages. The item modal's `DeleteRequested` opens it.
   UserConfirmedItemDelete
@@ -90,7 +92,8 @@ pub type Msg {
   // Account modal messages
   UserRequestedAccountCreation
   // The balance modal's `EditAccountRequested` opens the account modal for
-  // an existing account.
+  // an existing account; a closed account opens it directly.
+  UserRequestedAccountEdit(account: Account)
   AccountModalMsg(account_modal.Msg)
   // Account delete modal messages. The account modal's `DeleteRequested` opens
   // it.
@@ -176,6 +179,9 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         item_modal.CreateRequested(side:, today: model.today),
       )
 
+    UserRequestedItemEdit(item:) ->
+      run_item_modal(model, item_modal.EditRequested(item:))
+
     ItemModalMsg(item_modal.DeleteRequested as inner_msg) ->
       open_item_delete(model) |> run_item_modal(inner_msg)
 
@@ -205,6 +211,9 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         model,
         account_modal.CreateRequested(today: model.today),
       )
+
+    UserRequestedAccountEdit(account:) ->
+      run_account_modal(model, account_modal.EditRequested(account:))
 
     AccountModalMsg(account_modal.DeleteRequested as inner_msg) ->
       open_account_delete(model) |> run_account_modal(inner_msg)
@@ -277,23 +286,25 @@ fn on_fetch_failed(
   }
 }
 
-/// The items currently on the sheet; empty unless a snapshot has loaded.
+/// The user's items, open or closed; empty unless a sheet has loaded. Closed
+/// items count for the duplicate check, as they do on the server.
 fn model_items(model: Model) -> List(BalanceSheetItem) {
   case model.sheet {
-    Loaded(sheet) -> sheet.items
+    Loaded(sheet) -> list.append(sheet.items, sheet.closed_items)
     Loading | Failed -> []
   }
 }
 
-/// The accounts currently on the sheet, with a known balance or not; empty
-/// unless a snapshot has loaded.
+/// The user's accounts, with a known balance or not, open or closed; empty
+/// unless a sheet has loaded.
 fn model_accounts(model: Model) -> List(Account) {
   case model.sheet {
     Loaded(sheet) ->
-      list.append(
+      list.flatten([
         list.map(sheet.accounts, fn(line) { line.account }),
         sheet.unknown_balances,
-      )
+        sheet.closed_accounts,
+      ])
     Loading | Failed -> []
   }
 }
@@ -820,7 +831,92 @@ fn loaded_sheet(sheet: BalanceSheet, today: Option(Date)) -> Element(Msg) {
       [], [], [] -> empty_state()
       _, _, _ -> sheet_columns(sheet)
     },
+    closed_lines(sheet.closed_items, sheet.closed_accounts),
   ])
+}
+
+/// Lines the user no longer has are left off the sheet. They are listed,
+/// collapsed, so one can be reopened, corrected, or deleted from its edit form.
+fn closed_lines(
+  items: List(BalanceSheetItem),
+  accounts: List(Account),
+) -> Element(Msg) {
+  let item_rows =
+    list.map(items, fn(item) {
+      closed_row(
+        testid: "closed-item-" <> uuid.to_string(item.id),
+        name: item.name,
+        closed_on: item.closed_on,
+        on_click: UserRequestedItemEdit(item),
+      )
+    })
+  let account_rows =
+    list.map(accounts, fn(account) {
+      closed_row(
+        testid: "closed-account-" <> uuid.to_string(account.id),
+        name: account.name,
+        closed_on: account.closed_on,
+        on_click: UserRequestedAccountEdit(account),
+      )
+    })
+
+  case list.append(item_rows, account_rows) {
+    [] -> element.none()
+    rows ->
+      html.details(
+        [
+          attribute.class("mt-8 rounded-lg border border-gray-200 bg-white"),
+          attribute.attribute("data-testid", "closed-lines"),
+        ],
+        [
+          html.summary(
+            [
+              attribute.class(
+                "cursor-pointer px-4 py-3 text-sm font-medium text-gray-700",
+              ),
+            ],
+            [html.text("Closed (" <> int.to_string(list.length(rows)) <> ")")],
+          ),
+          html.ul([attribute.class("divide-y divide-gray-100 border-t")], rows),
+        ],
+      )
+  }
+}
+
+fn closed_row(
+  testid testid: String,
+  name name: String,
+  closed_on closed_on: Option(Date),
+  on_click on_click: Msg,
+) -> Element(Msg) {
+  html.li(
+    [
+      attribute.class(
+        "group relative flex items-center gap-3 px-4 py-3 hover:bg-gray-50",
+      ),
+      attribute.attribute("data-testid", testid),
+    ],
+    [
+      html.div([attribute.class("min-w-0 flex-1")], [
+        row_ui.open_button(
+          testid: "edit-" <> testid,
+          on_click:,
+          class: "block max-w-full truncate",
+          children: [html.text(name)],
+        ),
+        html.p(
+          [attribute.class(row_ui.selectable_class <> " text-xs text-gray-500")],
+          [
+            html.text(case closed_on {
+              Some(closed_on) -> "Closed on " <> date.format(closed_on)
+              None -> ""
+            }),
+          ],
+        ),
+      ]),
+      row_ui.chevron(class: ""),
+    ],
+  )
 }
 
 /// The sheet is drawn for the client's today, its statement date. Each line

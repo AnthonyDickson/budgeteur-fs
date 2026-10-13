@@ -58,6 +58,10 @@ type UpdateBalanceSheetItemRequest = {
     /// <summary>Whether the item is current or non-current.</summary>
     [<SchemaHint.Enum(typeof<Term>)>]
     Term : string
+
+    /// <summary>The date the item was sold or repaid, or none to keep it. At
+    /// most one day after the server's UTC date.</summary>
+    ClosedOn : DateOnly option
 }
 
 /// <summary>Validation shared by the slice's item requests.</summary>
@@ -65,6 +69,7 @@ module ItemRequest =
     open FsToolkit.ErrorHandling
 
     open Budgeteur.Domain.AsOfDate
+    open Budgeteur.Domain.CloseDate
     open Budgeteur.Shared.DomainError
 
     let private observation
@@ -104,15 +109,18 @@ module ItemRequest =
                 Name = name
                 Side = side
                 Term = term
+                ClosedOn = None
             }
 
             return item, first
         }
         |> DomainError.joinValidationErrors
 
-    /// <summary>Validate an update request against the item it changes, which
-    /// keeps its id and side.</summary>
+    /// <summary>Validate an update request as of the instant <c>now</c>, which
+    /// bounds the close date, against the item it changes, which keeps its id
+    /// and side.</summary>
     let validateUpdate
+        (now : DateTimeOffset)
         (existing : BalanceSheetItem)
         (req : UpdateBalanceSheetItemRequest)
         : Result<BalanceSheetItem, DomainError> =
@@ -120,10 +128,14 @@ module ItemRequest =
             let! name = ItemName.create req.Name
             and! term = Term.parse req.Term |> Result.mapError ValidationFailed
 
+            and! closedOn =
+                req.ClosedOn |> Option.traverseResult (CloseDate.validate now)
+
             return {
                 existing with
                     Name = name
                     Term = term
+                    ClosedOn = closedOn
             }
         }
         |> DomainError.joinValidationErrors

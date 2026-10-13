@@ -31,12 +31,12 @@ module BalanceSheetItemCodecTests =
                 testCase
                     $"codec round trips for side {sideName} and term {termName}"
                     (fun () ->
-
                         let item : BalanceSheetItem = {
                             Id = Guid.CreateVersion7 ()
                             Name = ItemName.create "Foo" |> okOrFail "Name"
                             Side = side
                             Term = term
+                            ClosedOn = Some (DateOnly (2026, 3, 8))
                         }
 
                         let row = BalanceSheetItemCodec.toRow item userId
