@@ -110,6 +110,12 @@
     <Compile Include="Feature/AutoTag/ReadMatches.fs" />
     <Compile Include="Feature/AutoTag/AutoTagEndpoints.fs" />
 
+    <Compile Include="Feature/QuickTag/ReadQueue.fs" />
+    <Compile Include="Feature/QuickTag/QuickTagWrite.fs" />
+    <Compile Include="Feature/QuickTag/QuickTagTransaction.fs" />
+    <Compile Include="Feature/QuickTag/DismissTransaction.fs" />
+    <Compile Include="Feature/QuickTag/QuickTagEndpoints.fs" />
+
     <Compile Include="Feature/Import/Csv.fs" />
     <Compile Include="Feature/Import/Format.fs" />
     <Compile Include="Feature/Import/ImportHash.fs" />

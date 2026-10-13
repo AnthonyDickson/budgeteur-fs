@@ -57,7 +57,6 @@ type IncomeStatement = {
     NetIncome : decimal
     IncomeLines : Line list
     ExpenseLines : ExpenseLine list
-    UntaggedCount : int
 }
 
 module IncomeStatement =
@@ -160,5 +159,4 @@ module IncomeStatement =
                     Amount = line.Amount
                     Share = share line.Amount
                 })
-            UntaggedCount = List.length untagged
         }

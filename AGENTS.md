@@ -38,6 +38,7 @@ implementations of the patterns in [docs/architecture.md](docs/architecture.md).
 | [dashboard.md](docs/dashboard.md)               | Dashboard and income statement design brief                    |
 | [auto-tagging.md](docs/auto-tagging.md)         | Auto-tagging design brief: matching, tag assignments, actions  |
 | [csv-import.md](docs/csv-import.md)             | CSV import and accounts design brief: formats, hashes, flow    |
+| [quick-tagging.md](docs/quick-tagging.md)       | Quick tagging design brief: queue, dismissals, one click       |
 | [fp-showcase.md](docs/fp-showcase.md)           | Tour of the codebase's functional programming ideas (tutorial) |
 
 Docs record requirements, design decisions and their rationale, and conventions

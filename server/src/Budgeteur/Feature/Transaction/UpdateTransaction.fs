@@ -89,7 +89,10 @@ module UpdateTransaction =
                     Error (NotFound $"Transaction %O{transaction.Id} not found")
             else
                 let! current = readAssignment ctx userId transaction.Id
-                let assignment = TagAssignment.onUpdate tagId current
+
+                let assignment =
+                    TagAssignment.onUpdate transaction.IsTransfer tagId current
+
                 do! TagAssignmentStore.save ctx userId transaction.Id assignment
 
                 let! updated =

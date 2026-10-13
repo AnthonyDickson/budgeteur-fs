@@ -18,7 +18,6 @@ pub type IncomeStatement {
     net_income: Float,
     income_lines: List(IncomeLine),
     expense_lines: List(ExpenseLine),
-    untagged_count: Int,
   )
 }
 
@@ -63,7 +62,6 @@ pub fn decoder() -> decode.Decoder(IncomeStatement) {
     "expenseLines",
     decode.list(expense_line_decoder()),
   )
-  use untagged_count <- decode.field("untaggedCount", decode.int)
   decode.success(IncomeStatement(
     from:,
     to:,
@@ -72,7 +70,6 @@ pub fn decoder() -> decode.Decoder(IncomeStatement) {
     net_income:,
     income_lines:,
     expense_lines:,
-    untagged_count:,
   ))
 }
 

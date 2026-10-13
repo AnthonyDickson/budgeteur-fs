@@ -8,6 +8,7 @@ import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
+import budgeteur/shared/route
 import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/transaction_page/account.{type Account}
@@ -524,6 +525,14 @@ pub fn view(model: Model) -> Element(Msg) {
       case model.transactions {
         Loaded(_) ->
           html.div([attribute.class("flex items-center gap-2")], [
+            html.a(
+              [
+                attribute.href(route.to_string(route.QuickTagging)),
+                attribute.class(secondary_button_class),
+                attribute.attribute("data-testid", "quick-tag-link"),
+              ],
+              [html.text("Quick tag")],
+            ),
             html.button(
               [
                 attribute.class(secondary_button_class),

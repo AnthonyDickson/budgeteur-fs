@@ -9,7 +9,7 @@
 - [x] Dashboard MVP
 - [x] Auto-tagging
 - [x] CSV Imports
-- [ ] Quick-tagging
+- [x] Quick-tagging
 - [ ] Full dashboard w/ charts
 - [ ] Transaction search
 - [ ] Regular snapshots with balance sheets, income statement

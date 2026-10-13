@@ -142,14 +142,17 @@ CREATE TABLE Rules (
 -- Tag assignments
 
 -- A transaction's tag and where it came from, kept apart from the transaction so tagging changes
--- without touching its facts. One row per tagged transaction; an untagged transaction has none.
--- See docs/auto-tagging.md.
+-- without touching its facts. One row per tagged or dismissed transaction; an untagged transaction
+-- has none. See docs/auto-tagging.md and docs/quick-tagging.md.
 CREATE TABLE TagAssignments (
     TransactionId GUID NOT NULL PRIMARY KEY,
     UserId        TEXT NOT NULL,
-    TagId         GUID NOT NULL,
+    -- NULL for a dismissed transaction: the user decided it has no tag.
+    TagId         GUID,
     -- Whether the user set the tag or a rule did. Rules never change a manual tag.
     Source        TEXT NOT NULL CHECK (Source IN ('Manual', 'Rule')),
+    -- Only the user dismisses a transaction.
+    CHECK (TagId IS NOT NULL OR Source = 'Manual'),
     -- Deleting the transaction or the tag removes the assignment, leaving the transaction untagged.
     FOREIGN KEY(TransactionId) REFERENCES Transactions(Id) ON DELETE CASCADE,
     FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE CASCADE

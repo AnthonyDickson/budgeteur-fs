@@ -38,7 +38,6 @@ fn statement(period: period.Period) -> income_statement.IncomeStatement {
     net_income: 3000.0,
     income_lines: [],
     expense_lines: [],
-    untagged_count: 0,
   )
 }
 
@@ -64,20 +63,23 @@ fn model_with_today() -> dashboard_page.Model {
   model
 }
 
-pub fn init_restores_the_preset_asks_for_today_and_fetches_the_balance_test() {
+pub fn init_restores_the_preset_asks_for_today_and_fetches_the_balance_and_waiting_count_test() {
   let #(model, effect) = dashboard_page.init()
 
   model.preset |> should.equal(period.default_preset)
   model.statement |> should.equal(Loading)
   model.balance |> should.equal(Loading)
+  model.waiting |> should.equal(Loading)
 
   let assert effect.Batch([
     effect.LoadFromStore(key:, ..),
     effect.GetLocalDate(_),
-    effect.HttpRequest(url:, ..),
+    effect.HttpRequest(url: balance_url, ..),
+    effect.HttpRequest(url: waiting_url, ..),
   ]) = effect
   key |> should.equal(dashboard_page.storage_key)
-  url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
+  balance_url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
+  waiting_url |> should.equal(api_route.to_string(api_route.GetQuickTagQueue))
 }
 
 pub fn today_fetches_the_statement_for_the_default_preset_test() {

@@ -5,6 +5,7 @@ import gleam/uri
 pub type Route {
   Dashboard
   Transactions
+  QuickTagging
   Tagging
   BalanceSheet
   NotFound
@@ -15,6 +16,7 @@ pub fn to_string(route: Route) -> String {
   case route {
     Dashboard -> "/"
     Transactions -> "/transactions"
+    QuickTagging -> "/quick-tagging"
     Tagging -> "/tagging"
     BalanceSheet -> "/balance-sheet"
     NotFound -> "/not_found"
@@ -25,6 +27,7 @@ fn from_path_segments(path: List(String)) -> Route {
   case path {
     [] -> Dashboard
     ["transactions"] -> Transactions
+    ["quick-tagging"] -> QuickTagging
     ["tagging"] -> Tagging
     ["balance-sheet"] -> BalanceSheet
     _ -> NotFound

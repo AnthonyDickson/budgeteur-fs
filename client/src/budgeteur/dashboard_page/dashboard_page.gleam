@@ -51,6 +51,10 @@ pub type Model {
     today: Option(Date),
     balance: Remote(BalanceSummary),
     statement: Remote(IncomeStatement),
+    /// How many transactions are waiting for a tag, whatever the period, so the
+    /// note matches the quick tagging page. See decision 7 in
+    /// docs/quick-tagging.md.
+    waiting: Remote(Int),
   )
 }
 
@@ -64,6 +68,7 @@ pub type Msg {
     period: Period,
     result: Result(IncomeStatement, ApiError),
   )
+  ClientFetchedWaiting(Result(Int, ApiError))
   UserSelectedPreset(Preset)
   UserRetriedBalance
   UserRetriedStatement
@@ -101,6 +106,24 @@ fn fetch_statement(period: Period) -> Effect(Msg) {
       Error(http_error) ->
         ClientFetchedStatement(
           period,
+          Error(response.http_error_to_api_error(http_error)),
+        )
+    }
+  })
+}
+
+/// Reads only the quick tagging queue's total, with the page's own decoder.
+fn fetch_waiting() -> Effect(Msg) {
+  let decoder = {
+    use total <- decode.field("total", decode.int)
+    decode.success(total)
+  }
+
+  effect.get(api_route.GetQuickTagQueue |> api_route.to_string, fn(result) {
+    case result {
+      Ok(body) -> ClientFetchedWaiting(response.decode_success(body, decoder))
+      Error(http_error) ->
+        ClientFetchedWaiting(
           Error(response.http_error_to_api_error(http_error)),
         )
     }
@@ -146,11 +169,13 @@ pub fn init() -> #(Model, Effect(Msg)) {
       today: None,
       balance: Loading,
       statement: Loading,
+      waiting: Loading,
     ),
     effect.batch([
       restore_preset(),
       effect.GetLocalDate(ClientGotToday),
       fetch_balance(),
+      fetch_waiting(),
     ]),
   )
 }
@@ -223,6 +248,18 @@ fn update_inner(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
             )
           }
       }
+
+    ClientFetchedWaiting(Ok(count)) -> #(
+      Model(..model, waiting: Loaded(count)),
+      effect.none(),
+    )
+
+    // The note is a footnote, so a failure hides it rather than offering a
+    // retry.
+    ClientFetchedWaiting(Error(error)) -> #(
+      Model(..model, waiting: Failed),
+      effect.LogError(api_error.describe(error)),
+    )
 
     UserRetriedBalance -> #(Model(..model, balance: Loading), fetch_balance())
 
@@ -336,6 +373,7 @@ fn statement_section(model: Model) -> Element(Msg) {
           on_retry: UserRetriedStatement,
         )
     },
+    untagged_note(model.waiting),
   ])
 }
 
@@ -422,17 +460,17 @@ fn loaded_statement(statement: IncomeStatement) -> Element(Msg) {
             rows: list.map(statement.expense_lines, expense_row),
           ),
         ]),
-        untagged_note(statement.untagged_count),
       ])
   }
 }
 
 /// A footnote to the untagged lines rather than a callout: leaving some
-/// transactions untagged is normal.
-fn untagged_note(untagged_count: Int) -> Element(Msg) {
-  case untagged_count {
-    0 -> element.none()
-    count ->
+/// transactions untagged is normal. Counts every transaction waiting for a tag,
+/// whatever the period, so it matches the quick tagging page it links to.
+fn untagged_note(waiting: Remote(Int)) -> Element(Msg) {
+  case waiting {
+    Loaded(0) | Loading | Failed -> element.none()
+    Loaded(count) ->
       html.p(
         [
           attribute.class("text-sm text-gray-500"),
@@ -440,12 +478,10 @@ fn untagged_note(untagged_count: Int) -> Element(Msg) {
         ],
         [
           html.text(case count {
-            1 -> "1 transaction in this period has no tag. "
-            _ ->
-              int.to_string(count)
-              <> " transactions in this period have no tag. "
+            1 -> "1 transaction is waiting for a tag. "
+            _ -> int.to_string(count) <> " transactions are waiting for a tag. "
           }),
-          page_link(route.Transactions, "Tag them on the Transactions page"),
+          page_link(route.QuickTagging, "Quick tag them"),
           html.text("."),
         ],
       )

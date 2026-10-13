@@ -6,23 +6,34 @@ module TagAssignmentCodec =
     open Budgeteur.Data.Db
     open Budgeteur.Domain.TagAssignment
 
+    /// <summary>A dismissal is a row without a tag, with the <c>Manual</c>
+    /// source the schema requires of one.</summary>
     let toRow
         (transactionId : Guid)
         (userId : string)
         (assignment : TagAssignment)
-        : main.TagAssignments = {
-        TransactionId = transactionId
-        UserId = userId
-        TagId = assignment.TagId
-        Source = TagSource.toString assignment.Source
-    }
+        : main.TagAssignments =
+        let tagId, source =
+            match assignment with
+            | TagAssignment.Tagged (tagId, source) -> Some tagId, source
+            | TagAssignment.Dismissed -> None, TagSource.Manual
 
-    let fromRow (row : main.TagAssignments) : TagAssignment = {
-        TagId = row.TagId
-        Source =
-            match TagSource.parse row.Source with
-            | Ok source -> source
-            // The database checks this column, so in practice this arm is
-            // unreachable
-            | Error error -> failwith error
-    }
+        {
+            TransactionId = transactionId
+            UserId = userId
+            TagId = tagId
+            Source = TagSource.toString source
+        }
+
+    let fromRow (row : main.TagAssignments) : TagAssignment =
+        match row.TagId with
+        | Some tagId ->
+            let source =
+                match TagSource.parse row.Source with
+                | Ok source -> source
+                // The database checks this column, so in practice this arm is
+                // unreachable
+                | Error error -> failwith error
+
+            TagAssignment.Tagged (tagId, source)
+        | None -> TagAssignment.Dismissed
