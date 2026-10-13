@@ -35,7 +35,7 @@ CREATE TABLE BalanceObservations (
     UserId    TEXT     NOT NULL,
     -- The calendar date the balance is accurate as of.
     AsOf      DATE     NOT NULL,
-    -- Signed: positive is held, negative is owed.
+    -- Signed: positive is an asset (owned), negative a liability (owed).
     Balance   CURRENCY NOT NULL,
     PRIMARY KEY (AccountId, AsOf),
     -- Deleting the account deletes its balance history.

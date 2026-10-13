@@ -29,22 +29,22 @@ line. Lessons from it are cited where they shaped a decision.
 
 ## Ubiquitous language
 
-| Term              | Meaning                                                                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Account           | Somewhere the user's transactions happen: chequing, savings, credit card. A source of balance sheet lines alongside items.               |
-| Item              | A balance sheet line that is not an account: a house, a car, a loan or investment the user values by hand.                               |
-| Account number    | The number a statement identifies an account by: an NZ bank account number in canonical form, or a masked card number.                   |
-| Account name      | The user's alias for an account. Defaults to the account number.                                                                         |
-| Balance           | An account's signed balance: positive is held, negative is owed.                                                                         |
-| As-of date        | The calendar date a balance is accurate as of, from the statement or chosen by the user.                                                 |
-| Observation       | A balance and its as-of date for one account, from a statement or entered by hand. One per account and date.                             |
-| Current balance   | The observation with the latest as-of date. Unknown when the account has no observations.                                                |
-| Statement         | One CSV file: the transactions of one account, and possibly its closing balance.                                                         |
-| Format            | A description, held as data, of how to read one bank's export: header, preamble, columns, date format, sign, row order, identity fields. |
-| Identity fields   | The fields of a row that identify a transaction across exports, such as account, date, amount, and running balance.                      |
-| Import hash       | A hash of a row's identity fields, stored on the transaction. Unique per user.                                                           |
-| Duplicate         | A row whose import hash the user already has. Skipped.                                                                                   |
-| Internal transfer | A row whose other party is one of the user's own accounts. Imported with `IsTransfer` set.                                               |
+| Term              | Meaning                                                                                                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Account           | Somewhere the user's transactions happen: chequing, savings, credit card. A source of balance sheet lines alongside items.                                                                                               |
+| Item              | A balance sheet line that is not an account: a house, a car, a loan or investment the user values by hand.                                                                                                               |
+| Account number    | The number a statement identifies an account by: an NZ bank account number in canonical form, or a masked card number.                                                                                                   |
+| Account name      | The user's alias for an account. Defaults to the account number.                                                                                                                                                         |
+| Balance           | An account's balance, signed: positive is an asset (owned), negative a liability (owed). An item's balance on the balance sheet is a magnitude instead.                                                                  |
+| As-of date        | The calendar date a balance is accurate as of, from the statement or chosen by the user.                                                                                                                                 |
+| Observation       | A balance and its as-of date for one account, from a statement or entered by hand. One per account and date.                                                                                                             |
+| Current balance   | The observation with the latest as-of date. Unknown when the account has no observations.                                                                                                                                |
+| Statement         | One CSV file from a bank, which the bank calls an export: the transactions of one account, and possibly its closing balance. The bank's sense, not the financial statement the balance sheet's statement date refers to. |
+| Format            | A description, held as data, of how to read one bank's export: header, preamble, columns, date format, sign, row order, identity fields.                                                                                 |
+| Identity fields   | The fields of a row that identify a transaction across exports, such as account, date, amount, and running balance.                                                                                                      |
+| Import hash       | A hash of a row's identity fields, stored on the transaction. Unique per user.                                                                                                                                           |
+| Duplicate         | A row whose import hash the user already has. Skipped.                                                                                                                                                                   |
+| Internal transfer | A row whose other party is one of the user's own accounts. Imported with `IsTransfer` set.                                                                                                                               |
 
 ## Decisions
 

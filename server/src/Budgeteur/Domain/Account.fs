@@ -159,7 +159,8 @@ type Account = {
 type BalanceObservation = {
     AsOf : DateOnly
 
-    /// <summary>Signed: positive is held, negative is owed.</summary>
+    /// <summary>Signed: positive is an asset (owned), negative a liability
+    /// (owed).</summary>
     Balance : Money
 }
 

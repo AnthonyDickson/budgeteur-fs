@@ -7,8 +7,9 @@ open Budgeteur.Domain.Account
 open Budgeteur.Domain.Money
 open Budgeteur.Domain.Transaction
 
-/// <summary>The account's balance after a row, and the date it changed
-/// on.</summary>
+/// <summary>The balance a row's running-balance column reports: the account's
+/// balance once the row is applied, and the date it is accurate as of, which
+/// may differ from the transaction date.</summary>
 type BalanceAfter = { Date : DateOnly; Balance : Money }
 
 /// <summary>A statement row read into domain types.</summary>

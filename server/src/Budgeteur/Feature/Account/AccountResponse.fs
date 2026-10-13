@@ -10,7 +10,8 @@ open Budgeteur.Shared.OpenApi
 
 /// <summary>An account's current balance: its latest observation.</summary>
 type AccountBalanceResponse = {
-    /// <summary>Signed: positive is held, negative is owed.</summary>
+    /// <summary>Signed: positive is an asset (owned), negative a liability
+    /// (owed).</summary>
     Balance : decimal
 
     /// <summary>The date the balance is accurate as of.</summary>

@@ -102,18 +102,18 @@ client-test`. Finish with `just e2e-test`, `just lint`, and `just format`.
         selectors.
   - [x] Docs: decision 13 in `docs/csv-import.md`; `docs/balance-sheet.md` if it
         describes line actions.
-- [ ] **Docstrings and language**
-  - [ ] `BalanceAfter` in `Statement.fs`: "The balance a row's running-balance
+- [x] **Docstrings and language**
+  - [x] `BalanceAfter` in `Statement.fs`: "The balance a row's running-balance
         column reports: the account's balance once the row is applied, and the
         date it is accurate as of, which may differ from the transaction date."
-  - [ ] One set of direction words: Asset/Liability (owned/owed). Update the
+  - [x] One set of direction words: Asset/Liability (owned/owed). Update the
         Balance entry in the `docs/csv-import.md` glossary and the "positive is
         held, negative is owed" comments (`Domain/Account.fs`,
         `WriteAccountRequest.fs`, `AccountResponse.fs`,
         `account_write_request.gleam`, migration 001).
-  - [ ] Qualify Balance in both glossaries: item balance (magnitude) vs account
+  - [x] Qualify Balance in both glossaries: item balance (magnitude) vs account
         balance (signed).
-  - [ ] Disambiguate Statement in both glossaries: Import uses the bank's sense
+  - [x] Disambiguate Statement in both glossaries: Import uses the bank's sense
         (one CSV file, which the bank calls an export); statement date is the
         financial-statement sense.
 

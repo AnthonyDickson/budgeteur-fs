@@ -22,20 +22,20 @@ statement) are a future goal, not this iteration.
 
 ## Ubiquitous language
 
-| Term                | Meaning                                                                                                                                                     |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BalanceSheet`      | The aggregate: every item and account, drawn for one date, the statement date.                                                                              |
-| Statement date      | The date the sheet is drawn for. Today on the current page; the requested date for a snapshot. Not stored.                                                  |
-| As-of date          | The date a line's balance is accurate as of. Every line has one.                                                                                            |
-| `BalanceSheetItem`  | One line: a single asset or a single liability that is not an account.                                                                                      |
-| Account             | Somewhere the user's transactions happen. Also a line, with a signed balance; see [CSV import](csv-import.md).                                              |
-| `ItemKind`          | `Asset` (owned) or `Liability` (owed). Gives a value its direction.                                                                                         |
-| `Term`              | `Current` or `NonCurrent`, set by the user. For an asset, `Current` means liquid. For a liability, `Current` means short-term (due within about 12 months). |
-| `Balance`           | The positive magnitude of an item's value, in the base currency, rounded to cents. Direction comes from `ItemKind`.                                         |
-| Current assets      | Assets whose `Term` is `Current`.                                                                                                                           |
-| Current liabilities | Liabilities whose `Term` is `Current`.                                                                                                                      |
-| Net worth           | Total assets minus total liabilities.                                                                                                                       |
-| Working capital     | Current assets minus current liabilities. The near-term position.                                                                                           |
+| Term                | Meaning                                                                                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BalanceSheet`      | The aggregate: every item and account, drawn for one date, the statement date.                                                                                                                            |
+| Statement date      | The date the sheet is drawn for, in the financial-statement sense. Today on the current page; the requested date for a snapshot. Not stored. Unrelated to the bank statements CSV import reads.           |
+| As-of date          | The date a line's balance is accurate as of. Every line has one.                                                                                                                                          |
+| `BalanceSheetItem`  | One line: a single asset or a single liability that is not an account.                                                                                                                                    |
+| Account             | Somewhere the user's transactions happen. Also a line, with a signed balance; see [CSV import](csv-import.md).                                                                                            |
+| `ItemKind`          | `Asset` (owned) or `Liability` (owed). Gives a value its direction.                                                                                                                                       |
+| `Term`              | `Current` or `NonCurrent`, set by the user. For an asset, `Current` means liquid. For a liability, `Current` means short-term (due within about 12 months).                                               |
+| `Balance`           | An item's balance: the positive magnitude of its value, in the base currency, rounded to cents. Direction comes from `ItemKind`. An account's balance is signed instead; see [CSV import](csv-import.md). |
+| Current assets      | Assets whose `Term` is `Current`.                                                                                                                                                                         |
+| Current liabilities | Liabilities whose `Term` is `Current`.                                                                                                                                                                    |
+| Net worth           | Total assets minus total liabilities.                                                                                                                                                                     |
+| Working capital     | Current assets minus current liabilities. The near-term position.                                                                                                                                         |
 
 The domain uses one axis, `Current` and `NonCurrent`, for both sides. Accounting
 calls assets "current or non-current"; planners call them "liquid or illiquid",
