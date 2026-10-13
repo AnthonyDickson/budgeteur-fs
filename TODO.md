@@ -10,9 +10,10 @@
 - [x] Auto-tagging
 - [x] CSV Imports
 - [x] Quick-tagging
-- [ ] Full dashboard w/ charts
-- [ ] Transaction search
 - [ ] Regular snapshots with balance sheets, income statement
+- [ ] Full dashboard w/ charts (planned in docs/dashboard.md, after snapshots)
+- [ ] Transaction search
+- [ ] Mobile support and UI cleanup
 - [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
 
 ## Current Tasks
