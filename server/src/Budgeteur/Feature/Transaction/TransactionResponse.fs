@@ -41,8 +41,8 @@ type TransactionResponse = {
     /// <summary>The name of the transaction's account, if it has one.</summary>
     AccountName : string option
 
-    /// <summary>The transaction's tag, or none when it is untagged or
-    /// dismissed.</summary>
+    /// <summary>The transaction's tag, or none when it is untagged,
+    /// dismissed, or a transfer.</summary>
     Tag : TransactionTagResponse option
 }
 
@@ -59,7 +59,7 @@ module TransactionResponse =
         Amount = Money.value t.Amount
         Description = TransactionDescription.value t.Description
         Date = t.Date
-        IsTransfer = t.IsTransfer
+        IsTransfer = Categorisation.isTransfer categorisation
         AccountId = t.AccountId
         AccountName = accountName
         Tag =
@@ -70,5 +70,6 @@ module TransactionResponse =
                     Source = TagSource.toString source
                 }
             | Some Categorisation.Dismissed
+            | Some Categorisation.Transfer
             | None -> None
     }

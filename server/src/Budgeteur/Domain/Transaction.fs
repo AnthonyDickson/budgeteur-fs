@@ -62,10 +62,6 @@ type Transaction = {
     /// <summary>Date when the transaction occurred (UTC).</summary>
     Date : DateOnly
 
-    /// <summary>Whether the transaction represents an internal transfer between
-    /// one's own accounts.</summary>
-    IsTransfer : bool
-
     /// <summary>The bank account associated with this transaction.</summary>
     AccountId : Guid option
 }

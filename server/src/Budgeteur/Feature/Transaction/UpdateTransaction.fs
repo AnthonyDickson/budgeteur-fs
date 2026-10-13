@@ -56,15 +56,16 @@ module UpdateTransaction =
             return Option.map CategorisationCodec.fromRow row
         }
 
-    /// <summary>Replace the user's transaction and set its categorisation to
-    /// the requested tag, and read it back, in one database transaction. The
-    /// current categorisation is read inside the transaction, since keeping
-    /// the same tag keeps its source. Fails with <c>NotFound</c> when the user
-    /// has no transaction with the id.</summary>
+    /// <summary>Replace the user's transaction, set its categorisation from
+    /// the requested transfer box and tag, and read it back, in one database
+    /// transaction. The current categorisation is read inside the transaction,
+    /// since keeping the same tag keeps its source. Fails with <c>NotFound</c>
+    /// when the user has no transaction with the id.</summary>
     let private update
         (queryContext : QueryContextFactory)
         (userId : string)
         (transaction : Transaction)
+        (isTransfer : bool)
         (tagId : Guid option)
         =
         task {
@@ -91,7 +92,7 @@ module UpdateTransaction =
                 let! current = readCategorisation ctx userId transaction.Id
 
                 let categorisation =
-                    Categorisation.onUpdate transaction.IsTransfer tagId current
+                    Categorisation.onUpdate isTransfer tagId current
 
                 do!
                     CategorisationStore.save
@@ -147,12 +148,16 @@ module UpdateTransaction =
                     Amount = Money.create req.Amount
                     Description = description
                     Date = req.Date
-                    IsTransfer = req.IsTransfer
                     AccountId = req.AccountId
                 }
 
                 let! transaction, categorisation, accountName =
-                    update queryContext userId transaction req.TagId
+                    update
+                        queryContext
+                        userId
+                        transaction
+                        req.IsTransfer
+                        req.TagId
 
                 log.Info (
                     $"Updated transaction %O{id}",

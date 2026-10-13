@@ -237,26 +237,37 @@ module EndpointTests =
                 Expect.isNone tag "the transaction should stay untagged"
             }
 
-            testCaseAsync "a transfer cannot be tagged or dismissed"
+            testCaseAsync "quick tagging a transfer replaces it"
             <| async {
                 use app = newApp ()
                 let! groceries = Seed.tag app.Client "Groceries" "Expense"
 
                 let! id =
                     create app.Client {
-                        untagged "To savings" with
+                        untagged "Countdown" with
                             IsTransfer = true
                     }
 
                 let! response = quickTag app.Client id groceries
-                expectStatus HttpStatusCode.BadRequest "tagging is 400" response
+                expectStatus HttpStatusCode.NoContent "tagging is 204" response
 
-                let! response = dismiss app.Client id
+                let! response =
+                    app.Client.GetAsync (
+                        TestHttp.itemPath ReadTransaction.Path id
+                    )
+                    |> Async.AwaitTask
 
-                expectStatus
-                    HttpStatusCode.BadRequest
-                    "dismissing is 400"
-                    response
+                let! transaction =
+                    TestHttp.readJson<TransactionResponse> response
+
+                Expect.isFalse
+                    transaction.IsTransfer
+                    "the transaction should no longer be a transfer"
+
+                Expect.equal
+                    transaction.Tag
+                    (Some { Id = groceries; Source = "Manual" })
+                    "the tag should be manual"
             }
 
             testCaseAsync

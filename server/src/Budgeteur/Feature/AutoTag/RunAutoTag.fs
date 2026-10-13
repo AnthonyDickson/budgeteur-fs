@@ -61,6 +61,8 @@ module RunAutoTag =
     /// transfers, each with its description and categorisation.</summary>
     let private loadCandidates (queryContext : QueryContext) (userId : string) =
         task {
+            let transfer = Some CategorisationCodec.TransferKind
+
             let! rows =
                 selectTask queryContext {
                     for t in main.Transactions do
@@ -68,7 +70,11 @@ module RunAutoTag =
                                           on
                                           (t.Id = a.TransactionId)
 
-                        where (t.UserId = userId && not t.IsTransfer)
+                        where (
+                            t.UserId = userId
+                            && (isNullValue a.Kind || a.Kind <> transfer)
+                        )
+
                         select (t.Id, t.Description, a)
                 }
 

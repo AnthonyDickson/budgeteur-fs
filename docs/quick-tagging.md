@@ -23,37 +23,43 @@ it are cited where they shaped a decision.
 
 ## Ubiquitous language
 
-| Term          | Meaning                                                                                                          |
-| ------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Untagged      | A transaction with no categorisation: nobody has tagged or dismissed it. It is waiting for a tag.                |
-| Dismissed     | A transaction the user decided has no tag. A manual decision, stored as a categorisation; rules never change it. |
-| Without a tag | Untagged or dismissed. The income statement's untagged lines cover both.                                         |
-| Queue         | The user's untagged non-transfer transactions, newest first.                                                     |
-| Batch         | The first 50 transactions of the queue, as fetched by the quick tagging page.                                    |
-| Quick tag     | Choosing a tag for a queued transaction, or dismissing it. Either is a manual decision.                          |
+| Term          | Meaning                                                                                                           |
+| ------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Untagged      | A transaction with no categorisation: nobody has tagged, dismissed, or marked it as a transfer. It is waiting.    |
+| Dismissed     | A transaction the user decided has no tag. A manual decision, stored as a categorisation; rules never change it.  |
+| Transfer      | A transaction moving money between the user's own accounts: no tag, neither income nor expense. A categorisation. |
+| Without a tag | Untagged or dismissed. The income statement's untagged lines cover both; transfers are left out.                  |
+| Queue         | The user's untagged transactions, newest first.                                                                   |
+| Batch         | The first 50 transactions of the queue, as fetched by the quick tagging page.                                     |
+| Quick tag     | Choosing a tag for a queued transaction, or dismissing it. Either is a manual decision.                           |
 
 Categorisation, tag source, manual tag, and rule tag are defined in
 [auto-tagging](auto-tagging.md#ubiquitous-language).
 
 ## Decisions
 
-### 1. Dismissed is a categorisation state
+### 1. Dismissals and transfers are categorisations
 
-- **Decision**: a categorisation is either a tag with its source (`Manual` or
-  `Rule`), or a dismissal, which is always manual. A rule never dismisses, and
-  the domain type cannot express a rule dismissal. Quick tagging's "Dismiss"
-  button records it.
-- **Storage**: the categorisation's tag becomes nullable; a row without a tag is
-  a dismissal. A check requires the `Manual` source on a row without a tag. One
-  row per transaction still holds, so a transaction cannot be tagged and
-  dismissed at once. The codec in `Data/` maps the nullable tag to the dismissed
-  case, so the null does not leave `Data/`. Deleting a tag still deletes its
-  categorisations, so its transactions become untagged and return to the queue;
-  dismissals reference no tag and are unaffected. Migration `001` is unreleased
-  (no version tag contains it), so it is edited in place.
+- **Decision**: a categorisation is a tag with its source (`Manual` or `Rule`),
+  a dismissal, or a transfer. A rule never dismisses or marks a transfer, and
+  the domain type cannot express either with a rule source. Quick tagging's
+  "Dismiss" button records a dismissal. A transfer is marked by the user, in the
+  transaction form or quick tagging, or detected on import
+  ([CSV import](csv-import.md) decision 9). Whether a transaction is a transfer
+  is no longer a column of `Transactions`.
+- **Storage**: a kind column (`Tagged`, `Dismissed`, `Transfer`), with the tag
+  and source set only on a tagged row; checks tie both to the kind. One row per
+  transaction still holds, so a transaction cannot be both tagged and dismissed,
+  or both tagged and a transfer. The codec in `Data/` maps the kind and the
+  nullable columns to the domain union, so the nulls do not leave `Data/`.
+  Deleting a tag still deletes its categorisations, so its transactions become
+  untagged and return to the queue; dismissals and transfers reference no tag
+  and are unaffected. Migration `001` is unreleased (no version tag contains
+  it), so it is edited in place.
 - **Transitions** (additions to [auto-tagging](auto-tagging.md) decision 4):
   - Quick tagging with a tag makes it manual; dismissing makes it dismissed.
-    Either replaces whatever categorisation the transaction had.
+    Either replaces whatever categorisation the transaction had, a transfer
+    included.
   - Creating a transaction without a tag leaves it untagged, so it appears in
     the queue. A tag the user forgot is what the queue is for, and dismissing is
     one click there.
@@ -61,25 +67,32 @@ Categorisation, tag source, manual tag, and rule tag are defined in
     manual, and saving one with no tag keeps it dismissed. Clearing the tag of a
     tagged transaction makes it untagged, as before, so it returns to the queue:
     a transaction whose tag was just cleared probably needs another.
-  - Tag untagged and re-tag treat a dismissal as a manual decision and never
-    change it.
-  - A transfer has no categorisation, dismissals included: marking a transaction
-    as a transfer removes its categorisation, and unmarking one makes it
-    untagged.
+  - The transaction form's transfer box: checking it makes the transaction a
+    transfer, whatever it had; unchecking it makes the transaction untagged, or
+    manually tagged with the tag chosen.
+  - Tag untagged and re-tag treat a dismissal or a transfer as a decision made
+    elsewhere and never change it.
 - **Why**: the queue needs to know which untagged transactions the user has
   already decided on, and rules need the same fact to avoid tagging them. One
   row per transaction answers both, so they cannot disagree, and replacing a
-  dismissal with a tag is the existing upsert.
+  dismissal with a tag is the existing upsert. Transfers follow for the same
+  reason: a missed transfer dismissed from the queue still counts as untagged
+  income or expense, so the queue needs a transfer choice, and a transfer flag
+  beside the categorisation was a second record of how a transaction counts that
+  every writer had to keep consistent with it ("a transfer has no tag"). As a
+  categorisation, a tagged transfer cannot be stored, switching between any
+  choices is one write, and `Transactions` holds only the bank's facts, as
+  auto-tagging decision 3 intended.
 - **Cost**: a categorisation no longer always has a tag. Readers that take the
-  tag straight from a join see a dismissal as untagged, with no compiler
-  warning; readers that need the difference check whether the row exists.
+  tag straight from a join see a dismissal or a transfer as untagged, with no
+  compiler warning; readers that need the difference check the kind, as the
+  income statement and the match count do to leave transfers out.
 - **Rejected**:
-  - A dismissals table beside the categorisations. No nullable column, and the
-    categorisation keeps meaning "a transaction's tag", but the schema allows a
-    transaction to be both tagged and dismissed. The categorisation store, or
-    two triggers, would have to prevent it, and readers that forget the second
-    table silently treat dismissed transactions as untagged, auto-tagging
-    included.
+  - A dismissals table beside the categorisations. No nullable column, but the
+    schema allows a transaction to be both tagged and dismissed. The
+    categorisation store, or two triggers, would have to prevent it, and readers
+    that forget the second table silently treat dismissed transactions as
+    untagged, auto-tagging included.
   - A "No tag" tag per user. Every reader of tags (the tag list, rule tag
     select, tag kind, colour, income statement) would special-case it.
   - A dismissed flag on `Transactions`. It puts categorisation back on the
@@ -87,16 +100,19 @@ Categorisation, tag source, manual tag, and rule tag are defined in
   - Clearing a tag in the transaction form dismisses the transaction. It would
     resolve the known limitation in auto-tagging decision 4, but a cleared tag
     usually means the tag was wrong, not that the transaction has none.
-- **Goal**: every manual decision about a transaction's tag, including "none",
-  is recorded once and respected by every writer.
+  - Keeping `IsTransfer` and letting quick tagging set it. Smaller, but a third
+    slice would write a transaction fact, against auto-tagging decision 3, and
+    "a transfer has no tag" would stay a rule each writer enforces.
+- **Goal**: every decision about how a transaction counts, including "no tag"
+  and "a transfer", is recorded once and respected by every writer.
 
 ### 2. The queue is a query over categorisations
 
-- **Decision**: the queue is every untagged non-transfer transaction of the
-  user, whether imported or entered by hand, ordered by date, newest first, then
-  by id, newest first. There is no queue table. A batch is the first 50 with the
-  total in the queue. Fetching again returns the next batch, because tagged and
-  dismissed transactions no longer match.
+- **Decision**: the queue is every untagged transaction of the user, whether
+  imported or entered by hand, ordered by date, newest first, then by id, newest
+  first. There is no queue table. A batch is the first 50 with the total in the
+  queue. Fetching again returns the next batch, because tagged, dismissed, and
+  transfer transactions no longer match.
 - **Why**: untagged already means "no categorisation" (auto-tagging decision 3),
   so a table would be a second record of the same fact. Newest first puts a
   recent import's leftovers and the current period at the top. Without offsets,
@@ -171,10 +187,11 @@ Categorisation, tag source, manual tag, and rule tag are defined in
   - `DELETE /api/quick-tag/{transactionId}` dismissing the transaction, which
     removes it from the queue, returning `204`.
 
-  For both writes, an unknown transaction, or another user's, is `404`, and a
-  transfer is `400`, checked before the write. Both are idempotent. They write
-  through the shared categorisation store with the quick tag transitions from
-  decision 1. The page reads tags from the existing tag endpoint.
+  For both writes, an unknown transaction, or another user's, is `404`, checked
+  before the write. Both are idempotent and replace any categorisation, a
+  transfer included. They write through the shared categorisation store with the
+  quick tag transitions from decision 1. The page reads tags from the existing
+  tag endpoint.
 - **Why**: quick tagging is a categorisation workflow, like auto-tagging, and
   auto-tagging decision 8 placed such workflows in their own slices writing
   categorisations through `Data/`. Two write operations keep the request bodies
@@ -231,17 +248,21 @@ Categorisation, tag source, manual tag, and rule tag are defined in
 
 ## Consequences
 
-- **Schema**: in migration `001`, the categorisation's tag becomes nullable with
-  the source check from decision 1. Then `just db-reset` and `just db-update`.
+- **Schema**: in migration `001`, the categorisation gains its kind, with the
+  tag and source set only when tagged, and `Transactions.IsTransfer` is removed
+  (decision 1). Then `just db-reset` and `just db-update`.
 - **Categorisation type and transitions**: the type in `Domain/` gains the
-  dismissed case and the quick tag transitions, and the transaction form,
-  transfer, and auto-tagging transitions handle it as in decision 1. The codec
-  in `Data/` maps the nullable tag.
-- **Transaction slice**: responses give a dismissed transaction no tag. Marking
-  a transfer removes its categorisation.
+  dismissed and transfer cases and the quick tag transitions, and the
+  transaction form and auto-tagging transitions handle them as in decision 1.
+  The codec in `Data/` maps the kind and the nullable columns.
+- **Transaction slice**: the request and response keep `isTransfer`, mapped to
+  and from the categorisation, so the client is unchanged. A dismissed or
+  transfer transaction has no tag in the response.
+- **Import**: a detected transfer is written as a transfer categorisation.
 - **Income statement**: amounts are unchanged, since untagged lines cover every
   transaction without a tag, and the tag read from the join is already optional.
-  The untagged count leaves the response and its computation (decision 7).
+  Transfers are left out by their categorisation's kind. The untagged count
+  leaves the response and its computation (decision 7).
 - **Dashboard**: fetches the queue alongside the income statement and balance
   sheet, and the untagged note no longer depends on the period.
 - **Docs updated with the implementation**: auto-tagging decision 4 (the
@@ -250,12 +271,12 @@ Categorisation, tag source, manual tag, and rule tag are defined in
   response shape, untagged note, and deferred quick tagging entry.
 - **Highest-value tests**:
   - Transitions: quick tag, dismiss, the transaction form on a dismissed
-    transaction, a transfer losing its categorisation, and tag untagged and
-    re-tag never changing a dismissal.
-  - Queue: only the caller's untagged non-transfer transactions, newest first,
-    the batch size, and the total.
-  - Quick tag endpoints: tag and dismiss; `404` for another user's transaction,
-    `400` for a tag the user does not have and for a transfer.
+    transaction, marking and unmarking a transfer, and tag untagged and re-tag
+    never changing a dismissal or a transfer.
+  - Queue: only the caller's untagged transactions, newest first, the batch
+    size, and the total.
+  - Quick tag endpoints: tag and dismiss, replacing a transfer; `404` for
+    another user's transaction, `400` for a tag the user does not have.
   - Income statement: a dismissed transaction counts in the untagged lines.
   - Client: a click sends the request and marks the row; a row is disabled while
     saving; a failure restores the previous state and shows a toast; "Next

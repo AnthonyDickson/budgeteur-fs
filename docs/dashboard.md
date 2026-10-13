@@ -50,7 +50,8 @@ and history are later work (see [Deferred](#deferred)).
 ### 2. Tags carry a kind: `Income` or `Expense`
 
 - **Decision**: add `TagKind` to `Tag`, required on create and editable on
-  update. `IsTransfer` stays a per-transaction flag rather than a third kind.
+  update. A transfer is a categorisation of its own rather than a third kind
+  ([quick tagging](quick-tagging.md) decision 1).
 - **Why**: budgeting tools (YNAB, Actual, Monarch, Tiller) and double-entry
   accounting all give each category a fixed type and never infer it from the
   sign of an amount. Inferring it means a tag can switch sides between periods,
@@ -186,8 +187,8 @@ and history are later work (see [Deferred](#deferred)).
   project rebuilt history by subtracting transactions from current account
   balances, which is only correct if every account's transactions are imported.
 - **Savings runway.** Builds on a baseline of average monthly expenses.
-- **Excluded tags.** `IsTransfer` covers the main use (internal transfers).
-  Revisit if another use appears.
+- **Excluded tags.** The transfer categorisation covers the main use (internal
+  transfers). Revisit if another use appears.
 - **Data freshness.** Bank exports lag a few days, so the newest days of any
   period are incomplete. If that becomes noticeable, show the latest transaction
   date.
@@ -195,5 +196,5 @@ and history are later work (see [Deferred](#deferred)).
 ## Assumptions
 
 - Single base currency, as in [balance-sheet.md](balance-sheet.md).
-- Every tag is either income or expense. Transfers are excluded by `IsTransfer`,
-  not by tag.
+- Every tag is either income or expense. Transfers are excluded by their
+  categorisation, not by tag.

@@ -6,34 +6,47 @@ module CategorisationCodec =
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Categorisation
 
-    /// <summary>A dismissal is a row without a tag, with the <c>Manual</c>
-    /// source the schema requires of one.</summary>
+    [<Literal>]
+    let TaggedKind = "Tagged"
+
+    [<Literal>]
+    let DismissedKind = "Dismissed"
+
+    /// <summary>The kind of a transfer's row. Queries that leave transfers out
+    /// compare against it.</summary>
+    [<Literal>]
+    let TransferKind = "Transfer"
+
+    /// <summary>Only a tagged row has a tag and a source; the schema checks
+    /// both.</summary>
     let toRow
         (transactionId : Guid)
         (userId : string)
         (categorisation : Categorisation)
         : main.Categorisations =
-        let tagId, source =
+        let kind, tagId, source =
             match categorisation with
-            | Categorisation.Tagged (tagId, source) -> Some tagId, source
-            | Categorisation.Dismissed -> None, TagSource.Manual
+            | Categorisation.Tagged (tagId, source) ->
+                TaggedKind, Some tagId, Some (TagSource.toString source)
+            | Categorisation.Dismissed -> DismissedKind, None, None
+            | Categorisation.Transfer -> TransferKind, None, None
 
         {
             TransactionId = transactionId
             UserId = userId
+            Kind = kind
             TagId = tagId
-            Source = TagSource.toString source
+            Source = source
         }
 
     let fromRow (row : main.Categorisations) : Categorisation =
-        match row.TagId with
-        | Some tagId ->
-            let source =
-                match TagSource.parse row.Source with
-                | Ok source -> source
-                // The database checks this column, so in practice this arm is
-                // unreachable
-                | Error error -> failwith error
-
-            Categorisation.Tagged (tagId, source)
-        | None -> Categorisation.Dismissed
+        // The database checks these columns, so in practice the failing arms
+        // are unreachable.
+        match row.Kind, row.TagId, row.Source with
+        | TaggedKind, Some tagId, Some source ->
+            match TagSource.parse source with
+            | Ok source -> Categorisation.Tagged (tagId, source)
+            | Error error -> failwith error
+        | DismissedKind, _, _ -> Categorisation.Dismissed
+        | TransferKind, _, _ -> Categorisation.Transfer
+        | kind, _, _ -> failwith $"Invalid categorisation kind \"{kind}\""

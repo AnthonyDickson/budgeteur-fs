@@ -17,14 +17,17 @@ module CategorisationTests =
 
     let private dismissed = Some Categorisation.Dismissed
 
+    let private transfer = Some Categorisation.Transfer
+
     [<Tests>]
     let tests =
         testList "Categorisation" [
-            testCase "onCreate makes a tag manual"
+            testCase "onCreate makes a tag manual and a transfer a transfer"
             <| fun () ->
                 let onCreate = Categorisation.onCreate
-                Expect.equal (onCreate (Some tagA)) (manual tagA) "tagged"
-                Expect.equal (onCreate None) None "untagged"
+                Expect.equal (onCreate false (Some tagA)) (manual tagA) "tagged"
+                Expect.equal (onCreate false None) None "untagged"
+                Expect.equal (onCreate true None) transfer "transfer"
 
             testCase "onUpdate keeps the source only when the tag is unchanged"
             <| fun () ->
@@ -45,14 +48,22 @@ module CategorisationTests =
                 expect (onUpdate None dismissed) dismissed "no tag"
                 expect (onUpdate (Some tagA) dismissed) (manual tagA) "tag"
 
-            testCase "onUpdate removes a transfer's categorisation"
+            testCase "onUpdate marks and unmarks a transfer"
             <| fun () ->
-                let onUpdate = Categorisation.onUpdate true
+                let markTransfer = Categorisation.onUpdate true None
+                let onUpdate = Categorisation.onUpdate false
                 let expect = Expect.equal
 
-                expect (onUpdate None (manual tagA)) None "manual tag"
-                expect (onUpdate None (byRule tagA)) None "rule tag"
-                expect (onUpdate None dismissed) None "dismissal"
+                expect (markTransfer (manual tagA)) transfer "manual tag"
+                expect (markTransfer (byRule tagA)) transfer "rule tag"
+                expect (markTransfer dismissed) transfer "dismissal"
+                expect (markTransfer None) transfer "untagged"
+                expect (onUpdate None transfer) None "unmarked, no tag"
+
+                expect
+                    (onUpdate (Some tagA) transfer)
+                    (manual tagA)
+                    "unmarked, tag"
 
             testCase "a transfer cannot have a tag"
             <| fun () ->
@@ -80,6 +91,7 @@ module CategorisationTests =
                     "manual"
 
                 expect (tagUntagged (Some tagA) dismissed) dismissed "dismissed"
+                expect (tagUntagged (Some tagA) transfer) transfer "transfer"
 
             testCase "retag recomputes everything but manual decisions"
             <| fun () ->
@@ -97,4 +109,5 @@ module CategorisationTests =
                     "manual, no winner"
 
                 expect (retag (Some tagA) dismissed) dismissed "dismissed"
+                expect (retag (Some tagA) transfer) transfer "transfer"
         ]

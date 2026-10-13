@@ -1,7 +1,7 @@
 namespace Budgeteur.Data
 
-/// <summary>Writes categorisations. Every slice that tags transactions writes
-/// through here, so a categorisation is written one way.</summary>
+/// <summary>Writes categorisations. Every slice that categorises transactions
+/// writes through here, so a categorisation is written one way.</summary>
 module CategorisationStore =
     open System
     open System.Threading.Tasks
@@ -37,7 +37,7 @@ module CategorisationStore =
 
                             onConflictDoUpdate
                                 a.TransactionId
-                                (a.TagId, a.Source)
+                                (a.Kind, a.TagId, a.Source)
                     }
 
                 ()

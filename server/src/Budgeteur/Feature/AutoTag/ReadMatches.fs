@@ -26,6 +26,7 @@ module ReadMatches =
     open Oxpecker.OpenApi
     open SqlHydra.Query
 
+    open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Rule
     open Budgeteur.Domain.Transaction
@@ -45,10 +46,20 @@ module ReadMatches =
         (userId : string)
         =
         task {
+            let transfer = Some CategorisationCodec.TransferKind
+
             let! descriptions =
                 selectTask queryContext {
                     for t in main.Transactions do
-                        where (t.UserId = userId && not t.IsTransfer)
+                        leftJoin c in main.LeftJoined.Categorisations
+                                          on
+                                          (t.Id = c.TransactionId)
+
+                        where (
+                            t.UserId = userId
+                            && (isNullValue c.Kind || c.Kind <> transfer)
+                        )
+
                         orderByDescending t.Date
                         thenByDescending t.Id
                         select t.Description

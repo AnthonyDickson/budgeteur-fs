@@ -109,14 +109,11 @@ module ImportTests =
                     ]
 
                 Expect.equal
-                    (transactions
-                     |> List.map (fun t ->
-                         t.Transaction.IsTransfer, t.Categorisation))
+                    (transactions |> List.map _.Categorisation)
                     [
-                        true, None
-                        false,
+                        Some Categorisation.Transfer
                         Some (Categorisation.Tagged (tagId, TagSource.Rule))
-                        false, None
+                        None
                     ]
                     "only the transfer to the user's own account is marked"
 

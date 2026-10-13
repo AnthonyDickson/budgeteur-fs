@@ -21,9 +21,9 @@ type QueuedTransactionResponse = {
 
 /// <summary>A batch of the quick tagging queue.</summary>
 type QueueResponse = {
-    /// <summary>Up to 50 of the user's untagged non-transfer transactions,
-    /// newest first. Tagging or dismissing them removes them from the queue, so
-    /// fetching again returns the next batch.</summary>
+    /// <summary>Up to 50 of the user's untagged transactions, newest first.
+    /// Tagging, dismissing, or marking them as transfers removes them from the
+    /// queue, so fetching again returns the next batch.</summary>
     Transactions : QueuedTransactionResponse list
 
     /// <summary>How many transactions the whole queue holds.</summary>
@@ -57,8 +57,8 @@ module ReadQueue =
     let BatchSize = 50
 
     /// <summary>The first batch of the user's queue: transactions without a
-    /// categorisation, which excludes dismissed ones, and without transfers,
-    /// newest first. See decision 2 in docs/quick-tagging.md.</summary>
+    /// categorisation, which excludes dismissed ones and transfers, newest
+    /// first. See decision 2 in docs/quick-tagging.md.</summary>
     let private readBatch
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -74,11 +74,7 @@ module ReadQueue =
                         leftJoin' account in main.LeftJoined.Accounts
                         on' (t.AccountId = account.Id)
 
-                        where (
-                            t.UserId = userId
-                            && not t.IsTransfer
-                            && isNullValue a.TransactionId
-                        )
+                        where (t.UserId = userId && isNullValue a.TransactionId)
 
                         orderByDescending t.Date
                         thenByDescending t.Id
@@ -114,11 +110,7 @@ module ReadQueue =
                                   on
                                   (t.Id = a.TransactionId)
 
-                where (
-                    t.UserId = userId
-                    && not t.IsTransfer
-                    && isNullValue a.TransactionId
-                )
+                where (t.UserId = userId && isNullValue a.TransactionId)
 
                 count
         }
@@ -153,8 +145,9 @@ module ReadQueue =
         op.Summary <- "Read the quick tagging queue"
 
         op.Description <-
-            "Returns the first batch of the user's untagged non-transfer \
-            transactions, newest first, and how many the queue holds."
+            "Returns the first batch of the user's untagged transactions, \
+            newest first, and how many the queue holds. Transfers have a \
+            categorisation, so they are not in the queue."
 
         op.Tags <- HashSet [ OpenApiTagReference "Quick tagging" ]
 

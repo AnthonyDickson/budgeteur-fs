@@ -11,8 +11,8 @@ open Budgeteur.Domain.Transaction
 type NewTransaction = {
     Transaction : Transaction
     ImportHash : string
-    /// <summary>The winning rule's tag, for a row that is not a
-    /// transfer.</summary>
+    /// <summary>A transfer, or the winning rule's tag for a row that is not
+    /// one.</summary>
     Categorisation : Categorisation option
 }
 
@@ -105,11 +105,9 @@ module Import =
         let transactions =
             rows
             |> List.map (fun (statement, row) ->
-                let isTransfer = isTransfer userNumbers row
-
                 let categorisation =
-                    if isTransfer then
-                        None
+                    if isTransfer userNumbers row then
+                        Categorisation.onTransfer
                     else
                         Categorisation.tagUntagged
                             (winner row.Description |> Option.map _.TagId)
@@ -121,7 +119,6 @@ module Import =
                         Amount = row.Amount
                         Description = row.Description
                         Date = row.Date
-                        IsTransfer = isTransfer
                         AccountId =
                             Map.tryFind statement.Account.Number accountIds
                     }
@@ -135,11 +132,16 @@ module Import =
             SkippedDuplicates = skipped
             Transfers =
                 transactions
-                |> List.filter _.Transaction.IsTransfer
+                |> List.filter (fun transaction ->
+                    Categorisation.isTransfer transaction.Categorisation)
                 |> List.length
             TaggedByRules =
                 transactions
                 |> List.filter (fun transaction ->
-                    Option.isSome transaction.Categorisation)
+                    match transaction.Categorisation with
+                    | Some (Categorisation.Tagged _) -> true
+                    | Some Categorisation.Dismissed
+                    | Some Categorisation.Transfer
+                    | None -> false)
                 |> List.length
         }

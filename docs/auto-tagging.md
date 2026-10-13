@@ -29,7 +29,7 @@ decision.
 | Match          | A rule matches a transaction when its pattern occurs anywhere in the description, ignoring case.           |
 | Comparison     | How patterns and descriptions are compared: ordinal, ignoring case. Used by matching and rule uniqueness.  |
 | Winning rule   | The matching rule with the longest pattern. Equal lengths are ordered by the pattern's ordinal comparison. |
-| Categorisation | A transaction's tag and its source, or a dismissal. Kept apart from the transaction; untagged means none.  |
+| Categorisation | A transaction's tag and its source, a dismissal, or a transfer. Kept apart; untagged means none.           |
 | Tag source     | Where a transaction's tag came from: `Manual` or `Rule`.                                                   |
 | Manual tag     | A tag the user set. Rules never change it.                                                                 |
 | Rule tag       | A tag set by auto-tagging. Derived data: re-tagging recomputes it.                                         |
@@ -85,7 +85,7 @@ decision.
 - **Decision**: a transaction's tag is a categorisation, held in its own table
   and its own domain type, keyed by transaction id. `Transactions` and the
   `Transaction` type keep the facts only: amount, description, date, account,
-  transfer flag, and import hash. `Transactions.TagId` moves to the new table.
+  and import hash. `Transactions.TagId` moves to the new table.
 - **Why**: facts and categorisation have different lifecycles and writers. Facts
   are set on creation or import and rarely change. The tag is changed by the
   user, by rules, and later by quick-tagging and smart tagging. Keeping them in
@@ -110,12 +110,14 @@ decision.
 - **Ownership**: the categorisation type in `Domain/` owns the transitions in
   decision 4. Its row mapping is in `Data/`, because the Transaction and AutoTag
   slices both write it (decision 8).
-- **Transfers**: a transfer has no categorisation. It moves money between the
-  user's own accounts, so it is neither income nor expense and a tag on it would
-  mean nothing. The Transaction slice rejects a tag on a transfer (`400`), the
-  transaction form clears and disables the tag while the transfer box is
-  checked, and auto-tagging and the match count skip transfers. The schema
-  cannot express a rule across two tables, so the slices enforce it.
+- **Transfers**: a transfer is a categorisation of its own, not a flag on the
+  transaction ([quick tagging](quick-tagging.md) decision 1). It moves money
+  between the user's own accounts, so it is neither income nor expense and a tag
+  on it would mean nothing. One row per transaction means a tagged transfer
+  cannot be stored. The Transaction slice rejects a request that marks a
+  transfer and gives it a tag (`400`), the transaction form clears and disables
+  the tag while the transfer box is checked, and auto-tagging and the match
+  count skip transfers.
 - **Rejected**:
   - Tag columns on `Transactions`: no join, but the schema cannot enforce the
     constraints above, so the codec has to read a missing tag as untagged, and
@@ -132,9 +134,10 @@ decision.
 
 ### 4. Categorisations record where the tag came from
 
-- **Decision**: a transaction is untagged, manually tagged, tagged by a rule, or
-  dismissed: the user decided it has no tag ([quick tagging](quick-tagging.md)
-  decision 1). A rule tag does not record which rule set it.
+- **Decision**: a transaction is untagged, manually tagged, tagged by a rule,
+  dismissed (the user decided it has no tag), or a transfer
+  ([quick tagging](quick-tagging.md) decision 1). A rule tag does not record
+  which rule set it.
 - **Why**: re-tagging has to tell the user's decisions from derived ones. The
   previous project could not, so its "auto-tag all" overwrote manual tags. Smart
   auto-tagging (roadmap) can use manual tags as user-confirmed training labels.
@@ -143,9 +146,11 @@ decision.
   - Updating to a different tag makes it manual; clearing the tag makes it
     untagged; keeping the same tag keeps its source, so editing the amount of a
     rule-tagged transaction does not make it manual. Saving a dismissed
-    transaction without a tag keeps it dismissed, and marking a transaction as a
-    transfer removes its categorisation.
-  - Auto-tagging sets rule tags, and never changes a manual tag or a dismissal.
+    transaction without a tag keeps it dismissed. Marking a transaction as a
+    transfer makes it a transfer, whatever it had, and unmarking makes it
+    untagged, or manually tagged with the chosen tag.
+  - Auto-tagging sets rule tags, and never changes a manual tag, a dismissal, or
+    a transfer.
   - Editing or deleting a rule leaves the rule tags it set unchanged until the
     next re-tag.
   - Deleting a tag removes its categorisations, which makes those transactions
@@ -178,7 +183,8 @@ decision.
   tags; decision 4 makes that possible. Re-tag cannot be undone, and a user who
   deleted a rule to stop future tagging may not expect past tags to be cleared,
   so it is confirmed. Tag untagged only fills in missing tags, so it is not.
-- **Transfers**: have no tag (decision 3), so runs skip them.
+- **Transfers**: are categorisations of their own (decision 3), so runs skip
+  them.
 - **Rejected**: live rules, where every rule change re-tags immediately. That
   removes both buttons, but every rule save rewrites categorisations, and a
   pattern being typed would tag transactions part way through editing.

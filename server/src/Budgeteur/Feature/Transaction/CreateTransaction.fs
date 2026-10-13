@@ -107,11 +107,11 @@ module CreateTransaction =
                     Amount = Money.create req.Amount
                     Description = description
                     Date = req.Date
-                    IsTransfer = req.IsTransfer
                     AccountId = req.AccountId
                 }
 
-                let categorisation = Categorisation.onCreate req.TagId
+                let categorisation =
+                    Categorisation.onCreate req.IsTransfer req.TagId
 
                 let! transaction, categorisation, accountName =
                     insert queryContext userId transaction categorisation
