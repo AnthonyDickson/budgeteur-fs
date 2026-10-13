@@ -100,6 +100,6 @@ from `server/dotnet-tools.json`. NuGet Central Package Management — versions i
 - [Deployment](docs/deployment.md) and
   [Production OIDC Setup](docs/prod-oidc-setup.md)
 - Design briefs: [Balance Sheet](docs/balance-sheet.md),
-  [Dashboard](docs/dashboard.md)
+  [Dashboard](docs/dashboard.md), [Reports](docs/reports.md)
 - [Functional Programming in Practice](docs/fp-showcase.md) — a tour of the
   codebase for FP newcomers

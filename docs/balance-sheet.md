@@ -17,15 +17,14 @@ Let a user track what they own and what they owe, and read two numbers from it:
   exists. It supports budgeting and near-term decisions.
 
 The page shows the sheet as of today, with each line dated by when its balance
-was last set. Periodic snapshots (quarterly style, balance sheet plus income
-statement) are a future goal, not this iteration.
+was last set. Sheets for past dates come with [reports](reports.md).
 
 ## Ubiquitous language
 
 | Term                | Meaning                                                                                                                                                                                                   |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `BalanceSheet`      | The aggregate: every item and account, drawn for one date, the statement date.                                                                                                                            |
-| Statement date      | The date the sheet is drawn for, in the financial-statement sense. Today on the current page; the requested date for a snapshot. Not stored. Unrelated to the bank statements CSV import reads.           |
+| Statement date      | The date the sheet is drawn for, in the financial-statement sense. Today on the current page; the period end for a report. Not stored. Unrelated to the bank statements CSV import reads.                 |
 | As-of date          | The date a line's balance is accurate as of. Every line has one.                                                                                                                                          |
 | `BalanceSheetItem`  | One line: a single asset or a single liability that is not an account.                                                                                                                                    |
 | Account             | Somewhere the user's transactions happen. Also a line, with a signed balance; see [CSV import](csv-import.md).                                                                                            |
@@ -93,18 +92,18 @@ stores `Current` or `NonCurrent`.
 - **Why**: a stored sheet date has to be refreshed by every write that changes a
   line, which spreads one rule across the balance sheet, account, and import
   slices, and one date cannot say that lines were valued on different days.
-  Dating each line keeps the date with the balance it describes. A snapshot
-  (Deferred) is the same read for an earlier date, so the current page and
-  snapshots get their date the same way. The default means entering a balance
-  needs no date unless it is an old one.
+  Dating each line keeps the date with the balance it describes. A past sheet
+  ([reports](reports.md)) is the same read for an earlier date, so the current
+  page and reports get their date the same way. The default means entering a
+  balance needs no date unless it is an old one.
 - **Rejected**:
   - A `StatementDate` stored on the sheet and refreshed on every write to an
     item or account, the previous design. See Why.
   - The latest as-of date among the lines as the statement date. It hides a
-    stale line behind a fresh one, and for a snapshot it would show the newest
+    stale line behind a fresh one, and for a past sheet it would show the newest
     line's date instead of the date asked for.
 - **Goal**: the sheet's date is derived one way for the current page and for
-  snapshots, and how current each line is stays visible.
+  reports, and how current each line is stays visible.
 - **Name**: statement date is the standard term for the date a financial
   statement is drawn as of; as-of date matches the account balance term in
   [CSV import](csv-import.md). Neither overloads `Current`, which in this
@@ -206,12 +205,8 @@ stores `Current` or `NonCurrent`.
 
 ## Deferred
 
-- Snapshot history and periodic reports: the read takes the statement date
-  instead of using today (decision 4). Account balances are kept as dated
-  observations from the CSV import onward; the intended approach, items getting
-  observations too (their balance and as-of date becoming the first) and
-  snapshots queried for a date, is under Deferred in
-  [CSV import](csv-import.md).
+- Sheets for past dates, item observations, and closing lines: planned in
+  [reports](reports.md).
 - Income and cash flow (the income statement), so affordability can be judged in
   flow terms rather than only as a stock position.
 - Multi-currency. A single base currency is assumed, because the app is intended

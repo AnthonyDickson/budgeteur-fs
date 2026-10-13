@@ -82,11 +82,11 @@ line. Lessons from it are cited where they shaped a decision.
   capital include both sources. Item rules are unchanged: positive magnitude,
   kind fixed at creation.
 - **Deletion**: deleting an account deletes its observations and its
-  transactions, including any entered by hand against it. Closed accounts stay
-  as $0 lines (Deferred), so deletion is for mistakes, such as an account
-  created by importing the wrong file, whose transactions are mistakes too.
-  Re-importing a statement restores them, tagged by rules. Keeping the
-  transactions without an account was rejected: a re-import skips them as
+  transactions, including any entered by hand against it. Closed accounts get a
+  close date ([reports](reports.md) decision 4), so deletion is for mistakes,
+  such as an account created by importing the wrong file, whose transactions are
+  mistakes too. Re-importing a statement restores them, tagged by rules. Keeping
+  the transactions without an account was rejected: a re-import skips them as
   duplicates (decision 6), so they would stay without one for good.
 - **Why**: a bank account's sign changes (an overdrawn chequing account is a
   current liability), which an item's fixed kind cannot follow. Keeping accounts
@@ -132,13 +132,13 @@ line. Lessons from it are cited where they shaped a decision.
     given.
   - ASB credit card: none. The user enters the balance, for example from the
     monthly statement.
-- **Why**: the balance sheet has no history, and regular snapshots (roadmap)
-  need one. Observations make a snapshot for any date a query: for each line,
-  the latest observation on or before that date. Kiwibank's running balance
-  gives a daily history from the bank's own figures, which is lost unless it is
-  recorded at import, since users rarely keep old exports. One rule covers
-  statements and manual entry without special cases. An unknown balance is not
-  $0, which would understate a credit card's liability.
+- **Why**: the balance sheet has no history, and [reports](reports.md) need one.
+  Observations make the balance sheet for any date a query: for each line, the
+  latest observation on or before that date. Kiwibank's running balance gives a
+  daily history from the bank's own figures, which is lost unless it is recorded
+  at import, since users rarely keep old exports. One rule covers statements and
+  manual entry without special cases. An unknown balance is not $0, which would
+  understate a credit card's liability.
 - **Known limitations**:
   - Importing an older export after a newer one that covers the same last day
     replaces that day's balance with the older, partial one. The next import
@@ -147,7 +147,7 @@ line. Lessons from it are cited where they shaped a decision.
     until an import covering that date restores it.
 - **Rejected**:
   - A single balance per account, overwritten by newer ones. It loses the
-    history snapshots need, and still needs the rule that an older balance does
+    history reports need, and still needs the rule that an older balance does
     not replace a newer one, so it saves little.
   - Statement observations taking precedence over manual ones on the same date.
     It needs a source on every observation and a rejection path, to guard
@@ -505,26 +505,17 @@ line. Lessons from it are cited where they shaped a decision.
   tables with the account picked at upload; formats with preambles stay built
   in. No user code; regular expressions, if added, run without backtracking.
 - **Account picked at upload.** For formats without an account column.
-- **Snapshots.** Part of the regular snapshots roadmap item. The balance sheet
-  as of a date the client sends: for each line, the latest observation on or
-  before it, with the observation's date shown so stale lines are visible. Items
-  get observations too, their balance and as-of date becoming the first, and a
-  sold or repaid holding is closed with a final $0 observation instead of
-  deleted, so past net worth does not change. Queried rather than stored, so no
-  scheduled job or server timezone is needed.
+- **Balance sheets for past dates, item observations, balance history, and
+  closing accounts.** Planned in [reports](reports.md).
 - **Reconciliation.** Between two observations of an account, the change in
   balance should equal the sum of its transactions between them; a difference
   means missing transactions, and an incomplete income statement for that
   period. Includes checking a statement's opening balance against the previous
   import's closing balance.
-- **Observation history.** Listing, editing, and deleting an account's past
-  observations. Until then, a wrong entry is corrected on the same date or
-  replaced by a newer one.
 - **Rolling balances forward.** For formats without a balance. If added, shown
   as estimated so it is never mistaken for a statement figure.
 - **Import history and undo.** An imports record on each transaction.
 - **Converting an item into an account.** Until then, delete and recreate.
-- **Hiding closed accounts.** Until then, a closed account is a $0 line.
 - **Transfers without another party column.** ASB card payments from an ASB
   account appear in both statements and are marked by hand. A rule action that
   marks transfers belongs with rules on other fields (auto-tagging brief).
