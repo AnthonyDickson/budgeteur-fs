@@ -17,7 +17,11 @@ module AccountEndpoints =
         GET [
             ReadAccount.endpoint queryContext
             ReadAllAccounts.endpoint queryContext
+            ReadBalanceObservations.endpoint queryContext
         ]
         PUT [ UpdateAccount.endpoint queryContext clock ]
-        DELETE [ DeleteAccount.endpoint queryContext ]
+        DELETE [
+            DeleteAccount.endpoint queryContext
+            DeleteBalanceObservation.endpoint queryContext
+        ]
     ]

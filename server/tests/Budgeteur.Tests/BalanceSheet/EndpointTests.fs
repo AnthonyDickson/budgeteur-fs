@@ -143,6 +143,14 @@ module EndpointTests =
             | None -> return failtestf "Item %O is not on the sheet" id
         }
 
+    let private observationPath (id : Guid) (asOf : DateOnly) =
+        (TestHttp.itemPath DeleteItemObservation.Path id)
+            .Replace("{%s}", asOf.ToString "yyyy-MM-dd")
+
+    let private history (client : HttpClient) (id : Guid) =
+        client.GetAsync (TestHttp.itemPath ReadItemObservations.Path id)
+        |> Async.AwaitTask
+
     let private getItem
         (client : HttpClient)
         (id : Guid)
@@ -804,6 +812,94 @@ module EndpointTests =
                     unchanged
                     (2600m, DateOnly (2026, 2, 1))
                     "rejected writes leave the value alone"
+            }
+
+            testCaseAsync "an item's values are listed and deleted"
+            <| async {
+                use app = newApp ()
+                use otherUser = app.ClientForUser "other-user"
+
+                let! id =
+                    createItem
+                        app.Client
+                        (request "House" "Asset" "NonCurrent" 2000m)
+
+                let! _ =
+                    recordValue
+                        app.Client
+                        id
+                        (observation 2500m (DateOnly (2026, 2, 1)))
+
+                // Then: the values are listed newest first.
+                let! listed = history app.Client id
+                Expect.equal listed.StatusCode HttpStatusCode.OK "list is 200"
+
+                let! values =
+                    TestHttp.readJson<ItemObservationResponse list> listed
+
+                Expect.equal
+                    (values |> List.map (fun v -> v.AsOf, v.Value))
+                    [
+                        DateOnly (2026, 2, 1), 2500m
+                        DateOnly (2026, 1, 1), 2000m
+                    ]
+                    "newest first"
+
+                // Then: another user can neither list nor delete them.
+                let! foreignList = history otherUser id
+
+                Expect.equal
+                    foreignList.StatusCode
+                    HttpStatusCode.NotFound
+                    "another user's list is 404"
+
+                let! foreignDelete =
+                    otherUser.DeleteAsync (
+                        observationPath id (DateOnly (2026, 2, 1))
+                    )
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    foreignDelete.StatusCode
+                    HttpStatusCode.NotFound
+                    "another user's delete is 404"
+
+                // When: the newest value is deleted.
+                let! deleted =
+                    app.Client.DeleteAsync (
+                        observationPath id (DateOnly (2026, 2, 1))
+                    )
+                    |> Async.AwaitTask
+
+                Expect.equal deleted.StatusCode HttpStatusCode.NoContent "204"
+
+                // Then: the previous one is current.
+                let! current = currentValue app.Client id
+
+                Expect.equal
+                    current
+                    (2000m, DateOnly (2026, 1, 1))
+                    "the previous value is current"
+
+                // When: the only value left is deleted.
+                let! last =
+                    app.Client.DeleteAsync (
+                        observationPath id (DateOnly (2026, 1, 1))
+                    )
+                    |> Async.AwaitTask
+
+                // Then: it is rejected, and the item keeps its value.
+                Expect.equal
+                    last.StatusCode
+                    HttpStatusCode.BadRequest
+                    "an item's only value cannot be deleted"
+
+                let! kept = currentValue app.Client id
+
+                Expect.equal
+                    kept
+                    (2000m, DateOnly (2026, 1, 1))
+                    "the item keeps its value"
             }
 
             testCaseAsync "an item keeps its as-of date, which cannot be future"

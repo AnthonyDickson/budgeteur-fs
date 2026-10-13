@@ -10,13 +10,19 @@ module BalanceSheetEndpoints =
     open Budgeteur.Shared.Clock
 
     let all (queryContext : QueryContextFactory) (clock : Clock) = [
-        GET [ ReadBalanceSheet.endpoint queryContext ]
+        GET [
+            ReadBalanceSheet.endpoint queryContext
+            ReadItemObservations.endpoint queryContext
+        ]
         POST [
             CreateBalanceSheetItem.endpoint queryContext clock
             RecordItemObservation.endpoint queryContext clock
         ]
         PUT [ UpdateBalanceSheetItem.endpoint queryContext clock ]
-        DELETE [ DeleteBalanceSheetItem.endpoint queryContext ]
+        DELETE [
+            DeleteBalanceSheetItem.endpoint queryContext
+            DeleteItemObservation.endpoint queryContext
+        ]
     ]
 
     /// <summary>Item reads for manual inspection. Development only, so they are

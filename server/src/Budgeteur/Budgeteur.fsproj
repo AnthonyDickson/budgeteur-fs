@@ -69,6 +69,8 @@
     <Compile Include="Feature/BalanceSheet/ReadAllBalanceSheetItems.fs" />
     <Compile Include="Feature/BalanceSheet/UpdateBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/RecordItemObservation.fs" />
+    <Compile Include="Feature/BalanceSheet/ReadItemObservations.fs" />
+    <Compile Include="Feature/BalanceSheet/DeleteItemObservation.fs" />
     <Compile Include="Feature/BalanceSheet/DeleteBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetEndpoints.fs" />
 
@@ -80,6 +82,8 @@
     <Compile Include="Feature/Account/ReadAllAccounts.fs" />
     <Compile Include="Feature/Account/UpdateAccount.fs" />
     <Compile Include="Feature/Account/RecordBalance.fs" />
+    <Compile Include="Feature/Account/ReadBalanceObservations.fs" />
+    <Compile Include="Feature/Account/DeleteBalanceObservation.fs" />
     <Compile Include="Feature/Account/DeleteAccount.fs" />
     <Compile Include="Feature/Account/AccountEndpoints.fs" />
 

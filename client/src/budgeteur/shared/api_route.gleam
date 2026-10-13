@@ -63,7 +63,10 @@ pub fn to_string(route: ApiRoute) -> String {
     UpdateAccount(id:) | DeleteAccount(id:) ->
       api_prefix <> "/accounts/" <> uuid.to_string(id)
     RecordBalance(account_id:) ->
-      api_prefix <> "/accounts/" <> uuid.to_string(account_id) <> "/balances"
+      api_prefix
+      <> "/accounts/"
+      <> uuid.to_string(account_id)
+      <> "/observations"
     GetIncomeStatement(from:, to:) ->
       api_prefix
       <> "/income-statement?from="
