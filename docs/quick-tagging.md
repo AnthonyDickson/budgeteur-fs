@@ -23,37 +23,37 @@ it are cited where they shaped a decision.
 
 ## Ubiquitous language
 
-| Term          | Meaning                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------- |
-| Untagged      | A transaction with no assignment: nobody has tagged or dismissed it. It is waiting for a tag.                 |
-| Dismissed     | A transaction the user decided has no tag. A manual decision, stored as an assignment; rules never change it. |
-| Without a tag | Untagged or dismissed. The income statement's untagged lines cover both.                                      |
-| Queue         | The user's untagged non-transfer transactions, newest first.                                                  |
-| Batch         | The first 50 transactions of the queue, as fetched by the quick tagging page.                                 |
-| Quick tag     | Choosing a tag for a queued transaction, or dismissing it. Either is a manual decision.                       |
+| Term          | Meaning                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Untagged      | A transaction with no categorisation: nobody has tagged or dismissed it. It is waiting for a tag.                |
+| Dismissed     | A transaction the user decided has no tag. A manual decision, stored as a categorisation; rules never change it. |
+| Without a tag | Untagged or dismissed. The income statement's untagged lines cover both.                                         |
+| Queue         | The user's untagged non-transfer transactions, newest first.                                                     |
+| Batch         | The first 50 transactions of the queue, as fetched by the quick tagging page.                                    |
+| Quick tag     | Choosing a tag for a queued transaction, or dismissing it. Either is a manual decision.                          |
 
-Assignment, tag source, manual tag, and rule tag are defined in
+Categorisation, tag source, manual tag, and rule tag are defined in
 [auto-tagging](auto-tagging.md#ubiquitous-language).
 
 ## Decisions
 
-### 1. Dismissed is an assignment state
+### 1. Dismissed is a categorisation state
 
-- **Decision**: an assignment is either a tag with its source (`Manual` or
+- **Decision**: a categorisation is either a tag with its source (`Manual` or
   `Rule`), or a dismissal, which is always manual. A rule never dismisses, and
   the domain type cannot express a rule dismissal. Quick tagging's "Dismiss"
   button records it.
-- **Storage**: the assignment's tag becomes nullable; a row without a tag is a
-  dismissal. A check requires the `Manual` source on a row without a tag. One
+- **Storage**: the categorisation's tag becomes nullable; a row without a tag is
+  a dismissal. A check requires the `Manual` source on a row without a tag. One
   row per transaction still holds, so a transaction cannot be tagged and
   dismissed at once. The codec in `Data/` maps the nullable tag to the dismissed
   case, so the null does not leave `Data/`. Deleting a tag still deletes its
-  assignments, so its transactions become untagged and return to the queue;
+  categorisations, so its transactions become untagged and return to the queue;
   dismissals reference no tag and are unaffected. Migration `001` is unreleased
   (no version tag contains it), so it is edited in place.
 - **Transitions** (additions to [auto-tagging](auto-tagging.md) decision 4):
   - Quick tagging with a tag makes it manual; dismissing makes it dismissed.
-    Either replaces whatever assignment the transaction had.
+    Either replaces whatever categorisation the transaction had.
   - Creating a transaction without a tag leaves it untagged, so it appears in
     the queue. A tag the user forgot is what the queue is for, and dismissing is
     one click there.
@@ -63,21 +63,23 @@ Assignment, tag source, manual tag, and rule tag are defined in
     a transaction whose tag was just cleared probably needs another.
   - Tag untagged and re-tag treat a dismissal as a manual decision and never
     change it.
-  - A transfer has no assignment, dismissals included: marking a transaction as
-    a transfer removes its assignment, and unmarking one makes it untagged.
+  - A transfer has no categorisation, dismissals included: marking a transaction
+    as a transfer removes its categorisation, and unmarking one makes it
+    untagged.
 - **Why**: the queue needs to know which untagged transactions the user has
   already decided on, and rules need the same fact to avoid tagging them. One
   row per transaction answers both, so they cannot disagree, and replacing a
   dismissal with a tag is the existing upsert.
-- **Cost**: an assignment no longer always has a tag. Readers that take the tag
-  straight from a join see a dismissal as untagged, with no compiler warning;
-  readers that need the difference check whether the row exists.
+- **Cost**: a categorisation no longer always has a tag. Readers that take the
+  tag straight from a join see a dismissal as untagged, with no compiler
+  warning; readers that need the difference check whether the row exists.
 - **Rejected**:
-  - A dismissals table beside the assignments. No nullable column, and the
-    assignment keeps meaning "a transaction's tag", but the schema allows a
-    transaction to be both tagged and dismissed. The assignment store, or two
-    triggers, would have to prevent it, and readers that forget the second table
-    silently treat dismissed transactions as untagged, auto-tagging included.
+  - A dismissals table beside the categorisations. No nullable column, and the
+    categorisation keeps meaning "a transaction's tag", but the schema allows a
+    transaction to be both tagged and dismissed. The categorisation store, or
+    two triggers, would have to prevent it, and readers that forget the second
+    table silently treat dismissed transactions as untagged, auto-tagging
+    included.
   - A "No tag" tag per user. Every reader of tags (the tag list, rule tag
     select, tag kind, colour, income statement) would special-case it.
   - A dismissed flag on `Transactions`. It puts categorisation back on the
@@ -88,17 +90,17 @@ Assignment, tag source, manual tag, and rule tag are defined in
 - **Goal**: every manual decision about a transaction's tag, including "none",
   is recorded once and respected by every writer.
 
-### 2. The queue is a query over assignments
+### 2. The queue is a query over categorisations
 
 - **Decision**: the queue is every untagged non-transfer transaction of the
   user, whether imported or entered by hand, ordered by date, newest first, then
   by id, newest first. There is no queue table. A batch is the first 50 with the
   total in the queue. Fetching again returns the next batch, because tagged and
   dismissed transactions no longer match.
-- **Why**: untagged already means "no assignment" (auto-tagging decision 3), so
-  a table would be a second record of the same fact. Newest first puts a recent
-  import's leftovers and the current period at the top. Without offsets, nothing
-  has to track which transactions the user has seen.
+- **Why**: untagged already means "no categorisation" (auto-tagging decision 3),
+  so a table would be a second record of the same fact. Newest first puts a
+  recent import's leftovers and the current period at the top. Without offsets,
+  nothing has to track which transactions the user has seen.
 - **Cost**: a transaction the user skips, neither tagging nor dismissing it,
   comes back at the top of the next batch. Dismissing is the way to clear it.
 - **Rejected**:
@@ -113,7 +115,7 @@ Assignment, tag source, manual tag, and rule tag are defined in
 ### 3. One click saves one transaction's tag
 
 - **Decision**: each tag choice or dismissal sends its own request, which writes
-  a manual assignment for one transaction. There is no batch submit.
+  a manual categorisation for one transaction. There is no batch submit.
 - **Why**: the goal is one click per transaction. The previous project's apply
   step held a page of choices in unsaved form state, and lost them if the user
   navigated away. [CSV import](csv-import.md) decision 11 already settled on
@@ -171,14 +173,14 @@ Assignment, tag source, manual tag, and rule tag are defined in
 
   For both writes, an unknown transaction, or another user's, is `404`, and a
   transfer is `400`, checked before the write. Both are idempotent. They write
-  through the shared assignment store with the quick tag transitions from
+  through the shared categorisation store with the quick tag transitions from
   decision 1. The page reads tags from the existing tag endpoint.
 - **Why**: quick tagging is a categorisation workflow, like auto-tagging, and
   auto-tagging decision 8 placed such workflows in their own slices writing
-  assignments through `Data/`. Two write operations keep the request bodies free
-  of a null that means "dismiss", and the OpenAPI document cannot describe a
-  union with fields ([openapi](openapi.md)).
-- **Goal**: quick tagging changes for one reason, and assignments are still
+  categorisations through `Data/`. Two write operations keep the request bodies
+  free of a null that means "dismiss", and the OpenAPI document cannot describe
+  a union with fields ([openapi](openapi.md)).
+- **Goal**: quick tagging changes for one reason, and categorisations are still
   written one way.
 
 ### 7. Quick tagging is reached from where untagged transactions show
@@ -229,14 +231,14 @@ Assignment, tag source, manual tag, and rule tag are defined in
 
 ## Consequences
 
-- **Schema**: in migration `001`, the assignment's tag becomes nullable with the
-  source check from decision 1. Then `just db-reset` and `just db-update`.
-- **Assignment type and transitions**: the type in `Domain/` gains the dismissed
-  case and the quick tag transitions, and the transaction form, transfer, and
-  auto-tagging transitions handle it as in decision 1. The codec in `Data/` maps
-  the nullable tag.
+- **Schema**: in migration `001`, the categorisation's tag becomes nullable with
+  the source check from decision 1. Then `just db-reset` and `just db-update`.
+- **Categorisation type and transitions**: the type in `Domain/` gains the
+  dismissed case and the quick tag transitions, and the transaction form,
+  transfer, and auto-tagging transitions handle it as in decision 1. The codec
+  in `Data/` maps the nullable tag.
 - **Transaction slice**: responses give a dismissed transaction no tag. Marking
-  a transfer removes its assignment.
+  a transfer removes its categorisation.
 - **Income statement**: amounts are unchanged, since untagged lines cover every
   transaction without a tag, and the tag read from the join is already optional.
   The untagged count leaves the response and its computation (decision 7).
@@ -248,8 +250,8 @@ Assignment, tag source, manual tag, and rule tag are defined in
   response shape, untagged note, and deferred quick tagging entry.
 - **Highest-value tests**:
   - Transitions: quick tag, dismiss, the transaction form on a dismissed
-    transaction, a transfer losing its assignment, and tag untagged and re-tag
-    never changing a dismissal.
+    transaction, a transfer losing its categorisation, and tag untagged and
+    re-tag never changing a dismissal.
   - Queue: only the caller's untagged non-transfer transactions, newest first,
     the batch size, and the total.
   - Quick tag endpoints: tag and dismiss; `404` for another user's transaction,

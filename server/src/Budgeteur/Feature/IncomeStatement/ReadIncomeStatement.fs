@@ -178,7 +178,7 @@ module ReadIncomeStatement =
             let! transactions =
                 selectTask queryContext {
                     for t in main.Transactions do
-                        leftJoin a in main.LeftJoined.TagAssignments
+                        leftJoin a in main.LeftJoined.Categorisations
                                           on
                                           (t.Id = a.TransactionId)
 

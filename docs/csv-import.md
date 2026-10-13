@@ -343,9 +343,9 @@ line. Lessons from it are cited where they shaped a decision.
 - **Why**: tagging in a preview before saving holds minutes of work in unsaved
   state, needs a confirm request that re-sends the files or trusts rows parsed
   on the client, and saves nothing if the user stops halfway. Reviewing after
-  the import uses the normal assignment writes, and an interrupted review leaves
-  the rest in the queue. New rows are tagged by rules during the import, so
-  "untagged" and "matched no rule" are the same set.
+  the import uses the normal categorisation writes, and an interrupted review
+  leaves the rest in the queue. New rows are tagged by rules during the import,
+  so "untagged" and "matched no rule" are the same set.
 - **Rejected**: a preview with confirm. Its other use, catching the wrong file,
   is mostly covered by format detection and duplicate skipping; an undo is
   deferred.
@@ -378,7 +378,8 @@ line. Lessons from it are cited where they shaped a decision.
   they stay with it. A table's rules and mapping have one owner in the shared
   modules once a second slice writes it
   ([architecture](architecture.md#where-domain-logic-lives)). Import needs no
-  other slice: the matcher and assignment transitions are already in `Domain/`.
+  other slice: the matcher and categorisation transitions are already in
+  `Domain/`.
 - **Goal**: import is one slice that changes when formats or the import workflow
   change.
 

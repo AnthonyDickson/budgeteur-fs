@@ -186,11 +186,11 @@ module ImportStatements =
                     }
 
                 do!
-                    TagAssignmentStore.save
+                    CategorisationStore.save
                         ctx
                         userId
                         transaction.Transaction.Id
-                        transaction.Assignment
+                        transaction.Categorisation
 
             for statement in statements do
                 let accountId = accountIds[statement.Account.Number]

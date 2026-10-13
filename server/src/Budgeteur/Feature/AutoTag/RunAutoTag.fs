@@ -58,13 +58,13 @@ module RunAutoTag =
         }
 
     /// <summary>The user's transactions that may have a tag, which excludes
-    /// transfers, each with its description and assignment.</summary>
+    /// transfers, each with its description and categorisation.</summary>
     let private loadCandidates (queryContext : QueryContext) (userId : string) =
         task {
             let! rows =
                 selectTask queryContext {
                     for t in main.Transactions do
-                        leftJoin a in main.LeftJoined.TagAssignments
+                        leftJoin a in main.LeftJoined.Categorisations
                                           on
                                           (t.Id = a.TransactionId)
 
@@ -74,13 +74,13 @@ module RunAutoTag =
 
             return
                 rows
-                |> Seq.map (fun (id, description, assignment) -> {
+                |> Seq.map (fun (id, description, categorisation) -> {
                     TransactionId = id
                     Description =
                         TransactionDescription.unsafeFromString description
-                    Assignment =
-                        assignment.ToOption ()
-                        |> Option.map TagAssignmentCodec.fromRow
+                    Categorisation =
+                        categorisation.ToOption ()
+                        |> Option.map CategorisationCodec.fromRow
                 })
                 |> List.ofSeq
         }
@@ -93,16 +93,16 @@ module RunAutoTag =
         task {
             for change in changes do
                 match change with
-                | Tagged (id, assignment)
-                | Changed (id, assignment) ->
+                | Tagged (id, categorisation)
+                | Changed (id, categorisation) ->
                     do!
-                        TagAssignmentStore.save
+                        CategorisationStore.save
                             queryContext
                             userId
                             id
-                            (Some assignment)
+                            (Some categorisation)
                 | Cleared id ->
-                    do! TagAssignmentStore.save queryContext userId id None
+                    do! CategorisationStore.save queryContext userId id None
         }
 
     /// <summary>Load the user's rules and candidates, and write the changes,

@@ -15,7 +15,7 @@ module UpdateTransaction =
     open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Money
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
     open Budgeteur.Shared.ApiError
@@ -38,9 +38,9 @@ module UpdateTransaction =
     [<Literal>]
     let Path = "/api/transactions/{%O:guid}"
 
-    /// <summary>The user's current assignment for the transaction, if
+    /// <summary>The user's current categorisation for the transaction, if
     /// any.</summary>
-    let private readAssignment
+    let private readCategorisation
         (queryContext : QueryContext)
         (userId : string)
         (id : Guid)
@@ -48,19 +48,19 @@ module UpdateTransaction =
         task {
             let! row =
                 selectTask queryContext {
-                    for a in main.TagAssignments do
+                    for a in main.Categorisations do
                         where (a.TransactionId = id && a.UserId = userId)
                         tryHead
                 }
 
-            return Option.map TagAssignmentCodec.fromRow row
+            return Option.map CategorisationCodec.fromRow row
         }
 
-    /// <summary>Replace the user's transaction and set its assignment to the
-    /// requested tag, and read it back, in one database transaction. The
-    /// current assignment is read inside the transaction, since keeping the
-    /// same tag keeps its source. Fails with <c>NotFound</c> when the user has
-    /// no transaction with the id.</summary>
+    /// <summary>Replace the user's transaction and set its categorisation to
+    /// the requested tag, and read it back, in one database transaction. The
+    /// current categorisation is read inside the transaction, since keeping
+    /// the same tag keeps its source. Fails with <c>NotFound</c> when the user
+    /// has no transaction with the id.</summary>
     let private update
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -88,12 +88,17 @@ module UpdateTransaction =
                 return
                     Error (NotFound $"Transaction %O{transaction.Id} not found")
             else
-                let! current = readAssignment ctx userId transaction.Id
+                let! current = readCategorisation ctx userId transaction.Id
 
-                let assignment =
-                    TagAssignment.onUpdate transaction.IsTransfer tagId current
+                let categorisation =
+                    Categorisation.onUpdate transaction.IsTransfer tagId current
 
-                do! TagAssignmentStore.save ctx userId transaction.Id assignment
+                do!
+                    CategorisationStore.save
+                        ctx
+                        userId
+                        transaction.Id
+                        categorisation
 
                 let! updated =
                     TransactionQuery.tryRead ctx userId transaction.Id
@@ -121,7 +126,7 @@ module UpdateTransaction =
                     TransactionDescription.create req.Description
 
                 do!
-                    TagAssignment.requireNoTagOnTransfer
+                    Categorisation.requireNoTagOnTransfer
                         req.IsTransfer
                         req.TagId
 
@@ -146,7 +151,7 @@ module UpdateTransaction =
                     AccountId = req.AccountId
                 }
 
-                let! transaction, assignment, accountName =
+                let! transaction, categorisation, accountName =
                     update queryContext userId transaction req.TagId
 
                 log.Info (
@@ -159,7 +164,7 @@ module UpdateTransaction =
                         ctx
                         (TransactionResponse.fromDomain
                             transaction
-                            assignment
+                            categorisation
                             accountName)
             })
 

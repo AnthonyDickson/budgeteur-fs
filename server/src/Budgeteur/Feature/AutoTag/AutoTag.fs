@@ -3,7 +3,7 @@ namespace Budgeteur.Feature.AutoTag
 open System
 
 open Budgeteur.Domain.Rule
-open Budgeteur.Domain.TagAssignment
+open Budgeteur.Domain.Categorisation
 open Budgeteur.Domain.Transaction
 
 /// <summary>Which transactions an auto-tagging run recomputes. See decision 5
@@ -25,20 +25,20 @@ module AutoTagAction =
                 expecting one of \"TagUntagged\" or \"Retag\"."
 
 /// <summary>A transaction a run may tag: its description and current
-/// assignment.</summary>
+/// categorisation.</summary>
 type Candidate = {
     TransactionId : Guid
     Description : TransactionDescription
-    Assignment : TagAssignment option
+    Categorisation : Categorisation option
 }
 
-/// <summary>A change to one transaction's assignment. Transactions a run
+/// <summary>A change to one transaction's categorisation. Transactions a run
 /// leaves as they are have no change.</summary>
 type Change =
     /// <summary>An untagged transaction got a rule tag.</summary>
-    | Tagged of transactionId : Guid * assignment : TagAssignment
+    | Tagged of transactionId : Guid * categorisation : Categorisation
     /// <summary>A rule tag changed to another rule's tag.</summary>
-    | Changed of transactionId : Guid * assignment : TagAssignment
+    | Changed of transactionId : Guid * categorisation : Categorisation
     /// <summary>A rule tag no rule wins any more was removed.</summary>
     | Cleared of transactionId : Guid
 
@@ -66,9 +66,9 @@ module AutoTag =
     [<Literal>]
     let MaxSamples = 5
 
-    /// <summary>The assignment changes a run makes: each candidate goes through
-    /// the action's transition with the winning rule's tag, and only the
-    /// candidates whose assignment differs are returned.</summary>
+    /// <summary>The categorisation changes a run makes: each candidate goes
+    /// through the action's transition with the winning rule's tag, and
+    /// only the candidates whose categorisation differs are returned.</summary>
     let changes
         (action : AutoTagAction)
         (rules : Rule list)
@@ -78,15 +78,15 @@ module AutoTag =
 
         let transition =
             match action with
-            | TagUntagged -> TagAssignment.tagUntagged
-            | Retag -> TagAssignment.retag
+            | TagUntagged -> Categorisation.tagUntagged
+            | Retag -> Categorisation.retag
 
         candidates
         |> List.choose (fun candidate ->
             let winningTagId =
                 winner candidate.Description |> Option.map _.TagId
 
-            let before = candidate.Assignment
+            let before = candidate.Categorisation
             let after = transition winningTagId before
 
             match before, after with

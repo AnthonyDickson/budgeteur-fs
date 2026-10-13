@@ -36,7 +36,7 @@ implementations of the patterns in [docs/architecture.md](docs/architecture.md).
 | [prod-oidc-setup.md](docs/prod-oidc-setup.md)   | Configuring an OIDC provider for production                    |
 | [balance-sheet.md](docs/balance-sheet.md)       | Balance sheet design brief: decisions, rationale, glossary     |
 | [dashboard.md](docs/dashboard.md)               | Dashboard and income statement design brief                    |
-| [auto-tagging.md](docs/auto-tagging.md)         | Auto-tagging design brief: matching, tag assignments, actions  |
+| [auto-tagging.md](docs/auto-tagging.md)         | Auto-tagging design brief: matching, categorisations, actions  |
 | [csv-import.md](docs/csv-import.md)             | CSV import and accounts design brief: formats, hashes, flow    |
 | [quick-tagging.md](docs/quick-tagging.md)       | Quick tagging design brief: queue, dismissals, one click       |
 | [fp-showcase.md](docs/fp-showcase.md)           | Tour of the codebase's functional programming ideas (tutorial) |

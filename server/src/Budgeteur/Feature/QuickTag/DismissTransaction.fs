@@ -11,7 +11,7 @@ module DismissTransaction =
     open Oxpecker.OpenApi
 
     open Budgeteur.Data.Db
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.Endpoint
@@ -34,7 +34,7 @@ module DismissTransaction =
                         queryContext
                         userId
                         id
-                        TagAssignment.onDismiss
+                        Categorisation.onDismiss
 
                 log.Info (
                     $"Dismissed transaction %O{id}",

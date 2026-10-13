@@ -46,13 +46,13 @@ and free of I/O:
 
 - **The model, in `Domain/`.** Domain types used by more than one slice, their
   invariants, and the rules several workflows share, such as rule matching and
-  tag assignment transitions. It changes when the model changes, not when a
+  categorisation transitions. It changes when the model changes, not when a
   feature does.
 - **Workflow logic, in its slice.** A workflow's own types and rules, such as
-  the income statement and its period, or which assignments an auto-tagging run
-  changes, are pure functions in a module of the slice, apart from its handlers.
-  Handlers load data, check ownership, call that logic, write, and map requests
-  and responses.
+  the income statement and its period, or which categorisations an auto-tagging
+  run changes, are pure functions in a module of the slice, apart from its
+  handlers. Handlers load data, check ownership, call that logic, write, and map
+  requests and responses.
 
 Code that translates an external system's model, such as a bank's CSV export
 format, is an adapter in the slice that uses it. It turns the external model

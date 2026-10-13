@@ -2,7 +2,7 @@ namespace Budgeteur.Feature.Transaction
 
 open System
 
-open Budgeteur.Domain.TagAssignment
+open Budgeteur.Domain.Categorisation
 open Budgeteur.Shared.OpenApi
 
 /// <summary>A transaction's tag and where it came from.</summary>
@@ -52,7 +52,7 @@ module TransactionResponse =
 
     let fromDomain
         (t : Transaction)
-        (assignment : TagAssignment option)
+        (categorisation : Categorisation option)
         (accountName : string option)
         : TransactionResponse = {
         Id = t.Id
@@ -63,12 +63,12 @@ module TransactionResponse =
         AccountId = t.AccountId
         AccountName = accountName
         Tag =
-            match assignment with
-            | Some (TagAssignment.Tagged (tagId, source)) ->
+            match categorisation with
+            | Some (Categorisation.Tagged (tagId, source)) ->
                 Some {
                     Id = tagId
                     Source = TagSource.toString source
                 }
-            | Some TagAssignment.Dismissed
+            | Some Categorisation.Dismissed
             | None -> None
     }

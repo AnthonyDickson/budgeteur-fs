@@ -56,9 +56,9 @@ module ReadQueue =
     [<Literal>]
     let BatchSize = 50
 
-    /// <summary>The first batch of the user's queue: transactions without an
-    /// assignment, which excludes dismissed ones, and without transfers, newest
-    /// first. See decision 2 in docs/quick-tagging.md.</summary>
+    /// <summary>The first batch of the user's queue: transactions without a
+    /// categorisation, which excludes dismissed ones, and without transfers,
+    /// newest first. See decision 2 in docs/quick-tagging.md.</summary>
     let private readBatch
         (queryContext : QueryContextFactory)
         (userId : string)
@@ -67,7 +67,7 @@ module ReadQueue =
             let! rows =
                 selectTask queryContext {
                     for t in main.Transactions do
-                        leftJoin a in main.LeftJoined.TagAssignments
+                        leftJoin a in main.LeftJoined.Categorisations
                                           on
                                           (t.Id = a.TransactionId)
 
@@ -110,7 +110,7 @@ module ReadQueue =
         =
         selectTask queryContext {
             for t in main.Transactions do
-                leftJoin a in main.LeftJoined.TagAssignments
+                leftJoin a in main.LeftJoined.Categorisations
                                   on
                                   (t.Id = a.TransactionId)
 

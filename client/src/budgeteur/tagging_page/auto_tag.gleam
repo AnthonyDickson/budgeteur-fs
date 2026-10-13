@@ -10,7 +10,7 @@ import lustre/element.{type Element}
 import lustre/element/html
 
 /// How long a run may stay in flight before the transport aborts it. A run
-/// rewrites assignments for every transaction, so it gets longer than a save.
+/// rewrites categorisations for every transaction, so it gets longer than a save.
 pub const run_timeout_ms = 30_000
 
 pub type Action {

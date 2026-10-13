@@ -14,7 +14,7 @@ module CreateTransaction =
     open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Money
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Transaction
     open Budgeteur.Shared.ApiError
@@ -38,13 +38,13 @@ module CreateTransaction =
     [<Literal>]
     let Path = "/api/transactions"
 
-    /// <summary>Insert the transaction and its assignment, and read it back,
-    /// in one database transaction.</summary>
+    /// <summary>Insert the transaction and its categorisation, and read it
+    /// back, in one database transaction.</summary>
     let private insert
         (queryContext : QueryContextFactory)
         (userId : string)
         (transaction : Transaction)
-        (assignment : TagAssignment option)
+        (categorisation : Categorisation option)
         =
         task {
             let row = TransactionCodec.toRow transaction userId None
@@ -58,7 +58,13 @@ module CreateTransaction =
                         entity row
                 }
 
-            do! TagAssignmentStore.save ctx userId transaction.Id assignment
+            do!
+                CategorisationStore.save
+                    ctx
+                    userId
+                    transaction.Id
+                    categorisation
+
             let! created = TransactionQuery.tryRead ctx userId transaction.Id
             ctx.CommitTransaction ()
 
@@ -80,7 +86,7 @@ module CreateTransaction =
                     TransactionDescription.create req.Description
 
                 do!
-                    TagAssignment.requireNoTagOnTransfer
+                    Categorisation.requireNoTagOnTransfer
                         req.IsTransfer
                         req.TagId
 
@@ -105,10 +111,10 @@ module CreateTransaction =
                     AccountId = req.AccountId
                 }
 
-                let assignment = TagAssignment.onCreate req.TagId
+                let categorisation = Categorisation.onCreate req.TagId
 
-                let! transaction, assignment, accountName =
-                    insert queryContext userId transaction assignment
+                let! transaction, categorisation, accountName =
+                    insert queryContext userId transaction categorisation
 
                 log.Info (
                     $"Created transaction %O{transaction.Id}",
@@ -122,7 +128,7 @@ module CreateTransaction =
                         ctx
                         (TransactionResponse.fromDomain
                             transaction
-                            assignment
+                            categorisation
                             accountName)
             })
 

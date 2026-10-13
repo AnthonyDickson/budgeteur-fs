@@ -1,22 +1,22 @@
 namespace Budgeteur.Data
 
-module TagAssignmentCodec =
+module CategorisationCodec =
     open System
 
     open Budgeteur.Data.Db
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
 
     /// <summary>A dismissal is a row without a tag, with the <c>Manual</c>
     /// source the schema requires of one.</summary>
     let toRow
         (transactionId : Guid)
         (userId : string)
-        (assignment : TagAssignment)
-        : main.TagAssignments =
+        (categorisation : Categorisation)
+        : main.Categorisations =
         let tagId, source =
-            match assignment with
-            | TagAssignment.Tagged (tagId, source) -> Some tagId, source
-            | TagAssignment.Dismissed -> None, TagSource.Manual
+            match categorisation with
+            | Categorisation.Tagged (tagId, source) -> Some tagId, source
+            | Categorisation.Dismissed -> None, TagSource.Manual
 
         {
             TransactionId = transactionId
@@ -25,7 +25,7 @@ module TagAssignmentCodec =
             Source = TagSource.toString source
         }
 
-    let fromRow (row : main.TagAssignments) : TagAssignment =
+    let fromRow (row : main.Categorisations) : Categorisation =
         match row.TagId with
         | Some tagId ->
             let source =
@@ -35,5 +35,5 @@ module TagAssignmentCodec =
                 // unreachable
                 | Error error -> failwith error
 
-            TagAssignment.Tagged (tagId, source)
-        | None -> TagAssignment.Dismissed
+            Categorisation.Tagged (tagId, source)
+        | None -> Categorisation.Dismissed

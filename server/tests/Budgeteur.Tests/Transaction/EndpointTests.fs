@@ -366,7 +366,7 @@ module EndpointTests =
                     use cmd = conn.CreateCommand ()
 
                     cmd.CommandText <-
-                        "UPDATE TagAssignments SET Source = 'Rule'"
+                        "UPDATE Categorisations SET Source = 'Rule'"
 
                     cmd.ExecuteNonQuery () |> ignore
 

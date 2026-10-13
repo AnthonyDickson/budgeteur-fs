@@ -7,7 +7,7 @@ module ImportTests =
     open Budgeteur.Domain.Account
     open Budgeteur.Domain.Money
     open Budgeteur.Domain.Rule
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
     open Budgeteur.Domain.Transaction
     open Budgeteur.Feature.Import
 
@@ -111,11 +111,11 @@ module ImportTests =
                 Expect.equal
                     (transactions
                      |> List.map (fun t ->
-                         t.Transaction.IsTransfer, t.Assignment))
+                         t.Transaction.IsTransfer, t.Categorisation))
                     [
                         true, None
                         false,
-                        Some (TagAssignment.Tagged (tagId, TagSource.Rule))
+                        Some (Categorisation.Tagged (tagId, TagSource.Rule))
                         false, None
                     ]
                     "only the transfer to the user's own account is marked"

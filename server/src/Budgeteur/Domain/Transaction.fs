@@ -46,7 +46,7 @@ module TransactionDescription =
         TransactionDescription description
 
 /// <summary>A transaction stored in the database: the facts of what happened.
-/// Its tag is a <c>TagAssignment</c>, kept apart so tagging never changes the
+/// Its tag is a <c>Categorisation</c>, kept apart so tagging never changes the
 /// facts.</summary>
 type Transaction = {
     /// <summary>Unique identifier for the transaction item.</summary>

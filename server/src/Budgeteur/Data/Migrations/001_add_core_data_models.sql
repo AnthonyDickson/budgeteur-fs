@@ -139,12 +139,13 @@ CREATE TABLE Rules (
     UNIQUE(UserId, Pattern COLLATE NOCASE)
 );
 
--- Tag assignments
+-- Categorisations
 
--- A transaction's tag and where it came from, kept apart from the transaction so tagging changes
--- without touching its facts. One row per tagged or dismissed transaction; an untagged transaction
--- has none. See docs/auto-tagging.md and docs/quick-tagging.md.
-CREATE TABLE TagAssignments (
+-- How a transaction is categorised: its tag and where it came from, or a dismissal. Kept apart from
+-- the transaction so tagging changes without touching its facts. One row per tagged or dismissed
+-- transaction; an untagged transaction has none. See docs/auto-tagging.md and
+-- docs/quick-tagging.md.
+CREATE TABLE Categorisations (
     TransactionId GUID NOT NULL PRIMARY KEY,
     UserId        TEXT NOT NULL,
     -- NULL for a dismissed transaction: the user decided it has no tag.
@@ -153,11 +154,11 @@ CREATE TABLE TagAssignments (
     Source        TEXT NOT NULL CHECK (Source IN ('Manual', 'Rule')),
     -- Only the user dismisses a transaction.
     CHECK (TagId IS NOT NULL OR Source = 'Manual'),
-    -- Deleting the transaction or the tag removes the assignment, leaving the transaction untagged.
+    -- Deleting the transaction or the tag removes the categorisation: the transaction is untagged.
     FOREIGN KEY(TransactionId) REFERENCES Transactions(Id) ON DELETE CASCADE,
     FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
-CREATE INDEX IX_TagAssignments_UserId ON TagAssignments(UserId);
--- Lets deleting a tag find its assignments without a table scan.
-CREATE INDEX IX_TagAssignments_TagId ON TagAssignments(TagId);
+CREATE INDEX IX_Categorisations_UserId ON Categorisations(UserId);
+-- Lets deleting a tag find its categorisations without a table scan.
+CREATE INDEX IX_Categorisations_TagId ON Categorisations(TagId);

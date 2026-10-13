@@ -70,9 +70,9 @@ module TestAppConfig =
 
     let withIncomeStatement = withEndpoints [] IncomeStatementEndpoints.all
 
-    let withAutoTag = withEndpoints [ "TagAssignments" ] AutoTagEndpoints.all
+    let withAutoTag = withEndpoints [ "Categorisations" ] AutoTagEndpoints.all
 
-    let withQuickTag = withEndpoints [ "TagAssignments" ] QuickTagEndpoints.all
+    let withQuickTag = withEndpoints [ "Categorisations" ] QuickTagEndpoints.all
 
     /// Includes the development-only item reads, which the tests use to observe
     /// item state.

@@ -1,8 +1,8 @@
 namespace Budgeteur.Data
 
-/// <summary>Writes tag assignments. Every slice that tags transactions writes
-/// through here, so an assignment is written one way.</summary>
-module TagAssignmentStore =
+/// <summary>Writes categorisations. Every slice that tags transactions writes
+/// through here, so a categorisation is written one way.</summary>
+module CategorisationStore =
     open System
     open System.Threading.Tasks
 
@@ -10,26 +10,29 @@ module TagAssignmentStore =
     open SqlHydra.Query.SqliteExtensions
 
     open Budgeteur.Data.Db
-    open Budgeteur.Domain.TagAssignment
+    open Budgeteur.Domain.Categorisation
 
-    /// <summary>Set a transaction's assignment: insert or replace it, or delete
-    /// it when the transaction is untagged. The caller checks that the
+    /// <summary>Set a transaction's categorisation: insert or replace it, or
+    /// delete it when the transaction is untagged. The caller checks that the
     /// transaction and tag belong to the user.</summary>
     let save
         (queryContext : QueryContext)
         (userId : string)
         (transactionId : Guid)
-        (assignment : TagAssignment option)
+        (categorisation : Categorisation option)
         : Task<unit> =
         task {
-            match assignment with
-            | Some assignment ->
+            match categorisation with
+            | Some categorisation ->
                 let row =
-                    TagAssignmentCodec.toRow transactionId userId assignment
+                    CategorisationCodec.toRow
+                        transactionId
+                        userId
+                        categorisation
 
                 let! _ =
                     insertTask queryContext {
-                        for a in main.TagAssignments do
+                        for a in main.Categorisations do
                             entity row
 
                             onConflictDoUpdate
@@ -41,7 +44,7 @@ module TagAssignmentStore =
             | None ->
                 let! _ =
                     deleteTask queryContext {
-                        for a in main.TagAssignments do
+                        for a in main.Categorisations do
                             where (
                                 a.TransactionId = transactionId
                                 && a.UserId = userId

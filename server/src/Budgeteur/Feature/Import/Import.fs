@@ -4,7 +4,7 @@ open System
 
 open Budgeteur.Domain.Account
 open Budgeteur.Domain.Rule
-open Budgeteur.Domain.TagAssignment
+open Budgeteur.Domain.Categorisation
 open Budgeteur.Domain.Transaction
 
 /// <summary>A statement row to insert as a transaction.</summary>
@@ -13,7 +13,7 @@ type NewTransaction = {
     ImportHash : string
     /// <summary>The winning rule's tag, for a row that is not a
     /// transfer.</summary>
-    Assignment : TagAssignment option
+    Categorisation : Categorisation option
 }
 
 /// <summary>What an import did with the rows of its statements.</summary>
@@ -107,11 +107,11 @@ module Import =
             |> List.map (fun (statement, row) ->
                 let isTransfer = isTransfer userNumbers row
 
-                let assignment =
+                let categorisation =
                     if isTransfer then
                         None
                     else
-                        TagAssignment.tagUntagged
+                        Categorisation.tagUntagged
                             (winner row.Description |> Option.map _.TagId)
                             None
 
@@ -126,7 +126,7 @@ module Import =
                             Map.tryFind statement.Account.Number accountIds
                     }
                     ImportHash = row.ImportHash
-                    Assignment = assignment
+                    Categorisation = categorisation
                 })
 
         transactions,
@@ -140,6 +140,6 @@ module Import =
             TaggedByRules =
                 transactions
                 |> List.filter (fun transaction ->
-                    Option.isSome transaction.Assignment)
+                    Option.isSome transaction.Categorisation)
                 |> List.length
         }
