@@ -17,7 +17,26 @@
 
 ## Current Tasks
 
-None
+Transfers as a categorisation. A transaction's categorisation is untagged (no
+row), tagged, dismissed, or a transfer, so a tagged transfer cannot be stored
+and quick tagging can mark a missed transfer with one click. One commit per
+task, each passing `just format`, `just lint`, and the tests it touches.
+
+1. Rename tag assignments to categorisations: the table, the domain type and its
+   transitions, the codec and store, tests, and the docs' term. No change in
+   behaviour.
+2. Transfer categorisation: in migration `001`, add the categorisation's kind
+   (`Tagged`, `Dismissed`, `Transfer`) with the tag and source set only when
+   tagged, and drop `Transactions.IsTransfer`; `just db-reset` and `just
+   db-update`. The domain union gains `Transfer`; transaction create and update
+   map the transfer box and tag onto one categorisation; import writes detected
+   transfers as categorisations; auto-tagging never changes a transfer; the
+   income statement, match count, and queue read the kind. The transaction API
+   keeps `isTransfer`. Tests, and the docs that describe transfers (auto-tagging
+   3 and 4, CSV import 9, dashboard, quick tagging).
+3. Quick tag "Transfer": `PUT /api/quick-tag/{id}/transfer`, a "Transfer" button
+   between the tags and "Dismiss", client tests, and the E2E spec.
+4. Clear these tasks.
 
 ## Backlog
 
