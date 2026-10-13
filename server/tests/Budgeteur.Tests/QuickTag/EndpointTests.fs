@@ -91,6 +91,23 @@ module EndpointTests =
             return transaction.Tag
         }
 
+    let private readQueue (client : HttpClient) =
+        async {
+            let! response = client.GetAsync ReadQueue.Path |> Async.AwaitTask
+
+            Expect.equal
+                response.StatusCode
+                HttpStatusCode.OK
+                "reading the queue should return 200"
+
+            return! TestHttp.readJson<QueueResponse> response
+        }
+
+    let private onDate description (date : DateOnly) = {
+        untagged description with
+            Date = date
+    }
+
     /// <summary>How many transactions "Tag untagged" tags. A dismissed
     /// transaction has no tag but is not untagged, so a run skips it.</summary>
     let private tagUntagged (client : HttpClient) =
@@ -240,5 +257,101 @@ module EndpointTests =
                     HttpStatusCode.BadRequest
                     "dismissing is 400"
                     response
+            }
+
+            testCaseAsync
+                "the queue is the user's untagged transactions, newest first"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+
+                let! older =
+                    create app.Client (onDate "Older" (DateOnly (2026, 9, 1)))
+
+                let! newer =
+                    create app.Client (onDate "Newer" (DateOnly (2026, 10, 2)))
+                // Same date as the next: the later id comes first.
+                let! first =
+                    create app.Client (onDate "First" (DateOnly (2026, 10, 1)))
+
+                let! second =
+                    create app.Client (onDate "Second" (DateOnly (2026, 10, 1)))
+
+                let! _ =
+                    create app.Client {
+                        untagged "Tagged" with
+                            TagId = Some groceries
+                    }
+
+                let! dismissed = create app.Client (untagged "Dismissed")
+                let! _ = dismiss app.Client dismissed
+
+                let! _ =
+                    create app.Client {
+                        untagged "Transfer" with
+                            IsTransfer = true
+                    }
+
+                let other = app.ClientForUser "other-user"
+                let! _ = create other (untagged "Another user's")
+
+                let! queue = readQueue app.Client
+
+                Expect.equal
+                    (queue.Transactions |> List.map _.Id)
+                    [ newer; second; first; older ]
+                    "only untagged transactions, newest first"
+
+                Expect.equal queue.Total 4 "the total should count the queue"
+
+                Expect.equal
+                    (List.tryHead queue.Transactions)
+                    (Some {
+                        Id = newer
+                        Amount = -42.50m
+                        Description = "Newer"
+                        Date = DateOnly (2026, 10, 2)
+                        AccountName = None
+                    })
+                    "an entry should carry the transaction's details"
+            }
+
+            testCaseAsync
+                "a batch holds 50, and the next fetch continues the queue"
+            <| async {
+                use app = newApp ()
+
+                let! ids =
+                    [ 1..51 ]
+                    |> List.map (fun day ->
+                        create
+                            app.Client
+                            (onDate
+                                $"Transaction {day}"
+                                (DateOnly(2026, 1, 1).AddDays day)))
+                    |> Async.Sequential
+
+                let! queue = readQueue app.Client
+                Expect.hasLength queue.Transactions 50 "a batch holds 50"
+                Expect.equal queue.Total 51 "the total counts all 51"
+
+                let oldest = ids[0]
+
+                Expect.isFalse
+                    (queue.Transactions |> List.exists (fun t -> t.Id = oldest))
+                    "the oldest should wait for the next batch"
+
+                for t in queue.Transactions do
+                    let! _ = dismiss app.Client t.Id
+                    ()
+
+                let! queue = readQueue app.Client
+
+                Expect.equal
+                    (queue.Transactions |> List.map _.Id)
+                    [ oldest ]
+                    "the next batch should hold the rest"
+
+                Expect.equal queue.Total 1 "the total should shrink"
             }
         ]

@@ -9,6 +9,7 @@ module QuickTagEndpoints =
     open Budgeteur.Data.Db
 
     let all (queryContext : QueryContextFactory) = [
+        GET [ ReadQueue.endpoint queryContext ]
         PUT [ QuickTagTransaction.endpoint queryContext ]
         DELETE [ DismissTransaction.endpoint queryContext ]
     ]

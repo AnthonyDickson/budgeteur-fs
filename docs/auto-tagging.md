@@ -273,7 +273,8 @@ decision.
   db-reset` and `just db-update`.
 - **Tagging queue**: removed. Nothing writes to it, and what it holds (which
   transactions await review, and whether rule tags count as reviewed) belongs to
-  the quick-tagging design.
+  the quick-tagging design, which replaced it with a query over assignments
+  ([quick tagging](quick-tagging.md) decision 2).
 - **Income statement**: reads assignments to find each transaction's tag. Its
   rules do not change.
 - **Transaction slice**: create and update write the facts and the assignment in
@@ -298,9 +299,6 @@ decision.
 - **Auto-tagging on CSV import.** Part of the CSV imports roadmap item. Imported
   transactions get rule tags in the same database transaction as their insert;
   designed in [CSV import](csv-import.md) decision 8.
-- **Tagging queue.** Part of quick-tagging. The previous project queued imported
-  transactions that no rule tagged. Restore the table or replace it with a query
-  over assignments when quick-tagging is designed.
 - **Rule that set a tag.** See the rejected option in decision 4.
 - **Preview of a re-tag.** A dry run listing what would change. Add if the
   confirmation and the counts in the result toast are not enough.
