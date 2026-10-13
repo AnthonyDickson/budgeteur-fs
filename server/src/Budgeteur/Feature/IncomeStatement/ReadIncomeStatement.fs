@@ -2,6 +2,7 @@ namespace Budgeteur.Feature.IncomeStatement
 
 open System
 
+open Budgeteur.Domain.IncomeStatement
 open Budgeteur.Domain.Tag
 open Budgeteur.Shared.OpenApi
 

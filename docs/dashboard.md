@@ -113,8 +113,9 @@ against a baseline, two ratios, and twelve months of history with charts.
   small enough to load.
 - **Goal**: one tested function owns the income statement rules; the handler
   only queries and maps.
-- **Ownership**: the function lives in the slice. It moves to `Domain/` when a
-  second slice needs it: the report slice ([reports](reports.md) decision 7).
+- **Ownership**: the function and its period live in `Domain/`, since the report
+  slice uses them too ([reports](reports.md) decision 7). The slice keeps the
+  query and the response.
 
 ### 6. Month to date is the default period
 

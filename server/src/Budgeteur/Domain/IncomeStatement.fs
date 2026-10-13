@@ -1,4 +1,4 @@
-namespace Budgeteur.Feature.IncomeStatement
+namespace Budgeteur.Domain.IncomeStatement
 
 open System
 

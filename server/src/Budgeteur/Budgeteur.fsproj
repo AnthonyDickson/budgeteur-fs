@@ -39,6 +39,7 @@
     <Compile Include="Domain/BalanceSheetItem.fs" />
     <Compile Include="Domain/Account.fs" />
     <Compile Include="Domain/BalanceSheet.fs" />
+    <Compile Include="Domain/IncomeStatement.fs" />
 
     <Compile Include="Data/Db.fs" />
     <Compile Include="Data/Constraints.fs" />
@@ -112,7 +113,6 @@
     <Compile Include="Feature/Transaction/DeleteTransaction.fs" />
     <Compile Include="Feature/Transaction/TransactionEndpoints.fs" />
 
-    <Compile Include="Feature/IncomeStatement/IncomeStatement.fs" />
     <Compile Include="Feature/IncomeStatement/ReadIncomeStatement.fs" />
     <Compile Include="Feature/IncomeStatement/IncomeStatementEndpoints.fs" />
 
