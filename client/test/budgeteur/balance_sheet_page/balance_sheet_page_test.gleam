@@ -238,13 +238,20 @@ pub fn confirming_a_delete_arms_a_delete_request_test() {
   let target =
     item(id: 1, name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
 
-  let #(opened, _, _) =
+  // Delete in the item's edit dialog swaps the dialog for the confirmation.
+  let #(editing, _, _) =
     balance_sheet_page.update(
       loaded_model(sample_sheet()),
-      balance_sheet_page.UserRequestedItemDelete(target),
+      balance_sheet_page.UserRequestedItemEdit(target.id),
+    )
+  let #(opened, _, _) =
+    balance_sheet_page.update(
+      editing,
+      balance_sheet_page.ItemModalMsg(item_modal.DeleteRequested),
     )
 
-  let assert delete_modal.Confirming(..) = opened.item_delete_modal
+  opened.item_modal |> should.equal(item_modal.hidden())
+  opened.item_delete_modal |> should.equal(item_delete_modal.open(target))
 
   let #(deleting, effect, _) =
     balance_sheet_page.update(
@@ -436,14 +443,37 @@ pub fn saving_an_account_refetches_the_sheet_and_toasts_test() {
 }
 
 pub fn deleting_an_account_sends_a_delete_and_refetches_test() {
-  let model = loaded_model(sample_sheet())
   let account = sample_account()
+  let model =
+    loaded_model(BalanceSheet(..sample_sheet(), unknown_balances: [account]))
+
+  // The account opens on its balance form; "Edit account" swaps it for the
+  // account form, and Delete there swaps that for the confirmation.
+  let #(recording, _, _) =
+    balance_sheet_page.update(
+      model,
+      balance_sheet_page.UserRequestedBalanceRecord(account, None),
+    )
+  let #(editing, _, _) =
+    balance_sheet_page.update(
+      recording,
+      balance_sheet_page.BalanceModalMsg(balance_modal.EditAccountRequested),
+    )
+
+  editing.balance_modal |> should.equal(balance_modal.hidden())
+  let assert form_modal.Active(mode: form_modal.Edit(id), ..) =
+    editing.account_modal
+  id |> should.equal(account.id)
 
   let #(opened, _, _) =
     balance_sheet_page.update(
-      model,
-      balance_sheet_page.UserRequestedAccountDelete(account),
+      editing,
+      balance_sheet_page.AccountModalMsg(account_modal.DeleteRequested),
     )
+
+  opened.account_modal |> should.equal(account_modal.hidden())
+  opened.account_delete_modal
+  |> should.equal(account_delete_modal.open(account))
 
   let #(deleting, effect, _) =
     balance_sheet_page.update(

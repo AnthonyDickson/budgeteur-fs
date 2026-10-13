@@ -14,6 +14,12 @@ const itemRow = (page: Page, name: string) =>
     hasText: name,
   });
 
+/// Open an item's edit dialog by clicking its line.
+async function editItem(page: Page, name: string) {
+  await itemRow(page, name).getByTestId(/^edit-item-/).click();
+  await expect(modal(page)).toBeVisible();
+}
+
 /// The header row holding one term's subtotal, e.g. "Current assets $2000.00".
 /// The name must match exactly, or "Current assets" would also match
 /// "Non-current assets".
@@ -59,7 +65,9 @@ async function addItem(
 }
 
 async function deleteItem(page: Page, name: string) {
-  await itemRow(page, name).getByRole('button', { name: 'Delete' }).click();
+  await editItem(page, name);
+  await modal(page).getByTestId('item-delete-button').click();
+  await expect(modal(page)).toBeHidden();
   await expect(deleteModal(page)).toBeVisible();
   await deleteModal(page)
     .getByTestId('balance-sheet-item-delete-confirm-button')
@@ -118,9 +126,7 @@ test.describe('balance sheet', () => {
       });
 
       // ── Update: a current asset moves every affected total ───────────────────
-      await itemRow(page, 'Chequing').getByRole('button', { name: 'Edit' })
-        .click();
-      await expect(modal(page)).toBeVisible();
+      await editItem(page, 'Chequing');
       await modal(page).getByTestId('item-balance-input').fill('3000.00');
       await modal(page).getByTestId('item-submit-button').click();
       await expect(modal(page)).toBeHidden();
@@ -167,6 +173,20 @@ const accountRow = (page: Page, name: string) =>
   page.locator('[data-testid^="balance-sheet-account-"]').filter({
     hasText: name,
   });
+
+/// Open an account's balance form by clicking its line.
+async function openAccount(page: Page, name: string) {
+  await accountRow(page, name).getByTestId(/^record-balance-account-/).click();
+  await expect(balanceModal(page)).toBeVisible();
+}
+
+/// Open an account's edit dialog from its balance form.
+async function editAccount(page: Page, name: string) {
+  await openAccount(page, name);
+  await balanceModal(page).getByTestId('balance-edit-account-button').click();
+  await expect(balanceModal(page)).toBeHidden();
+  await expect(accountModal(page)).toBeVisible();
+}
 
 /// Fill the balance fields of the open account or balance modal.
 async function fillBalance(
@@ -226,7 +246,7 @@ test.describe('balance sheet accounts', () => {
       await expectAmount(summaryCard(page, 'net-worth'), 1000);
 
       // A liability balance makes it a current liability.
-      await unknown.getByRole('button', { name: 'Record balance' }).click();
+      await unknown.getByTestId(/^record-balance-account-/).click();
       await recordBalance(page, { side: 'Liability', amount: '400.00' });
       await expect(unknown).toBeHidden();
       await expectAmount(itemGroup(page, 'Current liabilities'), 400);
@@ -239,8 +259,9 @@ test.describe('balance sheet accounts', () => {
       });
 
       // Deleting an account warns that its transactions go with it.
-      await accountRow(page, 'Everyday').getByRole('button', { name: 'Delete' })
-        .click();
+      await editAccount(page, 'Everyday');
+      await accountModal(page).getByTestId('account-delete-button').click();
+      await expect(accountModal(page)).toBeHidden();
       const deleteAccount = page.getByTestId('delete-account-modal');
       await expect(deleteAccount).toContainText('transactions');
       await deleteAccount.getByTestId('account-delete-confirm-button').click();
@@ -267,10 +288,8 @@ test.describe('balance sheet accounts', () => {
       await expect(accountModal(page)).toBeHidden();
       await expectAmount(itemGroup(page, 'Current assets'), 1000);
 
-      // The balance form opens on the current balance.
-      await accountRow(page, 'Everyday').getByRole('button', {
-        name: 'Record balance',
-      }).click();
+      // Clicking the line opens the balance form on the current balance.
+      await openAccount(page, 'Everyday');
       await expect(balanceModal(page).getByTestId('balance-amount-input'))
         .toHaveValue('1000.00');
 
@@ -281,9 +300,7 @@ test.describe('balance sheet accounts', () => {
       await expectAmount(summaryCard(page, 'net-worth'), -50);
 
       // Editing the details changes the name and leaves the balance.
-      await accountRow(page, 'Everyday').getByRole('button', { name: 'Edit' })
-        .click();
-      await expect(accountModal(page)).toBeVisible();
+      await editAccount(page, 'Everyday');
       await expect(accountModal(page).getByTestId('balance-amount-input'))
         .toHaveCount(0);
       await accountModal(page).getByTestId('account-name-input').fill('Bills');

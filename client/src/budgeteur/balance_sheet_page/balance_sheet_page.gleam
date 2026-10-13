@@ -23,6 +23,7 @@ import gleam/float
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/result
 import gleam/string
 import gleam/time/calendar.{type Date}
 import lustre/attribute
@@ -33,6 +34,16 @@ import youid/uuid.{type Uuid}
 
 const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
   <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+
+/// Horizontal padding for subtotal and total rows. The right side matches a
+/// line's padding plus its chevron and gap (4 + 4 + 3), so every amount on the
+/// sheet shares one right edge.
+const total_row_padding = "pl-4 pr-11"
+
+/// Lifts a line's text above its button's overlay so it can be selected and
+/// copied. Positioned elements paint in DOM order, so being positioned after
+/// the button is enough. `w-fit` keeps the unclickable area to the text itself.
+const selectable_class = "relative w-fit max-w-full"
 
 // Types
 // -----
@@ -70,8 +81,7 @@ pub type Msg {
   UserRequestedItemCreation(kind: ItemKind)
   UserRequestedItemEdit(Uuid)
   ItemModalMsg(item_modal.Msg)
-  // Item delete modal messages
-  UserRequestedItemDelete(BalanceSheetItem)
+  // Item delete modal messages. The item modal's `DeleteRequested` opens it.
   UserConfirmedItemDelete
   UserCancelledItemDelete
   // Server response to a delete request. 404 is folded into Ok by the page
@@ -80,10 +90,11 @@ pub type Msg {
   ServerDeletedItem(item: BalanceSheetItem, result: Result(Nil, ApiError))
   // Account modal messages
   UserRequestedAccountCreation
-  UserRequestedAccountEdit(Account)
+  // The balance modal's `EditAccountRequested` opens the account modal for
+  // an existing account.
   AccountModalMsg(account_modal.Msg)
-  // Account delete modal messages
-  UserRequestedAccountDelete(Account)
+  // Account delete modal messages. The account modal's `DeleteRequested` opens
+  // it.
   UserConfirmedAccountDelete
   UserCancelledAccountDelete
   // As for items, 404 is folded into Ok.
@@ -169,13 +180,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       }
     }
 
-    ItemModalMsg(inner_msg) -> run_item_modal(model, inner_msg)
+    ItemModalMsg(item_modal.DeleteRequested as inner_msg) ->
+      open_item_delete(model) |> run_item_modal(inner_msg)
 
-    UserRequestedItemDelete(item) -> #(
-      Model(..model, item_delete_modal: item_delete_modal.open(item)),
-      effect.none(),
-      None,
-    )
+    ItemModalMsg(inner_msg) -> run_item_modal(model, inner_msg)
 
     UserConfirmedItemDelete -> confirm_item_delete(model)
 
@@ -202,16 +210,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         account_modal.CreateRequested(today: model.today),
       )
 
-    UserRequestedAccountEdit(account) ->
-      run_account_modal(model, account_modal.EditRequested(account:))
+    AccountModalMsg(account_modal.DeleteRequested as inner_msg) ->
+      open_account_delete(model) |> run_account_modal(inner_msg)
 
     AccountModalMsg(inner_msg) -> run_account_modal(model, inner_msg)
-
-    UserRequestedAccountDelete(account) -> #(
-      Model(..model, account_delete_modal: account_delete_modal.open(account)),
-      effect.none(),
-      None,
-    )
 
     UserConfirmedAccountDelete -> confirm_account_delete(model)
 
@@ -236,6 +238,9 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         model,
         balance_modal.OpenRequested(account:, current:, today: model.today),
       )
+
+    BalanceModalMsg(balance_modal.EditAccountRequested as inner_msg) ->
+      open_account_edit(model) |> run_balance_modal(inner_msg)
 
     BalanceModalMsg(inner_msg) -> run_balance_modal(model, inner_msg)
   }
@@ -270,6 +275,74 @@ fn model_items(model: Model) -> List(BalanceSheetItem) {
   case model.sheet {
     Loaded(sheet) -> sheet.items
     Loading | Failed -> []
+  }
+}
+
+/// The accounts currently on the sheet, with a known balance or not; empty
+/// unless a snapshot has loaded.
+fn model_accounts(model: Model) -> List(Account) {
+  case model.sheet {
+    Loaded(sheet) ->
+      list.append(
+        list.map(sheet.accounts, fn(line) { line.account }),
+        sheet.unknown_balances,
+      )
+    Loading | Failed -> []
+  }
+}
+
+/// The id of the entity an edit dialog is open for, if any.
+fn editing_id(modal: form_modal.Modal(form)) -> Result(Uuid, Nil) {
+  case form_modal.mode(modal) {
+    Some(form_modal.Edit(id:)) -> Ok(id)
+    Some(form_modal.Create) | None -> Error(Nil)
+  }
+}
+
+/// Open the delete confirmation for the item being edited. The item modal
+/// closes itself on the same message.
+fn open_item_delete(model: Model) -> Model {
+  let item = {
+    use id <- result.try(editing_id(model.item_modal))
+    list.find(model_items(model), fn(item) { item.id == id })
+  }
+  case item {
+    Ok(item) -> Model(..model, item_delete_modal: item_delete_modal.open(item))
+    Error(Nil) -> model
+  }
+}
+
+/// Open the account form for the account whose balance is being recorded. The
+/// balance modal closes itself on the same message.
+fn open_account_edit(model: Model) -> Model {
+  let account = {
+    use id <- result.try(editing_id(model.balance_modal))
+    list.find(model_accounts(model), fn(account) { account.id == id })
+  }
+  case account {
+    Ok(account) -> {
+      // Opening the form sends no request and has no outcome.
+      let #(account_modal, _, _) =
+        account_modal.update(
+          model.account_modal,
+          account_modal.EditRequested(account:),
+        )
+      Model(..model, account_modal:)
+    }
+    Error(Nil) -> model
+  }
+}
+
+/// As for items, for the account being edited.
+fn open_account_delete(model: Model) -> Model {
+  let account = {
+    use id <- result.try(editing_id(model.account_modal))
+    list.find(model_accounts(model), fn(account) { account.id == id })
+  }
+  case account {
+    Ok(account) ->
+      Model(..model, account_delete_modal: account_delete_modal.open(account))
+    Error(Nil) -> model
   }
 }
 
@@ -880,7 +953,8 @@ fn sheet_side(
       html.div(
         [
           attribute.class(
-            "flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-3",
+            "flex items-center justify-between border-t border-gray-200 bg-gray-50 py-3 "
+            <> total_row_padding,
           ),
         ],
         [
@@ -920,7 +994,8 @@ fn line_group(
     html.div(
       [
         attribute.class(
-          "flex items-center justify-between bg-gray-50 px-4 py-2",
+          "flex items-center justify-between bg-gray-50 py-2 "
+          <> total_row_padding,
         ),
       ],
       [
@@ -956,13 +1031,13 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
 
   line_row(
     testid: "balance-sheet-item-" <> testid,
-    name: item.name,
+    name: line_button(
+      name: item.name,
+      testid: "edit-item-" <> testid,
+      on_click: UserRequestedItemEdit(item.id),
+    ),
     details: ["As of " <> date.format(item.as_of)],
     balance: item.balance,
-    actions: [
-      edit_action("edit-item-" <> testid, UserRequestedItemEdit(item.id)),
-      delete_action("delete-item-" <> testid, UserRequestedItemDelete(item)),
-    ],
   )
 }
 
@@ -979,112 +1054,121 @@ fn account_row(line: AccountLine) -> Element(Msg) {
 
   line_row(
     testid: "balance-sheet-account-" <> uuid.to_string(line.account.id),
-    name: line.account.name,
+    name: account_button(line.account, Some(current)),
     details: case line.account.number {
       Some(number) -> [number, as_of]
       None -> [as_of]
     },
     balance: line.balance,
-    actions: account_actions(line.account, Some(current)),
   )
 }
 
-/// What a user can do with an account, wherever it is listed.
-fn account_actions(
-  account: Account,
-  current: Option(balance_modal.CurrentBalance),
-) -> List(Element(Msg)) {
-  let testid = uuid.to_string(account.id)
-
-  [
-    line_action(
-      label: "Record balance",
-      testid: "record-balance-account-" <> testid,
-      class: "text-indigo-600 hover:text-indigo-800",
-      on_click: UserRequestedBalanceRecord(account:, current:),
-    ),
-    edit_action("edit-account-" <> testid, UserRequestedAccountEdit(account)),
-    delete_action(
-      "delete-account-" <> testid,
-      UserRequestedAccountDelete(account),
-    ),
-  ]
-}
-
-/// A line on the sheet. Its actions sit under its details, so every amount is
-/// at the right edge and lines up with the subtotals.
+/// A line on the sheet. Clicking it, anywhere but its selectable text, opens
+/// the form that updates its amount: an item's form, or an account's balance form. Editing an
+/// account's details and deleting are reached from there. The trailing chevron
+/// marks the line as one that opens, since touch screens have no hover.
 fn line_row(
   testid testid: String,
-  name name: String,
+  name name: Element(Msg),
   details details: List(String),
   balance balance: Float,
-  actions actions: List(Element(Msg)),
 ) -> Element(Msg) {
   html.li(
     [
-      attribute.class("flex items-start gap-3 px-4 py-3"),
+      attribute.class(
+        "group relative flex items-start gap-3 px-4 py-3 hover:bg-gray-50",
+      ),
       attribute.attribute("data-testid", testid),
     ],
     [
       html.div([attribute.class("min-w-0 flex-1")], [
-        html.p([attribute.class("truncate text-sm text-gray-700")], [
-          html.text(name),
-        ]),
-        html.p([attribute.class("text-xs text-gray-400")], [
+        name,
+        html.p([attribute.class(selectable_class <> " text-xs text-gray-400")], [
           html.text(string.join(details, " · ")),
         ]),
-        html.div([attribute.class("mt-1 flex flex-wrap gap-x-3")], actions),
       ]),
       html.span(
         [
-          attribute.class("text-right text-sm tabular-nums text-gray-900"),
+          attribute.class(
+            selectable_class <> " text-right text-sm tabular-nums text-gray-900",
+          ),
           attribute.attribute("data-amount", float.to_string(balance)),
         ],
         [html.text(money.format(balance))],
       ),
+      chevron_icon(),
     ],
   )
 }
 
-fn edit_action(testid: String, on_click: Msg) -> Element(Msg) {
-  line_action(
-    label: "Edit",
-    testid:,
-    class: "text-indigo-600 hover:text-indigo-800",
-    on_click:,
-  )
-}
-
-fn delete_action(testid: String, on_click: Msg) -> Element(Msg) {
-  line_action(
-    label: "Delete",
-    testid:,
-    class: "text-red-600 hover:text-red-800",
-    on_click:,
-  )
-}
-
-fn line_action(
-  label label: String,
+/// A line's name, as the button that opens it. Its `::after` overlay stretches
+/// over the nearest positioned ancestor, the line, so the whole line is the
+/// click target while the name stays the one focusable element. Text that
+/// should stay selectable is lifted above the overlay with `selectable_class`.
+fn line_button(
+  name name: String,
   testid testid: String,
-  class class: String,
   on_click on_click: Msg,
 ) -> Element(Msg) {
   html.button(
     [
+      attribute.type_("button"),
       attribute.class(
-        "rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-        <> class,
+        "block max-w-full cursor-pointer truncate text-left text-sm text-gray-900 "
+        <> "group-hover:text-indigo-600 focus:outline-none after:absolute after:inset-0 focus-visible:after:ring-2 "
+        <> "focus-visible:after:ring-inset focus-visible:after:ring-indigo-500",
       ),
       attribute.attribute("data-testid", testid),
       event.on_click(on_click),
     ],
-    [html.text(label)],
+    [html.text(name)],
+  )
+}
+
+fn chevron_icon() -> Element(Msg) {
+  html.svg(
+    [
+      attribute.attribute("fill", "none"),
+      attribute.attribute("viewBox", "0 0 24 24"),
+      attribute.attribute("stroke-width", "2"),
+      attribute.attribute("stroke", "currentColor"),
+      attribute.class(
+        "mt-0.5 h-4 w-4 shrink-0 text-gray-400 group-hover:text-gray-600",
+      ),
+      attribute.attribute("aria-hidden", "true"),
+    ],
+    [
+      element.namespaced(
+        "http://www.w3.org/2000/svg",
+        "path",
+        [
+          attribute.attribute("stroke-linecap", "round"),
+          attribute.attribute("stroke-linejoin", "round"),
+          attribute.attribute("d", "m8.25 4.5 7.5 7.5-7.5 7.5"),
+        ],
+        [],
+      ),
+    ],
+  )
+}
+
+/// An account opens on its balance form, since recording a balance is what is
+/// done again and again.
+fn account_button(
+  account: Account,
+  current: Option(balance_modal.CurrentBalance),
+) -> Element(Msg) {
+  line_button(
+    name: account.name,
+    testid: "record-balance-account-" <> uuid.to_string(account.id),
+    on_click: UserRequestedBalanceRecord(account:, current:),
   )
 }
 
 /// Accounts whose balance is unknown are left out of the totals, so the page
-/// asks for their balances above the sheet.
+/// asks for their balances above the sheet. Each is a tile that opens like a
+/// line on the sheet. The callout spans the page, so tiles in a grid keep each
+/// name next to its chevron.
 fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
   case accounts {
     [] -> element.none()
@@ -1106,31 +1190,42 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
             ),
           ]),
           html.ul(
-            [attribute.class("mt-2 divide-y divide-amber-200")],
+            [
+              attribute.class(
+                "mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3",
+              ),
+            ],
             list.map(accounts, fn(account) {
               html.li(
                 [
-                  attribute.class("py-2"),
+                  attribute.class(
+                    "group relative flex items-start gap-3 overflow-hidden rounded-md border "
+                    <> "border-amber-200 bg-white px-3 py-2 hover:bg-amber-100",
+                  ),
                   attribute.attribute(
                     "data-testid",
                     "unknown-balance-" <> uuid.to_string(account.id),
                   ),
                 ],
                 [
-                  html.p([attribute.class("truncate text-sm")], [
-                    html.text(account.name),
+                  html.div([attribute.class("min-w-0 flex-1")], [
+                    account_button(account, None),
                     case account.number {
                       Some(number) ->
-                        html.span([attribute.class("ml-2 text-amber-700")], [
-                          html.text(number),
-                        ])
+                        html.p(
+                          [
+                            attribute.class(
+                              selectable_class <> " text-xs text-amber-700",
+                            ),
+                          ],
+                          [
+                            html.text(number),
+                          ],
+                        )
                       None -> element.none()
                     },
                   ]),
-                  html.div(
-                    [attribute.class("mt-1 flex flex-wrap gap-x-3")],
-                    account_actions(account, None),
-                  ),
+                  chevron_icon(),
                 ],
               )
             }),

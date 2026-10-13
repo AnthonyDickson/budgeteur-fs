@@ -66,6 +66,9 @@ pub type Msg {
   SaveCompleted(result: Result(Account, ApiError))
   // Cancel button, or the browser dismissed the dialog (Esc / outside click)
   CancelRequested
+  // "Edit account" button. The dialog closes, and the page opens the account
+  // form in its place.
+  EditAccountRequested
 }
 
 pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
@@ -106,7 +109,11 @@ pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
       None,
       form_modal.NoChange,
     )
-    CancelRequested -> #(form_modal.cancel(state), None, form_modal.NoChange)
+    CancelRequested | EditAccountRequested -> #(
+      form_modal.cancel(state),
+      None,
+      form_modal.NoChange,
+    )
   }
 }
 
@@ -180,20 +187,26 @@ fn view_form(
           note: "To correct the current balance, keep its date: a balance on a date that already has one replaces it.",
         )
           |> element.map(BalanceMsg),
-        html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-          modal_ui.cancel_button(
+        modal_ui.form_footer(
+          leading: Some(modal_ui.text_button(
+            label: "Edit account",
+            testid: "balance-edit-account-button",
+            disabled: submitting,
+            on_click: EditAccountRequested,
+          )),
+          cancel: modal_ui.cancel_button(
             testid: "balance-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          modal_ui.submit_button(
+          submit: modal_ui.submit_button(
             testid: "balance-submit-button",
             idle_label: "Record balance",
             busy_label: "Recording...",
             busy: submitting,
             disabled: balance_form.has_error(form.balance),
           ),
-        ]),
+        ),
       ],
     ),
   ]

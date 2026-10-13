@@ -74,6 +74,9 @@ pub type Msg {
   SaveCompleted(result: Result(Account, ApiError))
   // Cancel button, or the browser dismissed the dialog (Esc / outside click)
   CancelRequested
+  // Delete button of the edit dialog. The dialog closes, and the page opens
+  // the delete confirmation in its place.
+  DeleteRequested
 }
 
 pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
@@ -144,7 +147,11 @@ pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
       None,
       form_modal.NoChange,
     )
-    CancelRequested -> #(form_modal.cancel(state), None, form_modal.NoChange)
+    CancelRequested | DeleteRequested -> #(
+      form_modal.cancel(state),
+      None,
+      form_modal.NoChange,
+    )
   }
 }
 
@@ -360,20 +367,29 @@ fn view_form(
             |> element.map(BalanceMsg)
           None -> element.none()
         },
-        html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-          modal_ui.cancel_button(
+        modal_ui.form_footer(
+          leading: case mode {
+            form_modal.Create -> None
+            form_modal.Edit(_) ->
+              Some(modal_ui.delete_request_button(
+                testid: "account-delete-button",
+                disabled: submitting,
+                on_click: DeleteRequested,
+              ))
+          },
+          cancel: modal_ui.cancel_button(
             testid: "account-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          modal_ui.submit_button(
+          submit: modal_ui.submit_button(
             testid: "account-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,
             busy: submitting,
             disabled: has_error,
           ),
-        ]),
+        ),
       ],
     ),
   ]

@@ -395,15 +395,17 @@ line. Lessons from it are cited where they shaped a decision.
 - **Balance sheet page**: account lines sit in the same asset and liability,
   current and non-current groups as items, marked with the account number and
   the current balance's as-of date. A callout lists accounts with an unknown
-  balance. An "Add account" button sits next to the item buttons. Each line's
-  actions sit under its details, so its amount lines up with the subtotals: an
-  account has "Record balance", "Edit", and "Delete"; an item has "Edit" and
-  "Delete". The account form edits the name, number, and term; a new account
-  also takes an optional opening balance. The balance form opens on the current
-  balance's side and amount, dated today, and records an observation: an asset
-  or liability and an amount without a sign. Keeping the current balance's date
-  corrects it. The unknown-balance callout opens the same form. Deleting an
-  account warns that its transactions and balance history are deleted with it.
+  balance. An "Add account" button sits next to the item buttons. Clicking a
+  line opens the form that updates its amount: an item's form, or an account's
+  balance form, since that is the action repeated most. The balance form
+  switches to the account form, and deleting starts from an item's or account's
+  form, so the sheet shows amounts rather than a column of buttons. The account
+  form edits the name, number, and term; a new account also takes an optional
+  opening balance. The balance form opens on the current balance's side and
+  amount, dated today, and records an observation: an asset or liability and an
+  amount without a sign. Keeping the current balance's date corrects it. The
+  unknown-balance callout opens the same form. Deleting an account warns that
+  its transactions and balance history are deleted with it.
 - **Why separate forms**: editing details and recording a balance take different
   fields and do different things: one replaces the account's details, the other
   adds to its balance history. In one form, a blank balance meant "keep the

@@ -1,5 +1,6 @@
 import gleam/dynamic/decode
 import gleam/list
+import gleam/option.{type Option}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -25,6 +26,18 @@ const submit_button_class = "inline-flex items-center justify-center gap-2 round
 const delete_button_class = "inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium "
   <> "text-white hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 "
   <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400"
+
+/// Classes for an edit dialog's delete button, which opens the delete
+/// confirmation rather than deleting.
+const delete_request_button_class = "rounded-md px-3 py-2 text-sm font-medium text-red-600 "
+  <> "hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 "
+  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
+
+/// Classes for a dialog's secondary text button, e.g. one that switches to
+/// another form.
+const text_button_class = "rounded-md px-3 py-2 text-sm font-medium text-gray-700 "
+  <> "hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
+  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
 
 /// Define the `<modal-dialog>` custom element that `dialog` renders. Call once
 /// before the app starts.
@@ -156,6 +169,59 @@ pub fn delete_button(
       True -> [spinner(), html.text("Deleting...")]
       False -> [html.text("Delete")]
     },
+  )
+}
+
+/// The footer of a form dialog: an optional button on the left, such as a
+/// delete or a switch to another form, and the cancel and submit buttons on the
+/// right.
+pub fn form_footer(
+  leading leading: Option(Element(msg)),
+  cancel cancel: Element(msg),
+  submit submit: Element(msg),
+) -> Element(msg) {
+  html.div([attribute.class("flex items-center gap-3 pt-2")], [
+    option.unwrap(leading, element.none()),
+    html.div([attribute.class("ml-auto flex gap-3")], [cancel, submit]),
+  ])
+}
+
+/// An edit dialog's delete button. The page closes the dialog and opens the
+/// delete confirmation in its place.
+pub fn delete_request_button(
+  testid testid: String,
+  disabled disabled: Bool,
+  on_click on_click: msg,
+) -> Element(msg) {
+  html.button(
+    [
+      attribute.type_("button"),
+      attribute.attribute("data-testid", testid),
+      attribute.class(delete_request_button_class),
+      attribute.disabled(disabled),
+      event.on_click(on_click),
+    ],
+    [html.text("Delete")],
+  )
+}
+
+/// A dialog's secondary text button, for an action other than submitting or
+/// cancelling.
+pub fn text_button(
+  label label: String,
+  testid testid: String,
+  disabled disabled: Bool,
+  on_click on_click: msg,
+) -> Element(msg) {
+  html.button(
+    [
+      attribute.type_("button"),
+      attribute.attribute("data-testid", testid),
+      attribute.class(text_button_class),
+      attribute.disabled(disabled),
+      event.on_click(on_click),
+    ],
+    [html.text(label)],
   )
 }
 
