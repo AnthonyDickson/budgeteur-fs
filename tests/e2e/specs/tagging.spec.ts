@@ -54,6 +54,13 @@ async function createTag(page: Page, name: string, color?: string) {
   await expect(tagRow(page, name)).toBeVisible();
 }
 
+/// Open a tag's delete confirmation from its edit dialog.
+async function openTagDelete(page: Page, name: string) {
+  await page.getByRole('button', { name: `Edit tag ${name}` }).click();
+  await tagModal(page).getByTestId('tag-delete-button').click();
+  await expect(tagModal(page)).toBeHidden();
+}
+
 /// Create a rule for the currently selected tag.
 async function createRule(page: Page, pattern: string) {
   await page.getByTestId('new-rule-button').click();
@@ -116,8 +123,7 @@ test.describe('tagging', () => {
     await expect(toast(page, 'Created rule STARBUCKS')).toBeVisible();
 
     // Edit the rule's pattern.
-    await ruleRow(page, 'STARBUCKS').getByRole('button', { name: 'Edit' })
-      .click();
+    await ruleRow(page, 'STARBUCKS').click();
     await expect(ruleModal(page)).toBeVisible();
     await ruleModal(page).getByTestId('rule-pattern-input').fill('LATTE');
     await ruleModal(page).getByTestId('rule-submit-button').click();
@@ -134,8 +140,9 @@ test.describe('tagging', () => {
 
     // Delete the rule.
     await tagRow(page, 'Transport').click();
-    await ruleRow(page, 'LATTE').getByRole('button', { name: 'Delete' })
-      .click();
+    await ruleRow(page, 'LATTE').click();
+    await ruleModal(page).getByTestId('rule-delete-button').click();
+    await expect(ruleModal(page)).toBeHidden();
     const deleteRuleModal = page.getByTestId('delete-rule-modal');
     await expect(deleteRuleModal).toBeVisible();
     await deleteRuleModal.getByTestId('rule-delete-confirm-button').click();
@@ -154,7 +161,7 @@ test.describe('tagging', () => {
     await expect(toast(page, "Updated tag 'Travel'")).toBeVisible();
 
     // Delete the tag; selection moves to the remaining one.
-    await page.getByRole('button', { name: 'Delete tag Travel' }).click();
+    await openTagDelete(page, 'Travel');
     const deleteTagModal = page.getByTestId('delete-tag-modal');
     await expect(deleteTagModal).toBeVisible();
     await deleteTagModal.getByTestId('tag-delete-confirm-button').click();
@@ -220,7 +227,7 @@ test.describe('tagging', () => {
     await createRule(page, 'STARBUCKS');
     await createRule(page, 'COUNTDOWN');
 
-    await page.getByRole('button', { name: 'Delete tag Groceries' }).click();
+    await openTagDelete(page, 'Groceries');
     const modal = page.getByTestId('delete-tag-modal');
     await expect(modal).toBeVisible();
     await expect(modal).toContainText('Its 2 matching rules are deleted too');
@@ -231,7 +238,7 @@ test.describe('tagging', () => {
     await expect(tagRow(page, 'Groceries')).toBeVisible();
 
     // Confirming removes the tag (and its rules, back to the empty state).
-    await page.getByRole('button', { name: 'Delete tag Groceries' }).click();
+    await openTagDelete(page, 'Groceries');
     await expect(modal).toBeVisible();
     await modal.getByTestId('tag-delete-confirm-button').click();
     await expect(modal).toBeHidden();
@@ -339,7 +346,7 @@ test.describe('tagging', () => {
       .locator('[data-testid="transaction-row"]')
       .filter({ hasText: 'PAY Countdown Ponsonby' });
     await expect(row).toContainText('Groceries');
-    await row.getByRole('button', { name: 'Edit' }).click();
+    await row.click();
     await expect(page.getByTestId('transaction-rule-tag-hint')).toBeVisible();
   });
 
@@ -350,8 +357,7 @@ test.describe('tagging', () => {
     await createTag(page, 'Transport');
     await tagRow(page, 'Groceries').click();
 
-    await ruleRow(page, 'STARBUCKS').getByRole('button', { name: 'Edit' })
-      .click();
+    await ruleRow(page, 'STARBUCKS').click();
     const modal = ruleModal(page);
     await expect(modal).toBeVisible();
     await modal.getByTestId('rule-tag-select').selectOption({

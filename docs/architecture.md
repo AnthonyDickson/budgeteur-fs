@@ -217,6 +217,12 @@ not hidden and renders nothing while hidden. A custom element opens the native
 as a cancel. No effect opens or closes a dialog, so the screen cannot drift from
 the model.
 
+Lists and tables open their entries: clicking anywhere on a row opens its edit
+dialog, and deleting starts from that dialog, which the page swaps for the
+delete confirmation. Rows show their content rather than a column of buttons. A
+row whose click already means something else keeps an edit button, as the tag
+list does, since clicking a tag selects it.
+
 ### Effect system
 
 `update` returns a description of side effects as plain data, and one

@@ -4,7 +4,7 @@ import budgeteur/shared/delete_modal
 import budgeteur/shared/effect
 import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
-import budgeteur/shared/out_msg.{type OutMsg}
+import budgeteur/shared/out_msg
 import budgeteur/shared/remote
 import budgeteur/shared/tag
 import budgeteur/shared/toast
@@ -16,7 +16,7 @@ import budgeteur/tagging_page/tag_delete_modal
 import budgeteur/tagging_page/tag_modal
 import budgeteur/tagging_page/tagging_page
 import gleam/int
-import gleam/option.{type Option, None, Some}
+import gleam/option.{None, Some}
 import gleeunit/should
 import youid/uuid
 
@@ -180,10 +180,19 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
       selected_tag: Some(coffee.id),
     )
 
+  // Delete in the tag's edit dialog swaps the dialog for the confirmation,
+  // which counts the rules deleted with the tag.
+  let opened =
+    model
+    |> run(tagging_page.UserRequestedTagEdit(coffee.id))
+    |> run(tagging_page.TagModalMsg(tag_modal.DeleteRequested))
+
+  opened.tag_modal |> should.equal(tag_modal.hidden())
+  opened.tag_delete_modal |> should.equal(tag_delete_modal.open(coffee, 1))
+
   // Confirming leaves the lists intact and arms a DELETE request.
   let #(deleting, effect, _) =
-    tagging_page.update(model, tagging_page.UserRequestedTagDelete(coffee))
-    |> then_confirm
+    tagging_page.update(opened, tagging_page.UserConfirmedTagDelete)
 
   let assert delete_modal.Deleting(..) = deleting.tag_delete_modal
   tags(deleting) |> should.equal([coffee, rent])
@@ -221,12 +230,19 @@ pub fn deleting_rule_arms_request_then_removes_it_test() {
       selected_tag: Some(coffee.id),
     )
 
+  // Delete in the rule's edit dialog swaps the dialog for the confirmation,
+  // which names the rule's tag.
+  let opened =
+    model
+    |> run(tagging_page.UserRequestedRuleEdit(starbucks.id))
+    |> run(tagging_page.RuleModalMsg(rule_modal.DeleteRequested))
+
+  opened.rule_modal |> should.equal(rule_modal.hidden())
+  opened.rule_delete_modal
+  |> should.equal(rule_delete_modal.open(starbucks, "Coffee"))
+
   let #(deleting, effect, _) =
-    tagging_page.update(
-      model,
-      tagging_page.UserRequestedRuleDelete(starbucks, "Coffee"),
-    )
-    |> then_confirm_rule
+    tagging_page.update(opened, tagging_page.UserConfirmedRuleDelete)
 
   let assert delete_modal.Deleting(..) = deleting.rule_delete_modal
   rules(deleting) |> should.equal([starbucks])
@@ -772,18 +788,4 @@ pub fn runs_are_ignored_while_one_is_in_progress_test() {
   tag_effect |> should.equal(effect.none())
   after_retag |> should.equal(running)
   retag_effect |> should.equal(effect.none())
-}
-
-fn then_confirm(
-  result: #(tagging_page.Model, effect.Effect(tagging_page.Msg), Option(OutMsg)),
-) -> #(tagging_page.Model, effect.Effect(tagging_page.Msg), Option(OutMsg)) {
-  let #(model, _, _) = result
-  tagging_page.update(model, tagging_page.UserConfirmedTagDelete)
-}
-
-fn then_confirm_rule(
-  result: #(tagging_page.Model, effect.Effect(tagging_page.Msg), Option(OutMsg)),
-) -> #(tagging_page.Model, effect.Effect(tagging_page.Msg), Option(OutMsg)) {
-  let #(model, _, _) = result
-  tagging_page.update(model, tagging_page.UserConfirmedRuleDelete)
 }

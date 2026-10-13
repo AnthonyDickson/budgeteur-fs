@@ -56,8 +56,7 @@ pub type Msg {
   UserRequestedTagCreation
   UserRequestedTagEdit(Uuid)
   TagModalMsg(tag_modal.Msg)
-  // Tag delete modal messages
-  UserRequestedTagDelete(Tag)
+  // Tag delete modal messages. The tag modal's `DeleteRequested` opens it.
   UserConfirmedTagDelete
   UserCancelledTagDelete
   // Server response to a tag delete request. 404 is folded into Ok by the
@@ -70,8 +69,7 @@ pub type Msg {
   UserRequestedRuleCreation
   UserRequestedRuleEdit(Uuid)
   RuleModalMsg(rule_modal.Msg)
-  // Rule delete modal messages
-  UserRequestedRuleDelete(Rule, String)
+  // Rule delete modal messages. The rule modal's `DeleteRequested` opens it.
   UserConfirmedRuleDelete
   UserCancelledRuleDelete
   // Server response to a rule delete request (see ServerDeletedTag).
@@ -225,17 +223,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       }
     }
 
-    TagModalMsg(inner_msg) -> run_tag_modal(model, inner_msg)
+    TagModalMsg(tag_modal.DeleteRequested as inner_msg) ->
+      open_tag_delete(model) |> run_tag_modal(inner_msg)
 
-    UserRequestedTagDelete(tag) -> {
-      let rule_count =
-        rule_view.rules_for_tag(tag.id, loaded_rules(model)) |> list.length
-      #(
-        Model(..model, tag_delete_modal: tag_delete_modal.open(tag, rule_count)),
-        effect.none(),
-        None,
-      )
-    }
+    TagModalMsg(inner_msg) -> run_tag_modal(model, inner_msg)
 
     UserConfirmedTagDelete -> confirm_tag_delete(model)
 
@@ -277,13 +268,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       }
     }
 
-    RuleModalMsg(msg) -> run_rule_modal(model, msg)
+    RuleModalMsg(rule_modal.DeleteRequested as msg) ->
+      open_rule_delete(model) |> run_rule_modal(msg)
 
-    UserRequestedRuleDelete(rule, tag_name) -> #(
-      Model(..model, rule_delete_modal: rule_delete_modal.open(rule, tag_name)),
-      effect.none(),
-      None,
-    )
+    RuleModalMsg(msg) -> run_rule_modal(model, msg)
 
     UserConfirmedRuleDelete -> confirm_rule_delete(model)
 
@@ -405,6 +393,50 @@ fn run_auto_tag(action: auto_tag.Action) -> Effect(Msg) {
     },
   )
   |> effect.with_timeout(auto_tag.run_timeout_ms)
+}
+
+/// The id of the entity an edit dialog is open for, if any.
+fn editing_id(modal: form_modal.Modal(form)) -> Result(Uuid, Nil) {
+  case form_modal.mode(modal) {
+    Some(form_modal.Edit(id:)) -> Ok(id)
+    Some(form_modal.Create) | None -> Error(Nil)
+  }
+}
+
+/// Open the delete confirmation for the tag being edited, with the number of
+/// rules deleted with it. The tag modal closes itself on the same message.
+fn open_tag_delete(model: Model) -> Model {
+  let tag = {
+    use id <- result.try(editing_id(model.tag_modal))
+    list.find(loaded_tags(model), fn(tag) { tag.id == id })
+  }
+  case tag {
+    Ok(tag) -> {
+      let rule_count =
+        rule_view.rules_for_tag(tag.id, loaded_rules(model)) |> list.length
+      Model(..model, tag_delete_modal: tag_delete_modal.open(tag, rule_count))
+    }
+    Error(Nil) -> model
+  }
+}
+
+/// As for tags, for the rule being edited, named with its tag.
+fn open_rule_delete(model: Model) -> Model {
+  let target = {
+    use id <- result.try(editing_id(model.rule_modal))
+    use rule <- result.try(
+      list.find(loaded_rules(model), fn(rule) { rule.id == id }),
+    )
+    use tag <- result.map(
+      list.find(loaded_tags(model), fn(tag) { tag.id == rule.tag_id }),
+    )
+    #(rule, tag.name)
+  }
+  case target {
+    Ok(#(rule, tag_name)) ->
+      Model(..model, rule_delete_modal: rule_delete_modal.open(rule, tag_name))
+    Error(Nil) -> model
+  }
 }
 
 fn confirm_tag_delete(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
@@ -861,7 +893,6 @@ fn master_detail(
           selected_tag,
           on_select: UserSelectedTag,
           on_edit: UserRequestedTagEdit,
-          on_delete: UserRequestedTagDelete,
           on_create: UserRequestedTagCreation,
         ),
         rule_view.panel(
@@ -870,7 +901,6 @@ fn master_detail(
           selected_tag,
           on_create_rule: UserRequestedRuleCreation,
           on_edit_rule: UserRequestedRuleEdit,
-          on_delete_rule: UserRequestedRuleDelete,
         ),
       ]),
     ],

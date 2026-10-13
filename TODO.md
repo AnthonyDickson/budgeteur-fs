@@ -17,8 +17,7 @@
 
 ## Current Tasks
 
-- The table/list action UI is now inconsistent: For the balance sheet, rows are
-  clickable. Everything else uses inline action buttons
+None
 
 ## Backlog
 

@@ -19,6 +19,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
+import budgeteur/shared/row_ui
 import gleam/float
 import gleam/json
 import gleam/list
@@ -39,11 +40,6 @@ const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-me
 /// line's padding plus its chevron and gap (4 + 4 + 3), so every amount on the
 /// sheet shares one right edge.
 const total_row_padding = "pl-4 pr-11"
-
-/// Lifts a line's text above its button's overlay so it can be selected and
-/// copied. Positioned elements paint in DOM order, so being positioned after
-/// the button is enough. `w-fit` keeps the unclickable area to the text itself.
-const selectable_class = "relative w-fit max-w-full"
 
 // Types
 // -----
@@ -1031,10 +1027,11 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
 
   line_row(
     testid: "balance-sheet-item-" <> testid,
-    name: line_button(
-      name: item.name,
+    name: row_ui.open_button(
       testid: "edit-item-" <> testid,
       on_click: UserRequestedItemEdit(item.id),
+      class: "block max-w-full truncate",
+      children: [html.text(item.name)],
     ),
     details: ["As of " <> date.format(item.as_of)],
     balance: item.balance,
@@ -1083,71 +1080,24 @@ fn line_row(
     [
       html.div([attribute.class("min-w-0 flex-1")], [
         name,
-        html.p([attribute.class(selectable_class <> " text-xs text-gray-400")], [
-          html.text(string.join(details, " · ")),
-        ]),
+        html.p(
+          [attribute.class(row_ui.selectable_class <> " text-xs text-gray-400")],
+          [
+            html.text(string.join(details, " · ")),
+          ],
+        ),
       ]),
       html.span(
         [
           attribute.class(
-            selectable_class <> " text-right text-sm tabular-nums text-gray-900",
+            row_ui.selectable_class
+            <> " text-right text-sm tabular-nums text-gray-900",
           ),
           attribute.attribute("data-amount", float.to_string(balance)),
         ],
         [html.text(money.format(balance))],
       ),
-      chevron_icon(),
-    ],
-  )
-}
-
-/// A line's name, as the button that opens it. Its `::after` overlay stretches
-/// over the nearest positioned ancestor, the line, so the whole line is the
-/// click target while the name stays the one focusable element. Text that
-/// should stay selectable is lifted above the overlay with `selectable_class`.
-fn line_button(
-  name name: String,
-  testid testid: String,
-  on_click on_click: Msg,
-) -> Element(Msg) {
-  html.button(
-    [
-      attribute.type_("button"),
-      attribute.class(
-        "block max-w-full cursor-pointer truncate text-left text-sm text-gray-900 "
-        <> "group-hover:text-indigo-600 focus:outline-none after:absolute after:inset-0 focus-visible:after:ring-2 "
-        <> "focus-visible:after:ring-inset focus-visible:after:ring-indigo-500",
-      ),
-      attribute.attribute("data-testid", testid),
-      event.on_click(on_click),
-    ],
-    [html.text(name)],
-  )
-}
-
-fn chevron_icon() -> Element(Msg) {
-  html.svg(
-    [
-      attribute.attribute("fill", "none"),
-      attribute.attribute("viewBox", "0 0 24 24"),
-      attribute.attribute("stroke-width", "2"),
-      attribute.attribute("stroke", "currentColor"),
-      attribute.class(
-        "mt-0.5 h-4 w-4 shrink-0 text-gray-400 group-hover:text-gray-600",
-      ),
-      attribute.attribute("aria-hidden", "true"),
-    ],
-    [
-      element.namespaced(
-        "http://www.w3.org/2000/svg",
-        "path",
-        [
-          attribute.attribute("stroke-linecap", "round"),
-          attribute.attribute("stroke-linejoin", "round"),
-          attribute.attribute("d", "m8.25 4.5 7.5 7.5-7.5 7.5"),
-        ],
-        [],
-      ),
+      row_ui.chevron(class: "mt-0.5"),
     ],
   )
 }
@@ -1158,10 +1108,11 @@ fn account_button(
   account: Account,
   current: Option(balance_modal.CurrentBalance),
 ) -> Element(Msg) {
-  line_button(
-    name: account.name,
+  row_ui.open_button(
     testid: "record-balance-account-" <> uuid.to_string(account.id),
     on_click: UserRequestedBalanceRecord(account:, current:),
+    class: "block max-w-full truncate",
+    children: [html.text(account.name)],
   )
 }
 
@@ -1215,7 +1166,8 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
                         html.p(
                           [
                             attribute.class(
-                              selectable_class <> " text-xs text-amber-700",
+                              row_ui.selectable_class
+                              <> " text-xs text-amber-700",
                             ),
                           ],
                           [
@@ -1225,7 +1177,7 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
                       None -> element.none()
                     },
                   ]),
-                  chevron_icon(),
+                  row_ui.chevron(class: "mt-0.5"),
                 ],
               )
             }),

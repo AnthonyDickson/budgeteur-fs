@@ -1,4 +1,5 @@
 import budgeteur/shared/guard
+import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/tag_ui
 import budgeteur/tagging_page/rule.{type Rule}
@@ -11,7 +12,7 @@ import lustre/event
 import youid/uuid.{type Uuid}
 
 /// The rules panel for the currently selected tag: its name and swatch, a
-/// "New rule" button, and the rule rows with edit/delete actions. When no tag
+/// "New rule" button, and the rule rows, which open the rule's form. When no tag
 /// is selected, or the selected tag no longer exists, a prompt is shown
 /// instead.
 pub fn panel(
@@ -20,7 +21,6 @@ pub fn panel(
   selected_tag: Option(Uuid),
   on_create_rule on_create_rule: msg,
   on_edit_rule on_edit_rule: fn(Uuid) -> msg,
-  on_delete_rule on_delete_rule: fn(Rule, String) -> msg,
 ) -> Element(msg) {
   use id <- guard.some_lazy(selected_tag, else_return: rules_prompt)
   use selected_tag <- guard.ok_lazy(
@@ -75,7 +75,7 @@ pub fn panel(
         True -> [rules_empty_state(selected_tag)]
         False -> [
           column_headers(),
-          rules_list(rules, selected_tag.name, on_edit_rule, on_delete_rule),
+          rules_list(rules, on_edit: on_edit_rule),
         ]
       }
     ],
@@ -103,75 +103,43 @@ fn column_headers() -> Element(msg) {
         ],
         [html.text("Pattern")],
       ),
-      html.span(
-        [
-          attribute.class(
-            "ml-auto text-xs font-medium uppercase tracking-wide text-gray-500",
-          ),
-        ],
-        [html.text("Actions")],
-      ),
     ],
   )
 }
 
 fn rules_list(
   rules: List(Rule),
-  tag_name: String,
   on_edit on_edit: fn(Uuid) -> msg,
-  on_delete on_delete: fn(Rule, String) -> msg,
 ) -> Element(msg) {
   html.ul(
     [attribute.class("flex-1 divide-y divide-gray-100 overflow-y-auto")],
     list.map(rules, fn(rule) {
       html.li(
         [
-          attribute.class("flex h-11 items-center gap-3 px-4 hover:bg-gray-50"),
+          attribute.class(
+            "group relative flex h-11 items-center gap-3 px-4 hover:bg-gray-50",
+          ),
           attribute.attribute("data-testid", "rule-row"),
         ],
         [
-          html.code(
-            [
-              attribute.class(
-                "rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-800",
-              ),
-            ],
-            [html.text(rule.pattern)],
-          ),
-          html.div([attribute.class("ml-auto flex items-center gap-2")], [
-            html.button(
-              [
-                attribute.class(
-                  "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
-                  <> "hover:bg-indigo-50 hover:text-indigo-700 "
-                  <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-                  <> "focus:ring-offset-2",
+          html.div([attribute.class("min-w-0 flex-1")], [
+            row_ui.open_button(
+              testid: "edit-rule-" <> uuid.to_string(rule.id),
+              on_click: on_edit(rule.id),
+              class: "block max-w-full truncate",
+              children: [
+                html.code(
+                  [
+                    attribute.class(
+                      "rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-800",
+                    ),
+                  ],
+                  [html.text(rule.pattern)],
                 ),
-                attribute.attribute(
-                  "data-testid",
-                  "edit-rule-" <> uuid.to_string(rule.id),
-                ),
-                event.on_click(on_edit(rule.id)),
               ],
-              [html.text("Edit")],
-            ),
-            html.button(
-              [
-                attribute.class(
-                  "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
-                  <> "hover:bg-red-50 hover:text-red-700 "
-                  <> "focus:outline-none focus:ring-2 focus:ring-red-500 "
-                  <> "focus:ring-offset-2",
-                ),
-                attribute.attribute(
-                  "data-testid",
-                  "delete-rule-" <> uuid.to_string(rule.id),
-                ),
-                event.on_click(on_delete(rule, tag_name)),
-              ],
-              [html.text("Delete")],
             ),
           ]),
+          row_ui.chevron(class: ""),
         ],
       )
     }),

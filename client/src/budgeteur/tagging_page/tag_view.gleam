@@ -9,14 +9,14 @@ import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
 
-/// The tag sidebar: a selectable list of tags with edit/delete actions on each
-/// row, plus a "New tag" button.
+/// The tag sidebar: a selectable list of tags with an edit button on each row,
+/// plus a "New tag" button. Clicking a row selects its tag, so unlike other
+/// lists the row cannot also open the form; deleting starts from the form.
 pub fn panel(
   tags: List(Tag),
   selected_tag: Option(Uuid),
   on_select on_select: fn(Uuid) -> msg,
   on_edit on_edit: fn(Uuid) -> msg,
-  on_delete on_delete: fn(Tag) -> msg,
   on_create on_create: msg,
 ) -> Element(msg) {
   html.div(
@@ -64,7 +64,7 @@ pub fn panel(
                 html.span(
                   [
                     attribute.class(
-                      "flex-1 truncate pr-24 text-sm "
+                      "flex-1 truncate pr-12 text-sm "
                       <> case is_selected {
                         True -> "font-medium text-gray-900"
                         False -> "text-gray-700"
@@ -78,7 +78,7 @@ pub fn panel(
             html.div(
               [
                 attribute.class(
-                  "absolute inset-y-0 right-0 flex items-center gap-1 pr-2 "
+                  "absolute inset-y-0 right-0 flex items-center pr-2 "
                   <> "transition-opacity "
                   <> case is_selected {
                     True -> "opacity-100"
@@ -105,24 +105,6 @@ pub fn panel(
                       |> event.stop_propagation,
                   ],
                   [icon.pencil()],
-                ),
-                html.button(
-                  [
-                    attribute.class(
-                      "flex h-9 w-9 shrink-0 items-center justify-center "
-                      <> "rounded-md text-red-600 hover:bg-red-100 "
-                      <> "focus:outline-none focus:ring-2 focus:ring-inset "
-                      <> "focus:ring-red-500",
-                    ),
-                    attribute.attribute(
-                      "data-testid",
-                      "delete-tag-" <> uuid.to_string(tag.id),
-                    ),
-                    attribute.aria_label("Delete tag " <> tag.name),
-                    event.on_click(on_delete(tag))
-                      |> event.stop_propagation,
-                  ],
-                  [icon.trash()],
                 ),
               ],
             ),

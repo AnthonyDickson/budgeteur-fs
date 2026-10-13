@@ -60,7 +60,8 @@ test.describe('transactions', () => {
     // ── Update ───────────────────────────────────────────────────────────────
     const updatedDescription = `${description} (updated)`;
 
-    await row.getByRole('button', { name: 'Edit' }).click();
+    // Clicking anywhere on the row opens it.
+    await row.click();
     await expect(formModal).toBeVisible();
     const editTagSelect = formModal.getByTestId('transaction-tag-select');
     await expect(editTagSelect).toHaveValue(tagValue);
@@ -86,7 +87,9 @@ test.describe('transactions', () => {
 
     // ── Delete ───────────────────────────────────────────────────────────────
     const rowToDelete = updatedRow;
-    await rowToDelete.getByRole('button', { name: 'Delete' }).click();
+    await rowToDelete.click();
+    await formModal.getByTestId('transaction-delete-button').click();
+    await expect(formModal).toBeHidden();
 
     const deleteModal = page.getByTestId('delete-transaction-modal');
     await expect(deleteModal).toBeVisible();

@@ -294,18 +294,26 @@ pub fn cancelling_the_form_after_a_failed_save_keeps_the_list_test() {
   effect |> should.equal(effect.none())
 }
 
-pub fn user_requested_delete_form_sets_target_and_opens_test() {
+pub fn delete_in_the_edit_form_opens_the_confirmation_test() {
   let transaction = sample_transaction()
   let model = empty_model() |> with_transaction(transaction)
 
-  let #(new_model, effect, _) =
+  // Delete in the transaction's edit dialog swaps the dialog for the
+  // confirmation.
+  let #(editing, _, _) =
     transaction_page.update(
       model,
-      transaction_page.UserRequestedDeleteForm(transaction),
+      transaction_page.UserRequestedEditForm(transaction.id),
+    )
+  let #(opened, effect, _) =
+    transaction_page.update(
+      editing,
+      transaction_page.TransactionModalMsg(transaction_modal.DeleteRequested),
     )
 
-  let assert delete_modal.Confirming(target:, ..) = new_model.delete_modal
-  target |> should.equal(transaction)
+  opened.modal |> should.equal(transaction_modal.hidden())
+  opened.delete_modal
+  |> should.equal(transaction_delete_modal.open(transaction))
   effect |> should.equal(effect.none())
 }
 

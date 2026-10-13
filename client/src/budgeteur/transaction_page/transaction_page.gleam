@@ -8,6 +8,7 @@ import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
+import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/import_modal
@@ -59,8 +60,7 @@ pub type Msg {
   UserRequestedCreationForm
   UserRequestedEditForm(Uuid)
   TransactionModalMsg(transaction_modal.Msg)
-  // Delete modal messages
-  UserRequestedDeleteForm(Transaction)
+  // Delete modal messages. The transaction modal's `DeleteRequested` opens it.
   UserConfirmedDelete
   ServerDeletedTransaction(Transaction, Result(Nil, ApiError))
   UserCancelledDeleteModal
@@ -240,13 +240,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       }
     }
 
-    TransactionModalMsg(msg) -> run_transaction_modal(model, msg)
+    TransactionModalMsg(transaction_modal.DeleteRequested as msg) ->
+      open_delete(model) |> run_transaction_modal(msg)
 
-    UserRequestedDeleteForm(transaction) -> #(
-      Model(..model, delete_modal: transaction_delete_modal.open(transaction)),
-      effect.none(),
-      None,
-    )
+    TransactionModalMsg(msg) -> run_transaction_modal(model, msg)
 
     UserConfirmedDelete -> {
       case delete_modal.confirm(model.delete_modal) {
@@ -276,6 +273,22 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     )
 
     ImportModalMsg(msg) -> run_import_modal(model, msg)
+  }
+}
+
+/// Open the delete confirmation for the transaction being edited. The
+/// transaction modal closes itself on the same message.
+fn open_delete(model: Model) -> Model {
+  let transaction = case form_modal.mode(model.modal) {
+    Some(form_modal.Edit(id:)) ->
+      remote.unwrap(model.transactions, or: [])
+      |> list.find(fn(t) { t.id == id })
+    Some(form_modal.Create) | None -> Error(Nil)
+  }
+  case transaction {
+    Ok(transaction) ->
+      Model(..model, delete_modal: transaction_delete_modal.open(transaction))
+    Error(Nil) -> model
   }
 }
 
@@ -601,10 +614,8 @@ fn transactions_table(
                   html.th([attribute.class("px-4 py-3 font-medium")], [
                     html.text("Tag"),
                   ]),
-                  html.th(
-                    [attribute.class("px-4 py-3 font-medium text-right")],
-                    [html.text("Actions")],
-                  ),
+                  // The chevron column.
+                  html.td([], []),
                 ]),
               ],
             ),
@@ -613,7 +624,7 @@ fn transactions_table(
               list.map(transactions, fn(transaction) {
                 html.tr(
                   [
-                    attribute.class("hover:bg-gray-50"),
+                    attribute.class("group relative hover:bg-gray-50"),
                     attribute.attribute("data-testid", "transaction-row"),
                   ],
                   [
@@ -637,12 +648,15 @@ fn transactions_table(
                       ],
                       [html.text(transaction.amount |> money.format)],
                     ),
-                    html.td(
-                      [attribute.class("px-4 py-3 text-sm text-gray-700")],
-                      [
-                        html.text(transaction.description),
-                      ],
-                    ),
+                    html.td([attribute.class("px-4 py-3")], [
+                      row_ui.open_button(
+                        testid: "edit-transaction-"
+                          <> uuid.to_string(transaction.id),
+                        on_click: UserRequestedEditForm(transaction.id),
+                        class: "",
+                        children: [html.text(transaction.description)],
+                      ),
+                    ]),
                     html.td(
                       [attribute.class("px-4 py-3 text-sm text-gray-700")],
                       [
@@ -664,62 +678,9 @@ fn transactions_table(
                         }),
                       ],
                     ),
-                    html.td(
-                      [
-                        attribute.class(
-                          "whitespace-nowrap px-4 py-3 text-right",
-                        ),
-                      ],
-                      [
-                        html.div(
-                          [
-                            attribute.class(
-                              "flex items-center justify-end gap-2",
-                            ),
-                          ],
-                          [
-                            html.button(
-                              [
-                                attribute.class(
-                                  "rounded-md px-3 py-1 text-sm font-medium text-indigo-600 "
-                                  <> "hover:bg-indigo-50 hover:text-indigo-700 "
-                                  <> "focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-                                  <> "focus:ring-offset-2",
-                                ),
-                                attribute.attribute(
-                                  "data-testid",
-                                  "edit-transaction-"
-                                    <> uuid.to_string(transaction.id),
-                                ),
-                                event.on_click(UserRequestedEditForm(
-                                  transaction.id,
-                                )),
-                              ],
-                              [html.text("Edit")],
-                            ),
-                            html.button(
-                              [
-                                attribute.class(
-                                  "rounded-md px-3 py-1 text-sm font-medium text-red-600 "
-                                  <> "hover:bg-red-50 hover:text-red-700 "
-                                  <> "focus:outline-none focus:ring-2 focus:ring-red-500 "
-                                  <> "focus:ring-offset-2",
-                                ),
-                                attribute.attribute(
-                                  "data-testid",
-                                  "delete-transaction-"
-                                    <> uuid.to_string(transaction.id),
-                                ),
-                                event.on_click(UserRequestedDeleteForm(
-                                  transaction,
-                                )),
-                              ],
-                              [html.text("Delete")],
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                    html.td([attribute.class("py-3 pr-4")], [
+                      row_ui.chevron(class: "block"),
+                    ]),
                   ],
                 )
               }),

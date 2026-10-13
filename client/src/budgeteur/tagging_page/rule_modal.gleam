@@ -89,7 +89,7 @@ pub type Msg {
   // "+ New Rule" clicked; the page passes the currently selected tag so the
   // create form can seed its tag select.
   CreateRequested(default_tag_id: Uuid)
-  // Row "Edit" clicked; the page looks the rule up first; the form never owns
+  // Row clicked; the page looks the rule up first; the form never owns
   // the list.
   EditRequested(rule: Rule)
   PatternChanged(value: String)
@@ -106,6 +106,9 @@ pub type Msg {
   SaveCompleted(result: Result(Rule, ApiError))
   // Cancel button, or the browser dismissed the dialog (Esc / outside click)
   CancelRequested
+  // Delete button of the edit dialog. The dialog closes, and the page opens
+  // the delete confirmation in its place.
+  DeleteRequested
 }
 
 pub fn update(
@@ -150,7 +153,11 @@ pub fn update(
       None,
       form_modal.NoChange,
     )
-    CancelRequested -> #(form_modal.cancel(state), None, form_modal.NoChange)
+    CancelRequested | DeleteRequested -> #(
+      form_modal.cancel(state),
+      None,
+      form_modal.NoChange,
+    )
   }
 }
 
@@ -521,20 +528,29 @@ fn view_form(
             html.text("Changing the tag moves this rule to that tag."),
           ]),
         ]),
-        html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-          modal_ui.cancel_button(
+        modal_ui.form_footer(
+          leading: case mode {
+            form_modal.Create -> None
+            form_modal.Edit(_) ->
+              Some(modal_ui.delete_request_button(
+                testid: "rule-delete-button",
+                disabled: submitting,
+                on_click: DeleteRequested,
+              ))
+          },
+          cancel: modal_ui.cancel_button(
             testid: "rule-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          modal_ui.submit_button(
+          submit: modal_ui.submit_button(
             testid: "rule-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,
             busy: submitting,
             disabled: has_error,
           ),
-        ]),
+        ),
       ],
     ),
   ]

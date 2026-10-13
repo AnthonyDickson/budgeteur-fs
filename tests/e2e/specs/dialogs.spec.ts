@@ -47,16 +47,17 @@ test.describe('dialogs', () => {
     'a delete dialog closed by the browser opens again',
     async ({ page }, testInfo) => {
       await createFirstTag(page, 'Groceries');
-      const deleteButton = page.getByRole('button', {
-        name: 'Delete tag Groceries',
-      });
+      const openDelete = async () => {
+        await page.getByRole('button', { name: 'Edit tag Groceries' }).click();
+        await tagModal(page).getByTestId('tag-delete-button').click();
+      };
 
-      await deleteButton.click();
+      await openDelete();
       await expect(deleteTagModal(page)).toBeVisible();
       await page.keyboard.press('Escape');
       await expect(deleteTagModal(page)).toBeHidden();
 
-      await deleteButton.click();
+      await openDelete();
       await expect(deleteTagModal(page)).toBeVisible();
       await expect(deleteTagModal(page)).toContainText('Groceries');
       await page.screenshot({
