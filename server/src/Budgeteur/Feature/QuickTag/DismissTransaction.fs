@@ -62,7 +62,6 @@ module DismissTransaction =
             OpenApiConfig (
                 responseBodies = [|
                     ResponseBody (typeof<unit>, statusCode = 204)
-                    ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],

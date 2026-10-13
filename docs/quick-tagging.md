@@ -31,7 +31,7 @@ it are cited where they shaped a decision.
 | Without a tag | Untagged or dismissed. The income statement's untagged lines cover both; transfers are left out.                  |
 | Queue         | The user's untagged transactions, newest first.                                                                   |
 | Batch         | The first 50 transactions of the queue, as fetched by the quick tagging page.                                     |
-| Quick tag     | Choosing a tag for a queued transaction, or dismissing it. Either is a manual decision.                           |
+| Quick tag     | Choosing a tag for a queued transaction, marking it as a transfer, or dismissing it.                              |
 
 Categorisation, tag source, manual tag, and rule tag are defined in
 [auto-tagging](auto-tagging.md#ubiquitous-language).
@@ -44,9 +44,9 @@ Categorisation, tag source, manual tag, and rule tag are defined in
   a dismissal, or a transfer. A rule never dismisses or marks a transfer, and
   the domain type cannot express either with a rule source. Quick tagging's
   "Dismiss" button records a dismissal. A transfer is marked by the user, in the
-  transaction form or quick tagging, or detected on import
-  ([CSV import](csv-import.md) decision 9). Whether a transaction is a transfer
-  is no longer a column of `Transactions`.
+  transaction form or with quick tagging's "Transfer" button, or detected on
+  import ([CSV import](csv-import.md) decision 9). Whether a transaction is a
+  transfer is no longer a column of `Transactions`.
 - **Storage**: a kind column (`Tagged`, `Dismissed`, `Transfer`), with the tag
   and source set only on a tagged row; checks tie both to the kind. One row per
   transaction still holds, so a transaction cannot be both tagged and dismissed,
@@ -130,8 +130,9 @@ Categorisation, tag source, manual tag, and rule tag are defined in
 
 ### 3. One click saves one transaction's tag
 
-- **Decision**: each tag choice or dismissal sends its own request, which writes
-  a manual categorisation for one transaction. There is no batch submit.
+- **Decision**: each choice (a tag, "Transfer", or "Dismiss") sends its own
+  request, which writes a manual categorisation for one transaction. There is no
+  batch submit.
 - **Why**: the goal is one click per transaction. The previous project's apply
   step held a page of choices in unsaved form state, and lost them if the user
   navigated away. [CSV import](csv-import.md) decision 11 already settled on
@@ -158,17 +159,19 @@ Categorisation, tag source, manual tag, and rule tag are defined in
 
 ### 5. Tag choices are native buttons
 
-- **Decision**: every tag and "Dismiss" is a native button whose accessible name
-  is the tag name, or "Dismiss". Rows have no open-row overlay (the shared row
-  chrome in `client/src/budgeteur/shared/`), and nothing covers the buttons.
-  Only a row with a request in flight has disabled buttons.
+- **Decision**: every tag, "Transfer", and "Dismiss" is a native button whose
+  accessible name is the tag name, "Transfer", or "Dismiss". Rows have no
+  open-row overlay (the shared row chrome in `client/src/budgeteur/shared/`),
+  and nothing covers the buttons. Only a row with a request in flight has
+  disabled buttons.
 - **Why**: Vimium's link hints reliably find native buttons and links. It finds
   elements with script click handlers, or labels over visually hidden inputs as
   in the previous project, less reliably. It skips elements another element
   covers, and the open-row overlay covers a whole row by design. Disabled
   buttons get no hint.
 - **Order**: the same on every row, so positions become familiar: expense tags,
-  then income tags, each by name, then "Dismiss", styled apart from the tags.
+  then income tags, each by name, then "Transfer" and "Dismiss", styled apart
+  from the tags.
 - **Rejected**: ordering tags by the amount's sign, putting income tags first
   for credits. Positions would move between rows, and refunds would put the
   likely tag second. Suggested tags belong to smart tagging.
@@ -177,7 +180,7 @@ Categorisation, tag source, manual tag, and rule tag are defined in
 
 ### 6. Quick tagging is its own slice
 
-- **Decision**: `Feature/QuickTag/` owns three endpoints, one file each:
+- **Decision**: `Feature/QuickTag/` owns four endpoints, one file each:
   - `GET /api/quick-tag` returning the batch, newest first, with the total in
     the queue. Each entry has the transaction's id, date, description, amount,
     and account name.
@@ -186,17 +189,19 @@ Categorisation, tag source, manual tag, and rule tag are defined in
     another user's.
   - `DELETE /api/quick-tag/{transactionId}` dismissing the transaction, which
     removes it from the queue, returning `204`.
+  - `PUT /api/quick-tag/{transactionId}/transfer` marking the transaction as a
+    transfer, which removes it from the queue, returning `204`. It takes no
+    body.
 
-  For both writes, an unknown transaction, or another user's, is `404`, checked
-  before the write. Both are idempotent and replace any categorisation, a
-  transfer included. They write through the shared categorisation store with the
-  quick tag transitions from decision 1. The page reads tags from the existing
-  tag endpoint.
+  For every write, an unknown transaction, or another user's, is `404`, checked
+  before the write. Each is idempotent and replaces any categorisation. They
+  write through the shared categorisation store with the quick tag transitions
+  from decision 1. The page reads tags from the existing tag endpoint.
 - **Why**: quick tagging is a categorisation workflow, like auto-tagging, and
   auto-tagging decision 8 placed such workflows in their own slices writing
-  categorisations through `Data/`. Two write operations keep the request bodies
-  free of a null that means "dismiss", and the OpenAPI document cannot describe
-  a union with fields ([openapi](openapi.md)).
+  categorisations through `Data/`. An operation per choice keeps the request
+  bodies free of a null that means "dismiss" or "transfer", and the OpenAPI
+  document cannot describe a union with fields ([openapi](openapi.md)).
 - **Goal**: quick tagging changes for one reason, and categorisations are still
   written one way.
 
@@ -275,17 +280,18 @@ Categorisation, tag source, manual tag, and rule tag are defined in
     never changing a dismissal or a transfer.
   - Queue: only the caller's untagged transactions, newest first, the batch
     size, and the total.
-  - Quick tag endpoints: tag and dismiss, replacing a transfer; `404` for
-    another user's transaction, `400` for a tag the user does not have.
+  - Quick tag endpoints: tag, dismiss, and mark a transfer, each replacing what
+    the transaction had; `404` for another user's transaction, `400` for a tag
+    the user does not have.
   - Income statement: a dismissed transaction counts in the untagged lines.
   - Client: a click sends the request and marks the row; a row is disabled while
     saving; a failure restores the previous state and shows a toast; "Next
     batch" fetches the queue.
-  - E2E: create an untagged transaction, open quick tagging from the
-    transactions page, click a tag, reload; the queue is empty and the
-    transactions table shows the tag. Finding the button by its role and name
-    within the row checks that it is a native button, the closest a test gets to
-    Vimium.
+  - E2E: create three untagged transactions, open quick tagging from the
+    transactions page, and tag one, dismiss one, and mark one as a transfer;
+    after a reload the queue is empty, and the transactions table shows the tag
+    and the transfer. Finding the button by its role and name within the row
+    checks that it is a native button, the closest a test gets to Vimium.
 
 ## Deferred
 

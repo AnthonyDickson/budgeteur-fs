@@ -33,16 +33,17 @@ const queueRow = (page: Page, description: string) =>
   page.getByTestId('quick-tag-row').filter({ hasText: description });
 
 test.describe('quick tagging', () => {
-  test('tags and dismisses transactions with one click each', async ({
+  test('tags, marks transfers, and dismisses with one click each', async ({
     page,
   }, testInfo) => {
     await createFirstTag(page, 'Groceries');
     await recordTransaction(page, 'Countdown');
     await recordTransaction(page, 'ATM withdrawal');
+    await recordTransaction(page, 'To savings');
 
     await page.getByTestId('quick-tag-link').click();
     await expect(page.getByTestId('quick-tag-waiting')).toHaveText(
-      '2 transactions are waiting for a tag',
+      '3 transactions are waiting for a tag',
     );
 
     // Found by role and name: the choices are native buttons, which Vimium's
@@ -58,6 +59,12 @@ test.describe('quick tagging', () => {
     });
     await dismiss.click();
     await expect(dismiss).toHaveAttribute('aria-pressed', 'true');
+
+    const transfer = queueRow(page, 'To savings').getByRole('button', {
+      name: 'Transfer',
+    });
+    await transfer.click();
+    await expect(transfer).toHaveAttribute('aria-pressed', 'true');
 
     await expect(page.getByTestId('quick-tag-waiting')).toHaveText(
       '0 transactions are waiting for a tag',
@@ -76,5 +83,10 @@ test.describe('quick tagging', () => {
         .locator('[data-testid="transaction-row"]')
         .filter({ hasText: 'Countdown' }),
     ).toContainText('Groceries');
+    await expect(
+      page
+        .locator('[data-testid="transaction-row"]')
+        .filter({ hasText: 'To savings' }),
+    ).toContainText('Transfer');
   });
 });

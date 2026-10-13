@@ -10,6 +10,9 @@ module QuickTagEndpoints =
 
     let all (queryContext : QueryContextFactory) = [
         GET [ ReadQueue.endpoint queryContext ]
-        PUT [ QuickTagTransaction.endpoint queryContext ]
+        PUT [
+            QuickTagTransaction.endpoint queryContext
+            MarkTransfer.endpoint queryContext
+        ]
         DELETE [ DismissTransaction.endpoint queryContext ]
     ]

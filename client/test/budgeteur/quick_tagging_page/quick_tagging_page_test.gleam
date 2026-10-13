@@ -1,7 +1,7 @@
 import budgeteur/quick_tagging_page/queue.{Queue, QueuedTransaction}
 import budgeteur/quick_tagging_page/quick_tagging_page.{
   ClientFetchedQueue, ClientFetchedTags, Dismiss, Saved, Saving, ServerSaved,
-  TagWith, UserChose, UserRequestedNextBatch, UserRetried,
+  TagWith, Transfer, UserChose, UserRequestedNextBatch, UserRetried,
 }
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/api_route
@@ -231,4 +231,19 @@ pub fn tags_are_ordered_expenses_first_then_by_name_test() {
   quick_tagging_page.ordered_tags([salary, rent, bonus, groceries])
   |> list.map(fn(tag) { tag.name })
   |> should.equal(["Groceries", "Rent", "Bonus", "Salary"])
+}
+
+pub fn marking_a_transfer_sends_a_put_to_the_transfer_route_test() {
+  let queue = queue()
+  let id = first_id(queue)
+
+  let #(model, effect) = update(loaded_model(queue), UserChose(id, Transfer))
+
+  let assert effect.HttpRequest(method: http_effect.Put, url:, ..) = effect
+  url |> should.equal(api_route.to_string(api_route.MarkTransfer(id)))
+
+  let #(model, _) = update(model, ServerSaved(id, Transfer, Ok(Nil)))
+
+  dict.get(model.rows, id) |> should.equal(Ok(Saved(Transfer)))
+  quick_tagging_page.waiting(model) |> should.equal(Some(0))
 }
