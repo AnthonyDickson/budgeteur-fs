@@ -118,8 +118,13 @@ test.describe('dashboard', () => {
       await expect(expenseLines.nth(1)).toContainText('Untagged expenses');
       await expectAmount(expenseLines.nth(1), 25);
 
-      await expect(page.getByTestId('dashboard-untagged-note')).toContainText(
-        '1 transaction',
+      const untaggedNote = page.getByTestId('dashboard-untagged-note');
+      await expect(untaggedNote).toContainText(
+        '1 transaction is waiting for a tag',
+      );
+      await expect(untaggedNote.getByRole('link')).toHaveAttribute(
+        'href',
+        '/quick-tagging',
       );
       await expect(page.getByTestId('dashboard-empty-balance-sheet'))
         .toBeVisible();

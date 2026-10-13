@@ -148,19 +148,20 @@ and history are later work (see [Deferred](#deferred)).
 
 - **Tag kind is required.** Every tag has a `Kind`; the tag form asks for it.
 - **Response shape.** The income statement carries its period, the three totals,
-  the income and expense lines, and the number of untagged transactions. Expense
-  lines also carry their share. Untagged lines have no tag id or colour. Lines
-  are sorted by amount, largest first, with the untagged line last. Field docs
-  are in the OpenAPI document.
+  and the income and expense lines. Expense lines also carry their share.
+  Untagged lines have no tag id or colour. Lines are sorted by amount, largest
+  first, with the untagged line last. Field docs are in the OpenAPI document.
 - **Empty states.** A period with no transactions shows a link to the
   transactions page. An empty balance sheet is an empty state with a link to the
-  balance sheet page, as on that page. Untagged transactions in the period get a
-  muted note below the lines with a link to the transactions page, not a
-  warning: some transactions are left untagged on purpose.
+  balance sheet page, as on that page. Transactions waiting for a tag get a
+  muted note below the statement with a link to quick tagging, not a warning:
+  some transactions are left untagged on purpose. The note counts the whole
+  quick tagging queue, whatever the period, so it matches the page it links to
+  ([quick tagging](quick-tagging.md) decision 7).
 - **Route.** The dashboard is the `/` route.
 - **Client read shapes.** The dashboard page decodes only the balance sheet
-  fields it shows, with its own decoder, rather than importing the balance sheet
-  page's.
+  fields it shows, and only the quick tagging queue's total, with its own
+  decoders, rather than importing the other pages'.
 - **Highest-value tests.** The income statement rules (refunds, negative expense
   lines, clawbacks, the untagged split, shares, rounding) and the period
   arithmetic (month ends, leap years, year boundaries).
@@ -187,8 +188,6 @@ and history are later work (see [Deferred](#deferred)).
 - **Savings runway.** Builds on a baseline of average monthly expenses.
 - **Excluded tags.** `IsTransfer` covers the main use (internal transfers).
   Revisit if another use appears.
-- **Untagged transaction list with quick tagging.** The "Quick-tagging" roadmap
-  item.
 - **Data freshness.** Bank exports lag a few days, so the newest days of any
   period are incomplete. If that becomes noticeable, show the latest transaction
   date.

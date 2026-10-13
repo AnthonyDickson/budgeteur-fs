@@ -7,6 +7,7 @@ module EndpointTests =
     open Expecto
 
     open Budgeteur.Feature.IncomeStatement
+    open Budgeteur.Feature.QuickTag
     open Budgeteur.Feature.Transaction
     open Budgeteur.Tests
 
@@ -16,6 +17,7 @@ module EndpointTests =
             |> TestAppConfig.withTags
             |> TestAppConfig.withTransactions
             |> TestAppConfig.withIncomeStatement
+            |> TestAppConfig.withQuickTag
         )
 
     let private createTransaction
@@ -114,11 +116,47 @@ module EndpointTests =
                     [ Some rent, "Rent", 2000m; None, "Untagged expenses", 25m ]
                     "the expense tag's and the untagged transactions should \
                     be expenses"
+            }
+
+            testCaseAsync "a dismissed transaction counts as untagged"
+            <| async {
+                use app = newApp ()
+
+                let request : CreateTransaction.CreateTransactionRequest = {
+                    Amount = -25m
+                    Description = "ATM withdrawal"
+                    Date = DateOnly (2026, 10, 10)
+                    IsTransfer = false
+                    TagId = None
+                    AccountId = None
+                }
+
+                let! response =
+                    TestHttp.postJson app.Client CreateTransaction.Path request
+                    |> Async.AwaitTask
+
+                let! created = TestHttp.readJson<TransactionResponse> response
+
+                let! response =
+                    app.Client.DeleteAsync (
+                        TestHttp.itemPath DismissTransaction.Path created.Id
+                    )
+                    |> Async.AwaitTask
 
                 Expect.equal
-                    statement.UntaggedCount
-                    1
-                    "the untagged transaction should be counted"
+                    response.StatusCode
+                    HttpStatusCode.NoContent
+                    "dismissing should return 204"
+
+                let! response = getStatement app.Client october
+
+                let! statement =
+                    TestHttp.readJson<IncomeStatementResponse> response
+
+                Expect.equal
+                    (expenseAmounts statement.ExpenseLines)
+                    [ "Untagged expenses", 25m ]
+                    "a dismissal has no tag, so it is an untagged expense"
             }
 
             testCaseAsync
@@ -189,11 +227,6 @@ module EndpointTests =
                     statement.Income
                     0m
                     "the transfer in should not count as income"
-
-                Expect.equal
-                    statement.UntaggedCount
-                    0
-                    "an untagged transfer should not be counted"
             }
 
             testCaseAsync "the statement is scoped to the user"

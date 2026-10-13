@@ -68,10 +68,6 @@ type IncomeStatementResponse = {
     /// <summary>Lines for expense tags and untagged expenses, largest first,
     /// untagged last.</summary>
     ExpenseLines : ExpenseLineResponse list
-
-    /// <summary>The number of non-transfer transactions in the period without a
-    /// tag.</summary>
-    UntaggedCount : int
 }
 
 module IncomeStatementResponse =
@@ -106,7 +102,6 @@ module IncomeStatementResponse =
                 Amount = line.Amount
                 Share = line.Share
             })
-        UntaggedCount = statement.UntaggedCount
     }
 
 module ReadIncomeStatement =

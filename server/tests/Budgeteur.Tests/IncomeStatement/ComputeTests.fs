@@ -56,11 +56,6 @@ module ComputeTests =
                 Expect.equal statement.Income 0m "income should be zero"
                 Expect.equal statement.Expenses 0m "expenses should be zero"
                 Expect.equal statement.NetIncome 0m "net income should be zero"
-
-                Expect.equal
-                    statement.UntaggedCount
-                    0
-                    "there should be no untagged transactions"
             }
 
             test
@@ -184,11 +179,6 @@ module ComputeTests =
                     statement.NetIncome
                     3025m
                     "net income should be income minus expenses"
-
-                Expect.equal
-                    statement.UntaggedCount
-                    3
-                    "every untagged transaction should be counted"
             }
 
             test "lines are sorted largest first with the untagged line last" {
