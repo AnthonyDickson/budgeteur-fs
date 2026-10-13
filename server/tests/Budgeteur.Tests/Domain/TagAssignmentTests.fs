@@ -10,16 +10,12 @@ module TagAssignmentTests =
     let private tagB = Guid.NewGuid ()
 
     let private manual tagId =
-        Some {
-            TagId = tagId
-            Source = TagSource.Manual
-        }
+        Some (TagAssignment.Tagged (tagId, TagSource.Manual))
 
     let private byRule tagId =
-        Some {
-            TagId = tagId
-            Source = TagSource.Rule
-        }
+        Some (TagAssignment.Tagged (tagId, TagSource.Rule))
+
+    let private dismissed = Some TagAssignment.Dismissed
 
     [<Tests>]
     let tests =
@@ -32,7 +28,7 @@ module TagAssignmentTests =
 
             testCase "onUpdate keeps the source only when the tag is unchanged"
             <| fun () ->
-                let onUpdate = TagAssignment.onUpdate
+                let onUpdate = TagAssignment.onUpdate false
                 let expect = Expect.equal
 
                 expect (onUpdate (Some tagA) (byRule tagA)) (byRule tagA) "same"
@@ -40,6 +36,23 @@ module TagAssignmentTests =
                 expect (onUpdate (Some tagA) None) (manual tagA) "untagged"
                 expect (onUpdate None (byRule tagA)) None "clear rule tag"
                 expect (onUpdate None (manual tagA)) None "clear manual tag"
+
+            testCase "onUpdate keeps a dismissal until the user picks a tag"
+            <| fun () ->
+                let onUpdate = TagAssignment.onUpdate false
+                let expect = Expect.equal
+
+                expect (onUpdate None dismissed) dismissed "no tag"
+                expect (onUpdate (Some tagA) dismissed) (manual tagA) "tag"
+
+            testCase "onUpdate removes a transfer's assignment"
+            <| fun () ->
+                let onUpdate = TagAssignment.onUpdate true
+                let expect = Expect.equal
+
+                expect (onUpdate None (manual tagA)) None "manual tag"
+                expect (onUpdate None (byRule tagA)) None "rule tag"
+                expect (onUpdate None dismissed) None "dismissal"
 
             testCase "a transfer cannot have a tag"
             <| fun () ->
@@ -66,7 +79,9 @@ module TagAssignmentTests =
                     (manual tagA)
                     "manual"
 
-            testCase "retag recomputes everything but manual tags"
+                expect (tagUntagged (Some tagA) dismissed) dismissed "dismissed"
+
+            testCase "retag recomputes everything but manual decisions"
             <| fun () ->
                 let retag = TagAssignment.retag
                 let expect = Expect.equal
@@ -80,4 +95,6 @@ module TagAssignmentTests =
                     (retag None (manual tagA))
                     (manual tagA)
                     "manual, no winner"
+
+                expect (retag (Some tagA) dismissed) dismissed "dismissed"
         ]

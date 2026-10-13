@@ -115,10 +115,7 @@ module ImportTests =
                     [
                         true, None
                         false,
-                        Some {
-                            TagId = tagId
-                            Source = TagSource.Rule
-                        }
+                        Some (TagAssignment.Tagged (tagId, TagSource.Rule))
                         false, None
                     ]
                     "only the transfer to the user's own account is marked"

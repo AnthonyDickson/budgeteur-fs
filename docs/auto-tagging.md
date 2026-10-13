@@ -29,7 +29,7 @@ decision.
 | Match        | A rule matches a transaction when its pattern occurs anywhere in the description, ignoring case.           |
 | Comparison   | How patterns and descriptions are compared: ordinal, ignoring case. Used by matching and rule uniqueness.  |
 | Winning rule | The matching rule with the longest pattern. Equal lengths are ordered by the pattern's ordinal comparison. |
-| Assignment   | A transaction's tag and its source. Stored apart from the transaction; an untagged transaction has none.   |
+| Assignment   | A transaction's tag and its source, or a dismissal. Kept apart from the transaction; untagged means none.  |
 | Tag source   | Where a transaction's tag came from: `Manual` or `Rule`.                                                   |
 | Manual tag   | A tag the user set. Rules never change it.                                                                 |
 | Rule tag     | A tag set by auto-tagging. Derived data: re-tagging recomputes it.                                         |
@@ -93,11 +93,14 @@ decision.
   and make every tagging change pass through the transaction model. Separate,
   categorisation can change without touching transactions, and workflows that
   tag cannot change a transaction's facts.
-- **Storage**: one row per tagged transaction, keyed by transaction id and
-  holding the user id, the tag, and the tag source. Untagged means no row.
+- **Storage**: one row per tagged or dismissed transaction, keyed by transaction
+  id and holding the user id, the tag, and the tag source. Untagged means no
+  row.
   - Transaction id references `Transactions` and tag references `Tags`, both `ON
     DELETE CASCADE`: deleting either removes the assignment.
-  - Tag and source are `NOT NULL`, and the source is `Manual` or `Rule`.
+  - The source is `NOT NULL` and is `Manual` or `Rule`. The tag is `NULL` only
+    for a dismissal, which has the `Manual` source
+    ([quick tagging](quick-tagging.md) decision 1).
   - Indexed by user id, for reading a user's assignments, and by tag id, so
     deleting a tag finds its assignments without a table scan.
   - Verified with SQLite 3.53: deleting a tag deletes its assignments and the
@@ -128,8 +131,9 @@ decision.
 
 ### 4. Assignments record where the tag came from
 
-- **Decision**: a transaction is untagged, manually tagged, or tagged by a rule.
-  A rule tag does not record which rule set it.
+- **Decision**: a transaction is untagged, manually tagged, tagged by a rule, or
+  dismissed: the user decided it has no tag ([quick tagging](quick-tagging.md)
+  decision 1). A rule tag does not record which rule set it.
 - **Why**: re-tagging has to tell the user's decisions from derived ones. The
   previous project could not, so its "auto-tag all" overwrote manual tags. Smart
   auto-tagging (roadmap) can use manual tags as user-confirmed training labels.
@@ -137,15 +141,18 @@ decision.
   - Creating a transaction with a tag makes it manual; without one, untagged.
   - Updating to a different tag makes it manual; clearing the tag makes it
     untagged; keeping the same tag keeps its source, so editing the amount of a
-    rule-tagged transaction does not make it manual.
-  - Auto-tagging sets rule tags.
+    rule-tagged transaction does not make it manual. Saving a dismissed
+    transaction without a tag keeps it dismissed, and marking a transaction as a
+    transfer removes its assignment.
+  - Auto-tagging sets rule tags, and never changes a manual tag or a dismissal.
   - Editing or deleting a rule leaves the rule tags it set unchanged until the
     next re-tag.
   - Deleting a tag removes its assignments, which makes those transactions
     untagged.
 - **Known limitation**: clearing a tag by hand makes the transaction untagged,
-  so the next run can tag it again. A "manually untagged" state would prevent
-  this. Deferred until it is a problem.
+  so the next run can tag it again unless the user dismisses it. Clearing does
+  not dismiss, because a cleared tag usually means the tag was wrong, not that
+  the transaction has none.
 - **Rejected**: a reference to the rule that set the tag, so the transactions
   table can name it. Rule edits do not change assignments (decision 5), so after
   an edit the reference names a pattern the description may not contain, or a
@@ -294,7 +301,6 @@ decision.
 - **Tagging queue.** Part of quick-tagging. The previous project queued imported
   transactions that no rule tagged. Restore the table or replace it with a query
   over assignments when quick-tagging is designed.
-- **Manually untagged state.** See the known limitation in decision 4.
 - **Rule that set a tag.** See the rejected option in decision 4.
 - **Preview of a re-tag.** A dry run listing what would change. Add if the
   confirmation and the counts in the result toast are not enough.

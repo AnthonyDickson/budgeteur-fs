@@ -117,7 +117,7 @@ module main =
     type TagAssignments =
         { TransactionId: System.Guid
           UserId: string
-          TagId: System.Guid
+          TagId: Option<System.Guid>
           Source: string }
 
         interface IWriteColumns with
@@ -370,7 +370,7 @@ module LeftViewExtensions =
             match this.TransactionId with
             | Some value ->
                 let record: main.TagAssignments =
-                    { TransactionId = value; UserId = this.UserId.Value; TagId = this.TagId.Value; Source = this.Source.Value }
+                    { TransactionId = value; UserId = this.UserId.Value; TagId = this.TagId; Source = this.Source.Value }
 
                 Some record
             | None -> None

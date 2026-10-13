@@ -28,9 +28,8 @@ API.
    dismissed case; the codec maps it. Transitions: the transaction form keeps a
    dismissal when saved without a tag and replaces it when given one; marking a
    transfer removes any assignment, dismissals included; tag untagged and re-tag
-   never change a dismissal. Transaction responses give a dismissal no tag and
-   the `Manual` source. Unit tests for the transitions; update auto-tagging
-   decision 4.
+   never change a dismissal. Transaction responses give a dismissal no tag. Unit
+   tests for the transitions; update auto-tagging decision 4.
 2. Quick tag writes (decision 6): `Feature/QuickTag/` with `PUT
    /api/quick-tag/{transactionId}` and `DELETE /api/quick-tag/{transactionId}`,
    the quick tag transitions in `Domain/`, and the slice's endpoint

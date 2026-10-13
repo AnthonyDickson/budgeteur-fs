@@ -233,8 +233,8 @@ Assignment, tag source, manual tag, and rule tag are defined in
   case and the quick tag transitions, and the transaction form, transfer, and
   auto-tagging transitions handle it as in decision 1. The codec in `Data/` maps
   the nullable tag.
-- **Transaction slice**: responses give a dismissed transaction no tag and the
-  `Manual` source. Marking a transfer removes its assignment.
+- **Transaction slice**: responses give a dismissed transaction no tag. Marking
+  a transfer removes its assignment.
 - **Income statement**: amounts are unchanged, since untagged lines cover every
   transaction without a tag, and the tag read from the join is already optional.
   The untagged count leaves the response and its computation (decision 7).

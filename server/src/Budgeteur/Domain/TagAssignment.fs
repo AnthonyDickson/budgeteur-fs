@@ -28,25 +28,27 @@ module TagSource =
                 $"\"{other}\" is not a valid value for TagSource, expecting \
                 one of \"Manual\" or \"Rule\"."
 
-/// <summary>A transaction's tag and its source. Kept apart from the
-/// transaction, keyed by its id, so tagging changes without touching the
-/// transaction's facts. An untagged transaction has no assignment, so its
-/// assignment is <c>None</c>.</summary>
-type TagAssignment = { TagId : Guid; Source : TagSource }
+/// <summary>A transaction's tag and its source, or the user's decision that it
+/// has none. Kept apart from the transaction, keyed by its id, so tagging
+/// changes without touching the transaction's facts. An untagged transaction
+/// has no assignment, so its assignment is <c>None</c>.</summary>
+[<RequireQualifiedAccess>]
+type TagAssignment =
+    /// <summary>The transaction has the tag.</summary>
+    | Tagged of tagId : Guid * source : TagSource
+    /// <summary>The user decided the transaction has no tag. Always manual: a
+    /// rule never dismisses. See decision 1 in docs/quick-tagging.md.</summary>
+    | Dismissed
 
-/// <summary>The transitions between untagged, manually tagged, and tagged by a
-/// rule. Each takes the current assignment last, so it can be piped. See
-/// decision 4 in docs/auto-tagging.md.</summary>
+/// <summary>The transitions between untagged, tagged manually or by a rule,
+/// and dismissed. Each takes the current assignment last, so it can be piped.
+/// See decision 4 in docs/auto-tagging.md.</summary>
 module TagAssignment =
-    let private manual tagId = {
-        TagId = tagId
-        Source = TagSource.Manual
-    }
+    let private manual tagId =
+        TagAssignment.Tagged (tagId, TagSource.Manual)
 
-    let private byRule tagId = {
-        TagId = tagId
-        Source = TagSource.Rule
-    }
+    let private byRule tagId =
+        TagAssignment.Tagged (tagId, TagSource.Rule)
 
     /// <summary>A transfer moves money between the user's own accounts, so it
     /// is neither income nor expense and has no tag. Fails when a transfer is
@@ -68,19 +70,27 @@ module TagAssignment =
     /// <summary>Updating a transaction to a different tag makes it manual and
     /// clearing the tag makes it untagged. Keeping the same tag keeps its
     /// source, so editing the amount of a rule-tagged transaction does not
-    /// make it manual.</summary>
+    /// make it manual, and saving a dismissed transaction without a tag keeps
+    /// it dismissed. A transfer has no assignment, so marking a transaction as
+    /// a transfer removes any it had.</summary>
     let onUpdate
+        (isTransfer : bool)
         (tagId : Guid option)
         (current : TagAssignment option)
         : TagAssignment option =
-        match tagId, current with
-        | None, _ -> None
-        | Some tagId, Some current when current.TagId = tagId -> Some current
-        | Some tagId, _ -> Some (manual tagId)
+        match isTransfer, tagId, current with
+        | true, _, _ -> None
+        | false, None, Some TagAssignment.Dismissed -> current
+        | false, None, _ -> None
+        | false, Some tagId, Some (TagAssignment.Tagged (currentTagId, _)) when
+            currentTagId = tagId
+            ->
+            current
+        | false, Some tagId, _ -> Some (manual tagId)
 
     /// <summary>Tag untagged: an untagged transaction gets the winning rule's
-    /// tag, if any. A tagged transaction keeps its tag, whatever its
-    /// source.</summary>
+    /// tag, if any. A tagged or dismissed transaction keeps its
+    /// assignment.</summary>
     let tagUntagged
         (winningTagId : Guid option)
         (current : TagAssignment option)
@@ -89,14 +99,15 @@ module TagAssignment =
         | None -> Option.map byRule winningTagId
         | Some _ -> current
 
-    /// <summary>Re-tag: a manual tag never changes. Otherwise the transaction
-    /// gets the winning rule's tag, or becomes untagged when no rule
-    /// wins.</summary>
+    /// <summary>Re-tag: a manual tag or a dismissal never changes. Otherwise
+    /// the transaction gets the winning rule's tag, or becomes untagged when
+    /// no rule wins.</summary>
     let retag
         (winningTagId : Guid option)
         (current : TagAssignment option)
         : TagAssignment option =
         match current with
-        | Some { Source = TagSource.Manual } -> current
-        | Some { Source = TagSource.Rule }
+        | Some (TagAssignment.Tagged (_, TagSource.Manual))
+        | Some TagAssignment.Dismissed -> current
+        | Some (TagAssignment.Tagged (_, TagSource.Rule))
         | None -> Option.map byRule winningTagId

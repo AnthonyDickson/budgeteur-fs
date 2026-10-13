@@ -30,10 +30,8 @@ module ChangesTests =
         Assignment = assignment
     }
 
-    let private ruleTag tagId = {
-        TagId = tagId
-        Source = TagSource.Rule
-    }
+    let private ruleTag tagId =
+        TagAssignment.Tagged (tagId, TagSource.Rule)
 
     let private untaggedMatch = candidate "PAY Countdown Ponsonby" None
     let private untaggedNoMatch = candidate "Rent" None
@@ -49,10 +47,7 @@ module ChangesTests =
     let private manualTag =
         candidate
             "Countdown Fuel"
-            (Some {
-                TagId = dining
-                Source = TagSource.Manual
-            })
+            (Some (TagAssignment.Tagged (dining, TagSource.Manual)))
 
     let private all = [
         untaggedMatch

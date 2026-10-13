@@ -41,7 +41,8 @@ type TransactionResponse = {
     /// <summary>The name of the transaction's account, if it has one.</summary>
     AccountName : string option
 
-    /// <summary>The transaction's tag, or none when it is untagged.</summary>
+    /// <summary>The transaction's tag, or none when it is untagged or
+    /// dismissed.</summary>
     Tag : TransactionTagResponse option
 }
 
@@ -62,9 +63,12 @@ module TransactionResponse =
         AccountId = t.AccountId
         AccountName = accountName
         Tag =
-            assignment
-            |> Option.map (fun assignment -> {
-                Id = assignment.TagId
-                Source = TagSource.toString assignment.Source
-            })
+            match assignment with
+            | Some (TagAssignment.Tagged (tagId, source)) ->
+                Some {
+                    Id = tagId
+                    Source = TagSource.toString source
+                }
+            | Some TagAssignment.Dismissed
+            | None -> None
     }
