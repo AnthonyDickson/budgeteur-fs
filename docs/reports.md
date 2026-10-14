@@ -145,9 +145,9 @@ always clear from context; where it is not, say "balance sheet line".
   transaction, whichever is earlier, to the period containing `today`, which is
   to date.
 - **Why**: monthly and quarterly reviews and annual figures are how planners and
-  banks report. New Zealand's financial year starts on 1 April, and the
-  dashboard's "This financial year" preset already assumes it. Its quarters are
-  the calendar quarters, so one set of quarters serves both years.
+  banks report. New Zealand's financial year starts on 1 April, as the MVP
+  dashboard's "This financial year" preset assumed. Its quarters are the
+  calendar quarters, so one set of quarters serves both years.
 - **Goal**: periods the user already thinks in, with no setup.
 
 ### 6. A report pairs two balance sheets with the income statement

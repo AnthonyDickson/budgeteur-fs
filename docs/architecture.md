@@ -247,7 +247,7 @@ unknown paths render a 404 page.
 
 Pages fetch their data on every visit and show a loading state until it arrives.
 Nothing from the server is cached in localStorage, which holds user preferences
-only (e.g. the dashboard period). Cached data was removed because its keys were
+only (e.g. the reports frequency). Cached data was removed because its keys were
 not per user and survived logout.
 
 ### Same origin
