@@ -49,7 +49,6 @@ pub fn a_liability_opening_balance_is_sent_negative_test() {
     number: Some("XXXX-XXXX-XXXX-1234"),
     term: Current,
     opening_balance: Some(BalanceEntry(balance: -400.0, as_of: today)),
-    closed_on: None,
   ))
 }
 
@@ -70,7 +69,6 @@ pub fn a_blank_opening_balance_records_none_and_needs_no_date_test() {
     number: None,
     term: NonCurrent,
     opening_balance: None,
-    closed_on: None,
   ))
 }
 
@@ -128,13 +126,5 @@ pub fn editing_changes_only_the_details_test() {
     number: Some("12-3456-0789012-000"),
     term: Current,
     opening_balance: None,
-    closed_on: None,
   ))
-  // Closing it sends the close date with the details.
-  let assert #(_, Some(Put(_, request)), NoChange) =
-    account_modal.update(
-      run(state, account_modal.ClosedOnChanged("2026-03-06")),
-      account_modal.SaveRequested,
-    )
-  request.closed_on |> should.equal(Some(Date(2026, March, 6)))
 }

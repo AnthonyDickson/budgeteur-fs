@@ -10,7 +10,6 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
 import budgeteur/balance_sheet_page/balance_sheet_page
-import budgeteur/balance_sheet_page/close_date
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/value_form
@@ -101,7 +100,6 @@ fn submitting_modal(mode: form_modal.Mode) -> item_modal.Modal {
       side: Asset,
       term: Current,
       opening_value: None,
-      closed_on: close_date.from(None),
     ),
     mode,
   )
@@ -354,7 +352,6 @@ pub fn cancelling_the_item_form_hides_it_test() {
             side: Asset,
             term: Current,
             opening_value: None,
-            closed_on: close_date.from(None),
           ),
           form_modal.Create,
         )),

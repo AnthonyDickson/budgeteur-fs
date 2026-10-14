@@ -19,9 +19,13 @@ module BalanceSheetEndpoints =
             CreateBalanceSheetItem.endpoint queryContext clock
             RecordItemObservation.endpoint queryContext clock
         ]
-        PUT [ UpdateBalanceSheetItem.endpoint queryContext clock ]
+        PUT [
+            UpdateBalanceSheetItem.endpoint queryContext
+            CloseBalanceSheetItem.endpoint queryContext clock
+        ]
         DELETE [
             DeleteBalanceSheetItem.endpoint queryContext
+            ReopenBalanceSheetItem.endpoint queryContext
             DeleteItemObservation.endpoint queryContext
         ]
     ]

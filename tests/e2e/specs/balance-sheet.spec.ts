@@ -186,12 +186,19 @@ test.describe('closing items', () => {
     });
     await expectAmount(summaryCard(page, 'net-worth'), 400000);
 
-    // Sold: the item leaves the sheet and its totals.
-    await editItem(page, 'House');
-    await modal(page).getByTestId('item-closed-on-input').fill('2026-01-15');
-    await modal(page).getByTestId('item-submit-button').click();
-    await expect(modal(page)).toBeHidden();
+    // Sold: it is closed from its details page.
+    await itemRow(page, 'House').getByTestId(/^details-/).click();
+    await page.getByTestId('close-line-button').click();
+    const closeModal = page.getByTestId('close-modal');
+    await closeModal.getByTestId('close-date-input').fill('2026-01-15');
+    await closeModal.getByTestId('close-submit-button').click();
+    await expect(closeModal).toBeHidden();
+    await expect(page.getByTestId('line-details-closed-on')).toContainText(
+      '2026-01-15',
+    );
 
+    // It leaves the sheet and its totals.
+    await page.getByTestId('line-details-back').click();
     await expect(itemRow(page, 'House')).toHaveCount(0);
     await expectAmount(summaryCard(page, 'net-worth'), 0);
 
@@ -201,12 +208,11 @@ test.describe('closing items', () => {
     await closed.locator('summary').click();
     await expect(closed).toContainText('Closed on 2026-01-15');
 
-    // Reopened: clearing the date puts it back on the sheet.
-    await closed.getByTestId(/^edit-closed-item-/).click();
-    await expect(modal(page)).toBeVisible();
-    await modal(page).getByTestId('item-closed-on-input').fill('');
-    await modal(page).getByTestId('item-submit-button').click();
-    await expect(modal(page)).toBeHidden();
+    // Reopened from its details page, it is back on the sheet.
+    await closed.getByTestId(/^open-closed-item-/).click();
+    await page.getByTestId('reopen-line-button').click();
+    await expect(page.getByTestId('line-details-closed-on')).toHaveCount(0);
+    await page.getByTestId('line-details-back').click();
 
     await expect(itemRow(page, 'House')).toBeVisible();
     await expectAmount(summaryCard(page, 'net-worth'), 400000);

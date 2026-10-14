@@ -18,9 +18,6 @@ pub type AccountWriteRequest {
     // The balance to record with a new account, or None to leave it unknown.
     // Always None when editing, since the edit form has no balance.
     opening_balance: Option(BalanceEntry),
-    // The date the account was closed, or None to keep it open. Always None
-    // when creating.
-    closed_on: Option(Date),
   )
 }
 
@@ -50,7 +47,6 @@ pub fn update_json(request: AccountWriteRequest) -> json.Json {
     #("name", json.string(request.name)),
     #("number", json.nullable(request.number, json.string)),
     #("term", term.to_json(request.term)),
-    #("closedOn", json.nullable(request.closed_on, date.encode)),
   ])
 }
 

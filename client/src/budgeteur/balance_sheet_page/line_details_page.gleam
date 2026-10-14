@@ -9,6 +9,7 @@ import budgeteur/balance_sheet_page/balance_modal.{
   type CurrentBalance, CurrentBalance,
 }
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
+import budgeteur/balance_sheet_page/close_modal
 import budgeteur/balance_sheet_page/item_write_request
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError}
@@ -37,6 +38,9 @@ import youid/uuid.{type Uuid}
 
 const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
   <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+
+const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
+  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 
 const link_class = "text-sm font-medium text-indigo-600 hover:text-indigo-500"
 
@@ -82,6 +86,7 @@ pub type Model {
     entries: Remote(List(Entry)),
     value_modal: value_modal.Modal,
     balance_modal: balance_modal.Modal,
+    close_modal: close_modal.Modal,
     delete_modal: delete_modal.State(Entry, Place),
   )
 }
@@ -94,6 +99,10 @@ pub type Msg {
   UserRequestedRecord
   ValueModalMsg(value_modal.Msg)
   BalanceModalMsg(balance_modal.Msg)
+  UserRequestedClose
+  CloseModalMsg(close_modal.Msg)
+  UserRequestedReopen
+  ServerReopened(Result(Nil, ApiError))
   UserRequestedDelete(Entry)
   UserConfirmedDelete
   UserCancelledDelete
@@ -181,6 +190,7 @@ pub fn init(line_ref: LineRef) -> #(Model, Effect(Msg)) {
       entries: Loading,
       value_modal: value_modal.hidden(),
       balance_modal: balance_modal.hidden(),
+      close_modal: close_modal.hidden(),
       delete_modal: delete_modal.empty(),
     ),
     effect.batch([
@@ -247,6 +257,43 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
     ValueModalMsg(inner_msg) -> run_value_modal(model, inner_msg)
     BalanceModalMsg(inner_msg) -> run_balance_modal(model, inner_msg)
+
+    UserRequestedClose ->
+      case model.line {
+        Loaded(ItemLine(item:)) ->
+          run_close_modal(
+            model,
+            close_modal.OpenRequested(
+              id: item.id,
+              kind: close_modal.Item,
+              name: item.name,
+              today: model.today,
+            ),
+          )
+        Loaded(AccountWithBalance(account:, ..)) ->
+          run_close_modal(
+            model,
+            close_modal.OpenRequested(
+              id: account.id,
+              kind: close_modal.Account,
+              name: account.name,
+              today: model.today,
+            ),
+          )
+        Loading | Failed -> #(model, effect.none(), None)
+      }
+    CloseModalMsg(inner_msg) -> run_close_modal(model, inner_msg)
+
+    UserRequestedReopen -> #(model, reopen(model.line_ref), None)
+    ServerReopened(Ok(Nil)) -> {
+      let #(model, effect) = refetch(model)
+      #(model, effect, Some(out_msg.success_toast("Reopened")))
+    }
+    ServerReopened(Error(error)) -> #(
+      model,
+      effect.LogError(api_error.describe(error)),
+      Some(out_msg.error_toast("Could not reopen", error.details)),
+    )
 
     UserRequestedDelete(entry) -> {
       let place = case model.entries {
@@ -440,6 +487,74 @@ fn run_balance_modal(
   }
 }
 
+fn run_close_modal(
+  model: Model,
+  msg: close_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(close_modal, request, outcome) =
+    close_modal.update(model.close_modal, msg)
+  let model = Model(..model, close_modal:)
+  let request_effect = case request {
+    Some(form_modal.Put(payload: closed_on, ..)) ->
+      effect.put(
+        api_route.to_string(case model.line_ref {
+          ItemRef(id) -> api_route.CloseItem(id)
+          AccountRef(id) -> api_route.CloseAccount(id)
+        }),
+        json.object([#("closedOn", date.encode(closed_on))]) |> json.to_string,
+        fn(result) {
+          // The response is the closed line, which the page refetches.
+          case result {
+            Ok(_) -> close_modal.SaveCompleted(Ok(Nil))
+            Error(http_error) ->
+              close_modal.SaveCompleted(
+                Error(response.http_error_to_api_error(http_error)),
+              )
+          }
+        },
+      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(CloseModalMsg)
+    // The modal opens in edit mode only, so its request names the line.
+    Some(form_modal.Post(_)) | None -> effect.none()
+  }
+  let log_effect = case msg {
+    close_modal.SaveCompleted(result: Error(error)) ->
+      effect.LogError(api_error.describe(error))
+    _ -> effect.none()
+  }
+  case outcome {
+    form_modal.NoChange -> #(
+      model,
+      effect.batch([request_effect, log_effect]),
+      None,
+    )
+    form_modal.Created(_) | form_modal.Updated(_) -> {
+      let #(model, refetch_effect) = refetch(model)
+      #(model, refetch_effect, Some(out_msg.success_toast("Closed")))
+    }
+  }
+}
+
+/// Clear the line's close date. Reopening needs no form: closing again undoes
+/// it.
+fn reopen(line_ref: LineRef) -> Effect(Msg) {
+  effect.delete(
+    api_route.to_string(case line_ref {
+      ItemRef(id) -> api_route.ReopenItem(id)
+      AccountRef(id) -> api_route.ReopenAccount(id)
+    }),
+    fn(result) {
+      case result {
+        // A successful reopen returns 204 with no body.
+        Ok(_) -> ServerReopened(Ok(Nil))
+        Error(http_error) ->
+          ServerReopened(Error(response.http_error_to_api_error(http_error)))
+      }
+    },
+  )
+}
+
 /// What the line's observations are called.
 fn noun(line_ref: LineRef) -> String {
   case line_ref {
@@ -479,6 +594,7 @@ pub fn view(model: Model) -> Element(Msg) {
         |> element.map(ValueModalMsg),
       balance_modal.view(model.balance_modal, editable: False)
         |> element.map(BalanceModalMsg),
+      close_modal.view(model.close_modal) |> element.map(CloseModalMsg),
       delete_modal.view(
         model.delete_modal,
         delete_options(model.line_ref),
@@ -553,20 +669,48 @@ fn header(line: Line) -> Element(Msg) {
         ),
         case closed_on {
           Some(closed_on) ->
-            html.p([attribute.class("mt-1 text-sm text-gray-500")], [
-              html.text("Closed on " <> date.format(closed_on)),
-            ])
+            html.p(
+              [
+                attribute.class("mt-1 text-sm text-gray-500"),
+                attribute.attribute("data-testid", "line-details-closed-on"),
+              ],
+              [html.text("Closed on " <> date.format(closed_on))],
+            )
           None -> element.none()
         },
       ]),
-      html.button(
-        [
-          attribute.class(primary_button_class),
-          attribute.attribute("data-testid", "record-observation-button"),
-          event.on_click(UserRequestedRecord),
-        ],
-        [html.text(action)],
-      ),
+      html.div([attribute.class("flex shrink-0 gap-2")], [
+        // A closed line is reopened rather than closed again; closing is
+        // apart from editing, since it is an event rather than a detail.
+        case closed_on {
+          None ->
+            html.button(
+              [
+                attribute.class(secondary_button_class),
+                attribute.attribute("data-testid", "close-line-button"),
+                event.on_click(UserRequestedClose),
+              ],
+              [html.text("Close")],
+            )
+          Some(_) ->
+            html.button(
+              [
+                attribute.class(secondary_button_class),
+                attribute.attribute("data-testid", "reopen-line-button"),
+                event.on_click(UserRequestedReopen),
+              ],
+              [html.text("Reopen")],
+            )
+        },
+        html.button(
+          [
+            attribute.class(primary_button_class),
+            attribute.attribute("data-testid", "record-observation-button"),
+            event.on_click(UserRequestedRecord),
+          ],
+          [html.text(action)],
+        ),
+      ]),
     ],
   )
 }

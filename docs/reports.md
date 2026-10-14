@@ -104,13 +104,15 @@ always clear from context; where it is not, say "balance sheet line".
 
 ### 4. Lines are closed, not deleted
 
-- **Decision**: items and accounts get an optional close date, set and cleared
-  in their edit forms. A sheet drawn on or after the close date leaves the line
-  out; earlier sheets keep it. A close date later than the server's UTC date
-  plus one day is rejected, as for as-of dates, so the current sheet leaves out
-  every closed line without knowing the client's today. The balance sheet page
-  lists closed lines in a collapsed section, so they can be reopened or viewed.
-  Deleting stays for mistakes, and removes the line's balance history.
+- **Decision**: items and accounts get an optional close date, set with a Close
+  action on the line's details page (decision 9) and cleared with a Reopen
+  action there, apart from the edit form. A sheet drawn on or after the close
+  date leaves the line out; earlier sheets keep it. A close date later than the
+  server's UTC date plus one day is rejected, as for as-of dates, so the current
+  sheet leaves out every closed line without knowing the client's today. The
+  balance sheet page lists closed lines in a collapsed section, each linking to
+  its details page. Deleting stays for mistakes, and removes the line's balance
+  history.
 - **Transactions after the close date**: a closed account with transactions
   dated after its close date is flagged in the closed section, which opens to
   show the flag. A report whose income statement includes such transactions
@@ -118,7 +120,7 @@ always clear from context; where it is not, say "balance sheet line".
   sheets leave the accounts out, so other changes are off by their net amount.
   Transactions on the close date are the account's last, so they are not
   flagged. The flags are worked out when the sheet or report is read, and the
-  user corrects the close date in the account's edit form.
+  user corrects the close date by closing the account again, or reopens it.
 - **Why**: deleting a sold or repaid line removes it from every past sheet and
   changes past net worth. A close date is one stored fact. The CSV import brief
   planned a final $0 observation instead; that needs a convention to tell a
@@ -126,7 +128,10 @@ always clear from context; where it is not, say "balance sheet line".
   after the close date means the close date is likely wrong, but reopening the
   account on import was rejected: it would silently change every report after
   that date. The import summary was rejected as the place for the flag, since
-  the flag would be lost with it.
+  the flag would be lost with it. A close date in the edit form was rejected:
+  closing is an event in the line's life rather than one of its details, it was
+  hard to find there, and one field meaning "open" when blank made saving other
+  details able to reopen the line.
 - **Goal**: past reports stay correct after a line is sold, repaid, or closed,
   and the current sheet only shows lines the user has.
 
@@ -205,13 +210,13 @@ always clear from context; where it is not, say "balance sheet line".
 - **Decision**: each item and account has a details page listing its
   observations, newest first, with a delete action each, confirmed with the
   app's delete dialog. The page header shows the line's name, side, term,
-  current balance, and close date, with an action that records an observation
-  using the line's value or balance form. Each line on the balance sheet has a
-  "Details" link to it. A line on the balance sheet opens that form, as an
-  account's already did, and editing a line's details is reached from there.
-  Deleting an account's last observation leaves its balance unknown. Deleting an
-  item's last observation is rejected: an item always has a known value, so the
-  user deletes the item instead.
+  current balance, and close date, with actions that record an observation using
+  the line's value or balance form, and close or reopen the line (decision 4).
+  Each line on the balance sheet has a "Details" link to it. A line on the
+  balance sheet opens that form, as an account's already did, and editing a
+  line's details is reached from there. Deleting an account's last observation
+  leaves its balance unknown. Deleting an item's last observation is rejected:
+  an item always has a known value, so the user deletes the item instead.
 - **Why**: with history in reports, a wrong old observation changes past figures
   while being invisible on today's sheet, so the user needs to see and remove
   it. A page rather than a modal: Kiwibank imports record an observation per
@@ -231,6 +236,10 @@ always clear from context; where it is not, say "balance sheet line".
     observation with the item. Item update no longer takes a balance.
   - Items and accounts each get operations to record, list, and delete
     observations, an observation identified by its line and as-of date.
+  - Items and accounts each get operations to close and reopen, at
+    `{line}/close-date`, apart from their update: closing is an event in the
+    line's life rather than one of its details, so editing the details never
+    changes the close date (decision 4).
   - `GET /api/balance-sheet` also returns closed lines, apart from the sheet
     (decision 4).
   - `Feature/Report/` has the report read.

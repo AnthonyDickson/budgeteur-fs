@@ -1,6 +1,7 @@
 import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
+import budgeteur/balance_sheet_page/close_modal
 import budgeteur/balance_sheet_page/line_details_page.{
   Earliest, Entry, HasEarlier, ItemLine, ItemRef, Only,
 }
@@ -9,6 +10,7 @@ import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect
+import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
@@ -169,4 +171,68 @@ pub fn recording_opens_the_value_form_for_the_item_test() {
   let assert form_modal.Active(form: value_modal.Form(item:, ..), ..) =
     after.value_modal
   item |> should.equal(house())
+}
+
+pub fn closing_puts_the_close_date_and_refetches_test() {
+  let #(opened, _, _) =
+    line_details_page.update(loaded(), line_details_page.UserRequestedClose)
+
+  // The form opens on today.
+  let assert form_modal.Active(form:, ..) = opened.close_modal
+  form.closed_on
+  |> should.equal(field.Valid(value: Date(2026, March, 8), input: "2026-03-08"))
+
+  let #(submitting, effect, _) =
+    line_details_page.update(
+      opened,
+      line_details_page.CloseModalMsg(close_modal.SaveRequested),
+    )
+
+  let assert effect.Batch([effect.HttpRequest(method:, url:, body:, ..), _]) =
+    effect
+  method |> should.equal(http_effect.Put)
+  url |> should.equal(api_route.to_string(api_route.CloseItem(house().id)))
+  body |> should.equal("{\"closedOn\":\"2026-03-08\"}")
+
+  // Once closed, the line is refetched to show its close date.
+  let #(after, effect, out_msg) =
+    line_details_page.update(
+      submitting,
+      line_details_page.CloseModalMsg(close_modal.SaveCompleted(Ok(Nil))),
+    )
+
+  after.close_modal |> should.equal(form_modal.Hidden)
+  urls(effect)
+  |> should.equal([
+    api_route.to_string(api_route.GetBalanceSheetItem(house().id)),
+    api_route.to_string(api_route.GetItemObservations(house().id)),
+  ])
+  let assert Some(out_msg.PageRequestedToast(body: "Closed", ..)) = out_msg
+}
+
+pub fn reopening_deletes_the_close_date_and_refetches_test() {
+  let #(_, effect, _) =
+    line_details_page.update(loaded(), line_details_page.UserRequestedReopen)
+
+  let assert effect.HttpRequest(method:, url:, ..) = effect
+  method |> should.equal(http_effect.Delete)
+  url |> should.equal(api_route.to_string(api_route.ReopenItem(house().id)))
+
+  let #(_, effect, out_msg) =
+    line_details_page.update(
+      loaded(),
+      line_details_page.ServerReopened(Ok(Nil)),
+    )
+  urls(effect) |> list.length |> should.equal(2)
+  let assert Some(out_msg.PageRequestedToast(body: "Reopened", ..)) = out_msg
+
+  // A failure leaves the page as it is and says so.
+  let #(after, _, out_msg) =
+    line_details_page.update(
+      loaded(),
+      line_details_page.ServerReopened(Error(api_error(500))),
+    )
+  after |> should.equal(loaded())
+  let assert Some(out_msg.PageRequestedToast(title: "Could not reopen", ..)) =
+    out_msg
 }

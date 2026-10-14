@@ -16,7 +16,6 @@ module UpdateBalanceSheetItem =
     open Budgeteur.Domain.BalanceSheetItem
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
-    open Budgeteur.Shared.Clock
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
@@ -45,7 +44,6 @@ module UpdateBalanceSheetItem =
                     for b in main.BalanceSheetItems do
                         set b.Name row.Name
                         set b.Term row.Term
-                        set b.ClosedOn row.ClosedOn
                         where (b.Id = row.Id && b.UserId = userId)
                 }
 
@@ -56,7 +54,6 @@ module UpdateBalanceSheetItem =
 
     let private handler
         (queryContext : QueryContextFactory)
-        (clock : Clock)
         (id : Guid)
         : EndpointHandler =
         Endpoint.handler (fun ctx ->
@@ -71,8 +68,7 @@ module UpdateBalanceSheetItem =
                     ItemQuery.tryRead db userId id
                     |> TaskResult.requireSome (notFound id)
 
-                let! item =
-                    ItemRequest.validateUpdate (clock ()) existing.Item req
+                let! item = ItemRequest.validateUpdate existing.Item req
 
                 do!
                     Constraints.requireOne (
@@ -96,16 +92,16 @@ module UpdateBalanceSheetItem =
         op.Summary <- "Update a balance sheet item"
 
         op.Description <-
-            "Replaces a balance sheet item's name, term, and close date. Its \
-            side is fixed at creation, and its values are recorded as \
-            observations."
+            "Replaces a balance sheet item's name and term. Its side is fixed \
+            at creation, its values are recorded as observations, and it is \
+            closed and reopened separately."
 
         op.Tags <- HashSet [ OpenApiTagReference "Balance Sheets" ]
 
         Task.CompletedTask
 
-    let endpoint (queryContext : QueryContextFactory) (clock : Clock) =
-        routef Path (handler queryContext clock)
+    let endpoint (queryContext : QueryContextFactory) =
+        routef Path (handler queryContext)
         |> addOpenApi (
             OpenApiConfig (
                 requestBody = RequestBody typeof<UpdateBalanceSheetItemRequest>,

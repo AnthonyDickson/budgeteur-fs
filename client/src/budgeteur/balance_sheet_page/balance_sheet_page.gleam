@@ -82,9 +82,6 @@ pub type Msg {
   UserRequestedSheetReload
   // Item modal messages
   UserRequestedItemCreation(side: Side)
-  // The value modal's `EditItemRequested` opens the item modal for an existing
-  // item; a closed item opens it directly.
-  UserRequestedItemEdit(item: BalanceSheetItem)
   ItemModalMsg(item_modal.Msg)
   // Item delete modal messages. The item modal's `DeleteRequested` opens it.
   UserConfirmedItemDelete
@@ -96,8 +93,7 @@ pub type Msg {
   // Account modal messages
   UserRequestedAccountCreation
   // The balance modal's `EditAccountRequested` opens the account modal for
-  // an existing account; a closed account opens it directly.
-  UserRequestedAccountEdit(account: Account)
+  // an existing account.
   AccountModalMsg(account_modal.Msg)
   // Account delete modal messages. The account modal's `DeleteRequested` opens
   // it.
@@ -183,9 +179,6 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         item_modal.CreateRequested(side:, today: model.today),
       )
 
-    UserRequestedItemEdit(item:) ->
-      run_item_modal(model, item_modal.EditRequested(item:))
-
     ItemModalMsg(item_modal.DeleteRequested as inner_msg) ->
       open_item_delete(model) |> run_item_modal(inner_msg)
 
@@ -215,9 +208,6 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         model,
         account_modal.CreateRequested(today: model.today),
       )
-
-    UserRequestedAccountEdit(account:) ->
-      run_account_modal(model, account_modal.EditRequested(account:))
 
     AccountModalMsg(account_modal.DeleteRequested as inner_msg) ->
       open_account_delete(model) |> run_account_modal(inner_msg)
@@ -840,7 +830,7 @@ fn loaded_sheet(sheet: BalanceSheet, today: Option(Date)) -> Element(Msg) {
 }
 
 /// Lines the user no longer has are left off the sheet. They are listed,
-/// collapsed, so one can be reopened, corrected, or deleted from its edit form.
+/// collapsed, each linking to its details page, where it is reopened.
 /// A closed account with transactions after its close date is flagged, and the
 /// list opens so the flag is seen: the close date is likely wrong. See
 /// decision 4 in docs/reports.md.
@@ -855,7 +845,7 @@ fn closed_lines(
         name: item.name,
         closed_on: item.closed_on,
         after_close: None,
-        on_click: UserRequestedItemEdit(item),
+        page: route.ItemDetails(item.id),
       )
     })
   let account_rows =
@@ -865,7 +855,7 @@ fn closed_lines(
         name: closed.account.name,
         closed_on: closed.account.closed_on,
         after_close: closed.transactions_after_close,
-        on_click: UserRequestedAccountEdit(closed.account),
+        page: route.AccountDetails(closed.account.id),
       )
     })
   let flagged =
@@ -914,7 +904,7 @@ fn closed_row(
   name name: String,
   closed_on closed_on: Option(Date),
   after_close after_close: Option(TransactionsAfterClose),
-  on_click on_click: Msg,
+  page page: route.Route,
 ) -> Element(Msg) {
   html.li(
     [
@@ -925,9 +915,9 @@ fn closed_row(
     ],
     [
       html.div([attribute.class("min-w-0 flex-1")], [
-        row_ui.open_button(
-          testid: "edit-" <> testid,
-          on_click:,
+        row_ui.open_link(
+          testid: "open-" <> testid,
+          href: route.to_string(page),
           class: "block max-w-full truncate",
           children: [html.text(name)],
         ),

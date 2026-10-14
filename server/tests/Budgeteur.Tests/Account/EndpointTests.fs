@@ -30,7 +30,6 @@ module EndpointTests =
             Name = name
             Number = number
             Term = "Current"
-            ClosedOn = None
         }
         : UpdateAccount.UpdateAccountRequest
 

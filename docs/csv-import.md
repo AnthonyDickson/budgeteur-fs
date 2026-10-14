@@ -361,11 +361,12 @@ line. Lessons from it are cited where they shaped a decision.
     transfer detection, as pure functions apart from the handler.
   - `Feature/Account/` owns account CRUD at `/api/accounts` and the account's
     observations at `/api/accounts/{id}/observations`: recording, listing, and
-    deleting them ([reports](reports.md) decision 9). Creating an account takes
-    an optional opening balance; updating one changes only its details.
-    Recording a balance is its own operation because it appends to the history
-    rather than replacing a field, and it takes different fields from editing
-    the details.
+    deleting them ([reports](reports.md) decision 9), and its close date at
+    `/api/accounts/{id}/close-date`: closing and reopening it (reports decision
+    4). Creating an account takes an optional opening balance; updating one
+    changes only its details. Recording a balance is its own operation because
+    it appends to the history rather than replacing a field, and it takes
+    different fields from editing the details.
   - The `Account` type, its number and name rules, and the observation rules
     (one per date, no future dates) are in `Domain/`, with their mapping in
     `Data/`, because both slices write accounts and observations. The rule that

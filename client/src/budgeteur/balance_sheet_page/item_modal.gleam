@@ -3,7 +3,6 @@
 //// are recorded with the value form. See decision 2 in docs/reports.md.
 
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
-import budgeteur/balance_sheet_page/close_date
 import budgeteur/balance_sheet_page/item_write_request.{
   type ItemWriteRequest, CreateItem, UpdateItem,
 }
@@ -47,8 +46,6 @@ pub type Form {
     term: Term,
     // The first value of a new item; None when editing.
     opening_value: Option(value_form.Form),
-    // Shown when editing only: a new item is open.
-    closed_on: close_date.Field,
   )
 }
 
@@ -77,7 +74,6 @@ pub type Msg {
   NameChanged(value: String)
   TermChanged(value: String)
   ValueMsg(value_form.Msg)
-  ClosedOnChanged(value: String)
   SaveRequested
   // Response to the in-flight create or update; the `Created`/`Updated`
   // outcome variant is chosen from the `mode` in the `Submitting` state.
@@ -121,13 +117,6 @@ pub fn update(
       None,
       form_modal.NoChange,
     )
-    ClosedOnChanged(value:) -> #(
-      form_modal.set_form(state, fn(form) {
-        Form(..form, closed_on: close_date.update(value))
-      }),
-      None,
-      form_modal.NoChange,
-    )
     SaveRequested -> save(state, items)
     SaveCompleted(result: Ok(item)) -> {
       let #(modal, outcome) = form_modal.succeeded(state, item)
@@ -154,7 +143,6 @@ fn create_modal(side: Side, today: Option(Date)) -> Modal {
     side:,
     term: Current,
     opening_value: Some(value_form.empty(today)),
-    closed_on: close_date.from(None),
   ))
 }
 
@@ -167,7 +155,6 @@ fn edit_modal(item: BalanceSheetItem) -> Modal {
       side: item.side,
       term: item.term,
       opening_value: None,
-      closed_on: close_date.from(item.closed_on),
     ),
   )
 }
@@ -230,12 +217,11 @@ fn validate_form(
       }),
     )
 
-  case field.value(name), opening, close_date.value(form.closed_on) {
-    Some(name), Some(Ok(#(first, _))), _ ->
+  case field.value(name), opening {
+    Some(name), Some(Ok(#(first, _))) ->
       Ok(#(CreateItem(name:, side: form.side, term: form.term, first:), form))
-    Some(name), None, Ok(closed_on) ->
-      Ok(#(UpdateItem(name:, term: form.term, closed_on:), form))
-    _, _, _ -> Error(form)
+    Some(name), None -> Ok(#(UpdateItem(name:, term: form.term), form))
+    _, _ -> Error(form)
   }
 }
 
@@ -323,7 +309,7 @@ fn view_form(
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
-  let Form(name:, side:, term:, opening_value:, closed_on:) = form
+  let Form(name:, side:, term:, opening_value:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
     form_modal.Create ->
@@ -397,17 +383,6 @@ fn view_form(
             |> element.map(ValueMsg)
           None -> element.none()
         },
-        case mode {
-          form_modal.Create -> element.none()
-          form_modal.Edit(_) ->
-            close_date.view(
-              closed_on,
-              testid: "item-closed-on-input",
-              help: "The date it was sold or repaid; blank while you still have it. A closed item is left off the balance sheet from that date, and stays on earlier ones.",
-              submitting:,
-              on_input: ClosedOnChanged,
-            )
-        },
         modal_ui.form_footer(
           leading: case mode {
             form_modal.Create -> None
@@ -428,9 +403,7 @@ fn view_form(
             idle_label: submit_label,
             busy_label: submitting_label,
             busy: submitting,
-            disabled: field.has_error(name)
-              || value_invalid
-              || field.has_error(closed_on),
+            disabled: field.has_error(name) || value_invalid,
           ),
         ),
       ],

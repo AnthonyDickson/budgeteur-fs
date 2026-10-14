@@ -179,7 +179,7 @@ pub fn editing_sends_only_the_name_and_term_test() {
   request
   |> should.equal(Put(
     existing.id,
-    UpdateItem(name: "Chequing", term: NonCurrent, closed_on: None),
+    UpdateItem(name: "Chequing", term: NonCurrent),
   ))
 }
 
@@ -252,7 +252,6 @@ pub fn opening_the_form_always_starts_fresh_test() {
         value: field.Empty(""),
         as_of: field.Valid(value: Date(2026, March, 8), input: "2026-03-08"),
       )),
-      closed_on: field.Empty(""),
     ),
     mode: Create,
   ) =
@@ -289,47 +288,4 @@ pub fn the_as_of_date_is_required_and_must_be_a_date_test() {
       [],
     )
   first.as_of |> should.equal(Date(2026, calendar.February, 28))
-}
-
-pub fn editing_closes_and_reopens_an_item_test() {
-  let sold =
-    BalanceSheetItem(
-      ..item(name: "House", side: Asset, term: NonCurrent, value: 1.0),
-      closed_on: Some(Date(2026, March, 5)),
-    )
-  let save = fn(state) {
-    let assert #(_, Some(Put(_, request)), NoChange) =
-      item_modal.update(state, item_modal.SaveRequested, [])
-    request
-  }
-
-  // A closed item opens with its close date.
-  let state = run(item_modal.hidden(), item_modal.EditRequested(sold), [])
-  let assert Active(
-    form: item_modal.Form(
-      closed_on: field.Valid(value: Date(2026, March, 5), ..),
-      ..,
-    ),
-    ..,
-  ) = state
-
-  // Clearing the date reopens it.
-  save(run(state, item_modal.ClosedOnChanged(""), []))
-  |> should.equal(UpdateItem(name: "House", term: NonCurrent, closed_on: None))
-
-  // A new date closes it then.
-  save(run(state, item_modal.ClosedOnChanged("2026-03-07"), []))
-  |> should.equal(UpdateItem(
-    name: "House",
-    term: NonCurrent,
-    closed_on: Some(Date(2026, March, 7)),
-  ))
-
-  // Anything else is not a date and is not sent.
-  let assert #(_, None, NoChange) =
-    item_modal.update(
-      run(state, item_modal.ClosedOnChanged("soon"), []),
-      item_modal.SaveRequested,
-      [],
-    )
 }
