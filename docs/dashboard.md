@@ -5,9 +5,8 @@ decision is meant to achieve, so later changes have one written source of
 intent. Change it when the reasoning changes.
 
 The brief has two parts. The [MVP](#mvp-decisions) is built. The
-[full dashboard](#full-dashboard) is planned and waits on the reports roadmap
-item ([reports.md](reports.md)); where it replaces an MVP decision, both
-decisions say so.
+[full dashboard](#full-dashboard) is planned and builds on
+[reports](reports.md); where it replaces an MVP decision, both decisions say so.
 
 The previous Rust project (`budgeteur`, `server/src/dashboard/`) built two
 dashboards: an HTML page with charts, summary tables, and expenses-by-tag cards,
@@ -184,9 +183,9 @@ against a baseline, two ratios, and twelve months of history with charts.
 
 ## Full dashboard
 
-Planned, not built. It waits on [reports](reports.md), which provide the balance
-sheet for a statement date, monthly reports, and the shared period and statement
-code in `Domain/`.
+Planned, not built. It builds on [reports](reports.md), which provide the
+balance sheet for a statement date, monthly reports, and the shared period and
+statement code in `Domain/` and `Data/`.
 
 ### 9. The page answers four questions with as little as possible
 
