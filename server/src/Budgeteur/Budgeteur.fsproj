@@ -40,6 +40,7 @@
     <Compile Include="Domain/Account.fs" />
     <Compile Include="Domain/BalanceSheet.fs" />
     <Compile Include="Domain/IncomeStatement.fs" />
+    <Compile Include="Domain/ReportingPeriod.fs" />
 
     <Compile Include="Data/Db.fs" />
     <Compile Include="Data/Constraints.fs" />
