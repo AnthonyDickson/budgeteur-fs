@@ -33,9 +33,14 @@ module Period =
 
     let toDate (Period (_, toDate)) = toDate
 
-/// <summary>A non-transfer transaction in the period, with its tag if it has
-/// one.</summary>
-type Entry = { Amount : decimal; Tag : Tag option }
+/// <summary>A non-transfer transaction in the period, with its date and its
+/// tag if it has one. The income statement ignores the date; it lets one read
+/// be split into several periods.</summary>
+type Entry = {
+    Date : DateOnly
+    Amount : decimal
+    Tag : Tag option
+}
 
 /// <summary>One tag's net amount for the period, or the untagged income or
 /// untagged expenses (<c>Tag = None</c>). Income lines are amounts received;

@@ -22,6 +22,7 @@ module IncomeStatementTests =
         | Error error -> failwith error
 
     let private entry (amount : decimal) (tag : Tag option) : Entry = {
+        Date = DateOnly (2026, 10, 1)
         Amount = amount
         Tag = tag
     }
