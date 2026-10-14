@@ -38,6 +38,7 @@ module TestAppConfig =
     open Budgeteur.Feature.Account
     open Budgeteur.Feature.AutoTag
     open Budgeteur.Feature.BalanceSheet
+    open Budgeteur.Feature.Dashboard
     open Budgeteur.Feature.Import
     open Budgeteur.Feature.IncomeStatement
     open Budgeteur.Feature.QuickTag
@@ -72,6 +73,8 @@ module TestAppConfig =
     let withIncomeStatement = withEndpoints [] IncomeStatementEndpoints.all
 
     let withReports = withEndpoints [] ReportEndpoints.all
+
+    let withDashboard = withEndpoints [] DashboardEndpoints.all
 
     let withAutoTag = withEndpoints [ "Categorisations" ] AutoTagEndpoints.all
 
