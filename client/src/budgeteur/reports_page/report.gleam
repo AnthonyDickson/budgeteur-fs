@@ -71,6 +71,7 @@ pub type Report {
     // None when not meaningful: the opening balance sheet has no lines.
     change_in_net_worth: Option(Float),
     other_changes: Option(Float),
+    change_in_working_capital: Option(Float),
     income: Float,
     expenses: Float,
     net_income: Float,
@@ -136,6 +137,7 @@ pub fn decoder() -> decode.Decoder(Report) {
   use closing <- decode.field("closing", sheet_decoder())
   use change_in_net_worth <- optional_money("changeInNetWorth")
   use other_changes <- optional_money("otherChanges")
+  use change_in_working_capital <- optional_money("changeInWorkingCapital")
   use income <- decode.field("income", money.decode_decimal())
   use expenses <- decode.field("expenses", money.decode_decimal())
   use net_income <- decode.field("netIncome", money.decode_decimal())
@@ -155,6 +157,7 @@ pub fn decoder() -> decode.Decoder(Report) {
     closing:,
     change_in_net_worth:,
     other_changes:,
+    change_in_working_capital:,
     income:,
     expenses:,
     net_income:,

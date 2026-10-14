@@ -175,9 +175,12 @@ always clear from context; where it is not, say "balance sheet line".
 
 - **Decision**: the reports page has a frequency picker (saved to localStorage,
   as a preference) and previous and next controls, disabled where no report
-  exists. It opens on the latest complete period. It shows the report's figures,
-  then its income statement and its closing balance sheet. A report to date is
-  marked as such.
+  exists. It opens on the latest complete period. It shows two sections. The
+  balance sheet section has opening and closing net worth and working capital
+  with their changes, other changes, and the closing balance sheet with its
+  lines grouped by side. The income statement section has income, expenses, net
+  income, savings rate, and the statement's lines. A report to date is marked as
+  such.
 - **Why**: one page and one read cover the goal questions for any period. A
   table of periods linking to a page per report was rejected: two pages and two
   reads to scan across periods, which the dashboard's history already does for

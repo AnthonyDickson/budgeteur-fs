@@ -51,6 +51,8 @@ test.describe('reports', () => {
     await expectAmount(card(page, 'report-closing-net-worth'), 410000);
     await expectAmount(card(page, 'report-change-in-net-worth'), 10000);
     await expectAmount(card(page, 'report-other-changes'), 10000);
+    // The house was added with the form's default term, so it is current.
+    await expectAmount(card(page, 'report-change-in-working-capital'), 10000);
     await expect(page.getByTestId('report-next')).toBeEnabled();
 
     // The month before is the first with data: its change is not meaningful,

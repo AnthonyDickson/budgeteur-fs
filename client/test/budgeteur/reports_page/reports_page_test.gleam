@@ -35,6 +35,7 @@ fn march() -> Report {
     ),
     change_in_net_worth: Some(10_000.0),
     other_changes: Some(12_000.0),
+    change_in_working_capital: Some(0.0),
     income: 0.0,
     expenses: 2000.0,
     net_income: -2000.0,
@@ -189,6 +190,7 @@ pub fn a_report_decodes_with_figures_that_are_not_meaningful_test() {
       ),
       #("changeInNetWorth", json.null()),
       #("otherChanges", json.null()),
+      #("changeInWorkingCapital", json.null()),
       #("income", json.string("5000")),
       #("expenses", json.string("2000")),
       #("netIncome", json.string("3000")),
@@ -212,6 +214,7 @@ pub fn a_report_decodes_with_figures_that_are_not_meaningful_test() {
   let assert Ok(decoded) = json.parse(body, report.decoder())
   decoded.change_in_net_worth |> should.equal(None)
   decoded.other_changes |> should.equal(None)
+  decoded.change_in_working_capital |> should.equal(None)
   decoded.savings_rate |> should.equal(Some(60.0))
   decoded.closing.unknown_balances |> should.equal(["New card"])
   let assert [mortgage] = decoded.closing.lines

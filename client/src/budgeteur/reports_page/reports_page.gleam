@@ -337,54 +337,94 @@ fn period_bar(shown: Option(Report)) -> Element(Msg) {
   ])
 }
 
+/// The balance sheet section, with the position before and after the period
+/// and the closing sheet, then the income statement section.
 fn loaded_report(shown: Report) -> Element(Msg) {
   html.div([attribute.class("space-y-8")], [
-    html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-3")], [
-      figure_card(
-        "Opening net worth",
-        Some(shown.opening_net_worth),
-        "report-opening-net-worth",
-      ),
-      figure_card(
-        "Closing net worth",
-        Some(shown.closing.net_worth),
-        "report-closing-net-worth",
-      ),
-      figure_card(
-        "Change in net worth",
-        shown.change_in_net_worth,
-        "report-change-in-net-worth",
-      ),
-      figure_card("Net income", Some(shown.net_income), "report-net-income"),
-      figure_card("Other changes", shown.other_changes, "report-other-changes"),
-      percent_card("Savings rate", shown.savings_rate, "report-savings-rate"),
-    ]),
-    html.p([attribute.class("text-sm text-gray-500")], [
-      html.text(
-        "Other changes are what net income does not explain: revaluations, money that never passes through a tracked account (such as employer KiwiSaver contributions), and missing transactions. The savings rate is on take-home pay.",
-      ),
-    ]),
     html.section([attribute.class("space-y-4")], [
-      section_heading("Income statement"),
-      html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-3")], [
-        figure_card("Income", Some(shown.income), "report-income"),
-        figure_card("Expenses", Some(shown.expenses), "report-expenses"),
+      html.div([], [
+        section_heading("Balance sheet"),
+        html.p([attribute.class("text-sm text-gray-500")], [
+          html.text(
+            "Opening as of "
+            <> date.format(date.add_days(shown.from, -1))
+            <> ", closing as of "
+            <> date.format(shown.closing_date),
+          ),
+        ]),
+      ]),
+      card_row([
         figure_card(
-          "Working capital",
+          "Opening net worth",
+          Some(shown.opening_net_worth),
+          "report-opening-net-worth",
+        ),
+        figure_card(
+          "Closing net worth",
+          Some(shown.closing.net_worth),
+          "report-closing-net-worth",
+        ),
+        figure_card(
+          "Change in net worth",
+          shown.change_in_net_worth,
+          "report-change-in-net-worth",
+        ),
+        figure_card(
+          "Other changes",
+          shown.other_changes,
+          "report-other-changes",
+        ),
+      ]),
+      card_row([
+        figure_card(
+          "Opening working capital",
+          Some(shown.opening_working_capital),
+          "report-opening-working-capital",
+        ),
+        figure_card(
+          "Closing working capital",
           Some(shown.closing.working_capital),
           "report-closing-working-capital",
         ),
+        figure_card(
+          "Change in working capital",
+          shown.change_in_working_capital,
+          "report-change-in-working-capital",
+        ),
+      ]),
+      html.p([attribute.class("text-sm text-gray-500")], [
+        html.text(
+          "Other changes are what net income does not explain: revaluations, money that never passes through a tracked account (such as employer KiwiSaver contributions), and missing transactions.",
+        ),
+      ]),
+      sheet_table(shown.closing),
+    ]),
+    html.section([attribute.class("space-y-4")], [
+      section_heading("Income statement"),
+      card_row([
+        figure_card("Income", Some(shown.income), "report-income"),
+        figure_card("Expenses", Some(shown.expenses), "report-expenses"),
+        figure_card("Net income", Some(shown.net_income), "report-net-income"),
+        percent_card("Savings rate", shown.savings_rate, "report-savings-rate"),
+      ]),
+      html.p([attribute.class("text-sm text-gray-500")], [
+        html.text("The savings rate is on take-home pay."),
       ]),
       html.div([attribute.class("grid grid-cols-1 gap-6 lg:grid-cols-2")], [
         lines_table("Income", "report-income-lines", shown.income_lines),
         lines_table("Expenses", "report-expense-lines", shown.expense_lines),
       ]),
     ]),
-    html.section([attribute.class("space-y-4")], [
-      section_heading("Balance sheet as of " <> date.format(shown.closing_date)),
-      sheet_table(shown.closing),
-    ]),
   ])
+}
+
+/// Up to four figures side by side, so the opening, closing, and change
+/// figures line up from row to row.
+fn card_row(cards: List(Element(Msg))) -> Element(Msg) {
+  html.div(
+    [attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4")],
+    cards,
+  )
 }
 
 fn section_heading(title: String) -> Element(Msg) {
