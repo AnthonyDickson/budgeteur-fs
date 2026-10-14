@@ -18,27 +18,17 @@
 
 ## Current Tasks
 
-None
-
-## Backlog
-
-- Cent level precision is probably only needed for transaction table and data
-  entry
-- Dates after the dashboard MVP.
-  - Server-side timezone, needed only once the server works out periods without
-    a client request (e.g. a scheduled job): a configured default IANA timezone
-    (e.g. `Pacific/Auckland`), validated at startup with the other config
-    sections, `tzdata` in the runtime image so
-    `TimeZoneInfo.FindSystemTimeZoneById` resolves it, and `today` derived from
-    `Clock` plus that zone.
-  - Per-user timezone: start with the browser's zone
-    (`Intl.DateTimeFormat().resolvedOptions().timeZone`); add a settings page
-    once there are other preferences to store.
+- Move Reports after dashboard in navbar
+- Except for transaction table and data entry, round to the nearest dollar
 - Page transactions in table view
   - Next page should append to list, search should replace paging many times.
   - Response could include path with query params to get next page or none if at
     last page.
   - Paging is expected to used infrequently
+- Plan out transaction search
+
+## Backlog
+
 - Consider how to manage styling across pages/source code files for consistent
   styling.
   - Consider Catppuccin Latte and Mocha
