@@ -914,9 +914,7 @@ fn header(line: Line) -> Element(Msg) {
 
   html.div(
     [
-      attribute.class(
-        "mt-4 mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
-      ),
+      attribute.class("mt-4 mb-6 flex flex-col gap-4"),
     ],
     [
       html.div([], [
@@ -972,7 +970,9 @@ fn header(line: Line) -> Element(Msg) {
           None -> element.none()
         },
       ]),
-      html.div([attribute.class("flex shrink-0 gap-2")], [
+      // The actions sit on their own row, so the details and any warning
+      // above them take the page's width.
+      html.div([attribute.class("flex flex-wrap gap-2")], [
         html.button(
           [
             attribute.class(secondary_button_class),
