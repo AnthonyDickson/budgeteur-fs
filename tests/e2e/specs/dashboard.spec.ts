@@ -264,11 +264,13 @@ test.describe('dashboard against earlier months', () => {
       await expect(page.getByTestId('dashboard-total-expenses')).toContainText(
         '$2,000.00 a month',
       );
-      await expect(
-        page.getByTestId('dashboard-cash-flow').getByTestId(
-          'dashboard-month-row',
-        ),
-      ).toHaveCount(3);
+      // The monthly figures start collapsed under the chart.
+      const cashFlowTable = page.getByTestId('dashboard-cash-flow');
+      await expect(cashFlowTable).toBeHidden();
+      await page.getByTestId('dashboard-cash-flow-toggle').click();
+      await expect(cashFlowTable).toBeVisible();
+      await expect(cashFlowTable.getByTestId('dashboard-month-row'))
+        .toHaveCount(3);
       await expect(
         page.getByTestId('dashboard-cash-flow-chart').locator('svg').first(),
       ).toBeVisible();

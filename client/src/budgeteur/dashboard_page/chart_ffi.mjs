@@ -65,7 +65,8 @@ function monthAxis(months) {
 const opacity = (month) => (month.complete ? 1 : 0.45);
 
 /// Net income per month as bars: above the axis for a month that saved and
-/// below it for one that did not.
+/// below it for one that did not. A bar's tooltip also has the month's income
+/// and expenses, since the table with them starts collapsed.
 function cashFlow(Plot, months, width) {
   return Plot.plot({
     width,
@@ -82,9 +83,12 @@ function cashFlow(Plot, months, width) {
         fillOpacity: opacity,
         tip: true,
         title: (month) =>
-          `${month.label}${month.complete ? '' : ' to date'}\nNet income ${
-            money(month.netIncome)
-          }`,
+          [
+            `${month.label}${month.complete ? '' : ' to date'}`,
+            `Income ${money(month.income)}`,
+            `Expenses ${money(month.expenses)}`,
+            `Net income ${money(month.netIncome)}`,
+          ].join('\n'),
       }),
       Plot.ruleY([0]),
     ],

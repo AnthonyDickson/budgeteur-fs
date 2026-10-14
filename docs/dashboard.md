@@ -346,7 +346,9 @@ date, reporting periods, savings rate, and the shared statement code in
   current month). Two charts show it: cash flow (a net income bar per month,
   above or below zero) and net worth (a line). The current month is drawn as
   partial. Each chart has its data as a table below it, which also has each
-  month's income and expenses.
+  month's income and expenses. The tables start collapsed, to keep the section
+  to its charts and totals; the cash flow chart's tooltips also show a month's
+  income and expenses.
 - **Totals**: above the charts, income, expenses, net income, and savings rate
   over the baseline months taken together, with income, expenses, and net income
   also as monthly averages. The section is labelled with the months they cover,

@@ -732,41 +732,46 @@ fn history_section(
     [
       section_heading("History", history_heading(history)),
       totals_cards(totals),
-      html.div([attribute.class("grid grid-cols-1 gap-6 lg:grid-cols-2")], [
-        history_table(
-          title: "Cash flow",
-          testid: "dashboard-cash-flow",
-          chart: chart.view(
-            chart.CashFlow,
-            history,
-            "dashboard-cash-flow-chart",
+      html.div(
+        [attribute.class("grid grid-cols-1 items-start gap-6 lg:grid-cols-2")],
+        [
+          history_table(
+            title: "Cash flow",
+            testid: "dashboard-cash-flow",
+            chart: chart.view(
+              chart.CashFlow,
+              history,
+              "dashboard-cash-flow-chart",
+            ),
+            columns: ["Income", "Expenses", "Net income"],
+            history:,
+            cells: fn(month) {
+              [
+                Some(month.income),
+                Some(month.expenses),
+                Some(month.net_income),
+              ]
+            },
           ),
-          columns: ["Income", "Expenses", "Net income"],
-          history:,
-          cells: fn(month) {
-            [
-              Some(month.income),
-              Some(month.expenses),
-              Some(month.net_income),
-            ]
-          },
-        ),
-        history_table(
-          title: "Net worth",
-          testid: "dashboard-net-worth-history",
-          chart: case list.any(history, fn(month) { month.net_worth != None }) {
-            True ->
-              chart.view(chart.NetWorth, history, "dashboard-net-worth-chart")
-            False ->
-              html.p([attribute.class("text-sm text-gray-500")], [
-                html.text("No balances known in these months."),
-              ])
-          },
-          columns: ["Net worth", "Working capital"],
-          history:,
-          cells: fn(month) { [month.net_worth, month.working_capital] },
-        ),
-      ]),
+          history_table(
+            title: "Net worth",
+            testid: "dashboard-net-worth-history",
+            chart: case
+              list.any(history, fn(month) { month.net_worth != None })
+            {
+              True ->
+                chart.view(chart.NetWorth, history, "dashboard-net-worth-chart")
+              False ->
+                html.p([attribute.class("text-sm text-gray-500")], [
+                  html.text("No balances known in these months."),
+                ])
+            },
+            columns: ["Net worth", "Working capital"],
+            history:,
+            cells: fn(month) { [month.net_worth, month.working_capital] },
+          ),
+        ],
+      ),
     ],
   )
 }
@@ -843,9 +848,7 @@ fn total_card(
   ])
 }
 
-/// A chart of the history with its figures as a table below it: the months as
-/// rows, oldest first, with the month to date marked. An amount the server does
-/// not know shows as a dash.
+/// A chart of the history with its figures as a collapsed table below it.
 fn history_table(
   title title: String,
   testid testid: String,
@@ -854,10 +857,6 @@ fn history_table(
   history history: List(HistoryMonth),
   cells cells: fn(HistoryMonth) -> List(Option(Float)),
 ) -> Element(Msg) {
-  let header_class =
-    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500"
-  let number_class = "px-4 py-2 text-right tabular-nums text-gray-900"
-
   html.div([attribute.class("overflow-hidden " <> card_class)], [
     html.h3(
       [
@@ -868,66 +867,91 @@ fn history_table(
       [html.text(title)],
     ),
     html.div([attribute.class("px-4 py-3")], [chart]),
-    html.table(
-      [
-        attribute.class("w-full border-t border-gray-100 text-sm"),
-        attribute.attribute("data-testid", testid),
-      ],
-      [
-        html.thead([attribute.class("border-b border-gray-100")], [
-          html.tr([], [
-            html.th(
-              [
-                attribute.scope("col"),
-                attribute.class(
-                  "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
-                ),
-              ],
-              [html.text("Month")],
-            ),
-            ..list.map(columns, fn(column) {
-              html.th([attribute.scope("col"), attribute.class(header_class)], [
-                html.text(column),
-              ])
-            })
-          ]),
-        ]),
-        html.tbody(
-          [attribute.class("divide-y divide-gray-100")],
-          list.map(history, fn(month) {
-            html.tr(
-              [attribute.attribute("data-testid", "dashboard-month-row")],
-              [
-                html.td([attribute.class("px-4 py-2 text-gray-700")], [
-                  html.text(case month.complete {
-                    True -> month.label
-                    False -> month.label <> " to date"
-                  }),
-                ]),
-                ..list.map(cells(month), fn(cell) {
-                  case cell {
-                    Some(amount) ->
-                      html.td(
-                        [
-                          attribute.class(number_class),
-                          attribute.attribute(
-                            "data-amount",
-                            float.to_string(amount),
-                          ),
-                        ],
-                        [html.text(money.format(amount))],
-                      )
-                    None ->
-                      html.td([attribute.class(number_class)], [html.text("—")])
-                  }
-                })
-              ],
-            )
-          }),
-        ),
-      ],
-    ),
+    // Collapsed until asked for: the chart is the overview, and the table is
+    // for exact figures. The browser keeps whether it is open.
+    html.details([attribute.class("border-t border-gray-100")], [
+      html.summary(
+        [
+          attribute.class(
+            "cursor-pointer px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900",
+          ),
+          attribute.attribute("data-testid", testid <> "-toggle"),
+        ],
+        [html.text("Monthly figures")],
+      ),
+      history_figures(testid, columns, history, cells),
+    ]),
   ])
+}
+
+/// The history's months as table rows, oldest first, with the month to date
+/// marked. An amount the server does not know shows as a dash.
+fn history_figures(
+  testid: String,
+  columns: List(String),
+  history: List(HistoryMonth),
+  cells: fn(HistoryMonth) -> List(Option(Float)),
+) -> Element(Msg) {
+  let header_class =
+    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500"
+  let number_class = "px-4 py-2 text-right tabular-nums text-gray-900"
+
+  html.table(
+    [
+      attribute.class("w-full border-t border-gray-100 text-sm"),
+      attribute.attribute("data-testid", testid),
+    ],
+    [
+      html.thead([attribute.class("border-b border-gray-100")], [
+        html.tr([], [
+          html.th(
+            [
+              attribute.scope("col"),
+              attribute.class(
+                "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
+              ),
+            ],
+            [html.text("Month")],
+          ),
+          ..list.map(columns, fn(column) {
+            html.th([attribute.scope("col"), attribute.class(header_class)], [
+              html.text(column),
+            ])
+          })
+        ]),
+      ]),
+      html.tbody(
+        [attribute.class("divide-y divide-gray-100")],
+        list.map(history, fn(month) {
+          html.tr([attribute.attribute("data-testid", "dashboard-month-row")], [
+            html.td([attribute.class("px-4 py-2 text-gray-700")], [
+              html.text(case month.complete {
+                True -> month.label
+                False -> month.label <> " to date"
+              }),
+            ]),
+            ..list.map(cells(month), fn(cell) {
+              case cell {
+                Some(amount) ->
+                  html.td(
+                    [
+                      attribute.class(number_class),
+                      attribute.attribute(
+                        "data-amount",
+                        float.to_string(amount),
+                      ),
+                    ],
+                    [html.text(money.format(amount))],
+                  )
+                None ->
+                  html.td([attribute.class(number_class)], [html.text("—")])
+              }
+            })
+          ])
+        }),
+      ),
+    ],
+  )
 }
 
 // Shared pieces
