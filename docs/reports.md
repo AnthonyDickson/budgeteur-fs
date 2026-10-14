@@ -200,18 +200,18 @@ always clear from context; where it is not, say "balance sheet line".
   partial (dashboard decision 12), and the dashboard covers the current month.
 - **Goal**: any period's position and performance in one place.
 
-### 9. Each line has an observation history page
+### 9. Each line has a details page
 
-- **Decision**: each item and account has a page listing its observations,
-  newest first, with a delete action each, confirmed with the app's delete
-  dialog. The page header shows the line's name, side, term, current balance,
-  and close date, with an action that records an observation using the line's
-  value or balance form. Each line on the balance sheet has a "History" link to
-  it. A line on the balance sheet opens that form, as an account's already did,
-  and editing a line's details is reached from there. Deleting an account's last
-  observation leaves its balance unknown. Deleting an item's last observation is
-  rejected: an item always has a known value, so the user deletes the item
-  instead.
+- **Decision**: each item and account has a details page listing its
+  observations, newest first, with a delete action each, confirmed with the
+  app's delete dialog. The page header shows the line's name, side, term,
+  current balance, and close date, with an action that records an observation
+  using the line's value or balance form. Each line on the balance sheet has a
+  "Details" link to it. A line on the balance sheet opens that form, as an
+  account's already did, and editing a line's details is reached from there.
+  Deleting an account's last observation leaves its balance unknown. Deleting an
+  item's last observation is rejected: an item always has a known value, so the
+  user deletes the item instead.
 - **Why**: with history in reports, a wrong old observation changes past figures
   while being invisible on today's sheet, so the user needs to see and remove
   it. A page rather than a modal: Kiwibank imports record an observation per
@@ -239,9 +239,9 @@ always clear from context; where it is not, say "balance sheet line".
   balance only; and `ItemKind` becomes `Side`, used by items (fixed) and account
   lines (from the balance's sign). [Balance sheet](balance-sheet.md) changes to
   match.
-- **Client.** Routes with an id, for the observation history pages; the reports
-  page and a "Reports" link in the header; the closed lines section; and the
-  item form without its value fields except on create.
+- **Client.** Routes with an id, for the line details pages; the reports page
+  and a "Reports" link in the header; the closed lines section; and the item
+  form without its value fields except on create.
 - **Dashboard.** Its history uses monthly reports (dashboard decision 14).
 - **Highest-value tests.** The balance sheet for a date (latest observation on
   or before it, lines entering at their first observation, closed lines, unknown
@@ -259,11 +259,11 @@ always clear from context; where it is not, say "balance sheet line".
   and closing balances side by side for each line, if the totals are not enough.
 - **Comparing periods.** A table of a frequency's reports, or a report against
   the one before, if stepping between reports is not enough.
-- **A line's balance chart.** On the observation history page, with the chart
-  element planned for the dashboard.
+- **A line's balance chart.** On the line's details page, with the chart element
+  planned for the dashboard.
 - **Reconciliation.** Comparing an account's change in balance between
   observations with its transactions, as in the [CSV import](csv-import.md)
-  Deferred list. The observation history page is where it would show.
+  Deferred list. The line's details page is where it would show.
 - **Newly tracked lines.** A line first observed during a period adds its whole
   balance to that period's other changes, whether it is new or only newly
   entered. Recording an opening balance at an earlier date avoids it. Revisit if

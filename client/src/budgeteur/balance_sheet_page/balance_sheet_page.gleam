@@ -1276,7 +1276,7 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
       children: [html.text(item.name)],
     ),
     details: ["As of " <> date.format(item.as_of)],
-    history: route.ItemHistory(item.id),
+    page: route.ItemDetails(item.id),
     amount: item.value,
   )
 }
@@ -1299,7 +1299,7 @@ fn account_row(line: AccountLine) -> Element(Msg) {
       Some(number) -> [number, as_of]
       None -> [as_of]
     },
-    history: route.AccountHistory(line.account.id),
+    page: route.AccountDetails(line.account.id),
     amount: line.balance,
   )
 }
@@ -1308,13 +1308,13 @@ fn account_row(line: AccountLine) -> Element(Msg) {
 /// the form that updates its amount: an item's value form, or an account's
 /// balance form. Editing a line's details and deleting are reached from there.
 /// The trailing chevron marks the line as one that opens, since touch screens
-/// have no hover. The "History" link, above the click target, opens the line's
-/// observation history.
+/// have no hover. The "Details" link, above the click target, opens the line's
+/// details page.
 fn line_row(
   testid testid: String,
   name name: Element(Msg),
   details details: List(String),
-  history history: route.Route,
+  page page: route.Route,
   amount amount: Float,
 ) -> Element(Msg) {
   html.li(
@@ -1333,11 +1333,11 @@ fn line_row(
             html.text(string.join(details, " · ") <> " · "),
             html.a(
               [
-                attribute.href(route.to_string(history)),
+                attribute.href(route.to_string(page)),
                 attribute.class("text-indigo-600 hover:text-indigo-500"),
-                attribute.attribute("data-testid", "history-" <> testid),
+                attribute.attribute("data-testid", "details-" <> testid),
               ],
-              [html.text("History")],
+              [html.text("Details")],
             ),
           ],
         ),

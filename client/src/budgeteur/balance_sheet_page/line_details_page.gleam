@@ -1,6 +1,7 @@
-//// A line's observation history: every value of an item, or every balance of
-//// an account, newest first, each of which can be deleted, and the form that
-//// records a new one. See decision 9 in docs/reports.md.
+//// A line's details page: its name, side, term, and current value or
+//// balance, and its observation history, newest first, each of which can be
+//// deleted, with the form that records a new one. See decision 9 in
+//// docs/reports.md.
 
 import budgeteur/balance_sheet_page/account.{type Account}
 import budgeteur/balance_sheet_page/account_write_request
@@ -454,14 +455,14 @@ pub fn view(model: Model) -> Element(Msg) {
   html.div(
     [
       attribute.class("mx-auto max-w-3xl px-4 py-8 sm:px-6"),
-      attribute.attribute("data-testid", "observation-history-page"),
+      attribute.attribute("data-testid", "line-details-page"),
     ],
     [
       html.a(
         [
           attribute.href(route.to_string(route.BalanceSheet)),
           attribute.class(link_class),
-          attribute.attribute("data-testid", "observation-history-back"),
+          attribute.attribute("data-testid", "line-details-back"),
         ],
         [html.text("← Balance sheet")],
       ),
@@ -546,7 +547,7 @@ fn header(line: Line) -> Element(Msg) {
         html.p(
           [
             attribute.class("mt-1 text-sm text-gray-700"),
-            attribute.attribute("data-testid", "observation-history-current"),
+            attribute.attribute("data-testid", "line-details-current"),
           ],
           [html.text(current)],
         ),
@@ -585,7 +586,7 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
           attribute.class(
             "rounded-lg border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500",
           ),
-          attribute.attribute("data-testid", "observation-history-empty"),
+          attribute.attribute("data-testid", "line-details-empty"),
         ],
         [html.text("No balances recorded yet.")],
       )
@@ -724,7 +725,7 @@ fn loading_state() -> Element(Msg) {
   html.p(
     [
       attribute.class("mt-6 text-sm text-gray-500"),
-      attribute.attribute("data-testid", "observation-history-loading"),
+      attribute.attribute("data-testid", "line-details-loading"),
     ],
     [html.text("Loading...")],
   )
@@ -736,16 +737,16 @@ fn failed_state() -> Element(Msg) {
       attribute.class(
         "mt-6 rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
       ),
-      attribute.attribute("data-testid", "observation-history-load-error"),
+      attribute.attribute("data-testid", "line-details-load-error"),
     ],
     [
       html.p([attribute.class("text-sm text-gray-700")], [
-        html.text("Could not load the history."),
+        html.text("Could not load the line."),
       ]),
       html.button(
         [
           attribute.class("mt-4 " <> primary_button_class),
-          attribute.attribute("data-testid", "observation-history-retry"),
+          attribute.attribute("data-testid", "line-details-retry"),
           event.on_click(UserRetried),
         ],
         [html.text("Retry")],

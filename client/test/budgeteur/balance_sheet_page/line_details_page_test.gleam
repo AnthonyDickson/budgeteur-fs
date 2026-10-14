@@ -1,7 +1,7 @@
 import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
-import budgeteur/balance_sheet_page/observation_history_page.{
+import budgeteur/balance_sheet_page/line_details_page.{
   Earliest, Entry, HasEarlier, ItemLine, ItemRef, Only,
 }
 import budgeteur/balance_sheet_page/value_modal
@@ -38,9 +38,9 @@ const newer = Entry(as_of: Date(2026, March, 1), amount: 410_000.0)
 
 const older = Entry(as_of: Date(2026, February, 1), amount: 400_000.0)
 
-fn loaded() -> observation_history_page.Model {
-  let #(model, _) = observation_history_page.init(ItemRef(house().id))
-  observation_history_page.Model(
+fn loaded() -> line_details_page.Model {
+  let #(model, _) = line_details_page.init(ItemRef(house().id))
+  line_details_page.Model(
     ..model,
     today: Some(Date(2026, March, 8)),
     line: Loaded(ItemLine(house())),
@@ -67,7 +67,7 @@ fn urls(effect: effect.Effect(msg)) -> List(String) {
 }
 
 pub fn init_fetches_the_line_and_its_history_test() {
-  let #(model, effect) = observation_history_page.init(ItemRef(house().id))
+  let #(model, effect) = line_details_page.init(ItemRef(house().id))
 
   model.line |> should.equal(Loading)
   model.entries |> should.equal(Loading)
@@ -80,15 +80,12 @@ pub fn init_fetches_the_line_and_its_history_test() {
 
 pub fn deleting_an_entry_refetches_and_toasts_test() {
   let #(confirming, _, _) =
-    observation_history_page.update(
+    line_details_page.update(
       loaded(),
-      observation_history_page.UserRequestedDelete(newer),
+      line_details_page.UserRequestedDelete(newer),
     )
   let #(deleting, effect, _) =
-    observation_history_page.update(
-      confirming,
-      observation_history_page.UserConfirmedDelete,
-    )
+    line_details_page.update(confirming, line_details_page.UserConfirmedDelete)
 
   let assert delete_modal.Deleting(..) = deleting.delete_modal
   let assert effect.HttpRequest(method:, url:, ..) = effect
@@ -103,9 +100,9 @@ pub fn deleting_an_entry_refetches_and_toasts_test() {
 
   // The previous value may now be current, so the header is refetched too.
   let #(after, effect, out_msg) =
-    observation_history_page.update(
+    line_details_page.update(
       deleting,
-      observation_history_page.ServerDeletedEntry(newer, Ok(Nil)),
+      line_details_page.ServerDeletedEntry(newer, Ok(Nil)),
     )
 
   after.delete_modal |> should.equal(delete_modal.empty())
@@ -121,9 +118,9 @@ pub fn deleting_an_entry_refetches_and_toasts_test() {
 pub fn the_delete_dialog_knows_where_the_entry_sits_test() {
   let place = fn(model, entry) {
     let #(after, _, _) =
-      observation_history_page.update(
+      line_details_page.update(
         model,
-        observation_history_page.UserRequestedDelete(entry),
+        line_details_page.UserRequestedDelete(entry),
       )
     let assert delete_modal.Confirming(context:, ..) = after.delete_modal
     context
@@ -131,25 +128,22 @@ pub fn the_delete_dialog_knows_where_the_entry_sits_test() {
 
   place(loaded(), newer) |> should.equal(HasEarlier)
   place(loaded(), older) |> should.equal(Earliest)
-  place(
-    observation_history_page.Model(..loaded(), entries: Loaded([older])),
-    older,
-  )
+  place(line_details_page.Model(..loaded(), entries: Loaded([older])), older)
   |> should.equal(Only)
 }
 
 pub fn a_failed_delete_shows_inline_and_a_stale_one_is_ignored_test() {
   let model =
-    observation_history_page.Model(
+    line_details_page.Model(
       ..loaded(),
       delete_modal: delete_modal.Deleting(target: older, context: Earliest),
     )
 
   // The server rejects the delete.
   let #(after, effect, out_msg) =
-    observation_history_page.update(
+    line_details_page.update(
       model,
-      observation_history_page.ServerDeletedEntry(older, Error(api_error(400))),
+      line_details_page.ServerDeletedEntry(older, Error(api_error(400))),
     )
 
   let assert delete_modal.Errored(error: "boom", ..) = after.delete_modal
@@ -158,14 +152,11 @@ pub fn a_failed_delete_shows_inline_and_a_stale_one_is_ignored_test() {
 
   // A response after the dialog was closed leaves the page alone.
   let closed =
-    observation_history_page.Model(
-      ..loaded(),
-      delete_modal: delete_modal.empty(),
-    )
+    line_details_page.Model(..loaded(), delete_modal: delete_modal.empty())
   let #(after, effect, _) =
-    observation_history_page.update(
+    line_details_page.update(
       closed,
-      observation_history_page.ServerDeletedEntry(older, Error(api_error(500))),
+      line_details_page.ServerDeletedEntry(older, Error(api_error(500))),
     )
   after |> should.equal(closed)
   effect |> should.equal(effect.none())
@@ -173,10 +164,7 @@ pub fn a_failed_delete_shows_inline_and_a_stale_one_is_ignored_test() {
 
 pub fn recording_opens_the_value_form_for_the_item_test() {
   let #(after, _, _) =
-    observation_history_page.update(
-      loaded(),
-      observation_history_page.UserRequestedRecord,
-    )
+    line_details_page.update(loaded(), line_details_page.UserRequestedRecord)
 
   let assert form_modal.Active(form: value_modal.Form(item:, ..), ..) =
     after.value_modal

@@ -214,7 +214,7 @@ test.describe('closing items', () => {
   });
 });
 
-test.describe('observation history', () => {
+test.describe('line details', () => {
   test("an item's history records and deletes values", async ({ page }) => {
     await gotoNewBalanceSheet(page);
     await addItem(page, {
@@ -224,9 +224,9 @@ test.describe('observation history', () => {
       nonCurrent: true,
     });
 
-    // The line's history link opens its page, with the first value.
-    await itemRow(page, 'House').getByTestId(/^history-/).click();
-    await expect(page.getByTestId('observation-history-page')).toBeVisible();
+    // The line's details link opens its page, with the first value.
+    await itemRow(page, 'House').getByTestId(/^details-/).click();
+    await expect(page.getByTestId('line-details-page')).toBeVisible();
     const rows = page.locator('[data-testid^="observation-2"]');
     await expect(rows).toHaveCount(1);
 
@@ -251,7 +251,7 @@ test.describe('observation history', () => {
     await deleteDialog.getByTestId('delete-observation-confirm-button').click();
     await expect(deleteDialog).toBeHidden();
     await expect(rows).toHaveCount(1);
-    await expect(page.getByTestId('observation-history-current')).toContainText(
+    await expect(page.getByTestId('line-details-current')).toContainText(
       '2026-01-01',
     );
 
@@ -261,7 +261,7 @@ test.describe('observation history', () => {
     ).toBeDisabled();
 
     // Back on the balance sheet, the line shows the older value.
-    await page.getByTestId('observation-history-back').click();
+    await page.getByTestId('line-details-back').click();
     await expect(itemRow(page, 'House')).toBeVisible();
     await expectAmount(itemRow(page, 'House'), 380000);
   });

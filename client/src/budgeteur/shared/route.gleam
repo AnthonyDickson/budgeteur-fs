@@ -9,10 +9,10 @@ pub type Route {
   QuickTagging
   Tagging
   BalanceSheet
-  /// An item's observation history.
-  ItemHistory(id: Uuid)
-  /// An account's observation history.
-  AccountHistory(id: Uuid)
+  /// An item's details page, with its observation history.
+  ItemDetails(id: Uuid)
+  /// An account's details page, with its observation history.
+  AccountDetails(id: Uuid)
   Reports
   NotFound
 }
@@ -25,18 +25,18 @@ pub fn to_string(route: Route) -> String {
     QuickTagging -> "/quick-tagging"
     Tagging -> "/tagging"
     BalanceSheet -> "/balance-sheet"
-    ItemHistory(id:) -> "/balance-sheet/items/" <> uuid.to_string(id)
-    AccountHistory(id:) -> "/balance-sheet/accounts/" <> uuid.to_string(id)
+    ItemDetails(id:) -> "/balance-sheet/items/" <> uuid.to_string(id)
+    AccountDetails(id:) -> "/balance-sheet/accounts/" <> uuid.to_string(id)
     Reports -> "/reports"
     NotFound -> "/not_found"
   }
 }
 
-/// The header section a route belongs to: a line's history is part of the
+/// The header section a route belongs to: a line's details page is part of the
 /// balance sheet.
 pub fn section(route: Route) -> Route {
   case route {
-    ItemHistory(..) | AccountHistory(..) -> BalanceSheet
+    ItemDetails(..) | AccountDetails(..) -> BalanceSheet
     _ -> route
   }
 }
@@ -48,8 +48,8 @@ fn from_path_segments(path: List(String)) -> Route {
     ["quick-tagging"] -> QuickTagging
     ["tagging"] -> Tagging
     ["balance-sheet"] -> BalanceSheet
-    ["balance-sheet", "items", id] -> with_id(id, ItemHistory)
-    ["balance-sheet", "accounts", id] -> with_id(id, AccountHistory)
+    ["balance-sheet", "items", id] -> with_id(id, ItemDetails)
+    ["balance-sheet", "accounts", id] -> with_id(id, AccountDetails)
     ["reports"] -> Reports
     _ -> NotFound
   }
