@@ -13,7 +13,9 @@ import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
+import budgeteur/shared/side
 import budgeteur/shared/tag_ui
+import budgeteur/shared/term
 import gleam/dynamic/decode
 import gleam/float
 import gleam/json
@@ -524,14 +526,20 @@ fn line_row(line: Line) -> Element(Msg) {
   ])
 }
 
+/// The closing balance sheet: its assets, then its liabilities, each with its
+/// total, then net worth and working capital. Amounts are magnitudes, as on the
+/// balance sheet page: the group gives the direction.
 fn sheet_table(sheet: Sheet) -> Element(Msg) {
+  let #(assets, liabilities) =
+    list.partition(sheet.lines, fn(line) { line.side == side.Asset })
+
   html.div([attribute.class("overflow-hidden " <> card_class)], [
     case sheet.lines {
       [] ->
         html.p([attribute.class("px-4 py-3 text-sm text-gray-400")], [
           html.text("Nothing on the balance sheet on this date."),
         ])
-      lines ->
+      _ ->
         html.table(
           [
             attribute.class("w-full text-sm"),
@@ -551,27 +559,25 @@ fn sheet_table(sheet: Sheet) -> Element(Msg) {
                 ]),
               ]),
             ]),
-            html.tbody(
-              [attribute.class("divide-y divide-gray-100")],
-              list.map(lines, sheet_row),
+            sheet_group(
+              "Assets",
+              "report-sheet-assets",
+              assets,
+              sheet.total_assets,
             ),
+            sheet_group(
+              "Liabilities",
+              "report-sheet-liabilities",
+              liabilities,
+              sheet.total_liabilities,
+            ),
+            html.tfoot([attribute.class("border-t-2 border-gray-200")], [
+              total_row("Net worth", sheet.net_worth),
+              total_row("Working capital", sheet.working_capital),
+            ]),
           ],
         )
     },
-    html.dl(
-      [
-        attribute.class(
-          "grid grid-cols-2 gap-x-4 gap-y-1 border-t border-gray-200 px-4 py-3 text-sm sm:grid-cols-4",
-        ),
-      ],
-      [
-        total("Assets", sheet.total_assets),
-        total("Liabilities", sheet.total_liabilities),
-        total("Net worth", sheet.net_worth),
-        total("Working capital", sheet.working_capital),
-      ]
-        |> list.flatten,
-    ),
     case sheet.unknown_balances {
       [] -> element.none()
       names ->
@@ -592,12 +598,48 @@ fn sheet_table(sheet: Sheet) -> Element(Msg) {
   ])
 }
 
+/// One side's lines with its total, or nothing when the side has none.
+fn sheet_group(
+  title: String,
+  testid: String,
+  lines: List(SheetLine),
+  total: Float,
+) -> Element(Msg) {
+  case lines {
+    [] -> element.none()
+    _ ->
+      html.tbody(
+        [
+          attribute.class("divide-y divide-gray-100 border-t border-gray-200"),
+          attribute.attribute("data-testid", testid),
+        ],
+        list.flatten([
+          [
+            html.tr([], [
+              html.th(
+                [
+                  attribute.class(
+                    "px-4 pt-3 pb-1 text-left text-xs font-semibold uppercase tracking-wide text-gray-500",
+                  ),
+                  attribute.attribute("colspan", "3"),
+                ],
+                [html.text(title)],
+              ),
+            ]),
+          ],
+          list.map(lines, sheet_row),
+          [total_row("Total " <> string.lowercase(title), total)],
+        ]),
+      )
+  }
+}
+
 fn sheet_row(line: SheetLine) -> Element(Msg) {
   html.tr([], [
     html.td([attribute.class("px-4 py-2")], [
       html.p([attribute.class("text-gray-900")], [html.text(line.name)]),
       html.p([attribute.class("text-xs text-gray-400")], [
-        html.text(line.side <> " · " <> term_label(line.term)),
+        html.text(term.label(line.term, line.side)),
       ]),
     ]),
     html.td([attribute.class("px-4 py-2 text-gray-500")], [
@@ -613,20 +655,25 @@ fn sheet_row(line: SheetLine) -> Element(Msg) {
   ])
 }
 
-fn term_label(term: String) -> String {
-  case term {
-    "NonCurrent" -> "Non-current"
-    term -> term
-  }
-}
-
-fn total(label: String, amount: Float) -> List(Element(Msg)) {
-  [
-    html.dt([attribute.class("text-gray-500")], [html.text(label)]),
-    html.dd([attribute.class("text-right tabular-nums text-gray-900")], [
-      html.text(money.format(amount)),
-    ]),
-  ]
+fn total_row(label: String, amount: Float) -> Element(Msg) {
+  html.tr([], [
+    html.th(
+      [
+        attribute.class("px-4 py-2 text-left font-medium text-gray-700"),
+        attribute.attribute("colspan", "2"),
+      ],
+      [html.text(label)],
+    ),
+    html.td(
+      [
+        attribute.class(
+          "px-4 py-2 text-right font-medium tabular-nums text-gray-900",
+        ),
+        attribute.attribute("data-amount", float.to_string(amount)),
+      ],
+      [html.text(money.format(amount))],
+    ),
+  ])
 }
 
 fn failed_state() -> Element(Msg) {

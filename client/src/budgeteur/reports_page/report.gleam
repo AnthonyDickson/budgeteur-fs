@@ -3,6 +3,8 @@
 
 import budgeteur/shared/date
 import budgeteur/shared/money
+import budgeteur/shared/side.{type Side}
+import budgeteur/shared/term.{type Term}
 import budgeteur/shared/uuid as uuid_codec
 import gleam/dynamic/decode
 import gleam/option.{type Option, None}
@@ -96,10 +98,8 @@ pub type SheetLine {
   SheetLine(
     id: Uuid,
     name: String,
-    // "Asset" or "Liability".
-    side: String,
-    // "Current" or "NonCurrent".
-    term: String,
+    side: Side,
+    term: Term,
     amount: Float,
     as_of: Date,
   )
@@ -203,8 +203,8 @@ fn sheet_decoder() -> decode.Decoder(Sheet) {
 fn sheet_line_decoder() -> decode.Decoder(SheetLine) {
   use id <- decode.field("id", uuid_codec.decoder())
   use name <- decode.field("name", decode.string)
-  use side <- decode.field("side", decode.string)
-  use term <- decode.field("term", decode.string)
+  use side <- decode.field("side", side.decoder())
+  use term <- decode.field("term", term.decoder())
   use amount <- decode.field("amount", money.decode_decimal())
   use as_of <- decode.field("asOf", date.decoder())
   decode.success(SheetLine(id:, name:, side:, term:, amount:, as_of:))

@@ -5,6 +5,8 @@ import budgeteur/reports_page/reports_page
 import budgeteur/shared/api_route
 import budgeteur/shared/effect
 import budgeteur/shared/remote
+import budgeteur/shared/side.{Liability}
+import budgeteur/shared/term.{NonCurrent}
 import gleam/json
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, February, March, October}
@@ -169,7 +171,19 @@ pub fn a_report_decodes_with_figures_that_are_not_meaningful_test() {
           #("totalLiabilities", json.string("0")),
           #("netWorth", json.string("400000")),
           #("workingCapital", json.string("0")),
-          #("lines", json.preprocessed_array([])),
+          #(
+            "lines",
+            json.preprocessed_array([
+              json.object([
+                #("id", json.string("0199a1b2-0000-7000-8000-000000000001")),
+                #("name", json.string("Mortgage")),
+                #("side", json.string("Liability")),
+                #("term", json.string("NonCurrent")),
+                #("amount", json.string("300000")),
+                #("asOf", json.string("2026-01-15")),
+              ]),
+            ]),
+          ),
           #("unknownBalances", json.array(["New card"], json.string)),
         ]),
       ),
@@ -200,6 +214,9 @@ pub fn a_report_decodes_with_figures_that_are_not_meaningful_test() {
   decoded.other_changes |> should.equal(None)
   decoded.savings_rate |> should.equal(Some(60.0))
   decoded.closing.unknown_balances |> should.equal(["New card"])
+  let assert [mortgage] = decoded.closing.lines
+  #(mortgage.side, mortgage.term)
+  |> should.equal(#(Liability, NonCurrent))
   decoded.expense_lines
   |> should.equal([
     Line(
