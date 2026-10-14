@@ -8,7 +8,7 @@ const tagModal = (page: Page) => page.getByTestId('tag-modal');
 const transactionModal = (page: Page) => page.getByTestId('transaction-modal');
 
 /// Today in the browser's timezone as YYYY-MM-DD, so the transactions fall in
-/// the dashboard's default "This month" period.
+/// the dashboard's month to date.
 function localToday(): string {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -66,7 +66,7 @@ async function recordTransaction(
 
 test.describe('dashboard', () => {
   test(
-    'shows the income statement for this month',
+    'shows the month to date',
     async ({ page }, testInfo) => {
       await page.goto('/tagging');
       await page.getByTestId('create-first-tag-button').click();
@@ -128,22 +128,17 @@ test.describe('dashboard', () => {
       );
       await expect(page.getByTestId('dashboard-empty-balance-sheet'))
         .toBeVisible();
+
+      // Every transaction is this month's, so there is no baseline yet.
+      const freshness = page.getByTestId('dashboard-freshness');
+      await expect(freshness).toContainText(
+        `Latest transaction ${localToday()}`,
+      );
+      await expect(freshness).toContainText('Typical figures appear');
       await page.screenshot({
         path: screenshotPath(testInfo, 'dashboard-this-month'),
         fullPage: true,
       });
-
-      // Last month has no transactions.
-      await page.getByTestId('period-LastMonth').click();
-      await expect(page.getByTestId('dashboard-no-transactions')).toBeVisible();
-
-      // The chosen period is remembered across visits.
-      await page.reload();
-      await expect(page.getByTestId('period-LastMonth')).toHaveAttribute(
-        'aria-pressed',
-        'true',
-      );
-      await expect(page.getByTestId('dashboard-no-transactions')).toBeVisible();
     },
   );
 });

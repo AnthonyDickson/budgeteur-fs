@@ -1,14 +1,10 @@
-//// The dashboard: the balance sheet's net worth and working capital, and the
-//// income statement for a period. The page composes the two statements'
-//// endpoints rather than calling a dashboard aggregate. See docs/dashboard.md.
+//// The dashboard: where the user stands today, and the month to date against
+//// the same days of earlier months. One read serves every figure. See
+//// docs/dashboard.md.
 
-import budgeteur/dashboard_page/balance_summary.{
-  type BalanceSummary, BalanceSummary,
+import budgeteur/dashboard_page/dashboard.{
+  type Dashboard, type Figure, type Line, type Month, type Position,
 }
-import budgeteur/dashboard_page/income_statement.{
-  type ExpenseLine, type IncomeLine, type IncomeStatement,
-}
-import budgeteur/dashboard_page/period.{type Period, type Preset}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
@@ -22,7 +18,6 @@ import budgeteur/shared/tag_ui
 import gleam/dynamic/decode
 import gleam/float
 import gleam/int
-import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
@@ -30,9 +25,6 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-
-/// localStorage key for the page's saved preferences.
-pub const storage_key = "budgeteur.dashboard"
 
 const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
   <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -46,11 +38,9 @@ const link_class = "font-medium text-indigo-600 hover:text-indigo-500"
 
 pub type Model {
   Model(
-    preset: Preset,
     /// The client's local date, once the `GetLocalDate` effect has reported it.
     today: Option(Date),
-    balance: Remote(BalanceSummary),
-    statement: Remote(IncomeStatement),
+    dashboard: Remote(Dashboard),
     /// How many transactions are waiting for a tag, whatever the period, so the
     /// note matches the quick tagging page. See decision 7 in
     /// docs/quick-tagging.md.
@@ -60,52 +50,33 @@ pub type Model {
 
 pub type Msg {
   ClientGotToday(Date)
-  ClientRestoredPreset(Option(Preset))
-  ClientFetchedBalance(Result(BalanceSummary, ApiError))
-  /// The period the request was made for, so a response for a period the
-  /// user has since moved away from is ignored.
-  ClientFetchedStatement(
-    period: Period,
-    result: Result(IncomeStatement, ApiError),
-  )
+  ClientFetchedDashboard(Result(Dashboard, ApiError))
   ClientFetchedWaiting(Result(Int, ApiError))
-  UserSelectedPreset(Preset)
-  UserRetriedBalance
-  UserRetriedStatement
+  UserRetried
+}
+
+/// Which way a figure improves: up for income, net income, and the savings
+/// rate; down for expenses. See decision 17 in docs/dashboard.md.
+pub type Better {
+  Higher
+  Lower
 }
 
 // Effects
 // -------
 
-fn fetch_balance() -> Effect(Msg) {
-  effect.get(api_route.GetBalanceSheet |> api_route.to_string, fn(result) {
-    case result {
-      Ok(body) ->
-        ClientFetchedBalance(response.decode_success(
-          body,
-          balance_summary.decoder(),
-        ))
-      Error(http_error) ->
-        ClientFetchedBalance(
-          Error(response.http_error_to_api_error(http_error)),
-        )
-    }
-  })
-}
-
-fn fetch_statement(period: Period) -> Effect(Msg) {
-  api_route.GetIncomeStatement(from: period.from, to: period.to)
+fn fetch_dashboard(today: Date) -> Effect(Msg) {
+  api_route.GetDashboard(today:)
   |> api_route.to_string
   |> effect.get(fn(result) {
     case result {
       Ok(body) ->
-        ClientFetchedStatement(
-          period,
-          response.decode_success(body, income_statement.decoder()),
-        )
+        ClientFetchedDashboard(response.decode_success(
+          body,
+          dashboard.decoder(),
+        ))
       Error(http_error) ->
-        ClientFetchedStatement(
-          period,
+        ClientFetchedDashboard(
           Error(response.http_error_to_api_error(http_error)),
         )
     }
@@ -130,75 +101,18 @@ fn fetch_waiting() -> Effect(Msg) {
   })
 }
 
-fn restore_preset() -> Effect(Msg) {
-  effect.LoadFromStore(key: storage_key, callback: fn(store_result) {
-    case store_result {
-      Ok(value) ->
-        case json.parse(value, using: preset_decoder()) {
-          Ok(preset) -> ClientRestoredPreset(Some(preset))
-          Error(_) -> ClientRestoredPreset(None)
-        }
-      Error(_) -> ClientRestoredPreset(None)
-    }
-  })
-}
-
-fn persist_preset(preset: Preset) -> Effect(Msg) {
-  effect.SaveToStore(
-    storage_key,
-    json.object([#("preset", json.string(period.preset_to_string(preset)))])
-      |> json.to_string,
-  )
-}
-
-fn preset_decoder() -> decode.Decoder(Preset) {
-  use value <- decode.field("preset", decode.string)
-  case period.parse_preset(value) {
-    Ok(preset) -> decode.success(preset)
-    Error(Nil) -> decode.failure(period.default_preset, "Preset")
-  }
-}
-
 // Init
 // ----
 
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
-    Model(
-      preset: period.default_preset,
-      today: None,
-      balance: Loading,
-      statement: Loading,
-      waiting: Loading,
-    ),
-    effect.batch([
-      restore_preset(),
-      effect.GetLocalDate(ClientGotToday),
-      fetch_balance(),
-      fetch_waiting(),
-    ]),
+    Model(today: None, dashboard: Loading, waiting: Loading),
+    effect.batch([effect.GetLocalDate(ClientGotToday), fetch_waiting()]),
   )
 }
 
 // Update
 // ------
-
-/// The period the statement covers, once `today` is known.
-pub fn current_period(model: Model) -> Option(Period) {
-  option.map(model.today, period.from_preset(model.preset, _))
-}
-
-/// Mark the statement as loading and fetch it for the current period. Does
-/// nothing until `today` is known.
-fn refetch_statement(model: Model) -> #(Model, Effect(Msg)) {
-  case current_period(model) {
-    Some(period) -> #(
-      Model(..model, statement: Loading),
-      fetch_statement(period),
-    )
-    None -> #(model, effect.none())
-  }
-}
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   let #(model, effect) = update_inner(model, msg)
@@ -207,47 +121,20 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
 fn update_inner(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg {
-    ClientGotToday(today) ->
-      refetch_statement(Model(..model, today: Some(today)))
+    ClientGotToday(today) -> #(
+      Model(..model, today: Some(today), dashboard: Loading),
+      fetch_dashboard(today),
+    )
 
-    ClientRestoredPreset(Some(preset)) ->
-      case preset == model.preset {
-        True -> #(model, effect.none())
-        False -> refetch_statement(Model(..model, preset:))
-      }
-
-    ClientRestoredPreset(None) -> #(model, effect.none())
-
-    UserSelectedPreset(preset) -> {
-      let #(model, effect) = refetch_statement(Model(..model, preset:))
-      #(model, effect.batch([effect, persist_preset(preset)]))
-    }
-
-    ClientFetchedBalance(Ok(summary)) -> #(
-      Model(..model, balance: Loaded(summary)),
+    ClientFetchedDashboard(Ok(dashboard)) -> #(
+      Model(..model, dashboard: Loaded(dashboard)),
       effect.none(),
     )
 
-    ClientFetchedBalance(Error(error)) -> #(
-      Model(..model, balance: Failed),
+    ClientFetchedDashboard(Error(error)) -> #(
+      Model(..model, dashboard: Failed),
       effect.LogError(api_error.describe(error)),
     )
-
-    ClientFetchedStatement(period:, result:) ->
-      case current_period(model) == Some(period) {
-        False -> #(model, effect.none())
-        True ->
-          case result {
-            Ok(statement) -> #(
-              Model(..model, statement: Loaded(statement)),
-              effect.none(),
-            )
-            Error(error) -> #(
-              Model(..model, statement: Failed),
-              effect.LogError(api_error.describe(error)),
-            )
-          }
-      }
 
     ClientFetchedWaiting(Ok(count)) -> #(
       Model(..model, waiting: Loaded(count)),
@@ -261,9 +148,23 @@ fn update_inner(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       effect.LogError(api_error.describe(error)),
     )
 
-    UserRetriedBalance -> #(Model(..model, balance: Loading), fetch_balance())
+    UserRetried ->
+      case model.today {
+        Some(today) -> #(
+          Model(..model, dashboard: Loading),
+          fetch_dashboard(today),
+        )
+        None -> #(model, effect.none())
+      }
+  }
+}
 
-    UserRetriedStatement -> refetch_statement(model)
+/// Whether a change is an improvement, which the page shows in green. A zero
+/// change is not.
+pub fn is_improvement(change: Float, better: Better) -> Bool {
+  case better {
+    Higher -> change >. 0.0
+    Lower -> change <. 0.0
   }
 }
 
@@ -280,8 +181,24 @@ pub fn view(model: Model) -> Element(Msg) {
       html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
         html.text("Dashboard"),
       ]),
-      balance_section(model.balance, model.today),
-      statement_section(model),
+      ..case model.dashboard {
+        Loading -> [
+          html.p([attribute.class("text-sm text-gray-500")], [
+            html.text("Loading the dashboard..."),
+          ]),
+        ]
+        Failed -> [
+          retry_card(
+            testid: "dashboard-error",
+            heading: "Could not load the dashboard",
+            on_retry: UserRetried,
+          ),
+        ]
+        Loaded(dashboard) -> [
+          position_section(dashboard.position),
+          month_section(dashboard.month, model.waiting),
+        ]
+      }
     ],
   )
 }
@@ -297,17 +214,11 @@ fn section_heading(title: String, subtitle: String) -> Element(Msg) {
   ])
 }
 
-// Balance sheet
+// Position
 
-fn balance_section(
-  balance: Remote(BalanceSummary),
-  today: Option(Date),
-) -> Element(Msg) {
-  html.section([attribute.class("space-y-4")], case balance {
-    Loading -> [
-      section_heading("Where you stand", "Loading balances..."),
-    ]
-    Loaded(BalanceSummary(is_empty: True, ..)) -> [
+fn position_section(position: Position) -> Element(Msg) {
+  html.section([attribute.class("space-y-4")], case position.is_empty {
+    True -> [
       section_heading("Where you stand", "No balances recorded yet"),
       message_card(
         testid: "dashboard-empty-balance-sheet",
@@ -319,149 +230,389 @@ fn balance_section(
         ],
       ),
     ]
-    Loaded(summary) -> [
-      section_heading("Where you stand", case today {
-        Some(today) -> "Balances as of " <> date.format(today)
-        None -> ""
+    False -> [
+      section_heading("Where you stand", case position.oldest_as_of {
+        Some(as_of) -> "Oldest balance as of " <> date.format(as_of)
+        None -> "No balances known yet"
       }),
-      html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-2")], [
-        figure_card("Net worth", summary.net_worth, "dashboard-net-worth"),
-        figure_card(
+      html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-3")], [
+        money_card("Net worth", position.net_worth, "dashboard-net-worth"),
+        money_card(
           "Working capital",
-          summary.working_capital,
+          position.working_capital,
           "dashboard-working-capital",
         ),
+        card("Runway", "dashboard-runway", [
+          html.p([attribute.class(big_figure_class)], [
+            html.text(case position.runway {
+              Some(runway) -> float.to_string(runway) <> " months"
+              None -> "Not available"
+            }),
+          ]),
+          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+            html.text("Working capital over average monthly expenses"),
+          ]),
+        ]),
       ]),
-    ]
-    Failed -> [
-      section_heading("Where you stand", "Not available"),
-      retry_card(
-        testid: "dashboard-balance-error",
-        heading: "Could not load your balances",
-        on_retry: UserRetriedBalance,
-      ),
     ]
   })
 }
 
-// Income statement
+// Month
 
-fn statement_section(model: Model) -> Element(Msg) {
-  let subtitle = case current_period(model) {
-    Some(period) -> date.format(period.from) <> " to " <> date.format(period.to)
-    None -> ""
-  }
+fn month_section(month: Month, waiting: Remote(Int)) -> Element(Msg) {
+  let compared = month.baseline_month_count > 0
 
-  html.section([attribute.class("space-y-4")], [
-    html.div(
-      [attribute.class("flex flex-wrap items-end justify-between gap-4")],
-      [
-        section_heading("Where your money went", subtitle),
-        preset_picker(model.preset),
-      ],
-    ),
-    case model.statement {
-      Loading ->
-        html.p([attribute.class("text-sm text-gray-500")], [
-          html.text("Loading income statement..."),
-        ])
-      Loaded(statement) -> loaded_statement(statement)
-      Failed ->
-        retry_card(
-          testid: "dashboard-statement-error",
-          heading: "Could not load the income statement",
-          on_retry: UserRetriedStatement,
-        )
-    },
-    untagged_note(model.waiting),
-  ])
-}
-
-fn preset_picker(selected: Preset) -> Element(Msg) {
-  html.div(
+  html.section(
     [
-      attribute.class("inline-flex rounded-md shadow-sm"),
-      attribute.role("group"),
-      attribute.aria_label("Period"),
+      attribute.class("space-y-4"),
+      attribute.attribute("data-testid", "dashboard-month"),
     ],
-    list.index_map(period.presets, fn(preset, index) {
-      let is_selected = preset == selected
-      let position = case index {
-        0 -> "rounded-l-md"
-        _ ->
-          case index == list.length(period.presets) - 1 {
-            True -> "-ml-px rounded-r-md"
-            False -> "-ml-px"
-          }
-      }
-      html.button(
+    [
+      section_heading(
+        month.label <> " to date",
+        date.format(month.from)
+          <> " to "
+          <> date.format(month.to)
+          <> case month.baseline_month_count {
+          0 -> ""
+          1 -> ", against the same days of last month"
+          count ->
+            ", against the same days of the last "
+            <> int.to_string(count)
+            <> " months"
+        },
+      ),
+      html.p(
         [
-          attribute.type_("button"),
-          attribute.class(
-            "border px-3 py-1.5 text-sm font-medium focus:z-10 focus:outline-none "
-            <> "focus:ring-2 focus:ring-indigo-500 "
-            <> position
-            <> " "
-            <> case is_selected {
-              True -> "border-indigo-600 bg-indigo-600 text-white"
-              False -> "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            },
-          ),
-          attribute.attribute("aria-pressed", case is_selected {
-            True -> "true"
-            False -> "false"
-          }),
-          attribute.attribute(
-            "data-testid",
-            "period-" <> period.preset_to_string(preset),
-          ),
-          event.on_click(UserSelectedPreset(preset)),
+          attribute.class("text-sm text-gray-500"),
+          attribute.attribute("data-testid", "dashboard-freshness"),
         ],
-        [html.text(period.label(preset))],
-      )
-    }),
+        [
+          html.text(case month.latest_transaction {
+            Some(latest) -> "Latest transaction " <> date.format(latest)
+            None -> "No transactions yet this month"
+          }),
+          html.text(case compared {
+            True -> ""
+            False ->
+              ". Typical figures appear after your first complete month of transactions."
+          }),
+        ],
+      ),
+      html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-4")], [
+        figure_card("Income", month.income, Higher, "dashboard-income"),
+        figure_card("Expenses", month.expenses, Lower, "dashboard-expenses"),
+        figure_card(
+          "Net income",
+          month.net_income,
+          Higher,
+          "dashboard-net-income",
+        ),
+        savings_rate_card(month),
+      ]),
+      html.p([attribute.class("text-sm text-gray-500")], [
+        html.text(
+          "The savings rate is on take-home pay: contributions taken out of pay, such as KiwiSaver, are not in it.",
+        ),
+      ]),
+      case month.income_lines, month.expense_lines {
+        [], [] ->
+          message_card(
+            testid: "dashboard-no-transactions",
+            heading: "No transactions this month",
+            body: [
+              html.text("Record transactions on the "),
+              page_link(route.Transactions, "Transactions page"),
+              html.text("."),
+            ],
+          )
+        income_lines, expense_lines ->
+          html.div([attribute.class("space-y-6")], [
+            lines_table(
+              title: "Income",
+              testid: "dashboard-income-lines",
+              lines: income_lines,
+              better: Higher,
+              compared:,
+            ),
+            lines_table(
+              title: "Expenses",
+              testid: "dashboard-expense-lines",
+              lines: expense_lines,
+              better: Lower,
+              compared:,
+            ),
+          ])
+      },
+      untagged_note(waiting),
+    ],
   )
 }
 
-fn loaded_statement(statement: IncomeStatement) -> Element(Msg) {
-  case income_statement.is_empty(statement) {
-    True ->
-      message_card(
-        testid: "dashboard-no-transactions",
-        heading: "No transactions in this period",
-        body: [
-          html.text("Record transactions on the "),
-          page_link(route.Transactions, "Transactions page"),
-          html.text("."),
+const big_figure_class = "mt-1 text-xl font-semibold tabular-nums text-gray-900"
+
+/// A total with its typical amount and change below it, once there is a
+/// baseline.
+fn figure_card(
+  label: String,
+  figure: Figure,
+  better: Better,
+  testid: String,
+) -> Element(Msg) {
+  card(label, testid, [
+    html.p(
+      [
+        attribute.class(big_figure_class),
+        attribute.attribute("data-amount", float.to_string(figure.amount)),
+      ],
+      [html.text(money.format(figure.amount))],
+    ),
+    case figure.baseline, figure.change {
+      Some(baseline), Some(change) ->
+        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+          html.text("Typical " <> money.format(baseline) <> " · "),
+          change_text(
+            signed_money(change) <> percent_suffix(figure.change_percent),
+            change,
+            better,
+          ),
+        ])
+      _, _ -> element.none()
+    },
+  ])
+}
+
+fn savings_rate_card(month: Month) -> Element(Msg) {
+  card("Savings rate", "dashboard-savings-rate", [
+    html.p([attribute.class(big_figure_class)], [
+      html.text(case month.savings_rate {
+        Some(rate) -> percent(rate)
+        None -> "No income"
+      }),
+    ]),
+    case month.savings_rate_baseline {
+      Some(baseline) ->
+        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+          html.text("Typical " <> percent(baseline)),
+          case month.savings_rate_change {
+            Some(change) ->
+              element.fragment([
+                html.text(" · "),
+                change_text(signed_points(change), change, Higher),
+              ])
+            None -> element.none()
+          },
+        ])
+      None -> element.none()
+    },
+  ])
+}
+
+fn lines_table(
+  title title: String,
+  testid testid: String,
+  lines lines: List(Line),
+  better better: Better,
+  compared compared: Bool,
+) -> Element(Msg) {
+  let header_class =
+    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500"
+
+  html.div([attribute.class("overflow-hidden " <> card_class)], [
+    html.h3(
+      [
+        attribute.class(
+          "border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900",
+        ),
+      ],
+      [html.text(title)],
+    ),
+    case lines {
+      [] ->
+        html.p([attribute.class("px-4 py-3 text-sm text-gray-400")], [
+          html.text("None"),
+        ])
+      _ ->
+        html.table(
+          [
+            attribute.class("w-full table-fixed text-sm"),
+            attribute.attribute("data-testid", testid),
+          ],
+          [
+            html.thead([attribute.class("border-b border-gray-100")], [
+              html.tr([], [
+                html.th(
+                  [
+                    attribute.scope("col"),
+                    attribute.class(
+                      "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
+                    ),
+                  ],
+                  [html.text("Tag")],
+                ),
+                html.th(
+                  [attribute.scope("col"), attribute.class(header_class)],
+                  [
+                    html.text("This month"),
+                  ],
+                ),
+                ..case compared {
+                  True -> [
+                    html.th(
+                      [attribute.scope("col"), attribute.class(header_class)],
+                      [html.text("Typical")],
+                    ),
+                    html.th(
+                      [attribute.scope("col"), attribute.class(header_class)],
+                      [html.text("Change")],
+                    ),
+                  ]
+                  False -> []
+                }
+              ]),
+            ]),
+            html.tbody(
+              [attribute.class("divide-y divide-gray-100")],
+              list.map(lines, line_row(_, better, compared)),
+            ),
+          ],
+        )
+    },
+  ])
+}
+
+fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
+  let figure = line.figure
+  let number_class = "px-4 py-2 text-right tabular-nums"
+
+  html.tr([attribute.attribute("data-testid", "dashboard-line")], [
+    html.td([attribute.class("px-4 py-2")], [
+      html.span([attribute.class("flex items-center gap-2 text-gray-700")], [
+        case line.color {
+          Some(color) -> tag_ui.color_swatch(color)
+          None ->
+            html.span(
+              [
+                attribute.class(
+                  "inline-block h-3 w-3 shrink-0 rounded-full border border-dashed border-gray-400",
+                ),
+              ],
+              [],
+            )
+        },
+        html.span([attribute.class("truncate")], [html.text(line.name)]),
+      ]),
+      share_bar(line.share),
+    ]),
+    html.td(
+      [
+        attribute.class(number_class <> " text-gray-900"),
+        attribute.attribute("data-amount", float.to_string(figure.amount)),
+      ],
+      [html.text(money.format(figure.amount))],
+    ),
+    ..case compared {
+      True -> [
+        html.td([attribute.class(number_class <> " text-gray-500")], [
+          html.text(case figure.baseline {
+            Some(baseline) -> money.format(baseline)
+            None -> ""
+          }),
+        ]),
+        html.td([attribute.class(number_class)], [
+          case figure.change {
+            Some(change) ->
+              change_text(
+                signed_money(change) <> percent_suffix(figure.change_percent),
+                change,
+                better,
+              )
+            None -> element.none()
+          },
+        ]),
+      ]
+      False -> []
+    }
+  ])
+}
+
+/// A thin strip under an expense line, as wide as its share of the month's
+/// expenses, with the percentage on hover. Negative shares draw nothing. See decision 17 in
+/// docs/dashboard.md.
+fn share_bar(share: Option(Float)) -> Element(Msg) {
+  case share {
+    Some(share) if share >. 0.0 ->
+      html.div(
+        [
+          attribute.class("mt-1 h-1 rounded-full bg-gray-100"),
+          attribute.title(percent(share) <> " of expenses"),
+          attribute.attribute("data-testid", "dashboard-share-bar"),
+        ],
+        [
+          html.div(
+            [
+              attribute.class("h-1 rounded-full bg-indigo-400"),
+              attribute.style(
+                "width",
+                float.to_string(float.min(share, 100.0)) <> "%",
+              ),
+            ],
+            [],
+          ),
         ],
       )
-    False ->
-      html.div([attribute.class("space-y-4")], [
-        html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-3")], [
-          figure_card("Income", statement.income, "dashboard-income"),
-          figure_card("Expenses", statement.expenses, "dashboard-expenses"),
-          figure_card(
-            "Net income",
-            statement.net_income,
-            "dashboard-net-income",
-          ),
-        ]),
-        html.div([attribute.class("grid grid-cols-1 gap-6 lg:grid-cols-2")], [
-          lines_table(
-            title: "Income",
-            testid: "dashboard-income-lines",
-            show_share: False,
-            rows: list.map(statement.income_lines, income_row),
-          ),
-          lines_table(
-            title: "Expenses",
-            testid: "dashboard-expense-lines",
-            show_share: True,
-            rows: list.map(statement.expense_lines, expense_row),
-          ),
-        ]),
-      ])
+    _ -> element.none()
   }
+}
+
+/// A change, green when it is an improvement and uncoloured otherwise. The
+/// sign carries the direction, so colour is not the only cue.
+fn change_text(text: String, change: Float, better: Better) -> Element(Msg) {
+  html.span(
+    [
+      attribute.class(case is_improvement(change, better) {
+        True -> "font-medium text-green-700"
+        False -> "text-gray-700"
+      }),
+      attribute.attribute("data-testid", "dashboard-change"),
+    ],
+    [html.text(text)],
+  )
+}
+
+fn signed_money(amount: Float) -> String {
+  case amount >. 0.0 {
+    True -> "+" <> money.format(amount)
+    False -> money.format(amount)
+  }
+}
+
+fn percent_suffix(change_percent: Option(Float)) -> String {
+  case change_percent {
+    Some(change_percent) ->
+      " ("
+      <> case change_percent >. 0.0 {
+        True -> "+"
+        False -> ""
+      }
+      <> percent(change_percent)
+      <> ")"
+    None -> ""
+  }
+}
+
+fn signed_points(points: Float) -> String {
+  case points >. 0.0 {
+    True -> "+"
+    False -> ""
+  }
+  <> float.to_string(float.to_precision(points, 1))
+  <> " pts"
+}
+
+fn percent(value: Float) -> String {
+  float.to_string(float.to_precision(value, 1)) <> "%"
 }
 
 /// A footnote to the untagged lines rather than a callout: leaving some
@@ -488,107 +639,13 @@ fn untagged_note(waiting: Remote(Int)) -> Element(Msg) {
   }
 }
 
-fn lines_table(
-  title title: String,
-  testid testid: String,
-  show_share show_share: Bool,
-  rows rows: List(Element(Msg)),
-) -> Element(Msg) {
-  html.div([attribute.class("overflow-hidden " <> card_class)], [
-    html.h3(
-      [
-        attribute.class(
-          "border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900",
-        ),
-      ],
-      [html.text(title)],
-    ),
-    case rows {
-      [] ->
-        html.p([attribute.class("px-4 py-3 text-sm text-gray-400")], [
-          html.text("None"),
-        ])
-      _ ->
-        html.table(
-          [
-            attribute.class("w-full text-sm"),
-            attribute.attribute("data-testid", testid),
-          ],
-          [
-            html.thead([attribute.class("sr-only")], [
-              html.tr([], [
-                html.th([attribute.scope("col")], [html.text("Tag")]),
-                html.th([attribute.scope("col")], [html.text("Amount")]),
-                case show_share {
-                  True ->
-                    html.th([attribute.scope("col")], [html.text("Share")])
-                  False -> element.none()
-                },
-              ]),
-            ]),
-            html.tbody([attribute.class("divide-y divide-gray-100")], rows),
-          ],
-        )
-    },
-  ])
-}
-
-fn income_row(line: IncomeLine) -> Element(Msg) {
-  line_row(line.name, line.color, line.amount, [])
-}
-
-fn expense_row(line: ExpenseLine) -> Element(Msg) {
-  line_row(line.name, line.color, line.amount, [
-    html.td(
-      [attribute.class("w-20 px-4 py-2 text-right tabular-nums text-gray-500")],
-      [
-        html.text(case line.share {
-          Some(share) -> float.to_string(float.to_precision(share, 1)) <> "%"
-          None -> ""
-        }),
-      ],
-    ),
-  ])
-}
-
-fn line_row(
-  name: String,
-  color: Option(String),
-  amount: Float,
-  extra_cells: List(Element(Msg)),
-) -> Element(Msg) {
-  html.tr([attribute.attribute("data-testid", "dashboard-line")], [
-    html.td([attribute.class("px-4 py-2")], [
-      html.span([attribute.class("flex items-center gap-2 text-gray-700")], [
-        case color {
-          Some(color) -> tag_ui.color_swatch(color)
-          None ->
-            html.span(
-              [
-                attribute.class(
-                  "inline-block h-3 w-3 shrink-0 rounded-full border border-dashed border-gray-400",
-                ),
-              ],
-              [],
-            )
-        },
-        html.span([attribute.class("truncate")], [html.text(name)]),
-      ]),
-    ]),
-    html.td(
-      [
-        attribute.class("px-4 py-2 text-right tabular-nums text-gray-900"),
-        attribute.attribute("data-amount", float.to_string(amount)),
-      ],
-      [html.text(money.format(amount))],
-    ),
-    ..extra_cells
-  ])
-}
-
 // Shared pieces
 
-fn figure_card(label: String, amount: Float, testid: String) -> Element(Msg) {
+fn card(
+  label: String,
+  testid: String,
+  children: List(Element(Msg)),
+) -> Element(Msg) {
   html.div(
     [
       attribute.class(card_class <> " px-4 py-3"),
@@ -603,17 +660,21 @@ fn figure_card(label: String, amount: Float, testid: String) -> Element(Msg) {
         ],
         [html.text(label)],
       ),
-      html.p(
-        [
-          attribute.class(
-            "mt-1 text-xl font-semibold tabular-nums text-gray-900",
-          ),
-          attribute.attribute("data-amount", float.to_string(amount)),
-        ],
-        [html.text(money.format(amount))],
-      ),
+      ..children
     ],
   )
+}
+
+fn money_card(label: String, amount: Float, testid: String) -> Element(Msg) {
+  card(label, testid, [
+    html.p(
+      [
+        attribute.class(big_figure_class),
+        attribute.attribute("data-amount", float.to_string(amount)),
+      ],
+      [html.text(money.format(amount))],
+    ),
+  ])
 }
 
 fn message_card(
@@ -666,8 +727,6 @@ fn retry_card(
 fn page_link(target: route.Route, label: String) -> Element(Msg) {
   html.a(
     [attribute.href(route.to_string(target)), attribute.class(link_class)],
-    [
-      html.text(label),
-    ],
+    [html.text(label)],
   )
 }

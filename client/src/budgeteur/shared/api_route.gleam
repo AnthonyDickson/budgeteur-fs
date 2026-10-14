@@ -40,6 +40,7 @@ pub type ApiRoute {
   ReopenItem(item_id: Uuid)
   CloseAccount(account_id: Uuid)
   ReopenAccount(account_id: Uuid)
+  GetDashboard(today: Date)
   GetIncomeStatement(from: Date, to: Date)
   /// The report for the frequency's period containing `date`, or with no date
   /// the latest complete period.
@@ -104,6 +105,10 @@ pub fn to_string(route: ApiRoute) -> String {
       <> "/accounts/"
       <> uuid.to_string(account_id)
       <> "/observations"
+    GetDashboard(today:) ->
+      api_prefix
+      <> "/dashboard?"
+      <> uri.query_to_string([#("today", date.format(today))])
     GetIncomeStatement(from:, to:) ->
       api_prefix
       <> "/income-statement?from="
