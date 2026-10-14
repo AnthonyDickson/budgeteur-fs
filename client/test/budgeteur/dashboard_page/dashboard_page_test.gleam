@@ -1,5 +1,5 @@
 import budgeteur/dashboard_page/dashboard.{
-  type Dashboard, Dashboard, Figure, Line, Month, Position,
+  type Dashboard, Dashboard, Figure, HistoryMonth, Line, Month, Position, Totals,
 }
 import budgeteur/dashboard_page/dashboard_page.{
   ClientFetchedDashboard, ClientGotToday, Higher, Lower, UserRetried,
@@ -10,7 +10,7 @@ import budgeteur/shared/effect
 import budgeteur/shared/remote.{Failed, Loaded, Loading}
 import gleam/json
 import gleam/option.{None, Some}
-import gleam/time/calendar.{Date, October}
+import gleam/time/calendar.{Date, October, September}
 import gleeunit/should
 
 const today = Date(2026, October, 14)
@@ -47,6 +47,22 @@ fn dashboard() -> Dashboard {
       income_lines: [],
       expense_lines: [],
     ),
+    history: [],
+    totals: None,
+  )
+}
+
+fn history_month(label: String, complete: Bool) -> dashboard.HistoryMonth {
+  HistoryMonth(
+    label:,
+    from: Date(2026, October, 1),
+    closing_date: today,
+    complete:,
+    income: 0.0,
+    expenses: 0.0,
+    net_income: 0.0,
+    net_worth: None,
+    working_capital: None,
   )
 }
 
@@ -124,7 +140,11 @@ pub fn the_decoder_reads_figures_and_lines_with_their_baselines_test() {
     <> "\"baselineMonthCount\":2,\"latestTransaction\":\"2026-10-05\","
     <> "\"incomeLines\":[],"
     <> "\"expenseLines\":[{\"tagId\":null,\"name\":\"Untagged expenses\",\"color\":null,"
-    <> "\"amount\":\"0\",\"share\":\"0\",\"baseline\":\"20\",\"change\":\"-20\",\"changePercent\":\"-100\"}]}}"
+    <> "\"amount\":\"0\",\"share\":\"0\",\"baseline\":\"20\",\"change\":\"-20\",\"changePercent\":\"-100\"}]},"
+    <> "\"history\":[{\"label\":\"September 2026\",\"from\":\"2026-09-01\",\"closingDate\":\"2026-09-30\",\"complete\":true,"
+    <> "\"income\":\"4000\",\"expenses\":\"1000\",\"netIncome\":\"3000\",\"netWorth\":null,\"workingCapital\":null}],"
+    <> "\"totals\":{\"monthCount\":1,\"income\":\"4000\",\"expenses\":\"1000\",\"netIncome\":\"3000\",\"savingsRate\":\"75\","
+    <> "\"averageIncome\":\"4000\",\"averageExpenses\":\"1000\",\"averageNetIncome\":\"3000\"}}"
 
   let assert Ok(decoded) = json.parse(body, dashboard.decoder())
 
@@ -153,4 +173,49 @@ pub fn the_decoder_reads_figures_and_lines_with_their_baselines_test() {
       share: Some(0.0),
     ),
   ])
+  decoded.history
+  |> should.equal([
+    HistoryMonth(
+      label: "September 2026",
+      from: Date(2026, September, 1),
+      closing_date: Date(2026, September, 30),
+      complete: True,
+      income: 4000.0,
+      expenses: 1000.0,
+      net_income: 3000.0,
+      net_worth: None,
+      working_capital: None,
+    ),
+  ])
+  decoded.totals
+  |> should.equal(
+    Some(Totals(
+      month_count: 1,
+      income: 4000.0,
+      expenses: 1000.0,
+      net_income: 3000.0,
+      savings_rate: Some(75.0),
+      average_income: 4000.0,
+      average_expenses: 1000.0,
+      average_net_income: 3000.0,
+    )),
+  )
+}
+
+pub fn the_history_heading_counts_the_complete_months_test() {
+  dashboard_page.history_heading([history_month("October 2026", False)])
+  |> should.equal("October 2026 to date")
+
+  dashboard_page.history_heading([
+    history_month("September 2026", True),
+    history_month("October 2026", False),
+  ])
+  |> should.equal("Last month and October 2026 to date")
+
+  dashboard_page.history_heading([
+    history_month("August 2026", True),
+    history_month("September 2026", True),
+    history_month("October 2026", False),
+  ])
+  |> should.equal("Last 2 months and October 2026 to date")
 }

@@ -8,7 +8,14 @@ import gleam/option.{type Option}
 import gleam/time/calendar.{type Date}
 
 pub type Dashboard {
-  Dashboard(position: Position, month: Month)
+  Dashboard(
+    position: Position,
+    month: Month,
+    /// Up to twelve complete months and the month to date, oldest first.
+    history: List(HistoryMonth),
+    /// None while there are no baseline months.
+    totals: Option(Totals),
+  )
 }
 
 /// Where the user stands today.
@@ -71,10 +78,100 @@ pub type Month {
   )
 }
 
+/// One month of the history.
+pub type HistoryMonth {
+  HistoryMonth(
+    /// The month's name, e.g. "October 2026".
+    label: String,
+    from: Date,
+    /// The month's last day, or today for the month to date.
+    closing_date: Date,
+    /// False for the month to date.
+    complete: Bool,
+    income: Float,
+    expenses: Float,
+    net_income: Float,
+    /// None when no balance is known on the closing date.
+    net_worth: Option(Float),
+    working_capital: Option(Float),
+  )
+}
+
+/// The baseline months' whole-month figures taken together.
+pub type Totals {
+  Totals(
+    month_count: Int,
+    income: Float,
+    expenses: Float,
+    net_income: Float,
+    savings_rate: Option(Float),
+    average_income: Float,
+    /// The figure runway divides by.
+    average_expenses: Float,
+    average_net_income: Float,
+  )
+}
+
 pub fn decoder() -> decode.Decoder(Dashboard) {
   use position <- decode.field("position", position_decoder())
   use month <- decode.field("month", month_decoder())
-  decode.success(Dashboard(position:, month:))
+  use history <- decode.field("history", decode.list(history_month_decoder()))
+  use totals <- decode.optional_field(
+    "totals",
+    option.None,
+    decode.optional(totals_decoder()),
+  )
+  decode.success(Dashboard(position:, month:, history:, totals:))
+}
+
+fn history_month_decoder() -> decode.Decoder(HistoryMonth) {
+  use label <- decode.field("label", decode.string)
+  use from <- decode.field("from", date.decoder())
+  use closing_date <- decode.field("closingDate", date.decoder())
+  use complete <- decode.field("complete", decode.bool)
+  use income <- decode.field("income", money.decode_decimal())
+  use expenses <- decode.field("expenses", money.decode_decimal())
+  use net_income <- decode.field("netIncome", money.decode_decimal())
+  use net_worth <- optional_decimal("netWorth")
+  use working_capital <- optional_decimal("workingCapital")
+  decode.success(HistoryMonth(
+    label:,
+    from:,
+    closing_date:,
+    complete:,
+    income:,
+    expenses:,
+    net_income:,
+    net_worth:,
+    working_capital:,
+  ))
+}
+
+fn totals_decoder() -> decode.Decoder(Totals) {
+  use month_count <- decode.field("monthCount", decode.int)
+  use income <- decode.field("income", money.decode_decimal())
+  use expenses <- decode.field("expenses", money.decode_decimal())
+  use net_income <- decode.field("netIncome", money.decode_decimal())
+  use savings_rate <- optional_decimal("savingsRate")
+  use average_income <- decode.field("averageIncome", money.decode_decimal())
+  use average_expenses <- decode.field(
+    "averageExpenses",
+    money.decode_decimal(),
+  )
+  use average_net_income <- decode.field(
+    "averageNetIncome",
+    money.decode_decimal(),
+  )
+  decode.success(Totals(
+    month_count:,
+    income:,
+    expenses:,
+    net_income:,
+    savings_rate:,
+    average_income:,
+    average_expenses:,
+    average_net_income:,
+  ))
 }
 
 fn optional_decimal(

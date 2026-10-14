@@ -3,7 +3,8 @@
 //// docs/dashboard.md.
 
 import budgeteur/dashboard_page/dashboard.{
-  type Dashboard, type Figure, type Line, type Month, type Position,
+  type Dashboard, type Figure, type HistoryMonth, type Line, type Month,
+  type Position, type Totals,
 }
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
@@ -197,6 +198,7 @@ pub fn view(model: Model) -> Element(Msg) {
         Loaded(dashboard) -> [
           position_section(dashboard.position),
           month_section(dashboard.month, model.waiting),
+          history_section(dashboard.history, dashboard.totals),
         ]
       }
     ],
@@ -637,6 +639,227 @@ fn untagged_note(waiting: Remote(Int)) -> Element(Msg) {
         ],
       )
   }
+}
+
+// History
+
+/// The history section's heading: how many complete months it shows, and the
+/// month to date.
+pub fn history_heading(history: List(HistoryMonth)) -> String {
+  let to_date = case list.find(history, fn(month) { !month.complete }) {
+    Ok(month) -> month.label <> " to date"
+    Error(Nil) -> "this month to date"
+  }
+
+  case list.count(history, fn(month) { month.complete }) {
+    0 -> to_date
+    count -> months_label(count) <> " and " <> to_date
+  }
+}
+
+/// "Last month" or "Last 7 months".
+fn months_label(count: Int) -> String {
+  case count {
+    1 -> "Last month"
+    count -> "Last " <> int.to_string(count) <> " months"
+  }
+}
+
+fn history_section(
+  history: List(HistoryMonth),
+  totals: Option(Totals),
+) -> Element(Msg) {
+  html.section(
+    [
+      attribute.class("space-y-4"),
+      attribute.attribute("data-testid", "dashboard-history"),
+    ],
+    [
+      section_heading(
+        history_heading(history),
+        "Totals cover the complete months since your first transaction",
+      ),
+      totals_cards(totals),
+      html.div([attribute.class("grid grid-cols-1 gap-6 lg:grid-cols-2")], [
+        history_table(
+          title: "Cash flow",
+          testid: "dashboard-cash-flow",
+          columns: ["Income", "Expenses", "Net income"],
+          history:,
+          cells: fn(month) {
+            [
+              Some(month.income),
+              Some(month.expenses),
+              Some(month.net_income),
+            ]
+          },
+        ),
+        history_table(
+          title: "Net worth",
+          testid: "dashboard-net-worth-history",
+          columns: ["Net worth", "Working capital"],
+          history:,
+          cells: fn(month) { [month.net_worth, month.working_capital] },
+        ),
+      ]),
+    ],
+  )
+}
+
+fn totals_cards(totals: Option(Totals)) -> Element(Msg) {
+  case totals {
+    None ->
+      html.p(
+        [
+          attribute.class("text-sm text-gray-500"),
+          attribute.attribute("data-testid", "dashboard-no-totals"),
+        ],
+        [
+          html.text(
+            "Totals appear after your first complete month of transactions.",
+          ),
+        ],
+      )
+    Some(totals) ->
+      html.div([attribute.class("space-y-2")], [
+        html.h3([attribute.class("text-base font-semibold text-gray-900")], [
+          html.text(months_label(totals.month_count)),
+        ]),
+        html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-4")], [
+          total_card(
+            "Income",
+            totals.income,
+            totals.average_income,
+            "dashboard-total-income",
+          ),
+          total_card(
+            "Expenses",
+            totals.expenses,
+            totals.average_expenses,
+            "dashboard-total-expenses",
+          ),
+          total_card(
+            "Net income",
+            totals.net_income,
+            totals.average_net_income,
+            "dashboard-total-net-income",
+          ),
+          card("Savings rate", "dashboard-total-savings-rate", [
+            html.p([attribute.class(big_figure_class)], [
+              html.text(case totals.savings_rate {
+                Some(rate) -> percent(rate)
+                None -> "No income"
+              }),
+            ]),
+          ]),
+        ]),
+      ])
+  }
+}
+
+/// A total over the baseline months with its monthly average below it.
+fn total_card(
+  label: String,
+  total: Float,
+  average: Float,
+  testid: String,
+) -> Element(Msg) {
+  card(label, testid, [
+    html.p(
+      [
+        attribute.class(big_figure_class),
+        attribute.attribute("data-amount", float.to_string(total)),
+      ],
+      [html.text(money.format(total))],
+    ),
+    html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.text(money.format(average) <> " a month"),
+    ]),
+  ])
+}
+
+/// The history's months as rows, oldest first, with the month to date marked.
+/// An amount the server does not know shows as a dash.
+fn history_table(
+  title title: String,
+  testid testid: String,
+  columns columns: List(String),
+  history history: List(HistoryMonth),
+  cells cells: fn(HistoryMonth) -> List(Option(Float)),
+) -> Element(Msg) {
+  let header_class =
+    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500"
+  let number_class = "px-4 py-2 text-right tabular-nums text-gray-900"
+
+  html.div([attribute.class("overflow-hidden " <> card_class)], [
+    html.h3(
+      [
+        attribute.class(
+          "border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900",
+        ),
+      ],
+      [html.text(title)],
+    ),
+    html.table(
+      [
+        attribute.class("w-full text-sm"),
+        attribute.attribute("data-testid", testid),
+      ],
+      [
+        html.thead([attribute.class("border-b border-gray-100")], [
+          html.tr([], [
+            html.th(
+              [
+                attribute.scope("col"),
+                attribute.class(
+                  "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
+                ),
+              ],
+              [html.text("Month")],
+            ),
+            ..list.map(columns, fn(column) {
+              html.th([attribute.scope("col"), attribute.class(header_class)], [
+                html.text(column),
+              ])
+            })
+          ]),
+        ]),
+        html.tbody(
+          [attribute.class("divide-y divide-gray-100")],
+          list.map(history, fn(month) {
+            html.tr(
+              [attribute.attribute("data-testid", "dashboard-month-row")],
+              [
+                html.td([attribute.class("px-4 py-2 text-gray-700")], [
+                  html.text(case month.complete {
+                    True -> month.label
+                    False -> month.label <> " to date"
+                  }),
+                ]),
+                ..list.map(cells(month), fn(cell) {
+                  case cell {
+                    Some(amount) ->
+                      html.td(
+                        [
+                          attribute.class(number_class),
+                          attribute.attribute(
+                            "data-amount",
+                            float.to_string(amount),
+                          ),
+                        ],
+                        [html.text(money.format(amount))],
+                      )
+                    None ->
+                      html.td([attribute.class(number_class)], [html.text("—")])
+                  }
+                })
+              ],
+            )
+          }),
+        ),
+      ],
+    ),
+  ])
 }
 
 // Shared pieces
