@@ -100,7 +100,9 @@ function netWorth(Plot, months, width) {
     marginLeft: 64,
     style: { fontSize },
     x: monthAxis(months),
-    y: { grid: true, label: null, tickFormat: '$,~s' },
+    // Unlike the bars, the line does not start at zero, so its lowest and
+    // highest points would sit on the axis and the top edge without an inset.
+    y: { grid: true, label: null, tickFormat: '$,~s', inset: 12 },
     marks: [
       Plot.lineY(months, { x: 'label', y: 'netWorth', stroke: accent }),
       ...dots(Plot, months, 'netWorth', accent, 'Net worth'),
