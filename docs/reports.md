@@ -134,16 +134,15 @@ always clear from context; where it is not, say "balance sheet line".
 ### 6. A report pairs two balance sheets with the income statement
 
 - **Decision**: a report carries its period, whether it is complete, opening and
-  closing net worth and working capital, the change in net worth, net income,
-  other changes, savings rate, the income statement, and the closing balance
-  sheet. The income statement and savings rate follow the
-  [dashboard](dashboard.md) rules (decisions 3 and 13). The opening balance
-  sheet appears only as its totals: the change in net worth and its split give
-  what changed, as published statements give the closing position and the
-  movement. The first report's opening balance sheet is empty when no line has
-  an observation before the period; its change in net worth and other changes
-  are then shown as not meaningful, since the change would be the whole closing
-  net worth.
+  closing net worth and working capital, the changes in both, net income, other
+  changes, savings rate, the income statement, and the closing balance sheet.
+  The income statement and savings rate follow the [dashboard](dashboard.md)
+  rules (decisions 3 and 13). The opening balance sheet appears only as its
+  totals: the change in net worth and its split give what changed, as published
+  statements give the closing position and the movement. The first report's
+  opening balance sheet is empty when no line has an observation before the
+  period; its changes and other changes are then shown as not meaningful, since
+  each change would be the whole closing figure.
 - **Why**: the change in net worth says how wealth moved, and net income says
   how much of that was saved; other changes are the rest. Planners present this
   as a statement of changes in net worth. A month with $3k saved and $8k more

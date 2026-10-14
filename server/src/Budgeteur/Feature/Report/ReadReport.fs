@@ -131,6 +131,10 @@ type ReportResponse = {
     /// None when the change is.</summary>
     OtherChanges : decimal option
 
+    /// <summary>Closing working capital minus opening working capital. None
+    /// when the change in net worth is.</summary>
+    ChangeInWorkingCapital : decimal option
+
     Income : decimal
     Expenses : decimal
     NetIncome : decimal
@@ -220,8 +224,10 @@ module ReportResponse =
             HasNext = report.HasNext
             Opening = position report.Opening
             Closing = sheet report.Closing
-            ChangeInNetWorth = report.ChangeInNetWorth |> Option.map _.Change
-            OtherChanges = report.ChangeInNetWorth |> Option.map _.OtherChanges
+            ChangeInNetWorth = report.Change |> Option.map _.NetWorth
+            OtherChanges = report.Change |> Option.map _.OtherChanges
+            ChangeInWorkingCapital =
+                report.Change |> Option.map _.WorkingCapital
             Income = statement.Income
             Expenses = statement.Expenses
             NetIncome = statement.NetIncome

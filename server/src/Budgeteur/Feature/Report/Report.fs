@@ -7,16 +7,20 @@ open Budgeteur.Domain.BalanceSheet
 open Budgeteur.Domain.IncomeStatement
 open Budgeteur.Domain.ReportingPeriod
 
-/// <summary>How net worth changed over a report's period, and how much of
-/// that was saved.</summary>
-type ChangeInNetWorth = {
+/// <summary>How the position changed over a report's period, and how much
+/// of the change in net worth was saved.</summary>
+type Change = {
     /// <summary>Closing net worth minus opening net worth.</summary>
-    Change : decimal
+    NetWorth : decimal
 
     /// <summary>The change net income does not explain: revaluations, money
     /// that never passes through a tracked account, and missing
     /// transactions.</summary>
     OtherChanges : decimal
+
+    /// <summary>Closing working capital minus opening working
+    /// capital.</summary>
+    WorkingCapital : decimal
 }
 
 /// <summary>The periods of a frequency that have reports: from the one
@@ -43,8 +47,8 @@ type Report = {
     Closing : BalanceSheet
 
     /// <summary>None when the opening balance sheet has no lines, since the
-    /// change would be the whole closing net worth: not meaningful.</summary>
-    ChangeInNetWorth : ChangeInNetWorth option
+    /// change would be the whole closing position: not meaningful.</summary>
+    Change : Change option
 
     IncomeStatement : IncomeStatement
     SavingsRate : decimal option
@@ -172,15 +176,18 @@ module Report =
         let statement =
             IncomeStatement.compute (statementPeriod today period) entries
 
-        let changeInNetWorth =
+        let change =
             if hasLines opening then
-                let change =
+                let netWorth =
                     BalanceSheet.netWorth closing
                     - BalanceSheet.netWorth opening
 
                 Some {
-                    Change = change
-                    OtherChanges = change - statement.NetIncome
+                    NetWorth = netWorth
+                    OtherChanges = netWorth - statement.NetIncome
+                    WorkingCapital =
+                        BalanceSheet.workingCapital closing
+                        - BalanceSheet.workingCapital opening
                 }
             else
                 None
@@ -191,7 +198,7 @@ module Report =
             Complete = ReportingPeriod.isComplete today period
             Opening = opening
             Closing = closing
-            ChangeInNetWorth = changeInNetWorth
+            Change = change
             IncomeStatement = statement
             SavingsRate = IncomeStatement.savingsRate statement
             HasPrevious = period <> range.First

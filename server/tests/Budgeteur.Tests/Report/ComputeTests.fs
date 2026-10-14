@@ -105,12 +105,13 @@ module ComputeTests =
                     "and at the end of March"
 
                 Expect.equal
-                    report.ChangeInNetWorth
+                    report.Change
                     (Some {
-                        Change = 13000m
+                        NetWorth = 13000m
                         OtherChanges = 10000m
+                        WorkingCapital = 3000m
                     })
-                    "3k saved, 10k from the revaluation"
+                    "3k saved, 10k revalued, and 3k more current"
 
                 Expect.equal report.SavingsRate (Some 60m) "3k of 5k income"
                 Expect.isTrue report.Complete "March is over by October"
@@ -129,7 +130,7 @@ module ComputeTests =
                         []
 
                 Expect.isNone
-                    report.ChangeInNetWorth
+                    report.Change
                     "an empty opening sheet makes the change meaningless"
 
                 Expect.isFalse report.HasPrevious "January has the first data"
