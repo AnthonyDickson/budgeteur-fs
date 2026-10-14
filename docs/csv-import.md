@@ -401,16 +401,15 @@ line. Lessons from it are cited where they shaped a decision.
   current and non-current groups as items, marked with the account number and
   the current balance's as-of date. A callout lists accounts with an unknown
   balance. An "Add account" button sits next to the item buttons. Clicking a
-  line opens the form that updates its amount: an item's form, or an account's
-  balance form, since that is the action repeated most. The balance form
-  switches to the account form, and deleting starts from an item's or account's
-  form, so the sheet shows amounts rather than a column of buttons. The account
-  form edits the name, number, and term; a new account also takes an optional
-  opening balance. The balance form opens on the current balance's side and
-  amount, dated today, and records an observation: an asset or liability and an
-  amount without a sign. Keeping the current balance's date corrects it. The
-  unknown-balance callout opens the same form. Deleting an account warns that
-  its transactions and balance history are deleted with it.
+  line opens its details page ([reports](reports.md) decision 9), which records
+  balances, edits the details, and deletes from the edit form, so the sheet
+  shows amounts rather than a column of buttons. The account form edits the
+  name, number, and term; a new account also takes an optional opening balance.
+  The balance form opens on the current balance's side and amount, dated today,
+  and records an observation: an asset or liability and an amount without a
+  sign. Keeping the current balance's date corrects it. The unknown-balance
+  callout opens the same page. Deleting an account warns that its transactions
+  and balance history are deleted with it.
 - **Why separate forms**: editing details and recording a balance take different
   fields and do different things: one replaces the account's details, the other
   adds to its balance history. In one form, a blank balance meant "keep the

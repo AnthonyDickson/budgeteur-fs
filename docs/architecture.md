@@ -222,7 +222,9 @@ Lists and tables open their entries: clicking anywhere on a row opens its edit
 dialog, and deleting starts from that dialog, which the page swaps for the
 delete confirmation. Rows show their content rather than a column of buttons. A
 row whose click already means something else keeps an edit button, as the tag
-list does, since clicking a tag selects it.
+list does, since clicking a tag selects it. A balance sheet line opens its
+details page rather than a dialog, since it has a history to list and several
+actions.
 
 ### Effect system
 

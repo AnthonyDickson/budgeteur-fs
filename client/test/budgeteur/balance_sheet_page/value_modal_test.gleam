@@ -5,7 +5,7 @@ import budgeteur/balance_sheet_page/item_write_request.{ValueEntry}
 import budgeteur/balance_sheet_page/value_form
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/field
-import budgeteur/shared/form_modal.{Active, Edit, Hidden, NoChange, Put, Updated}
+import budgeteur/shared/form_modal.{Active, Edit, NoChange, Put, Updated}
 import budgeteur/shared/side.{Asset}
 import budgeteur/shared/term.{NonCurrent}
 import gleam/option.{None, Some}
@@ -80,9 +80,4 @@ pub fn a_blank_value_is_reported_and_not_sent_test() {
     None,
     NoChange,
   ) = value_modal.update(state, value_modal.SaveRequested)
-}
-
-pub fn editing_the_item_closes_the_value_form_test() {
-  let assert #(Hidden, None, NoChange) =
-    value_modal.update(open(), value_modal.EditItemRequested)
 }

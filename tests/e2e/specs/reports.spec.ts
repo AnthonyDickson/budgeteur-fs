@@ -35,7 +35,8 @@ test.describe('reports', () => {
     const row = page.locator('[data-testid^="balance-sheet-item-"]').filter({
       hasText: 'House',
     });
-    await row.getByTestId(/^record-value-item-/).click();
+    await row.getByTestId(/^open-item-/).click();
+    await page.getByTestId('record-observation-button').click();
     const valueModal = page.getByTestId('value-modal');
     await valueModal.getByTestId('value-amount-input').fill('410000.00');
     await valueModal.getByTestId('value-as-of-input').fill(lastMonth.date);

@@ -821,9 +821,9 @@ pub fn view(model: Model) -> Element(Msg) {
             entry_table(model.line_ref, entries),
           ])
       },
-      value_modal.view(model.value_modal, editable: False)
+      value_modal.view(model.value_modal)
         |> element.map(ValueModalMsg),
-      balance_modal.view(model.balance_modal, editable: False)
+      balance_modal.view(model.balance_modal)
         |> element.map(BalanceModalMsg),
       close_modal.view(model.close_modal) |> element.map(CloseModalMsg),
       item_modal.view(model.item_modal) |> element.map(ItemModalMsg),

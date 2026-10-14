@@ -212,9 +212,8 @@ always clear from context; where it is not, say "balance sheet line".
   app's delete dialog. The page header shows the line's name, side, term,
   current balance, and close date, with actions that record an observation using
   the line's value or balance form, edit its details, from where the line is
-  deleted, and close or reopen it (decision 4). Each line on the balance sheet
-  has a "Details" link to it. A line on the balance sheet opens that form, as an
-  account's already did, and editing a line's details is reached from there.
+  deleted, and close or reopen it (decision 4). Clicking a line on the balance
+  sheet opens its details page; the balance sheet itself only adds lines.
   Deleting an account's last observation leaves its balance unknown. Deleting an
   item's last observation is rejected: an item always has a known value, so the
   user deletes the item instead.
@@ -224,7 +223,12 @@ always clear from context; where it is not, say "balance sheet line".
   transaction date, about 250 a year per account, and a page can page through
   them and has a route. Correcting an observation is recording one on the same
   date, so there is no edit action. This takes on "Observation history" from the
-  CSV import brief's Deferred list.
+  CSV import brief's Deferred list. Every action on a line is on its page,
+  rather than some in dialogs opened from the sheet: a line that opened its
+  record form, with a separate link to its page and its edit form behind the
+  record form, hid editing and closing. Recording from the sheet was dropped
+  with it: imports record most account balances and items are revalued a few
+  times a year, and the page shows the earlier values beside the form.
 - **Goal**: every balance that feeds a report can be found and corrected.
 
 ## Consequences
