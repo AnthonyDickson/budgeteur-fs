@@ -339,7 +339,7 @@ module ReadReport =
                 let! history =
                     BalanceSheetHistoryQuery.read queryContext userId
 
-                let! firstTransaction =
+                and! firstTransaction =
                     IncomeStatementQuery.firstTransactionDate
                         queryContext
                         userId

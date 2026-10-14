@@ -127,7 +127,7 @@ module ReadBalanceSheet =
             let! items = ItemQuery.readAll db userId
 
             let! accounts =
-                selectTask queryContext {
+                selectTask db {
                     for a in main.Accounts do
                         leftJoin' c in main.LeftJoined.CurrentBalances
                         on' (Some a.Id = c.AccountId)
