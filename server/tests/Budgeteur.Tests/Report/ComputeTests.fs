@@ -93,6 +93,7 @@ module ComputeTests =
                         (month 3)
                         history
                         entries
+                        []
 
                 Expect.equal
                     (BalanceSheet.netWorth report.Opening)
@@ -126,8 +127,7 @@ module ComputeTests =
                         (date 10 14)
                         (rangeOn (date 10 14))
                         (month 1)
-                        history
-                        []
+                        history [] []
 
                 Expect.isNone
                     report.Change
@@ -145,6 +145,7 @@ module ComputeTests =
                         (month 3)
                         history
                         entries
+                        []
 
                 Expect.isFalse report.Complete "March is not over"
                 Expect.equal report.ClosingDate (date 3 15) "closes on today"
@@ -155,6 +156,40 @@ module ComputeTests =
                     "the later March observations are not yet in"
 
                 Expect.isFalse report.HasNext "nothing after today's period"
+
+            testCase "closed accounts with later transactions are named"
+            <| fun () ->
+                let oldCard = {
+                    everyday with
+                        Id = Guid.NewGuid ()
+                        Name = AccountName.create "Old card" |> okOrFail "name"
+                        ClosedOn = Some (date 3 10)
+                }
+
+                let history = {
+                    history with
+                        AccountHistories =
+                            history.AccountHistories @ [ oldCard, [] ]
+                }
+
+                // The card was used in March and May after closing on 10
+                // March.
+                let afterClose = [ oldCard.Id, date 3 15; oldCard.Id, date 5 1 ]
+
+                let named (m : int) =
+                    Report.compute
+                        (date 10 14)
+                        (rangeOn (date 10 14))
+                        (month m)
+                        history
+                        []
+                        afterClose
+                    |> _.ClosedAccountsWithTransactions
+                    |> List.map _.Id
+
+                Expect.equal (named 3) [ oldCard.Id ] "March has one"
+                Expect.isEmpty (named 4) "April has none"
+                Expect.equal (named 5) [ oldCard.Id ] "May has one"
 
             testCase "the default period is the latest complete one"
             <| fun () ->

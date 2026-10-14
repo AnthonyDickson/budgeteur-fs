@@ -113,9 +113,12 @@ always clear from context; where it is not, say "balance sheet line".
   Deleting stays for mistakes, and removes the line's balance history.
 - **Transactions after the close date**: a closed account with transactions
   dated after its close date is flagged in the closed section, which opens to
-  show the flag. Transactions on the close date are the account's last, so they
-  are not flagged. The flag is worked out when the sheet is read, and the user
-  corrects the close date in the account's edit form.
+  show the flag. A report whose income statement includes such transactions
+  names the accounts: the statement counts the transactions while the balance
+  sheets leave the accounts out, so other changes are off by their net amount.
+  Transactions on the close date are the account's last, so they are not
+  flagged. The flags are worked out when the sheet or report is read, and the
+  user corrects the close date in the account's edit form.
 - **Why**: deleting a sold or repaid line removes it from every past sheet and
   changes past net worth. A close date is one stored fact. The CSV import brief
   planned a final $0 observation instead; that needs a convention to tell a

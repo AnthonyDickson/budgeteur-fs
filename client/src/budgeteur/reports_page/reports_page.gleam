@@ -397,6 +397,7 @@ fn loaded_report(shown: Report) -> Element(Msg) {
           "Other changes are what net income does not explain: revaluations, money that never passes through a tracked account (such as employer KiwiSaver contributions), and missing transactions.",
         ),
       ]),
+      transactions_after_close_note(shown.closed_accounts_with_transactions),
       sheet_table(shown.closing),
     ]),
     html.section([attribute.class("space-y-4")], [
@@ -736,4 +737,29 @@ fn failed_state() -> Element(Msg) {
       ),
     ],
   )
+}
+
+/// Closed accounts with transactions in the period after their close date:
+/// the income statement counts the transactions, but the balance sheets leave
+/// the accounts out. See decision 4 in docs/reports.md.
+fn transactions_after_close_note(names: List(String)) -> Element(Msg) {
+  case names {
+    [] -> element.none()
+    names ->
+      html.p(
+        [
+          attribute.class(
+            "rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800",
+          ),
+          attribute.attribute("data-testid", "report-transactions-after-close"),
+        ],
+        [
+          html.text(
+            "Transactions after the close date of "
+            <> string.join(names, ", ")
+            <> " count in the income statement, but the closed accounts are left off the balance sheets, so other changes are off by their net amount. Check the close dates on the balance sheet page.",
+          ),
+        ],
+      )
+  }
 }

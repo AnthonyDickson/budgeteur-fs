@@ -52,6 +52,14 @@ type Report = {
 
     IncomeStatement : IncomeStatement
     SavingsRate : decimal option
+
+    /// <summary>Closed accounts with transactions in the income statement's
+    /// dates that are after their close date. The statement counts those
+    /// transactions, but the balance sheets leave the accounts out, so other
+    /// changes are off by their net amount. See decision 4 in
+    /// docs/reports.md.</summary>
+    ClosedAccountsWithTransactions : Account list
+
     HasPrevious : bool
     HasNext : bool
 }
@@ -156,6 +164,8 @@ module Report =
     /// Compute the report for a period from the user's balance sheet history
     /// and the period's income statement entries, which run from the period's
     /// first day to the closing date. The period is one of the range.
+    /// <c>transactionsAfterClose</c> are the account and date of each
+    /// transaction dated after its account's close date.
     /// </summary>
     let compute
         (today : DateOnly)
@@ -163,6 +173,7 @@ module Report =
         (period : ReportingPeriod)
         (history : BalanceSheetHistory)
         (entries : Entry list)
+        (transactionsAfterClose : (Guid * DateOnly) list)
         : Report =
         let closingDate = closingDate today period
 
@@ -173,8 +184,21 @@ module Report =
 
         let closing = BalanceSheet.asOf closingDate history
 
-        let statement =
-            IncomeStatement.compute (statementPeriod today period) entries
+        let incomePeriod = statementPeriod today period
+        let statement = IncomeStatement.compute incomePeriod entries
+
+        let closedWithTransactions =
+            let accountIds =
+                transactionsAfterClose
+                |> List.filter (fun (_, date) ->
+                    date >= Period.fromDate incomePeriod
+                    && date <= Period.toDate incomePeriod)
+                |> List.map fst
+                |> Set.ofList
+
+            history.AccountHistories
+            |> List.map fst
+            |> List.filter (fun account -> Set.contains account.Id accountIds)
 
         let change =
             if hasLines opening then
@@ -201,6 +225,7 @@ module Report =
             Change = change
             IncomeStatement = statement
             SavingsRate = IncomeStatement.savingsRate statement
+            ClosedAccountsWithTransactions = closedWithTransactions
             HasPrevious = period <> range.First
             HasNext = period <> range.Current
         }

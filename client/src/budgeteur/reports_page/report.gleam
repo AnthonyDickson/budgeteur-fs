@@ -77,6 +77,8 @@ pub type Report {
     net_income: Float,
     // None when income is zero or negative.
     savings_rate: Option(Float),
+    // Closed accounts with transactions in the period after their close date.
+    closed_accounts_with_transactions: List(String),
     income_lines: List(Line),
     expense_lines: List(Line),
   )
@@ -142,6 +144,10 @@ pub fn decoder() -> decode.Decoder(Report) {
   use expenses <- decode.field("expenses", money.decode_decimal())
   use net_income <- decode.field("netIncome", money.decode_decimal())
   use savings_rate <- optional_money("savingsRate")
+  use closed_accounts_with_transactions <- decode.field(
+    "closedAccountsWithTransactions",
+    decode.list(decode.string),
+  )
   use income_lines <- decode.field("incomeLines", decode.list(line_decoder()))
   use expense_lines <- decode.field("expenseLines", decode.list(line_decoder()))
   decode.success(Report(
@@ -162,6 +168,7 @@ pub fn decoder() -> decode.Decoder(Report) {
     expenses:,
     net_income:,
     savings_rate:,
+    closed_accounts_with_transactions:,
     income_lines:,
     expense_lines:,
   ))

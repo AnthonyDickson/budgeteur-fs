@@ -143,6 +143,12 @@ type ReportResponse = {
     /// zero or negative.</summary>
     SavingsRate : decimal option
 
+    /// <summary>The names of closed accounts with transactions in the period
+    /// dated after their close date. The income statement counts them, but
+    /// the balance sheets leave the accounts out, so other changes are off by
+    /// their net amount.</summary>
+    ClosedAccountsWithTransactions : string list
+
     IncomeLines : ReportLineResponse list
     ExpenseLines : ReportLineResponse list
 }
@@ -232,6 +238,9 @@ module ReportResponse =
             Expenses = statement.Expenses
             NetIncome = statement.NetIncome
             SavingsRate = report.SavingsRate
+            ClosedAccountsWithTransactions =
+                report.ClosedAccountsWithTransactions
+                |> List.map (fun account -> AccountName.value account.Name)
             IncomeLines =
                 statement.IncomeLines
                 |> List.map (fun incomeLine ->
@@ -350,6 +359,9 @@ module ReadReport =
                         queryContext
                         userId
 
+                and! transactionsAfterClose =
+                    TransactionsAfterCloseQuery.read queryContext userId
+
                 let range =
                     Report.range
                         query.Frequency
@@ -369,7 +381,13 @@ module ReadReport =
                         (Report.statementPeriod query.Today period)
 
                 let report =
-                    Report.compute query.Today range period history entries
+                    Report.compute
+                        query.Today
+                        range
+                        period
+                        history
+                        entries
+                        transactionsAfterClose
 
                 log.Info (
                     $"Returned the report for %s{ReportingPeriod.label period}",

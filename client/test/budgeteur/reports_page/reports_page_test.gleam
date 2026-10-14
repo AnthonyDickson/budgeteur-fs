@@ -40,6 +40,7 @@ fn march() -> Report {
     expenses: 2000.0,
     net_income: -2000.0,
     savings_rate: None,
+    closed_accounts_with_transactions: [],
     income_lines: [],
     expense_lines: [],
   )
@@ -195,6 +196,7 @@ pub fn a_report_decodes_with_figures_that_are_not_meaningful_test() {
       #("expenses", json.string("2000")),
       #("netIncome", json.string("3000")),
       #("savingsRate", json.string("60")),
+      #("closedAccountsWithTransactions", json.array(["Old card"], json.string)),
       #("incomeLines", json.preprocessed_array([])),
       #(
         "expenseLines",
@@ -216,6 +218,7 @@ pub fn a_report_decodes_with_figures_that_are_not_meaningful_test() {
   decoded.other_changes |> should.equal(None)
   decoded.change_in_working_capital |> should.equal(None)
   decoded.savings_rate |> should.equal(Some(60.0))
+  decoded.closed_accounts_with_transactions |> should.equal(["Old card"])
   decoded.closing.unknown_balances |> should.equal(["New card"])
   let assert [mortgage] = decoded.closing.lines
   #(mortgage.side, mortgage.term)
