@@ -3,8 +3,6 @@ namespace Budgeteur.Domain.ReportingPeriod
 open System
 open System.Globalization
 
-open Budgeteur.Domain.IncomeStatement
-
 /// <summary>How long a reporting period is. See decision 5 in
 /// docs/reports.md.</summary>
 type Frequency =
@@ -105,11 +103,3 @@ module ReportingPeriod =
         | Quarterly -> $"Q%i{(from.Month - 1) / 3 + 1} %i{from.Year}"
         | CalendarYear -> $"%i{from.Year}"
         | FinancialYear -> $"%i{from.Year}/%02i{(from.Year + 1) % 100}"
-
-    /// <summary>The period as an income statement period. Every reporting
-    /// period is at most a year, so it is always a valid one.</summary>
-    let toPeriod (period : ReportingPeriod) : Period =
-        match Period.create period.From period.To with
-        | Ok period -> period
-        // Unreachable: a reporting period is at most 366 days
-        | Error error -> failwith error
