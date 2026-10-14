@@ -9,6 +9,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
 import budgeteur/shared/effect.{type Effect}
+import budgeteur/shared/icon
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
@@ -296,12 +297,12 @@ fn period_bar(shown: Option(Report)) -> Element(Msg) {
   html.div([attribute.class("flex items-center justify-between gap-4")], [
     html.button(
       [
-        attribute.class(button_class),
+        attribute.class("inline-flex items-center gap-1 " <> button_class),
         attribute.disabled(!has_previous),
         attribute.attribute("data-testid", "report-previous"),
         event.on_click(UserSteppedBack),
       ],
-      [html.text("← Previous")],
+      [icon.chevron_left(class: ""), html.text("Previous")],
     ),
     html.div([attribute.class("text-center")], case shown {
       Some(shown) -> [
@@ -327,12 +328,12 @@ fn period_bar(shown: Option(Report)) -> Element(Msg) {
     }),
     html.button(
       [
-        attribute.class(button_class),
+        attribute.class("inline-flex items-center gap-1 " <> button_class),
         attribute.disabled(!has_next),
         attribute.attribute("data-testid", "report-next"),
         event.on_click(UserSteppedForward),
       ],
-      [html.text("Next →")],
+      [html.text("Next"), icon.chevron_right(class: "")],
     ),
   ])
 }

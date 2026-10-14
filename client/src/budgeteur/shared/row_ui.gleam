@@ -4,6 +4,7 @@
 //// touch screens have no hover. Deleting starts from the dialog the row opens,
 //// so rows show their content rather than a column of buttons.
 
+import budgeteur/shared/icon
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -45,30 +46,7 @@ pub fn open_button(
 /// line it up with the first line of text in a row whose items start at the
 /// top.
 pub fn chevron(class class: String) -> Element(msg) {
-  html.svg(
-    [
-      attribute.attribute("fill", "none"),
-      attribute.attribute("viewBox", "0 0 24 24"),
-      attribute.attribute("stroke-width", "2"),
-      attribute.attribute("stroke", "currentColor"),
-      attribute.class(
-        "h-4 w-4 shrink-0 text-gray-400 group-hover:text-gray-600 " <> class,
-      ),
-      attribute.attribute("aria-hidden", "true"),
-    ],
-    [
-      element.namespaced(
-        "http://www.w3.org/2000/svg",
-        "path",
-        [
-          attribute.attribute("stroke-linecap", "round"),
-          attribute.attribute("stroke-linejoin", "round"),
-          attribute.attribute("d", "m8.25 4.5 7.5 7.5-7.5 7.5"),
-        ],
-        [],
-      ),
-    ],
-  )
+  icon.chevron_right(class: "text-gray-400 group-hover:text-gray-600 " <> class)
 }
 
 /// A row that opens a page rather than a dialog: `open_button`'s whole-row

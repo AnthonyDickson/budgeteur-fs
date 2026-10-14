@@ -23,6 +23,7 @@ import budgeteur/shared/date
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
+import budgeteur/shared/icon
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
@@ -827,10 +828,10 @@ pub fn view(model: Model) -> Element(Msg) {
       html.a(
         [
           attribute.href(route.to_string(route.BalanceSheet)),
-          attribute.class(link_class),
+          attribute.class("inline-flex items-center gap-1 " <> link_class),
           attribute.attribute("data-testid", "line-details-back"),
         ],
-        [html.text("← Balance sheet")],
+        [icon.chevron_left(class: ""), html.text("Balance sheet")],
       ),
       case remote.both(model.line, model.entries) {
         Loading -> loading_state()
