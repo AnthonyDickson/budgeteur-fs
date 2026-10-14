@@ -36,6 +36,7 @@
     <Compile Include="Report/EndpointTests.fs" />
     <Compile Include="Dashboard/PeriodsTests.fs" />
     <Compile Include="Dashboard/MonthTests.fs" />
+    <Compile Include="Dashboard/HistoryTests.fs" />
     <Compile Include="AutoTag/ChangesTests.fs" />
     <Compile Include="AutoTag/MatchesTests.fs" />
     <Compile Include="AutoTag/EndpointTests.fs" />

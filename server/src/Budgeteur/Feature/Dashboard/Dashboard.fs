@@ -2,6 +2,8 @@ namespace Budgeteur.Feature.Dashboard
 
 open System
 
+open Budgeteur.Domain.Account
+open Budgeteur.Domain.BalanceSheet
 open Budgeteur.Domain.IncomeStatement
 open Budgeteur.Domain.Money
 open Budgeteur.Domain.ReportingPeriod
@@ -89,6 +91,78 @@ type MonthFigures = {
 
     /// <summary>The date of the month's latest transaction, if any.</summary>
     LatestTransaction : DateOnly option
+}
+
+/// <summary>One month of the history: its income statement to its closing
+/// date, and the position on that date.</summary>
+type HistoryMonth = {
+    Month : ReportingPeriod
+
+    /// <summary>The month's last day, or today for the month to date.</summary>
+    ClosingDate : DateOnly
+
+    Complete : bool
+    Income : decimal
+    Expenses : decimal
+    NetIncome : decimal
+
+    /// <summary>None when no line on the closing date's balance sheet has a
+    /// known balance, e.g. before the user's first observation.</summary>
+    NetWorth : decimal option
+
+    /// <summary>None when net worth is.</summary>
+    WorkingCapital : decimal option
+}
+
+/// <summary>The baseline months' whole-month figures taken together. See
+/// decision 14 in docs/dashboard.md.</summary>
+type HistoryTotals = {
+    /// <summary>How many baseline months the totals cover, at least
+    /// one.</summary>
+    MonthCount : int
+
+    Income : decimal
+    Expenses : decimal
+    NetIncome : decimal
+
+    /// <summary>Net income over income for the whole span.</summary>
+    SavingsRate : decimal option
+
+    AverageIncome : decimal
+
+    /// <summary>The figure runway divides by.</summary>
+    AverageExpenses : decimal
+
+    AverageNetIncome : decimal
+}
+
+/// <summary>Where the user stands today.</summary>
+type Position = {
+    /// <summary>Whether the balance sheet has no items or accounts.</summary>
+    IsEmpty : bool
+
+    NetWorth : decimal
+    WorkingCapital : decimal
+
+    /// <summary>Working capital in months of average expenses. See decision
+    /// 13 in docs/dashboard.md.</summary>
+    Runway : decimal option
+
+    /// <summary>The earliest as-of date among the lines with a known
+    /// balance.</summary>
+    OldestAsOf : DateOnly option
+}
+
+/// <summary>Every figure on the dashboard.</summary>
+type DashboardFigures = {
+    Position : Position
+    Month : MonthFigures
+
+    /// <summary>Oldest first, ending with the month to date.</summary>
+    History : HistoryMonth list
+
+    /// <summary>None while there are no baseline months.</summary>
+    Totals : HistoryTotals option
 }
 
 module Dashboard =
@@ -181,6 +255,25 @@ module Dashboard =
             HistoryMonths = historyMonths
             BaselineMonths = baselineMonths
         }
+
+    /// <summary>The dashboard's periods for the client's today, given the
+    /// user's balance sheet history and first transaction date. The history
+    /// starts at the first observation or transaction, whichever is
+    /// earlier.</summary>
+    let periodsFor
+        (today : DateOnly)
+        (balanceHistory : BalanceSheetHistory)
+        (firstTransaction : DateOnly option)
+        : DashboardPeriods =
+        let firstData =
+            match
+                Option.toList firstTransaction
+                @ Option.toList (BalanceSheet.firstObservation balanceHistory)
+            with
+            | [] -> None
+            | dates -> Some (List.min dates)
+
+        periods today firstData firstTransaction
 
     /// <summary>The one span the dashboard's transactions are read for: the
     /// first history month's first day up to today.</summary>
@@ -356,4 +449,139 @@ module Dashboard =
                 match entriesIn periods.MonthToDate entries with
                 | [] -> None
                 | entries -> Some (entries |> List.map _.Date |> List.max)
+        }
+
+    /// <summary>Whether a balance sheet has any line with a known
+    /// balance.</summary>
+    let private hasLines (sheet : BalanceSheet) =
+        not (List.isEmpty sheet.Items)
+        || sheet.Accounts |> List.exists (fun account -> account.Current.IsSome)
+
+    /// <summary>Each history month's income statement to its closing date,
+    /// and its position on that date, from the same shared code as its
+    /// monthly report.</summary>
+    let history
+        (periods : DashboardPeriods)
+        (balanceHistory : BalanceSheetHistory)
+        (entries : Entry list)
+        : HistoryMonth list =
+        periods.HistoryMonths
+        |> List.map (fun month ->
+            let closing = closingDate periods.Today month
+            let statementPeriod = monthPeriod periods.Today month
+
+            let statement =
+                IncomeStatement.compute
+                    statementPeriod
+                    (entriesIn statementPeriod entries)
+
+            let sheet =
+                Some (BalanceSheet.asOf closing balanceHistory)
+                |> Option.filter hasLines
+
+            {
+                Month = month
+                ClosingDate = closing
+                Complete = ReportingPeriod.isComplete periods.Today month
+                Income = statement.Income
+                Expenses = statement.Expenses
+                NetIncome = statement.NetIncome
+                NetWorth = sheet |> Option.map BalanceSheet.netWorth
+                WorkingCapital =
+                    sheet |> Option.map BalanceSheet.workingCapital
+            })
+
+    /// <summary>The baseline months' totals and monthly averages, or none
+    /// when there are no baseline months.</summary>
+    let totals
+        (periods : DashboardPeriods)
+        (history : HistoryMonth list)
+        : HistoryTotals option =
+        let months =
+            history
+            |> List.filter (fun month ->
+                List.contains month.Month periods.BaselineMonths)
+
+        match List.length months with
+        | 0 -> None
+        | count ->
+            let income = months |> List.sumBy _.Income
+            let expenses = months |> List.sumBy _.Expenses
+            let netIncome = months |> List.sumBy _.NetIncome
+
+            let average (total : decimal) =
+                Money.roundToCents (total / decimal count)
+
+            Some {
+                MonthCount = count
+                Income = income
+                Expenses = expenses
+                NetIncome = netIncome
+                SavingsRate = percentOf income netIncome
+                AverageIncome = average income
+                AverageExpenses = average expenses
+                AverageNetIncome = average netIncome
+            }
+
+    /// <summary>
+    /// Working capital divided by the average monthly expenses, rounded to one
+    /// decimal place. None without totals or when the average is zero or
+    /// negative; zero when working capital is negative.
+    /// </summary>
+    let runway
+        (workingCapital : decimal)
+        (totals : HistoryTotals option)
+        : decimal option =
+        totals
+        |> Option.map _.AverageExpenses
+        |> Option.filter (fun expenses -> expenses > 0m)
+        |> Option.map (fun expenses ->
+            Decimal.Round (
+                max 0m workingCapital / expenses,
+                1,
+                MidpointRounding.AwayFromZero
+            ))
+
+    /// <summary>The earliest as-of date among the sheet's lines with a known
+    /// balance.</summary>
+    let private oldestAsOf (sheet : BalanceSheet) : DateOnly option =
+        let dates =
+            (sheet.Items |> List.map _.Current.AsOf)
+            @ (sheet.Accounts
+               |> List.choose (fun account ->
+                   account.Current
+                   |> Option.map (fun (current : BalanceObservation) ->
+                       current.AsOf)))
+
+        match dates with
+        | [] -> None
+        | dates -> Some (List.min dates)
+
+    /// <summary>
+    /// Every figure on the dashboard, from the user's balance sheet history
+    /// and the entries of the read period.
+    /// </summary>
+    let compute
+        (periods : DashboardPeriods)
+        (balanceHistory : BalanceSheetHistory)
+        (entries : Entry list)
+        : DashboardFigures =
+        let today = periods.Today
+        let months = history periods balanceHistory entries
+        let totals = totals periods months
+        let sheet = BalanceSheet.asOf today balanceHistory
+        let workingCapital = BalanceSheet.workingCapital sheet
+
+        {
+            Position = {
+                IsEmpty =
+                    List.isEmpty sheet.Items && List.isEmpty sheet.Accounts
+                NetWorth = BalanceSheet.netWorth sheet
+                WorkingCapital = workingCapital
+                Runway = runway workingCapital totals
+                OldestAsOf = oldestAsOf sheet
+            }
+            Month = month periods entries
+            History = months
+            Totals = totals
         }
