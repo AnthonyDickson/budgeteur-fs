@@ -2,6 +2,7 @@
 //// the same days of earlier months. One read serves every figure. See
 //// docs/dashboard.md.
 
+import budgeteur/dashboard_page/chart
 import budgeteur/dashboard_page/dashboard.{
   type Dashboard, type Figure, type HistoryMonth, type Line, type Month,
   type Position, type Totals,
@@ -643,8 +644,8 @@ fn untagged_note(waiting: Remote(Int)) -> Element(Msg) {
 
 // History
 
-/// The history section's heading: how many complete months it shows, and the
-/// month to date.
+/// The months the history shows: how many complete months, and the month to
+/// date.
 pub fn history_heading(history: List(HistoryMonth)) -> String {
   let to_date = case list.find(history, fn(month) { !month.complete }) {
     Ok(month) -> month.label <> " to date"
@@ -675,15 +676,17 @@ fn history_section(
       attribute.attribute("data-testid", "dashboard-history"),
     ],
     [
-      section_heading(
-        history_heading(history),
-        "Totals cover the complete months since your first transaction",
-      ),
+      section_heading("History", history_heading(history)),
       totals_cards(totals),
       html.div([attribute.class("grid grid-cols-1 gap-6 lg:grid-cols-2")], [
         history_table(
           title: "Cash flow",
           testid: "dashboard-cash-flow",
+          chart: chart.view(
+            chart.CashFlow,
+            history,
+            "dashboard-cash-flow-chart",
+          ),
           columns: ["Income", "Expenses", "Net income"],
           history:,
           cells: fn(month) {
@@ -697,6 +700,14 @@ fn history_section(
         history_table(
           title: "Net worth",
           testid: "dashboard-net-worth-history",
+          chart: case list.any(history, fn(month) { month.net_worth != None }) {
+            True ->
+              chart.view(chart.NetWorth, history, "dashboard-net-worth-chart")
+            False ->
+              html.p([attribute.class("text-sm text-gray-500")], [
+                html.text("No balances known in these months."),
+              ])
+          },
           columns: ["Net worth", "Working capital"],
           history:,
           cells: fn(month) { [month.net_worth, month.working_capital] },
@@ -778,11 +789,13 @@ fn total_card(
   ])
 }
 
-/// The history's months as rows, oldest first, with the month to date marked.
-/// An amount the server does not know shows as a dash.
+/// A chart of the history with its figures as a table below it: the months as
+/// rows, oldest first, with the month to date marked. An amount the server does
+/// not know shows as a dash.
 fn history_table(
   title title: String,
   testid testid: String,
+  chart chart: Element(Msg),
   columns columns: List(String),
   history history: List(HistoryMonth),
   cells cells: fn(HistoryMonth) -> List(Option(Float)),
@@ -800,9 +813,10 @@ fn history_table(
       ],
       [html.text(title)],
     ),
+    html.div([attribute.class("px-4 py-3")], [chart]),
     html.table(
       [
-        attribute.class("w-full text-sm"),
+        attribute.class("w-full border-t border-gray-100 text-sm"),
         attribute.attribute("data-testid", testid),
       ],
       [

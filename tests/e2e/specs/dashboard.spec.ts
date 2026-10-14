@@ -135,6 +135,12 @@ test.describe('dashboard', () => {
         `Latest transaction ${localToday()}`,
       );
       await expect(freshness).toContainText('Typical figures appear');
+
+      // The cash flow chart is drawn once Plot has loaded. The net worth chart
+      // has no balances to draw.
+      await expect(
+        page.getByTestId('dashboard-cash-flow-chart').locator('svg').first(),
+      ).toBeVisible();
       await page.screenshot({
         path: screenshotPath(testInfo, 'dashboard-this-month'),
         fullPage: true,
