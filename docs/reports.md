@@ -158,10 +158,12 @@ always clear from context; where it is not, say "balance sheet line".
   for a frequency and any date in the period, given the client's `today`. The
   server aligns the date to its period, so the client steps to the previous
   period with the day before the report's first day, and to the next with the
-  day after its last. The response also says whether earlier and later reports
-  exist. The shared code moves to `Domain/`: the balance sheet for a statement
-  date, the income statement computation (the move [dashboard](dashboard.md)
-  decision 5 anticipated), savings rate, and reporting period arithmetic.
+  day after its last. Without a date, the server picks the latest complete
+  period, or the period to date when no complete one has data. The response also
+  says whether earlier and later reports exist; any other period is `404`. The
+  shared code is in `Domain/` (the balance sheet for a statement date, the
+  income statement computation, savings rate, and reporting periods) and `Data/`
+  (loading every line with its observations, and the income statement entries).
 - **Why**: a report combines both statements, which no single statement endpoint
   should do, and the balance sheet endpoint stays the current sheet. Taking any
   date keeps period arithmetic on the server; the client only moves a day either

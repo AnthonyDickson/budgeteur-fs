@@ -57,6 +57,8 @@
     <Compile Include="Data/BalanceObservationCodec.fs" />
     <Compile Include="Data/BalanceObservationStore.fs" />
     <Compile Include="Data/AccountBalanceCodec.fs" />
+    <Compile Include="Data/IncomeStatementQuery.fs" />
+    <Compile Include="Data/BalanceSheetHistoryQuery.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
@@ -116,6 +118,9 @@
 
     <Compile Include="Feature/IncomeStatement/ReadIncomeStatement.fs" />
     <Compile Include="Feature/IncomeStatement/IncomeStatementEndpoints.fs" />
+    <Compile Include="Feature/Report/Report.fs" />
+    <Compile Include="Feature/Report/ReadReport.fs" />
+    <Compile Include="Feature/Report/ReportEndpoints.fs" />
 
     <Compile Include="Feature/AutoTag/AutoTag.fs" />
     <Compile Include="Feature/AutoTag/RunAutoTag.fs" />

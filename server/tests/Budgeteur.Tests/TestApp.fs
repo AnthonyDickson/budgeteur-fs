@@ -41,6 +41,7 @@ module TestAppConfig =
     open Budgeteur.Feature.Import
     open Budgeteur.Feature.IncomeStatement
     open Budgeteur.Feature.QuickTag
+    open Budgeteur.Feature.Report
     open Budgeteur.Feature.Rule
     open Budgeteur.Feature.Tag
     open Budgeteur.Feature.TestSupport
@@ -69,6 +70,8 @@ module TestAppConfig =
     let withRules = withEndpoints [ "Rules" ] RuleEndpoints.all
 
     let withIncomeStatement = withEndpoints [] IncomeStatementEndpoints.all
+
+    let withReports = withEndpoints [] ReportEndpoints.all
 
     let withAutoTag = withEndpoints [ "Categorisations" ] AutoTagEndpoints.all
 

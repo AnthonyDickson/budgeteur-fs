@@ -31,6 +31,8 @@
     <Compile Include="BalanceSheet/EndpointTests.fs" />
     <Compile Include="IncomeStatement/ValidatePeriodTests.fs" />
     <Compile Include="IncomeStatement/EndpointTests.fs" />
+    <Compile Include="Report/ComputeTests.fs" />
+    <Compile Include="Report/EndpointTests.fs" />
     <Compile Include="AutoTag/ChangesTests.fs" />
     <Compile Include="AutoTag/MatchesTests.fs" />
     <Compile Include="AutoTag/EndpointTests.fs" />
