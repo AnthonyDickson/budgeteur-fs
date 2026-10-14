@@ -373,14 +373,15 @@ fn figure_card(
     ),
     case figure.baseline, figure.change {
       Some(baseline), Some(change) ->
-        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
-          html.text("Typical " <> money.format(baseline) <> " · "),
-          change_text(
-            signed_money(change) <> percent_suffix(figure.change_percent),
+        comparison_grid(
+          money.format(baseline),
+          change_cells(
+            signed_money(change),
+            signed_percent(figure.change_percent),
             change,
             better,
           ),
-        ])
+        )
       _, _ -> element.none()
     },
   ])
@@ -396,20 +397,51 @@ fn savings_rate_card(month: Month) -> Element(Msg) {
     ]),
     case month.savings_rate_baseline {
       Some(baseline) ->
-        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
-          html.text("Typical " <> percent(baseline)),
-          case month.savings_rate_change {
-            Some(change) ->
-              element.fragment([
-                html.text(" · "),
-                change_text(signed_points(change), change, Higher),
-              ])
-            None -> element.none()
-          },
-        ])
+        comparison_grid(percent(baseline), case month.savings_rate_change {
+          Some(change) ->
+            change_cells(signed_points(change), "", change, Higher)
+          None -> []
+        })
       None -> element.none()
     },
   ])
+}
+
+/// A card's typical figure and its change, in fixed columns so the change's
+/// amount and percentage line up from card to card.
+fn comparison_grid(
+  typical: String,
+  change: List(Element(Msg)),
+) -> Element(Msg) {
+  let label_class = "text-gray-500"
+
+  html.dl(
+    [
+      attribute.class(
+        "mt-2 grid grid-cols-[auto_1fr_auto] gap-x-3 text-sm tabular-nums",
+      ),
+    ],
+    [
+      html.dt([attribute.class(label_class)], [html.text("Typical")]),
+      html.dd(
+        [
+          attribute.class("text-right text-gray-700"),
+          attribute.attribute("data-testid", "dashboard-typical"),
+        ],
+        [html.text(typical)],
+      ),
+      html.dd([], []),
+      ..case change {
+        [] -> []
+        cells -> [
+          html.dt([attribute.class(label_class)], [html.text("Change")]),
+          ..list.map(cells, fn(cell) {
+            html.dd([attribute.class("text-right")], [cell])
+          })
+        ]
+      }
+    ],
+  )
 }
 
 fn lines_table(
@@ -470,6 +502,13 @@ fn lines_table(
                       [attribute.scope("col"), attribute.class(header_class)],
                       [html.text("Change")],
                     ),
+                    html.th(
+                      [
+                        attribute.scope("col"),
+                        attribute.class(header_class <> " w-24"),
+                      ],
+                      [html.text("%")],
+                    ),
                   ]
                   False -> []
                 }
@@ -523,17 +562,19 @@ fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
             None -> ""
           }),
         ]),
-        html.td([attribute.class(number_class)], [
-          case figure.change {
-            Some(change) ->
-              change_text(
-                signed_money(change) <> percent_suffix(figure.change_percent),
-                change,
-                better,
-              )
-            None -> element.none()
-          },
-        ]),
+        ..case figure.change {
+          Some(change) ->
+            change_cells(
+              signed_money(change),
+              signed_percent(figure.change_percent),
+              change,
+              better,
+            )
+            |> list.map(fn(cell) {
+              html.td([attribute.class(number_class)], [cell])
+            })
+          None -> [html.td([], []), html.td([], [])]
+        }
       ]
       False -> []
     }
@@ -569,19 +610,36 @@ fn share_bar(share: Option(Float)) -> Element(Msg) {
   }
 }
 
-/// A change, green when it is an improvement and uncoloured otherwise. The
+/// A change's amount and percentage, each its own cell so they line up. Both
+/// are green when the change is an improvement and uncoloured otherwise. The
 /// sign carries the direction, so colour is not the only cue.
-fn change_text(text: String, change: Float, better: Better) -> Element(Msg) {
-  html.span(
-    [
-      attribute.class(case is_improvement(change, better) {
-        True -> "font-medium text-green-700"
-        False -> "text-gray-700"
-      }),
-      attribute.attribute("data-testid", "dashboard-change"),
-    ],
-    [html.text(text)],
-  )
+fn change_cells(
+  amount: String,
+  percentage: String,
+  change: Float,
+  better: Better,
+) -> List(Element(Msg)) {
+  let class = case is_improvement(change, better) {
+    True -> "font-medium text-green-700"
+    False -> "text-gray-700"
+  }
+
+  [
+    html.span(
+      [
+        attribute.class(class),
+        attribute.attribute("data-testid", "dashboard-change"),
+      ],
+      [html.text(amount)],
+    ),
+    html.span(
+      [
+        attribute.class(class),
+        attribute.attribute("data-testid", "dashboard-change-percent"),
+      ],
+      [html.text(percentage)],
+    ),
+  ]
 }
 
 fn signed_money(amount: Float) -> String {
@@ -591,16 +649,12 @@ fn signed_money(amount: Float) -> String {
   }
 }
 
-fn percent_suffix(change_percent: Option(Float)) -> String {
+/// A change as a signed percentage, or nothing when the server sends none.
+fn signed_percent(change_percent: Option(Float)) -> String {
   case change_percent {
-    Some(change_percent) ->
-      " ("
-      <> case change_percent >. 0.0 {
-        True -> "+"
-        False -> ""
-      }
-      <> percent(change_percent)
-      <> ")"
+    Some(change_percent) if change_percent >. 0.0 ->
+      "+" <> percent(change_percent)
+    Some(change_percent) -> percent(change_percent)
     None -> ""
   }
 }

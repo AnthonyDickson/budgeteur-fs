@@ -228,12 +228,16 @@ test.describe('dashboard against earlier months', () => {
         `Latest transaction ${thisMonth.date}`,
       );
       await expectAmount(page.getByTestId('dashboard-expenses'), 2500);
-      await expect(page.getByTestId('dashboard-expenses')).toContainText(
-        'Typical $2,000.00',
+      const expenses = page.getByTestId('dashboard-expenses');
+      await expect(expenses.getByTestId('dashboard-typical')).toHaveText(
+        '$2,000.00',
       );
-      await expect(
-        page.getByTestId('dashboard-expenses').getByTestId('dashboard-change'),
-      ).toHaveText('+$500.00 (+25.0%)');
+      await expect(expenses.getByTestId('dashboard-change')).toHaveText(
+        '+$500.00',
+      );
+      await expect(expenses.getByTestId('dashboard-change-percent')).toHaveText(
+        '+25.0%',
+      );
       await expect(
         page.getByTestId('dashboard-savings-rate').getByTestId(
           'dashboard-change',
@@ -245,7 +249,10 @@ test.describe('dashboard against earlier months', () => {
       await expect(rentLine).toHaveCount(1);
       await expect(rentLine).toContainText('Rent');
       await expect(rentLine.getByTestId('dashboard-change')).toHaveText(
-        '+$500.00 (+25.0%)',
+        '+$500.00',
+      );
+      await expect(rentLine.getByTestId('dashboard-change-percent')).toHaveText(
+        '+25.0%',
       );
 
       // History: two complete months and this month to date.
