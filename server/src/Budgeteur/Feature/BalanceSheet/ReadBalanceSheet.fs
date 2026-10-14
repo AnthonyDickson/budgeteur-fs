@@ -1,6 +1,7 @@
 namespace Budgeteur.Feature.BalanceSheet
 
 module ReadBalanceSheet =
+    open System
     open System.Collections.Generic
     open System.Threading.Tasks
 
@@ -14,6 +15,7 @@ module ReadBalanceSheet =
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Account
     open Budgeteur.Domain.BalanceSheet
+    open Budgeteur.Domain.BalanceSheetItem
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.Endpoint
@@ -25,8 +27,8 @@ module ReadBalanceSheet =
     let Path = "/api/balance-sheet"
 
     /// <summary>The user's balance sheet. It carries no statement date: the
-    /// client draws it for its own today, and each line has an as-of
-    /// date.</summary>
+    /// client draws it for its own today, and each line has an as-of date.
+    /// Closed lines are listed apart and left out of the totals.</summary>
     type BalanceSheetResponse = {
         /// <summary>Every asset and liability that is not an account.</summary>
         Items : BalanceSheetItemResponse list
@@ -37,6 +39,13 @@ module ReadBalanceSheet =
         /// <summary>Accounts whose balance is unknown, left out of the
         /// totals.</summary>
         UnknownBalances : UnknownBalanceResponse list
+
+        /// <summary>Items that were sold or repaid, left out of the
+        /// sheet.</summary>
+        ClosedItems : BalanceSheetItemResponse list
+
+        /// <summary>Accounts that were closed, left out of the sheet.</summary>
+        ClosedAccounts : ClosedAccountResponse list
 
         /// <summary>Total value of assets expected to be realised within the
         /// current period.</summary>
@@ -80,39 +89,65 @@ module ReadBalanceSheet =
     }
 
     module BalanceSheetResponse =
-        let fromDomain (sheet : BalanceSheet) : BalanceSheetResponse = {
-            Items = sheet.Items |> List.map BalanceSheetItemResponse.fromDomain
-            Accounts =
-                sheet.Accounts |> List.choose AccountLineResponse.fromDomain
-            UnknownBalances =
-                BalanceSheet.unknownBalances sheet
-                |> List.map UnknownBalanceResponse.fromDomain
-            TotalCurrentAssets = BalanceSheet.totalCurrentAssets sheet
-            TotalCurrentLiabilities = BalanceSheet.totalCurrentLiabilities sheet
-            TotalNonCurrentAssets = BalanceSheet.totalNonCurrentAssets sheet
-            TotalNonCurrentLiabilities =
-                BalanceSheet.totalNonCurrentLiabilities sheet
-            TotalAssets = BalanceSheet.totalAssets sheet
-            TotalLiabilities = BalanceSheet.totalLiabilities sheet
-            NetWorth = BalanceSheet.netWorth sheet
-            WorkingCapital = BalanceSheet.workingCapital sheet
-        }
+        let fromDomain
+            (sheet : BalanceSheet)
+            (closedItems : ItemValue list)
+            (closedAccounts : Account list)
+            (transactionsAfterClose : (Guid * DateOnly) list)
+            : BalanceSheetResponse =
+            let datesAfterClose (account : Account) =
+                transactionsAfterClose
+                |> List.filter (fun (accountId, _) -> accountId = account.Id)
+                |> List.map snd
 
-    /// <summary>The user's balance sheet: every item and account they track. A
-    /// user with neither has an empty sheet.</summary>
+            {
+                Items =
+                    sheet.Items |> List.map BalanceSheetItemResponse.fromDomain
+                Accounts =
+                    sheet.Accounts |> List.choose AccountLineResponse.fromDomain
+                UnknownBalances =
+                    BalanceSheet.unknownBalances sheet
+                    |> List.map UnknownBalanceResponse.fromDomain
+                ClosedItems =
+                    closedItems |> List.map BalanceSheetItemResponse.fromDomain
+                ClosedAccounts =
+                    closedAccounts
+                    |> List.choose (fun account ->
+                        ClosedAccountResponse.fromDomain
+                            (datesAfterClose account)
+                            account)
+                TotalCurrentAssets = BalanceSheet.totalCurrentAssets sheet
+                TotalCurrentLiabilities =
+                    BalanceSheet.totalCurrentLiabilities sheet
+                TotalNonCurrentAssets = BalanceSheet.totalNonCurrentAssets sheet
+                TotalNonCurrentLiabilities =
+                    BalanceSheet.totalNonCurrentLiabilities sheet
+                TotalAssets = BalanceSheet.totalAssets sheet
+                TotalLiabilities = BalanceSheet.totalLiabilities sheet
+                NetWorth = BalanceSheet.netWorth sheet
+                WorkingCapital = BalanceSheet.workingCapital sheet
+            }
+
+    /// <summary>The user's balance sheet: every open item and account they
+    /// track, and apart from it the closed ones. A user with neither has an
+    /// empty sheet. A close date cannot be in the future, so every closed line
+    /// is left out of the current sheet.</summary>
     let private readBalanceSheet
         (queryContext : QueryContextFactory)
         (userId : string)
-        : Task<BalanceSheet> =
+        : Task<
+              BalanceSheet *
+              ItemValue list *
+              Account list *
+              (Guid * DateOnly) list
+           >
+        =
         task {
-            let! items =
-                selectTask queryContext {
-                    for item in main.BalanceSheetItems do
-                        where (item.UserId = userId)
-                }
+            use! db = queryContext.OpenContextAsync ()
+            let! items = ItemQuery.readAll db userId
 
-            and! accounts =
-                selectTask queryContext {
+            let! accounts =
+                selectTask db {
                     for a in main.Accounts do
                         leftJoin' c in main.LeftJoined.CurrentBalances
                         on' (Some a.Id = c.AccountId)
@@ -122,12 +157,29 @@ module ReadBalanceSheet =
                         select (a, c)
                 }
 
-            return {
-                Items =
-                    Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
-                Accounts =
-                    Seq.map AccountBalanceCodec.fromRow accounts |> List.ofSeq
+            let closedItems, openItems =
+                items |> List.partition (fun item -> item.Item.ClosedOn.IsSome)
+
+            let closedAccounts, openAccounts =
+                accounts
+                |> Seq.map AccountBalanceCodec.fromRow
+                |> List.ofSeq
+                |> List.partition (fun account ->
+                    account.Account.ClosedOn.IsSome)
+
+            let sheet = {
+                Items = openItems
+                Accounts = openAccounts
             }
+
+            let! transactionsAfterClose =
+                TransactionsAfterCloseQuery.read db userId
+
+            return
+                sheet,
+                closedItems,
+                closedAccounts |> List.map _.Account,
+                transactionsAfterClose
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -135,9 +187,20 @@ module ReadBalanceSheet =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! sheet = readBalanceSheet queryContext userId
+
+                let! sheet, closedItems, closedAccounts, afterClose =
+                    readBalanceSheet queryContext userId
+
                 log.Info "Returned balance sheet"
-                do! Json.write ctx (BalanceSheetResponse.fromDomain sheet)
+
+                do!
+                    Json.write
+                        ctx
+                        (BalanceSheetResponse.fromDomain
+                            sheet
+                            closedItems
+                            closedAccounts
+                            afterClose)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

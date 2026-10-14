@@ -2,10 +2,10 @@ import budgeteur/balance_sheet_page/account.{type Account, Account}
 import budgeteur/balance_sheet_page/account_write_request.{BalanceEntry}
 import budgeteur/balance_sheet_page/balance_form
 import budgeteur/balance_sheet_page/balance_modal.{CurrentBalance}
-import budgeteur/balance_sheet_page/item_kind.{Asset, Liability}
-import budgeteur/balance_sheet_page/term.{Current}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{Active, Edit, NoChange, Put, Updated}
+import budgeteur/shared/side.{Asset, Liability}
+import budgeteur/shared/term.{Current}
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, March}
 import gleeunit/should
@@ -27,7 +27,7 @@ fn balance(msg: balance_form.Msg) -> balance_modal.Msg {
 
 fn everyday() -> Account {
   let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000007")
-  Account(id:, name: "Everyday", number: None, term: Current)
+  Account(id:, name: "Everyday", number: None, term: Current, closed_on: None)
 }
 
 fn open(current: option.Option(balance_modal.CurrentBalance)) {

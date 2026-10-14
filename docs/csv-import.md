@@ -80,23 +80,23 @@ line. Lessons from it are cited where they shaped a decision.
   current balance, and is an asset when it is zero or more and a liability when
   it is negative, with the balance's magnitude. Totals, net worth, and working
   capital include both sources. Item rules are unchanged: positive magnitude,
-  kind fixed at creation.
+  side fixed at creation.
 - **Deletion**: deleting an account deletes its observations and its
-  transactions, including any entered by hand against it. Closed accounts stay
-  as $0 lines (Deferred), so deletion is for mistakes, such as an account
-  created by importing the wrong file, whose transactions are mistakes too.
-  Re-importing a statement restores them, tagged by rules. Keeping the
-  transactions without an account was rejected: a re-import skips them as
+  transactions, including any entered by hand against it. Closed accounts get a
+  close date ([reports](reports.md) decision 4), so deletion is for mistakes,
+  such as an account created by importing the wrong file, whose transactions are
+  mistakes too. Re-importing a statement restores them, tagged by rules. Keeping
+  the transactions without an account was rejected: a re-import skips them as
   duplicates (decision 6), so they would stay without one for good.
 - **Why**: a bank account's sign changes (an overdrawn chequing account is a
-  current liability), which an item's fixed kind cannot follow. Keeping accounts
+  current liability), which an item's fixed side cannot follow. Keeping accounts
   apart leaves the item invariants intact, stores each balance once, lets a
   balance be unknown, and keeps an account, and the attribution of its
   transactions, when it has no place on the sheet. Balance sheet decision 3
   anticipated this rule: a negative balance becomes a liability.
 - **Rejected**:
   - Accounts as balance sheet items with an optional account number. One list
-    and one form, but kind becomes editable for some items, an item created by
+    and one form, but side becomes editable for some items, an item created by
     import has no balance to start with, and deleting a closed account's item
     clears the account from its transactions.
   - Accounts linked to items. The account and the item each have a name and a
@@ -132,13 +132,13 @@ line. Lessons from it are cited where they shaped a decision.
     given.
   - ASB credit card: none. The user enters the balance, for example from the
     monthly statement.
-- **Why**: the balance sheet has no history, and regular snapshots (roadmap)
-  need one. Observations make a snapshot for any date a query: for each line,
-  the latest observation on or before that date. Kiwibank's running balance
-  gives a daily history from the bank's own figures, which is lost unless it is
-  recorded at import, since users rarely keep old exports. One rule covers
-  statements and manual entry without special cases. An unknown balance is not
-  $0, which would understate a credit card's liability.
+- **Why**: the balance sheet has no history, and [reports](reports.md) need one.
+  Observations make the balance sheet for any date a query: for each line, the
+  latest observation on or before that date. Kiwibank's running balance gives a
+  daily history from the bank's own figures, which is lost unless it is recorded
+  at import, since users rarely keep old exports. One rule covers statements and
+  manual entry without special cases. An unknown balance is not $0, which would
+  understate a credit card's liability.
 - **Known limitations**:
   - Importing an older export after a newer one that covers the same last day
     replaces that day's balance with the older, partial one. The next import
@@ -147,7 +147,7 @@ line. Lessons from it are cited where they shaped a decision.
     until an import covering that date restores it.
 - **Rejected**:
   - A single balance per account, overwritten by newer ones. It loses the
-    history snapshots need, and still needs the rule that an older balance does
+    history reports need, and still needs the rule that an older balance does
     not replace a newer one, so it saves little.
   - Statement observations taking precedence over manual ones on the same date.
     It needs a source on every observation and a rejection path, to guard
@@ -359,11 +359,14 @@ line. Lessons from it are cited where they shaped a decision.
   - `Feature/Import/` owns `POST /api/imports`, the formats and their parser,
     and the import's workflow logic: the import hash, duplicate skipping, and
     transfer detection, as pure functions apart from the handler.
-  - `Feature/Account/` owns account CRUD at `/api/accounts` and recording a
-    balance at `/api/accounts/{id}/balances`. Creating an account takes an
-    optional opening balance; updating one changes only its details. Recording a
-    balance is its own operation because it appends to the history rather than
-    replacing a field, and it takes different fields from editing the details.
+  - `Feature/Account/` owns account CRUD at `/api/accounts` and the account's
+    observations at `/api/accounts/{id}/observations`: recording, listing, and
+    deleting them ([reports](reports.md) decision 9), and its close date at
+    `/api/accounts/{id}/close-date`: closing and reopening it (reports decision
+    4). Creating an account takes an optional opening balance; updating one
+    changes only its details. Recording a balance is its own operation because
+    it appends to the history rather than replacing a field, and it takes
+    different fields from editing the details.
   - The `Account` type, its number and name rules, and the observation rules
     (one per date, no future dates) are in `Domain/`, with their mapping in
     `Data/`, because both slices write accounts and observations. The rule that
@@ -398,16 +401,15 @@ line. Lessons from it are cited where they shaped a decision.
   current and non-current groups as items, marked with the account number and
   the current balance's as-of date. A callout lists accounts with an unknown
   balance. An "Add account" button sits next to the item buttons. Clicking a
-  line opens the form that updates its amount: an item's form, or an account's
-  balance form, since that is the action repeated most. The balance form
-  switches to the account form, and deleting starts from an item's or account's
-  form, so the sheet shows amounts rather than a column of buttons. The account
-  form edits the name, number, and term; a new account also takes an optional
-  opening balance. The balance form opens on the current balance's side and
-  amount, dated today, and records an observation: an asset or liability and an
-  amount without a sign. Keeping the current balance's date corrects it. The
-  unknown-balance callout opens the same form. Deleting an account warns that
-  its transactions and balance history are deleted with it.
+  line opens its details page ([reports](reports.md) decision 9), which records
+  balances, edits the details, and deletes from the edit form, so the sheet
+  shows amounts rather than a column of buttons. The account form edits the
+  name, number, and term; a new account also takes an optional opening balance.
+  The balance form opens on the current balance's side and amount, dated today,
+  and records an observation: an asset or liability and an amount without a
+  sign. Keeping the current balance's date corrects it. The unknown-balance
+  callout opens the same page. Deleting an account warns that its transactions
+  and balance history are deleted with it.
 - **Why separate forms**: editing details and recording a balance take different
   fields and do different things: one replaces the account's details, the other
   adds to its balance history. In one form, a blank balance meant "keep the
@@ -505,26 +507,17 @@ line. Lessons from it are cited where they shaped a decision.
   tables with the account picked at upload; formats with preambles stay built
   in. No user code; regular expressions, if added, run without backtracking.
 - **Account picked at upload.** For formats without an account column.
-- **Snapshots.** Part of the regular snapshots roadmap item. The balance sheet
-  as of a date the client sends: for each line, the latest observation on or
-  before it, with the observation's date shown so stale lines are visible. Items
-  get observations too, their balance and as-of date becoming the first, and a
-  sold or repaid holding is closed with a final $0 observation instead of
-  deleted, so past net worth does not change. Queried rather than stored, so no
-  scheduled job or server timezone is needed.
+- **Balance sheets for past dates, item observations, balance history, and
+  closing accounts.** Planned in [reports](reports.md).
 - **Reconciliation.** Between two observations of an account, the change in
   balance should equal the sum of its transactions between them; a difference
   means missing transactions, and an incomplete income statement for that
   period. Includes checking a statement's opening balance against the previous
   import's closing balance.
-- **Observation history.** Listing, editing, and deleting an account's past
-  observations. Until then, a wrong entry is corrected on the same date or
-  replaced by a newer one.
 - **Rolling balances forward.** For formats without a balance. If added, shown
   as estimated so it is never mistaken for a statement figure.
 - **Import history and undo.** An imports record on each transaction.
 - **Converting an item into an account.** Until then, delete and recreate.
-- **Hiding closed accounts.** Until then, a closed account is a $0 line.
 - **Transfers without another party column.** ASB card payments from an ASB
   account appear in both statements and are marked by hand. A rule action that
   marks transfers belongs with rules on other fields (auto-tagging brief).

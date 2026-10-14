@@ -46,6 +46,7 @@ module AccountRequest =
                 Number = number
                 Name = name
                 Term = term
+                ClosedOn = None
             }
         }
 

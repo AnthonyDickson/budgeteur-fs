@@ -11,6 +11,7 @@ module AccountCodec =
         Number = account.Number |> Option.map AccountNumber.value
         Name = AccountName.value account.Name
         Term = Term.toString account.Term
+        ClosedOn = account.ClosedOn
     }
 
     let fromRow (row : main.Accounts) : Account = {
@@ -23,4 +24,5 @@ module AccountCodec =
             // The database checks this column, so in practice this arm is
             // unreachable
             | Error error -> failwith error
+        ClosedOn = row.ClosedOn
     }

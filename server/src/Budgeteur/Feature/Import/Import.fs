@@ -53,6 +53,7 @@ module Import =
         Number = Some account.Number
         Name = AccountName.ofNumber account.Number account.ProductName
         Term = Budgeteur.Domain.Term.Current
+        ClosedOn = None
     }
 
     /// <summary>The rows to import: those whose hash the user does not have,

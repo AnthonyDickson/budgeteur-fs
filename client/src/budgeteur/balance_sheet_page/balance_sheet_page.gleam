@@ -1,37 +1,37 @@
 import budgeteur/balance_sheet_page/account.{type Account, type AccountLine}
-import budgeteur/balance_sheet_page/account_delete_modal
 import budgeteur/balance_sheet_page/account_modal
 import budgeteur/balance_sheet_page/account_write_request
-import budgeteur/balance_sheet_page/balance_modal
-import budgeteur/balance_sheet_page/balance_sheet.{type BalanceSheet}
+import budgeteur/balance_sheet_page/balance_sheet.{
+  type BalanceSheet, type ClosedAccount, type TransactionsAfterClose,
+  TransactionsAfterClose,
+}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
-import budgeteur/balance_sheet_page/item_delete_modal
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/item_write_request
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
-import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
+import budgeteur/shared/route
 import budgeteur/shared/row_ui
+import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import gleam/float
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/result
 import gleam/string
 import gleam/time/calendar.{type Date}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-import youid/uuid.{type Uuid}
+import youid/uuid
 
 const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
   <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
@@ -49,11 +49,10 @@ pub type Model {
     sheet: SheetState,
     /// The client's local date, once the `GetLocalDate` effect has reported it.
     today: Option(Date),
+    // Creates items. A line's other forms are on its details page.
     item_modal: item_modal.Modal,
-    item_delete_modal: item_delete_modal.DeleteModalState,
+    // Creates accounts.
     account_modal: account_modal.Modal,
-    account_delete_modal: account_delete_modal.DeleteModalState,
-    balance_modal: balance_modal.Modal,
   )
 }
 
@@ -74,33 +73,11 @@ pub type Msg {
   // Retry after a failed first load.
   UserRequestedSheetReload
   // Item modal messages
-  UserRequestedItemCreation(kind: ItemKind)
-  UserRequestedItemEdit(Uuid)
+  UserRequestedItemCreation(side: Side)
   ItemModalMsg(item_modal.Msg)
-  // Item delete modal messages. The item modal's `DeleteRequested` opens it.
-  UserConfirmedItemDelete
-  UserCancelledItemDelete
-  // Server response to a delete request. 404 is folded into Ok by the page
-  // (the end state matches the user's intent), so this only carries genuine
-  // failures.
-  ServerDeletedItem(item: BalanceSheetItem, result: Result(Nil, ApiError))
   // Account modal messages
   UserRequestedAccountCreation
-  // The balance modal's `EditAccountRequested` opens the account modal for
-  // an existing account.
   AccountModalMsg(account_modal.Msg)
-  // Account delete modal messages. The account modal's `DeleteRequested` opens
-  // it.
-  UserConfirmedAccountDelete
-  UserCancelledAccountDelete
-  // As for items, 404 is folded into Ok.
-  ServerDeletedAccount(account: Account, result: Result(Nil, ApiError))
-  // Balance modal messages
-  UserRequestedBalanceRecord(
-    account: Account,
-    current: Option(balance_modal.CurrentBalance),
-  )
-  BalanceModalMsg(balance_modal.Msg)
 }
 
 // Effects
@@ -129,10 +106,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       sheet: Loading,
       today: None,
       item_modal: item_modal.hidden(),
-      item_delete_modal: item_delete_modal.empty(),
       account_modal: account_modal.hidden(),
-      account_delete_modal: account_delete_modal.empty(),
-      balance_modal: balance_modal.hidden(),
     ),
     effect.batch([effect.GetLocalDate(ClientGotToday), fetch_sheet()]),
   )
@@ -163,42 +137,13 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       None,
     )
 
-    UserRequestedItemCreation(kind:) ->
+    UserRequestedItemCreation(side:) ->
       run_item_modal(
         model,
-        item_modal.CreateRequested(kind:, today: model.today),
+        item_modal.CreateRequested(side:, today: model.today),
       )
 
-    UserRequestedItemEdit(id) -> {
-      case list.find(model_items(model), fn(item) { item.id == id }) {
-        Ok(item) -> run_item_modal(model, item_modal.EditRequested(item))
-        Error(Nil) -> #(model, effect.none(), None)
-      }
-    }
-
-    ItemModalMsg(item_modal.DeleteRequested as inner_msg) ->
-      open_item_delete(model) |> run_item_modal(inner_msg)
-
     ItemModalMsg(inner_msg) -> run_item_modal(model, inner_msg)
-
-    UserConfirmedItemDelete -> confirm_item_delete(model)
-
-    ServerDeletedItem(item, result) -> {
-      case result {
-        Ok(_) -> on_item_delete_succeeded(model, item)
-        Error(error) ->
-          case api_error.is_not_found(error) {
-            True -> on_item_delete_succeeded(model, item)
-            False -> on_item_delete_failed(model, error)
-          }
-      }
-    }
-
-    UserCancelledItemDelete -> #(
-      Model(..model, item_delete_modal: item_delete_modal.empty()),
-      effect.none(),
-      None,
-    )
 
     UserRequestedAccountCreation ->
       run_account_modal(
@@ -206,39 +151,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         account_modal.CreateRequested(today: model.today),
       )
 
-    AccountModalMsg(account_modal.DeleteRequested as inner_msg) ->
-      open_account_delete(model) |> run_account_modal(inner_msg)
-
     AccountModalMsg(inner_msg) -> run_account_modal(model, inner_msg)
-
-    UserConfirmedAccountDelete -> confirm_account_delete(model)
-
-    ServerDeletedAccount(account, result) ->
-      case result {
-        Ok(_) -> on_account_delete_succeeded(model, account)
-        Error(error) ->
-          case api_error.is_not_found(error) {
-            True -> on_account_delete_succeeded(model, account)
-            False -> on_account_delete_failed(model, error)
-          }
-      }
-
-    UserCancelledAccountDelete -> #(
-      Model(..model, account_delete_modal: account_delete_modal.empty()),
-      effect.none(),
-      None,
-    )
-
-    UserRequestedBalanceRecord(account:, current:) ->
-      run_balance_modal(
-        model,
-        balance_modal.OpenRequested(account:, current:, today: model.today),
-      )
-
-    BalanceModalMsg(balance_modal.EditAccountRequested as inner_msg) ->
-      open_account_edit(model) |> run_balance_modal(inner_msg)
-
-    BalanceModalMsg(inner_msg) -> run_balance_modal(model, inner_msg)
   }
 }
 
@@ -266,79 +179,12 @@ fn on_fetch_failed(
   }
 }
 
-/// The items currently on the sheet; empty unless a snapshot has loaded.
+/// The user's items, open or closed; empty unless a sheet has loaded. Closed
+/// items count for the duplicate check, as they do on the server.
 fn model_items(model: Model) -> List(BalanceSheetItem) {
   case model.sheet {
-    Loaded(sheet) -> sheet.items
+    Loaded(sheet) -> list.append(sheet.items, sheet.closed_items)
     Loading | Failed -> []
-  }
-}
-
-/// The accounts currently on the sheet, with a known balance or not; empty
-/// unless a snapshot has loaded.
-fn model_accounts(model: Model) -> List(Account) {
-  case model.sheet {
-    Loaded(sheet) ->
-      list.append(
-        list.map(sheet.accounts, fn(line) { line.account }),
-        sheet.unknown_balances,
-      )
-    Loading | Failed -> []
-  }
-}
-
-/// The id of the entity an edit dialog is open for, if any.
-fn editing_id(modal: form_modal.Modal(form)) -> Result(Uuid, Nil) {
-  case form_modal.mode(modal) {
-    Some(form_modal.Edit(id:)) -> Ok(id)
-    Some(form_modal.Create) | None -> Error(Nil)
-  }
-}
-
-/// Open the delete confirmation for the item being edited. The item modal
-/// closes itself on the same message.
-fn open_item_delete(model: Model) -> Model {
-  let item = {
-    use id <- result.try(editing_id(model.item_modal))
-    list.find(model_items(model), fn(item) { item.id == id })
-  }
-  case item {
-    Ok(item) -> Model(..model, item_delete_modal: item_delete_modal.open(item))
-    Error(Nil) -> model
-  }
-}
-
-/// Open the account form for the account whose balance is being recorded. The
-/// balance modal closes itself on the same message.
-fn open_account_edit(model: Model) -> Model {
-  let account = {
-    use id <- result.try(editing_id(model.balance_modal))
-    list.find(model_accounts(model), fn(account) { account.id == id })
-  }
-  case account {
-    Ok(account) -> {
-      // Opening the form sends no request and has no outcome.
-      let #(account_modal, _, _) =
-        account_modal.update(
-          model.account_modal,
-          account_modal.EditRequested(account:),
-        )
-      Model(..model, account_modal:)
-    }
-    Error(Nil) -> model
-  }
-}
-
-/// As for items, for the account being edited.
-fn open_account_delete(model: Model) -> Model {
-  let account = {
-    use id <- result.try(editing_id(model.account_modal))
-    list.find(model_accounts(model), fn(account) { account.id == id })
-  }
-  case account {
-    Ok(account) ->
-      Model(..model, account_delete_modal: account_delete_modal.open(account))
-    Error(Nil) -> model
   }
 }
 
@@ -384,13 +230,10 @@ fn apply_item_outcome(
 ) -> #(Model, Option(OutMsg)) {
   case outcome {
     form_modal.NoChange -> #(model, None)
-    form_modal.Created(entity: item) -> #(
+    // The page only creates items; they are edited on their details page.
+    form_modal.Created(entity: item) | form_modal.Updated(entity: item) -> #(
       model,
       Some(out_msg.success_toast("Created item '" <> item.name <> "'")),
-    )
-    form_modal.Updated(entity: item) -> #(
-      model,
-      Some(out_msg.success_toast("Updated item '" <> item.name <> "'")),
     )
   }
 }
@@ -405,14 +248,8 @@ fn interpret_item_modal_request(request: item_modal.Request) -> Effect(Msg) {
       )
       |> effect.with_timeout(form_modal.submit_timeout_ms)
       |> effect.map(ItemModalMsg)
-    form_modal.Put(id:, payload:) ->
-      effect.put(
-        api_route.UpdateBalanceSheetItem(id) |> api_route.to_string,
-        item_write_request.to_json(payload) |> json.to_string,
-        handle_item_response,
-      )
-      |> effect.with_timeout(form_modal.submit_timeout_ms)
-      |> effect.map(ItemModalMsg)
+    // The form opens in create mode only here.
+    form_modal.Put(..) -> effect.none()
   }
 }
 
@@ -425,67 +262,6 @@ fn handle_item_response(result) {
       item_modal.SaveCompleted(
         Error(response.http_error_to_api_error(http_error)),
       )
-  }
-}
-
-fn confirm_item_delete(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case delete_modal.confirm(model.item_delete_modal) {
-    Ok(#(state, item)) -> #(
-      Model(..model, item_delete_modal: state),
-      delete_item(item),
-      None,
-    )
-    Error(Nil) -> #(model, effect.none(), None)
-  }
-}
-
-fn delete_item(item: BalanceSheetItem) -> Effect(Msg) {
-  effect.delete(
-    api_route.DeleteBalanceSheetItem(item.id) |> api_route.to_string,
-    fn(result) {
-      case result {
-        // A successful delete returns 204 with no body, so there is nothing
-        // to decode.
-        Ok(_) -> ServerDeletedItem(item, Ok(Nil))
-        Error(http_error) ->
-          ServerDeletedItem(
-            item,
-            Error(response.http_error_to_api_error(http_error)),
-          )
-      }
-    },
-  )
-  |> effect.with_timeout(delete_modal.delete_timeout_ms)
-}
-
-fn on_item_delete_succeeded(
-  model: Model,
-  item: BalanceSheetItem,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  #(
-    Model(..model, item_delete_modal: item_delete_modal.empty()),
-    fetch_sheet(),
-    Some(out_msg.success_toast("Deleted item '" <> item.name <> "'")),
-  )
-}
-
-fn on_item_delete_failed(
-  model: Model,
-  error: ApiError,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  // A response can only arrive while the modal is `Deleting` (the dialog is
-  // locked while the request is in flight), so `fail` normally moves it to
-  // `Errored` for an inline retry. The unchanged-state check covers a stale
-  // response (the modal was reset, e.g. closed and re-opened for another
-  // item), which must not touch the newer session.
-  let updated = delete_modal.fail(model.item_delete_modal, error)
-  case updated == model.item_delete_modal {
-    True -> #(model, effect.none(), None)
-    False -> #(
-      Model(..model, item_delete_modal: updated),
-      effect.LogError(api_error.describe(error)),
-      None,
-    )
   }
 }
 
@@ -507,18 +283,14 @@ fn run_account_modal(
     ]
     _ -> effects
   }
-  // A save may record an opening balance or change the term, which moves the
-  // account's line and the totals the server computes, so the sheet is
-  // refetched.
+  // A new account may have an opening balance, which changes the totals the
+  // server computes, so the sheet is refetched.
   let #(effects, out_msg) = case outcome {
     form_modal.NoChange -> #(effects, None)
-    form_modal.Created(entity: account) -> #(
+    // The page only creates accounts; they are edited on their details page.
+    form_modal.Created(entity: account) | form_modal.Updated(entity: account) -> #(
       list.append(effects, [fetch_sheet()]),
       Some(out_msg.success_toast("Created account '" <> account.name <> "'")),
-    )
-    form_modal.Updated(entity: account) -> #(
-      list.append(effects, [fetch_sheet()]),
-      Some(out_msg.success_toast("Updated account '" <> account.name <> "'")),
     )
   }
   let effect = case effects {
@@ -539,15 +311,11 @@ fn interpret_account_modal_request(
         account_write_request.create_json(payload) |> json.to_string,
         handle_account_response,
       )
-    form_modal.Put(id:, payload:) ->
-      effect.put(
-        api_route.UpdateAccount(id) |> api_route.to_string,
-        account_write_request.update_json(payload) |> json.to_string,
-        handle_account_response,
-      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(AccountModalMsg)
+    // The form opens in create mode only here.
+    form_modal.Put(..) -> effect.none()
   }
-  |> effect.with_timeout(form_modal.submit_timeout_ms)
-  |> effect.map(AccountModalMsg)
 }
 
 fn handle_account_response(result) {
@@ -559,125 +327,6 @@ fn handle_account_response(result) {
       account_modal.SaveCompleted(
         Error(response.http_error_to_api_error(http_error)),
       )
-  }
-}
-
-fn run_balance_modal(
-  model: Model,
-  msg: balance_modal.Msg,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let #(balance_modal, request, outcome) =
-    balance_modal.update(model.balance_modal, msg)
-  let model = Model(..model, balance_modal:)
-  let effects = case request {
-    Some(request) -> [interpret_balance_modal_request(request)]
-    None -> []
-  }
-  let effects = case msg {
-    balance_modal.SaveCompleted(result: Error(error)) -> [
-      effect.LogError(api_error.describe(error)),
-      ..effects
-    ]
-    _ -> effects
-  }
-  // A new balance can move the account's line and changes the totals the
-  // server computes, so the sheet is refetched.
-  let #(effects, out_msg) = case outcome {
-    form_modal.NoChange -> #(effects, None)
-    form_modal.Created(entity: account) | form_modal.Updated(entity: account) -> #(
-      list.append(effects, [fetch_sheet()]),
-      Some(out_msg.success_toast(
-        "Recorded a balance for '" <> account.name <> "'",
-      )),
-    )
-  }
-  let effect = case effects {
-    [] -> effect.none()
-    [effect] -> effect
-    _ -> effect.batch(effects)
-  }
-  #(model, effect, out_msg)
-}
-
-fn interpret_balance_modal_request(
-  request: balance_modal.Request,
-) -> Effect(Msg) {
-  case request {
-    // The modal opens in edit mode only, so its request names the account.
-    form_modal.Put(id:, payload:) ->
-      effect.post(
-        api_route.RecordBalance(id) |> api_route.to_string,
-        account_write_request.balance_entry_json(payload) |> json.to_string,
-        handle_balance_response,
-      )
-      |> effect.with_timeout(form_modal.submit_timeout_ms)
-      |> effect.map(BalanceModalMsg)
-    form_modal.Post(_) -> effect.none()
-  }
-}
-
-fn handle_balance_response(result) {
-  case result {
-    Ok(body) ->
-      response.decode_success(body, account.decoder())
-      |> balance_modal.SaveCompleted
-    Error(http_error) ->
-      balance_modal.SaveCompleted(
-        Error(response.http_error_to_api_error(http_error)),
-      )
-  }
-}
-
-fn confirm_account_delete(
-  model: Model,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  case delete_modal.confirm(model.account_delete_modal) {
-    Ok(#(state, account)) -> #(
-      Model(..model, account_delete_modal: state),
-      effect.delete(
-        api_route.DeleteAccount(account.id) |> api_route.to_string,
-        fn(result) {
-          case result {
-            Ok(_) -> ServerDeletedAccount(account, Ok(Nil))
-            Error(http_error) ->
-              ServerDeletedAccount(
-                account,
-                Error(response.http_error_to_api_error(http_error)),
-              )
-          }
-        },
-      )
-        |> effect.with_timeout(delete_modal.delete_timeout_ms),
-      None,
-    )
-    Error(Nil) -> #(model, effect.none(), None)
-  }
-}
-
-fn on_account_delete_succeeded(
-  model: Model,
-  account: Account,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  #(
-    Model(..model, account_delete_modal: account_delete_modal.empty()),
-    fetch_sheet(),
-    Some(out_msg.success_toast("Deleted account '" <> account.name <> "'")),
-  )
-}
-
-/// As for items, a stale response leaves a newer dialog session alone.
-fn on_account_delete_failed(
-  model: Model,
-  error: ApiError,
-) -> #(Model, Effect(Msg), Option(OutMsg)) {
-  let updated = delete_modal.fail(model.account_delete_modal, error)
-  case updated == model.account_delete_modal {
-    True -> #(model, effect.none(), None)
-    False -> #(
-      Model(..model, account_delete_modal: updated),
-      effect.LogError(api_error.describe(error)),
-      None,
-    )
   }
 }
 
@@ -698,20 +347,8 @@ pub fn view(model: Model) -> Element(Msg) {
       },
       item_modal.view(model.item_modal)
         |> element.map(ItemModalMsg),
-      item_delete_modal.view(
-        model.item_delete_modal,
-        on_cancel: UserCancelledItemDelete,
-        on_confirm: UserConfirmedItemDelete,
-      ),
       account_modal.view(model.account_modal)
         |> element.map(AccountModalMsg),
-      balance_modal.view(model.balance_modal)
-        |> element.map(BalanceModalMsg),
-      account_delete_modal.view(
-        model.account_delete_modal,
-        on_cancel: UserCancelledAccountDelete,
-        on_confirm: UserConfirmedAccountDelete,
-      ),
     ],
   )
 }
@@ -725,7 +362,139 @@ fn loaded_sheet(sheet: BalanceSheet, today: Option(Date)) -> Element(Msg) {
       [], [], [] -> empty_state()
       _, _, _ -> sheet_columns(sheet)
     },
+    closed_lines(sheet.closed_items, sheet.closed_accounts),
   ])
+}
+
+/// Lines the user no longer has are left off the sheet. They are listed,
+/// collapsed, each linking to its details page, where it is reopened.
+/// A closed account with transactions after its close date is flagged, and the
+/// list opens so the flag is seen: the close date is likely wrong. See
+/// decision 4 in docs/reports.md.
+fn closed_lines(
+  items: List(BalanceSheetItem),
+  accounts: List(ClosedAccount),
+) -> Element(Msg) {
+  let item_rows =
+    list.map(items, fn(item) {
+      closed_row(
+        testid: "closed-item-" <> uuid.to_string(item.id),
+        name: item.name,
+        closed_on: item.closed_on,
+        after_close: None,
+        page: route.ItemDetails(item.id),
+      )
+    })
+  let account_rows =
+    list.map(accounts, fn(closed) {
+      closed_row(
+        testid: "closed-account-" <> uuid.to_string(closed.account.id),
+        name: closed.account.name,
+        closed_on: closed.account.closed_on,
+        after_close: closed.transactions_after_close,
+        page: route.AccountDetails(closed.account.id),
+      )
+    })
+  let flagged =
+    list.count(accounts, fn(closed) {
+      option.is_some(closed.transactions_after_close)
+    })
+
+  case list.append(item_rows, account_rows) {
+    [] -> element.none()
+    rows ->
+      html.details(
+        [
+          attribute.class("mt-8 rounded-lg border border-gray-200 bg-white"),
+          attribute.attribute("data-testid", "closed-lines"),
+          attribute.open(flagged > 0),
+        ],
+        [
+          html.summary(
+            [
+              attribute.class(
+                "cursor-pointer px-4 py-3 text-sm font-medium text-gray-700",
+              ),
+            ],
+            [
+              html.text("Closed (" <> int.to_string(list.length(rows)) <> ")"),
+              case flagged {
+                0 -> element.none()
+                _ ->
+                  html.span([attribute.class("ml-2 text-amber-700")], [
+                    html.text(
+                      int.to_string(flagged)
+                      <> " with transactions after closing",
+                    ),
+                  ])
+              },
+            ],
+          ),
+          html.ul([attribute.class("divide-y divide-gray-100 border-t")], rows),
+        ],
+      )
+  }
+}
+
+fn closed_row(
+  testid testid: String,
+  name name: String,
+  closed_on closed_on: Option(Date),
+  after_close after_close: Option(TransactionsAfterClose),
+  page page: route.Route,
+) -> Element(Msg) {
+  html.li(
+    [
+      attribute.class(
+        "group relative flex items-center gap-3 px-4 py-3 hover:bg-gray-50",
+      ),
+      attribute.attribute("data-testid", testid),
+    ],
+    [
+      html.div([attribute.class("min-w-0 flex-1")], [
+        row_ui.open_link(
+          testid: "open-" <> testid,
+          href: route.to_string(page),
+          class: "block max-w-full truncate",
+          children: [html.text(name)],
+        ),
+        html.p(
+          [attribute.class(row_ui.selectable_class <> " text-xs text-gray-500")],
+          [
+            html.text(case closed_on {
+              Some(closed_on) -> "Closed on " <> date.format(closed_on)
+              None -> ""
+            }),
+          ],
+        ),
+        case after_close {
+          Some(TransactionsAfterClose(count:, latest:)) ->
+            html.p(
+              [
+                attribute.class(
+                  row_ui.selectable_class <> " text-xs text-amber-700",
+                ),
+                attribute.attribute("data-testid", "transactions-after-close"),
+              ],
+              [
+                html.text(
+                  int.to_string(count)
+                  <> case count {
+                    1 -> " transaction"
+                    _ -> " transactions"
+                  }
+                  <> " after the close date, the latest on "
+                  <> date.format(latest)
+                  <> ". Check the close date.",
+                ),
+              ],
+            )
+          None -> element.none()
+        },
+      ]),
+      row_ui.chevron(class: ""),
+    ],
+  )
 }
 
 /// The sheet is drawn for the client's today, its statement date. Each line
@@ -885,14 +654,14 @@ fn sheet_columns(sheet: BalanceSheet) -> Element(Msg) {
         line_group(
           sheet,
           "Current assets",
-          kind: Asset,
+          side: Asset,
           term: Current,
           subtotal: sheet.total_current_assets,
         ),
         line_group(
           sheet,
           "Non-current assets",
-          kind: Asset,
+          side: Asset,
           term: NonCurrent,
           subtotal: sheet.total_non_current_assets,
         ),
@@ -906,14 +675,14 @@ fn sheet_columns(sheet: BalanceSheet) -> Element(Msg) {
         line_group(
           sheet,
           "Current liabilities",
-          kind: Liability,
+          side: Liability,
           term: Current,
           subtotal: sheet.total_current_liabilities,
         ),
         line_group(
           sheet,
           "Non-current liabilities",
-          kind: Liability,
+          side: Liability,
           term: NonCurrent,
           subtotal: sheet.total_non_current_liabilities,
         ),
@@ -972,18 +741,18 @@ fn sheet_side(
   )
 }
 
-/// One kind and term's lines: its items, then its accounts, with the subtotal.
+/// One side and term's lines: its items, then its accounts, with the subtotal.
 fn line_group(
   sheet: BalanceSheet,
   title: String,
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
   subtotal subtotal: Float,
 ) -> Element(Msg) {
   let rows =
     list.append(
-      items_with(sheet.items, kind:, term:) |> list.map(item_row),
-      accounts_with(sheet.accounts, kind:, term:) |> list.map(account_row),
+      items_with(sheet.items, side:, term:) |> list.map(item_row),
+      accounts_with(sheet.accounts, side:, term:) |> list.map(account_row),
     )
 
   html.div([], [
@@ -1027,14 +796,13 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
 
   line_row(
     testid: "balance-sheet-item-" <> testid,
-    name: row_ui.open_button(
-      testid: "edit-item-" <> testid,
-      on_click: UserRequestedItemEdit(item.id),
-      class: "block max-w-full truncate",
-      children: [html.text(item.name)],
+    name: line_link(
+      testid: "open-item-" <> testid,
+      page: route.ItemDetails(item.id),
+      name: item.name,
     ),
     details: ["As of " <> date.format(item.as_of)],
-    balance: item.balance,
+    amount: item.value,
   )
 }
 
@@ -1042,33 +810,27 @@ fn item_row(item: BalanceSheetItem) -> Element(Msg) {
 /// balance's as-of date.
 fn account_row(line: AccountLine) -> Element(Msg) {
   let as_of = "As of " <> date.format(line.as_of)
-  let current =
-    balance_modal.CurrentBalance(
-      side: line.kind,
-      amount: line.balance,
-      as_of: line.as_of,
-    )
 
   line_row(
     testid: "balance-sheet-account-" <> uuid.to_string(line.account.id),
-    name: account_button(line.account, Some(current)),
+    name: account_link(line.account),
     details: case line.account.number {
       Some(number) -> [number, as_of]
       None -> [as_of]
     },
-    balance: line.balance,
+    amount: line.balance,
   )
 }
 
 /// A line on the sheet. Clicking it, anywhere but its selectable text, opens
-/// the form that updates its amount: an item's form, or an account's balance form. Editing an
-/// account's details and deleting are reached from there. The trailing chevron
-/// marks the line as one that opens, since touch screens have no hover.
+/// its details page, where its value or balance is recorded, its details are
+/// edited, and it is closed or deleted. The trailing chevron marks the line as
+/// one that opens, since touch screens have no hover.
 fn line_row(
   testid testid: String,
   name name: Element(Msg),
   details details: List(String),
-  balance balance: Float,
+  amount amount: Float,
 ) -> Element(Msg) {
   html.li(
     [
@@ -1082,9 +844,7 @@ fn line_row(
         name,
         html.p(
           [attribute.class(row_ui.selectable_class <> " text-xs text-gray-400")],
-          [
-            html.text(string.join(details, " · ")),
-          ],
+          [html.text(string.join(details, " · "))],
         ),
       ]),
       html.span(
@@ -1093,33 +853,41 @@ fn line_row(
             row_ui.selectable_class
             <> " text-right text-sm tabular-nums text-gray-900",
           ),
-          attribute.attribute("data-amount", float.to_string(balance)),
+          attribute.attribute("data-amount", float.to_string(amount)),
         ],
-        [html.text(money.format(balance))],
+        [html.text(money.format(amount))],
       ),
       row_ui.chevron(class: "mt-0.5"),
     ],
   )
 }
 
-/// An account opens on its balance form, since recording a balance is what is
-/// done again and again.
-fn account_button(
-  account: Account,
-  current: Option(balance_modal.CurrentBalance),
+/// The link that opens a line's row: its name, to its details page.
+fn line_link(
+  testid testid: String,
+  page page: route.Route,
+  name name: String,
 ) -> Element(Msg) {
-  row_ui.open_button(
-    testid: "record-balance-account-" <> uuid.to_string(account.id),
-    on_click: UserRequestedBalanceRecord(account:, current:),
+  row_ui.open_link(
+    testid:,
+    href: route.to_string(page),
     class: "block max-w-full truncate",
-    children: [html.text(account.name)],
+    children: [html.text(name)],
+  )
+}
+
+fn account_link(account: Account) -> Element(Msg) {
+  line_link(
+    testid: "open-account-" <> uuid.to_string(account.id),
+    page: route.AccountDetails(account.id),
+    name: account.name,
   )
 }
 
 /// Accounts whose balance is unknown are left out of the totals, so the page
-/// asks for their balances above the sheet. Each is a tile that opens like a
-/// line on the sheet. The callout spans the page, so tiles in a grid keep each
-/// name next to its chevron.
+/// asks for their balances above the sheet. Each is a tile that opens the
+/// account's details page, like a line on the sheet. The callout spans the
+/// page, so tiles in a grid keep each name next to its chevron.
 fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
   case accounts {
     [] -> element.none()
@@ -1160,7 +928,7 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
                 ],
                 [
                   html.div([attribute.class("min-w-0 flex-1")], [
-                    account_button(account, None),
+                    account_link(account),
                     case account.number {
                       Some(number) ->
                         html.p(
@@ -1220,18 +988,18 @@ fn empty_card(
 
 fn items_with(
   items: List(BalanceSheetItem),
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
 ) -> List(BalanceSheetItem) {
-  list.filter(items, fn(item) { item.kind == kind && item.term == term })
+  list.filter(items, fn(item) { item.side == side && item.term == term })
 }
 
 fn accounts_with(
   accounts: List(AccountLine),
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
 ) -> List(AccountLine) {
   list.filter(accounts, fn(line) {
-    line.kind == kind && line.account.term == term
+    line.side == side && line.account.term == term
   })
 }

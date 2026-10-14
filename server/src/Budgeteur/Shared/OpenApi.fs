@@ -31,7 +31,7 @@ module SchemaHint =
     /// <summary>
     /// Documents a string property as an enum, deriving the accepted values
     /// from the cases of an F# discriminated union, e.g.
-    /// <c>SchemaHint.Enum(typeof&lt;ItemKind&gt;)</c>.
+    /// <c>SchemaHint.Enum(typeof&lt;Side&gt;)</c>.
     /// </summary>
     /// <remarks>
     /// The emitted values are the union case names, so they must match the wire

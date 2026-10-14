@@ -90,6 +90,14 @@ module EndpointTests =
             return! TestHttp.readJson<AccountResponse> response
         }
 
+    let private observationPath (id : Guid) (asOf : DateOnly) =
+        (TestHttp.itemPath DeleteBalanceObservation.Path id)
+            .Replace("{%s}", asOf.ToString "yyyy-MM-dd")
+
+    let private history (client : HttpClient) (id : Guid) =
+        client.GetAsync (TestHttp.itemPath ReadBalanceObservations.Path id)
+        |> Async.AwaitTask
+
     [<Tests>]
     let tests =
         testList "Accounts" [
@@ -217,6 +225,108 @@ module EndpointTests =
 
                 let! account = read app.Client created.Id
                 Expect.isNone account.Balance "the balance is still unknown"
+            }
+
+            testCaseAsync "an account's balances are listed and deleted"
+            <| async {
+                use app = newApp ()
+                use otherUser = app.ClientForUser "other-user"
+
+                let! created =
+                    create app.Client {
+                        request "Everyday" None with
+                            Balance = Some (balance 1 100m)
+                    }
+
+                let! _ = record app.Client created.Id (balance 5 250m)
+
+                // Then: the balances are listed newest first.
+                let! listed = history app.Client created.Id
+                Expect.equal listed.StatusCode HttpStatusCode.OK "list is 200"
+
+                let! balances =
+                    TestHttp.readJson<AccountBalanceResponse list> listed
+
+                Expect.equal
+                    (balances |> List.map (fun b -> b.AsOf, b.Balance))
+                    [ DateOnly (2026, 3, 5), 250m; DateOnly (2026, 3, 1), 100m ]
+                    "newest first"
+
+                // Then: another user can neither list nor delete them.
+                let! foreignList = history otherUser created.Id
+
+                Expect.equal
+                    foreignList.StatusCode
+                    HttpStatusCode.NotFound
+                    "another user's list is 404"
+
+                let! foreignDelete =
+                    otherUser.DeleteAsync (
+                        observationPath created.Id (DateOnly (2026, 3, 5))
+                    )
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    foreignDelete.StatusCode
+                    HttpStatusCode.NotFound
+                    "another user's delete is 404"
+
+                // When: the newest balance is deleted.
+                let! deleted =
+                    app.Client.DeleteAsync (
+                        observationPath created.Id (DateOnly (2026, 3, 5))
+                    )
+                    |> Async.AwaitTask
+
+                Expect.equal deleted.StatusCode HttpStatusCode.NoContent "204"
+
+                // Then: the previous one is current.
+                let! account = read app.Client created.Id
+
+                Expect.equal
+                    account.Balance
+                    (Some {
+                        Balance = 100m
+                        AsOf = DateOnly (2026, 3, 1)
+                    })
+                    "the previous balance is current"
+
+                // When: the last balance is deleted.
+                let! _ =
+                    app.Client.DeleteAsync (
+                        observationPath created.Id (DateOnly (2026, 3, 1))
+                    )
+                    |> Async.AwaitTask
+
+                // Then: the balance is unknown.
+                let! account = read app.Client created.Id
+                Expect.isNone account.Balance "the balance is unknown"
+
+                // Then: a missing or malformed date is reported.
+                let! missing =
+                    app.Client.DeleteAsync (
+                        observationPath created.Id (DateOnly (2026, 3, 1))
+                    )
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    missing.StatusCode
+                    HttpStatusCode.NotFound
+                    "a date without a balance is 404"
+
+                let! malformed =
+                    app.Client.DeleteAsync (
+                        (TestHttp.itemPath
+                            DeleteBalanceObservation.Path
+                            created.Id)
+                            .Replace("{%s}", "yesterday")
+                    )
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    malformed.StatusCode
+                    HttpStatusCode.BadRequest
+                    "a malformed date is 400"
             }
 
             testCaseAsync "numbers are unique per user"

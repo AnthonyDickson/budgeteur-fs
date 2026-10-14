@@ -1,33 +1,52 @@
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
-import budgeteur/balance_sheet_page/term.{type Term}
 import budgeteur/shared/date
 import budgeteur/shared/money
+import budgeteur/shared/side.{type Side}
+import budgeteur/shared/term.{type Term}
 import gleam/json
 import gleam/time/calendar.{type Date}
 
+/// What the item form saves.
 pub type ItemWriteRequest {
-  ItemWriteRequest(
-    // A human-readable name, e.g. "Chequing account" or "Mortgage".
-    name: String,
-    // Whether the item is an asset or a liability.
-    kind: ItemKind,
-    // Whether the item is current or non-current.
-    term: Term,
-    // The positive magnitude of the item's value. Direction is implied by Kind.
-    balance: Float,
-    // The date the balance is accurate as of.
+  /// A new item with its first value.
+  CreateItem(name: String, side: Side, term: Term, first: ValueEntry)
+  /// An item's details. Its side is fixed at creation, and its values are
+  /// observations, and it is closed with the close form.
+  UpdateItem(name: String, term: Term)
+}
+
+/// A value entered by hand, recorded as an observation on the server.
+pub type ValueEntry {
+  ValueEntry(
+    // The positive magnitude of the item's value. Direction is implied by its
+    // side.
+    value: Float,
+    // The date the value is accurate as of.
     as_of: Date,
   )
 }
 
-pub fn to_json(item_write_request: ItemWriteRequest) -> json.Json {
-  let ItemWriteRequest(name:, kind:, term:, balance:, as_of:) =
-    item_write_request
+pub fn to_json(request: ItemWriteRequest) -> json.Json {
+  case request {
+    CreateItem(name:, side:, term:, first:) ->
+      json.object([
+        #("name", json.string(name)),
+        #("side", side.to_json(side)),
+        #("term", term.to_json(term)),
+        #("value", money.encode_decimal(first.value)),
+        #("asOf", date.encode(first.as_of)),
+      ])
+    UpdateItem(name:, term:) ->
+      json.object([
+        #("name", json.string(name)),
+        #("term", term.to_json(term)),
+      ])
+  }
+}
+
+/// The record-value request.
+pub fn value_entry_json(entry: ValueEntry) -> json.Json {
   json.object([
-    #("name", json.string(name)),
-    #("kind", item_kind.to_json(kind)),
-    #("term", term.to_json(term)),
-    #("balance", money.encode_decimal(balance)),
-    #("asOf", date.encode(as_of)),
+    #("value", money.encode_decimal(entry.value)),
+    #("asOf", date.encode(entry.as_of)),
   ])
 }

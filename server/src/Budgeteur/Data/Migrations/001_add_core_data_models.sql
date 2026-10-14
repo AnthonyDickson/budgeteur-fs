@@ -21,6 +21,9 @@ CREATE TABLE Accounts (
     -- The user's alias for the account. Defaults to the account number.
     Name   TEXT NOT NULL,
     Term   TEXT NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
+    -- The calendar date the account was closed. NULL while it is open. A balance sheet drawn on
+    -- or after it leaves the account out. See decision 4 in docs/reports.md.
+    ClosedOn DATE,
     -- Unique per user. SQLite treats NULLs as distinct, so any number of accounts can lack one.
     -- Also serves as the index for reading a user's accounts.
     UNIQUE(UserId, Number)
@@ -64,12 +67,43 @@ CREATE TABLE BalanceSheetItems (
     Id      GUID     NOT NULL PRIMARY KEY,
     UserId  TEXT     NOT NULL,
     Name    TEXT     NOT NULL,
-    Kind    TEXT     NOT NULL CHECK (Kind IN ('Asset', 'Liability')),
+    Side    TEXT     NOT NULL CHECK (Side IN ('Asset', 'Liability')),
     Term    TEXT     NOT NULL CHECK (Term IN ('Current', 'NonCurrent')),
-    Balance CURRENCY NOT NULL CHECK (Balance >= 0),
-    -- The calendar date the balance is accurate as of, chosen by the user.
-    AsOf    DATE     NOT NULL,
-    UNIQUE(UserId, Name, Kind, Term)
+    -- The calendar date the item was sold or repaid. NULL while it is held. A balance sheet
+    -- drawn on or after it leaves the item out. See decision 4 in docs/reports.md.
+    ClosedOn DATE,
+    UNIQUE(UserId, Name, Side, Term)
+);
+
+-- Item value observations
+
+-- A value an item had as of a date, entered by hand. One per item and date; the
+-- latest is the item's current value. Every item has at least one: it is
+-- created with its first, and its last cannot be deleted. See decision 2 in
+-- docs/reports.md.
+CREATE TABLE ItemObservations (
+    ItemId GUID     NOT NULL,
+    UserId TEXT     NOT NULL,
+    -- The calendar date the value is accurate as of.
+    AsOf   DATE     NOT NULL,
+    -- A positive magnitude: the direction comes from the item's Side.
+    Value  CURRENCY NOT NULL CHECK (Value >= 0),
+    PRIMARY KEY (ItemId, AsOf),
+    -- Deleting the item deletes its value history.
+    FOREIGN KEY(ItemId) REFERENCES BalanceSheetItems(Id) ON DELETE CASCADE
+);
+
+CREATE INDEX IX_ItemObservations_UserId ON ItemObservations(UserId);
+
+-- Each item's current value: the observation with the latest as-of date. A read
+-- model, as for CurrentBalances.
+CREATE VIEW CurrentItemValues AS
+SELECT o.ItemId, o.UserId, o.AsOf, o.Value
+FROM ItemObservations o
+WHERE o.AsOf = (
+    SELECT MAX(latest.AsOf)
+    FROM ItemObservations latest
+    WHERE latest.ItemId = o.ItemId
 );
 
 -- Tags

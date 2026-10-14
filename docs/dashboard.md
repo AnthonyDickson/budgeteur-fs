@@ -5,8 +5,8 @@ decision is meant to achieve, so later changes have one written source of
 intent. Change it when the reasoning changes.
 
 The brief has two parts. The [MVP](#mvp-decisions) is built. The
-[full dashboard](#full-dashboard) is planned and waits on the snapshots roadmap
-item; where it replaces an MVP decision, both decisions say so.
+[full dashboard](#full-dashboard) is planned and builds on
+[reports](reports.md); where it replaces an MVP decision, both decisions say so.
 
 The previous Rust project (`budgeteur`, `server/src/dashboard/`) built two
 dashboards: an HTML page with charts, summary tables, and expenses-by-tag cards,
@@ -51,8 +51,7 @@ against a baseline, two ratios, and twelve months of history with charts.
   (a flow, over a period) is a new slice, `Feature/IncomeStatement/`.
 - **Why**: these are the two standard personal finance statements, and the
   roadmap already names both ("balance sheets, income statement"). Naming the
-  flow side now means the later periodic snapshots extend it rather than rename
-  it.
+  flow side now means later reports extend it rather than rename it.
 - **Goal**: the dashboard is a composition of domain statements, not a bespoke
   aggregate that only the dashboard understands.
 
@@ -113,9 +112,9 @@ against a baseline, two ratios, and twelve months of history with charts.
   small enough to load.
 - **Goal**: one tested function owns the income statement rules; the handler
   only queries and maps.
-- **Ownership**: the function lives in the slice. It moves to `Domain/` when a
-  second slice needs it: snapshots or the dashboard slice (decision 10),
-  whichever comes first.
+- **Ownership**: the function and its period live in `Domain/`, since the report
+  slice uses them too ([reports](reports.md) decision 7). The slice keeps the
+  query and the response.
 
 ### 6. Month to date is the default period
 
@@ -184,9 +183,9 @@ against a baseline, two ratios, and twelve months of history with charts.
 
 ## Full dashboard
 
-Planned, not built. It waits on the snapshots roadmap item, which provides the
-balance sheet as of a date and settles shared periods and statement code. Where
-a decision below depends on how snapshots turn out, it says so.
+Planned, not built. It builds on [reports](reports.md), which provide the
+balance sheet for a statement date, monthly reports, and the shared period and
+statement code in `Domain/` and `Data/`.
 
 ### 9. The page answers four questions with as little as possible
 
@@ -220,7 +219,7 @@ a decision below depends on how snapshots turn out, it says so.
     and debt service ratios need loan repayments, which are not modelled.
   - Net worth history rebuilt by subtracting transactions from current balances,
     as the previous project did. It is only correct if every account's
-    transactions are imported. Snapshots give the real figures.
+    transactions are imported. Balance histories give the real figures.
 - **Goal**: each figure on the page answers a question the user has, and the
   page grows by two figures, one comparison per figure and line, and two charts.
 
@@ -236,15 +235,16 @@ a decision below depends on how snapshots turn out, it says so.
 
   The page keeps calling the quick tagging queue for its total. `GET
   /api/income-statement` and `GET /api/balance-sheet` are no longer called by
-  the dashboard and stay single purpose for their own pages and for snapshots.
+  the dashboard and stay single purpose for their own pages and for reports.
 - **Why**: the figures combine both statements (runway divides a balance sheet
   figure by an income statement figure) and earlier periods (baselines). Doing
   that in the statement endpoints would make each of them do several jobs, and
   doing it on the client would put money arithmetic there. Decision 7 rejected a
   dashboard endpoint because slices do not import each other; shared code
-  removes that reason. The dashboard slice uses `Domain/` for the balance sheet,
-  the income statement computation (moved there per decision 5), and the
-  snapshot query.
+  removes that reason. The dashboard slice uses the code reports move to
+  `Domain/` ([reports](reports.md) decision 7): the balance sheet for a
+  statement date, the income statement computation, savings rate, and reporting
+  periods.
 - **Replaces** decision 7.
 - **Goal**: the client only displays figures, the statement endpoints stay
   single purpose, and changing the preset re-requests one endpoint.
@@ -330,10 +330,8 @@ a decision below depends on how snapshots turn out, it says so.
   range picker, and their complete months are the denominator for runway. The
   section has its own explicitly labelled window, so decision 6's goal (every
   figure says which period it covers) still holds.
-- **Snapshots**: the month-end balances come from the snapshot query. If a
-  snapshot is the balance sheet at a period's end plus the income statement for
-  the period, the history is the last twelve monthly snapshots and this month so
-  far.
+- **Reports**: the history is the last twelve monthly reports and this month's
+  report to date ([reports](reports.md) decision 7).
 - **Replaces** decision 8.
 - **Goal**: one look shows whether saving and net worth are steady, rising, or
   falling.

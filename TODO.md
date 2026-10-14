@@ -10,8 +10,8 @@
 - [x] Auto-tagging
 - [x] CSV Imports
 - [x] Quick-tagging
-- [ ] Regular snapshots with balance sheets, income statement
-- [ ] Full dashboard w/ charts (planned in docs/dashboard.md, after snapshots)
+- [x] Reports: balance sheets and income statements per period
+- [ ] Full dashboard w/ charts (planned in docs/dashboard.md)
 - [ ] Transaction search
 - [ ] Mobile support and UI cleanup
 - [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
@@ -24,17 +24,11 @@ None
 
 - Cent level precision is probably only needed for transaction table and data
   entry
-- Language renames deferred from the CSV import feedback:
-  - An item's `Balance` (a magnitude) and an account's balance (signed) share a
-    word. Consider renaming the item's to `Value`; touches the item type, codec,
-    API, and client.
-  - Account lines use `ItemKind` for their side, though an account is not an
-    item. Consider a `Side` type; touches the API.
 - Dates after the dashboard MVP.
   - Server-side timezone, needed only once the server works out periods without
-    a client request (e.g. the regular snapshots on the roadmap): a configured
-    default IANA timezone (e.g. `Pacific/Auckland`), validated at startup with
-    the other config sections, `tzdata` in the runtime image so
+    a client request (e.g. a scheduled job): a configured default IANA timezone
+    (e.g. `Pacific/Auckland`), validated at startup with the other config
+    sections, `tzdata` in the runtime image so
     `TimeZoneInfo.FindSystemTimeZoneById` resolves it, and `today` derived from
     `Clock` plus that zone.
   - Per-user timezone: start with the browser's zone

@@ -17,7 +17,8 @@ module main =
           UserId: string
           Number: Option<string>
           Name: string
-          Term: string }
+          Term: string
+          ClosedOn: Option<System.DateOnly> }
 
         interface IWriteColumns with
             member this.WriteColumns =
@@ -25,7 +26,8 @@ module main =
                   { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
                   { WriteColumn.Name = "Number"; Value = box this.Number; ProviderDbType = None }
                   { WriteColumn.Name = "Name"; Value = box this.Name; ProviderDbType = None }
-                  { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None } ]
+                  { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None }
+                  { WriteColumn.Name = "ClosedOn"; Value = box this.ClosedOn; ProviderDbType = None } ]
 
     let Accounts = table<Accounts>
 
@@ -50,20 +52,18 @@ module main =
         { Id: System.Guid
           UserId: string
           Name: string
-          Kind: string
+          Side: string
           Term: string
-          Balance: decimal
-          AsOf: System.DateOnly }
+          ClosedOn: Option<System.DateOnly> }
 
         interface IWriteColumns with
             member this.WriteColumns =
                 [ { WriteColumn.Name = "Id"; Value = box this.Id; ProviderDbType = None }
                   { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
                   { WriteColumn.Name = "Name"; Value = box this.Name; ProviderDbType = None }
-                  { WriteColumn.Name = "Kind"; Value = box this.Kind; ProviderDbType = None }
+                  { WriteColumn.Name = "Side"; Value = box this.Side; ProviderDbType = None }
                   { WriteColumn.Name = "Term"; Value = box this.Term; ProviderDbType = None }
-                  { WriteColumn.Name = "Balance"; Value = box this.Balance; ProviderDbType = None }
-                  { WriteColumn.Name = "AsOf"; Value = box this.AsOf; ProviderDbType = None } ]
+                  { WriteColumn.Name = "ClosedOn"; Value = box this.ClosedOn; ProviderDbType = None } ]
 
     let BalanceSheetItems = table<BalanceSheetItems>
 
@@ -100,6 +100,38 @@ module main =
                   { WriteColumn.Name = "Balance"; Value = box this.Balance; ProviderDbType = None } ]
 
     let CurrentBalances = table<CurrentBalances>
+
+    [<CLIMutable>]
+    type CurrentItemValues =
+        { ItemId: Option<System.Guid>
+          UserId: Option<string>
+          AsOf: Option<System.DateOnly>
+          Value: Option<decimal> }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "ItemId"; Value = box this.ItemId; ProviderDbType = None }
+                  { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
+                  { WriteColumn.Name = "AsOf"; Value = box this.AsOf; ProviderDbType = None }
+                  { WriteColumn.Name = "Value"; Value = box this.Value; ProviderDbType = None } ]
+
+    let CurrentItemValues = table<CurrentItemValues>
+
+    [<CLIMutable>]
+    type ItemObservations =
+        { ItemId: System.Guid
+          UserId: string
+          AsOf: System.DateOnly
+          Value: decimal }
+
+        interface IWriteColumns with
+            member this.WriteColumns =
+                [ { WriteColumn.Name = "ItemId"; Value = box this.ItemId; ProviderDbType = None }
+                  { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
+                  { WriteColumn.Name = "AsOf"; Value = box this.AsOf; ProviderDbType = None }
+                  { WriteColumn.Name = "Value"; Value = box this.Value; ProviderDbType = None } ]
+
+    let ItemObservations = table<ItemObservations>
 
     [<CLIMutable>]
     type Rules =
@@ -182,7 +214,8 @@ module main =
               UserId: Option<string>
               Number: Option<string>
               Name: Option<string>
-              Term: Option<string> }
+              Term: Option<string>
+              ClosedOn: Option<System.DateOnly> }
 
             interface ILeftViewOf<``Accounts (base)``>
 
@@ -209,10 +242,9 @@ module main =
             { Id: Option<System.Guid>
               UserId: Option<string>
               Name: Option<string>
-              Kind: Option<string>
+              Side: Option<string>
               Term: Option<string>
-              Balance: Option<decimal>
-              AsOf: Option<System.DateOnly> }
+              ClosedOn: Option<System.DateOnly> }
 
             interface ILeftViewOf<``BalanceSheetItems (base)``>
 
@@ -244,6 +276,32 @@ module main =
             interface ILeftViewOf<``CurrentBalances (base)``>
 
         let CurrentBalances = leftTable<``CurrentBalances (base)``, CurrentBalances>
+
+        type private ``CurrentItemValues (base)`` = CurrentItemValues
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type CurrentItemValues =
+            { ItemId: Option<System.Guid>
+              UserId: Option<string>
+              AsOf: Option<System.DateOnly>
+              Value: Option<decimal> }
+
+            interface ILeftViewOf<``CurrentItemValues (base)``>
+
+        let CurrentItemValues = leftTable<``CurrentItemValues (base)``, CurrentItemValues>
+
+        type private ``ItemObservations (base)`` = ItemObservations
+
+        [<CLIMutable; NoEquality; NoComparison>]
+        type ItemObservations =
+            { ItemId: Option<System.Guid>
+              UserId: Option<string>
+              AsOf: Option<System.DateOnly>
+              Value: Option<decimal> }
+
+            interface ILeftViewOf<``ItemObservations (base)``>
+
+        let ItemObservations = leftTable<``ItemObservations (base)``, ItemObservations>
 
         type private ``Rules (base)`` = Rules
 
@@ -310,7 +368,7 @@ module LeftViewExtensions =
             match this.Id with
             | Some value ->
                 let record: main.Accounts =
-                    { Id = value; UserId = this.UserId.Value; Number = this.Number; Name = this.Name.Value; Term = this.Term.Value }
+                    { Id = value; UserId = this.UserId.Value; Number = this.Number; Name = this.Name.Value; Term = this.Term.Value; ClosedOn = this.ClosedOn }
 
                 Some record
             | None -> None
@@ -334,7 +392,7 @@ module LeftViewExtensions =
             match this.Id with
             | Some value ->
                 let record: main.BalanceSheetItems =
-                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Kind = this.Kind.Value; Term = this.Term.Value; Balance = this.Balance.Value; AsOf = this.AsOf.Value }
+                    { Id = value; UserId = this.UserId.Value; Name = this.Name.Value; Side = this.Side.Value; Term = this.Term.Value; ClosedOn = this.ClosedOn }
 
                 Some record
             | None -> None
@@ -347,6 +405,18 @@ module LeftViewExtensions =
             | Some value ->
                 let record: main.Categorisations =
                     { TransactionId = value; UserId = this.UserId.Value; Kind = this.Kind.Value; TagId = this.TagId; Source = this.Source }
+
+                Some record
+            | None -> None
+
+    type main.LeftJoined.ItemObservations with
+        /// Recovers the whole-record option after materialization (pure .NET, not SQL):
+        /// Some when the left join matched, None when it did not.
+        member this.ToOption() : main.ItemObservations option =
+            match this.ItemId with
+            | Some value ->
+                let record: main.ItemObservations =
+                    { ItemId = value; UserId = this.UserId.Value; AsOf = this.AsOf.Value; Value = this.Value.Value }
 
                 Some record
             | None -> None

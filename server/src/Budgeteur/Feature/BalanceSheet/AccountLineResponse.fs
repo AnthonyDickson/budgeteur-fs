@@ -2,7 +2,7 @@ namespace Budgeteur.Feature.BalanceSheet
 
 open System
 
-open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Side
 open Budgeteur.Domain.Term
 open Budgeteur.Shared.OpenApi
 
@@ -21,15 +21,15 @@ type AccountLineResponse = {
 
     /// <summary>Asset when the balance is zero or more, liability when it is
     /// negative.</summary>
-    [<SchemaHint.Enum(typeof<ItemKind>)>]
-    Kind : string
+    [<SchemaHint.Enum(typeof<Side>)>]
+    Side : string
 
     /// <summary>Whether the account is current or non-current.</summary>
     [<SchemaHint.Enum(typeof<Term>)>]
     Term : string
 
     /// <summary>The magnitude of the current balance. Direction is implied by
-    /// Kind.</summary>
+    /// Side.</summary>
     [<SchemaHint.Decimal(NonNegative = true)>]
     Balance : decimal
 
@@ -55,6 +55,40 @@ type UnknownBalanceResponse = {
     Term : string
 }
 
+/// <summary>A closed account's transactions after its close date.</summary>
+type TransactionsAfterCloseResponse = {
+    /// <summary>How many there are.</summary>
+    Count : int
+
+    /// <summary>The date of the latest.</summary>
+    Latest : DateOnly
+}
+
+/// <summary>A closed account. It is left out of the sheet.</summary>
+type ClosedAccountResponse = {
+    /// <summary>The account's id.</summary>
+    Id : Guid
+
+    /// <summary>The user's alias for the account.</summary>
+    Name : string
+
+    /// <summary>The number statements identify the account by, if
+    /// any.</summary>
+    Number : string option
+
+    /// <summary>Whether the account is current or non-current.</summary>
+    [<SchemaHint.Enum(typeof<Term>)>]
+    Term : string
+
+    /// <summary>The date the account was closed.</summary>
+    ClosedOn : DateOnly
+
+    /// <summary>Transactions dated after the close date, or none. A closed
+    /// account should have none, so they suggest the close date is wrong. See
+    /// decision 4 in docs/reports.md.</summary>
+    TransactionsAfterClose : TransactionsAfterCloseResponse option
+}
+
 module AccountLineResponse =
     open Budgeteur.Domain.Account
     open Budgeteur.Domain.BalanceSheet
@@ -64,14 +98,14 @@ module AccountLineResponse =
     let fromDomain (account : AccountBalance) : AccountLineResponse option =
         account.Current
         |> Option.map (fun current ->
-            let kind, balance = BalanceSheet.accountSide current.Balance
+            let side, balance = BalanceSheet.accountSide current.Balance
 
             {
                 Id = account.Account.Id
                 Name = AccountName.value account.Account.Name
                 Number =
                     account.Account.Number |> Option.map AccountNumber.value
-                Kind = ItemKind.toString kind
+                Side = Side.toString side
                 Term = Term.toString account.Account.Term
                 Balance = balance
                 AsOf = current.AsOf
@@ -86,3 +120,28 @@ module UnknownBalanceResponse =
         Number = account.Number |> Option.map AccountNumber.value
         Term = Term.toString account.Term
     }
+
+module ClosedAccountResponse =
+    open Budgeteur.Domain.Account
+
+    /// <summary>The account's entry, or none when it is open.
+    /// <c>transactionDates</c> are the dates of its transactions after the
+    /// close date.</summary>
+    let fromDomain
+        (transactionDates : DateOnly list)
+        (account : Account)
+        : ClosedAccountResponse option =
+        account.ClosedOn
+        |> Option.map (fun closedOn -> {
+            Id = account.Id
+            Name = AccountName.value account.Name
+            Number = account.Number |> Option.map AccountNumber.value
+            Term = Term.toString account.Term
+            ClosedOn = closedOn
+            TransactionsAfterClose =
+                TransactionsAfterClose.ofDates transactionDates
+                |> Option.map (fun summary -> {
+                    Count = summary.Count
+                    Latest = summary.Latest
+                })
+        })

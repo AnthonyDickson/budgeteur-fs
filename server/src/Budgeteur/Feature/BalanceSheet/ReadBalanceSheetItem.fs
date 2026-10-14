@@ -23,23 +23,6 @@ module ReadBalanceSheetItem =
     [<Literal>]
     let Path = "/api/balance-sheet/items/{%O:guid}"
 
-    let private tryReadBalanceSheetItem
-        (queryContext : QueryContextFactory)
-        (id : Guid)
-        (userId : string)
-        =
-        task {
-            let! item =
-                selectTask queryContext {
-                    for item in main.BalanceSheetItems do
-                        select item
-                        where (item.Id = id && item.UserId = userId)
-                        tryHead
-                }
-
-            return Option.map BalanceSheetItemCodec.fromRow item
-        }
-
     let private handler
         (queryContext : QueryContextFactory)
         (id : Guid)
@@ -48,7 +31,8 @@ module ReadBalanceSheetItem =
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! item = tryReadBalanceSheetItem queryContext id userId
+                use! db = queryContext.OpenContextAsync ()
+                let! item = ItemQuery.tryRead db userId id
 
                 match item with
                 | Some item ->

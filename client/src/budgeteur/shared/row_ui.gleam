@@ -70,3 +70,27 @@ pub fn chevron(class class: String) -> Element(msg) {
     ],
   )
 }
+
+/// A row that opens a page rather than a dialog: `open_button`'s whole-row
+/// target as a link, so the browser's back button and new-tab gestures work.
+/// The shell routes the click without a reload.
+pub fn open_link(
+  testid testid: String,
+  href href: String,
+  class class: String,
+  children children: List(Element(msg)),
+) -> Element(msg) {
+  html.a(
+    [
+      attribute.href(href),
+      attribute.class(
+        "text-left text-sm text-gray-900 group-hover:text-indigo-600 "
+        <> "focus:outline-none after:absolute after:inset-0 focus-visible:after:ring-2 "
+        <> "focus-visible:after:ring-inset focus-visible:after:ring-indigo-500 "
+        <> class,
+      ),
+      attribute.attribute("data-testid", testid),
+    ],
+    children,
+  )
+}

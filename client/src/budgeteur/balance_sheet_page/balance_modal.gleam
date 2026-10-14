@@ -10,12 +10,12 @@
 import budgeteur/balance_sheet_page/account.{type Account}
 import budgeteur/balance_sheet_page/account_write_request.{type BalanceEntry}
 import budgeteur/balance_sheet_page/balance_form
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/money
+import budgeteur/shared/side.{type Side}
 import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
 import lustre/attribute
@@ -25,7 +25,7 @@ import lustre/event
 
 /// An account's current balance, as its balance sheet line shows it.
 pub type CurrentBalance {
-  CurrentBalance(side: ItemKind, amount: Float, as_of: Date)
+  CurrentBalance(side: Side, amount: Float, as_of: Date)
 }
 
 pub type Form {
@@ -66,9 +66,6 @@ pub type Msg {
   SaveCompleted(result: Result(Account, ApiError))
   // Cancel button, or the browser dismissed the dialog (Esc / outside click)
   CancelRequested
-  // "Edit account" button. The dialog closes, and the page opens the account
-  // form in its place.
-  EditAccountRequested
 }
 
 pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
@@ -109,11 +106,7 @@ pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
       None,
       form_modal.NoChange,
     )
-    CancelRequested | EditAccountRequested -> #(
-      form_modal.cancel(state),
-      None,
-      form_modal.NoChange,
-    )
+    CancelRequested -> #(form_modal.cancel(state), None, form_modal.NoChange)
   }
 }
 
@@ -188,12 +181,7 @@ fn view_form(
         )
           |> element.map(BalanceMsg),
         modal_ui.form_footer(
-          leading: Some(modal_ui.text_button(
-            label: "Edit account",
-            testid: "balance-edit-account-button",
-            disabled: submitting,
-            on_click: EditAccountRequested,
-          )),
+          leading: None,
           cancel: modal_ui.cancel_button(
             testid: "balance-cancel-button",
             disabled: submitting,
@@ -218,8 +206,8 @@ fn describe_current(current: Option(CurrentBalance)) -> String {
       money.format(amount)
       <> " "
       <> case side {
-        item_kind.Asset -> "asset"
-        item_kind.Liability -> "liability"
+        side.Asset -> "asset"
+        side.Liability -> "liability"
       }
       <> " as of "
       <> date.format(as_of)

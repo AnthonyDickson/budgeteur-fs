@@ -1,7 +1,8 @@
 namespace Budgeteur.Feature.Account
 
 /// <summary>Reads the slice's handlers share: accounts with their current
-/// balance, and the number uniqueness check.</summary>
+/// balance and transactions after closing, and the number uniqueness
+/// check.</summary>
 module AccountQuery =
     open System
     open System.Threading.Tasks
@@ -11,6 +12,19 @@ module AccountQuery =
     open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.Account
+
+    let private withTransactionsAfterClose
+        (transactionsAfterClose : (Guid * DateOnly) list)
+        (balance : AccountBalance)
+        : AccountDetails = {
+        Balance = balance
+        TransactionsAfterClose =
+            transactionsAfterClose
+            |> List.filter (fun (accountId, _) ->
+                accountId = balance.Account.Id)
+            |> List.map snd
+            |> TransactionsAfterClose.ofDates
+    }
 
     /// <summary>The user's accounts with their current balances, by
     /// name.</summary>
@@ -27,7 +41,16 @@ module AccountQuery =
                         select (a, c)
                 }
 
-            return rows |> Seq.map AccountBalanceCodec.fromRow |> List.ofSeq
+            let! transactionsAfterClose =
+                TransactionsAfterCloseQuery.read ctx userId
+
+            return
+                rows
+                |> Seq.map (
+                    AccountBalanceCodec.fromRow
+                    >> withTransactionsAfterClose transactionsAfterClose
+                )
+                |> List.ofSeq
         }
 
     /// <summary>The user's account with its current balance, if the user has
@@ -45,7 +68,15 @@ module AccountQuery =
                         tryHead
                 }
 
-            return Option.map AccountBalanceCodec.fromRow row
+            let! transactionsAfterClose =
+                TransactionsAfterCloseQuery.read ctx userId
+
+            return
+                row
+                |> Option.map (
+                    AccountBalanceCodec.fromRow
+                    >> withTransactionsAfterClose transactionsAfterClose
+                )
         }
 
     /// <summary>Verify that no other account of the user has the account's

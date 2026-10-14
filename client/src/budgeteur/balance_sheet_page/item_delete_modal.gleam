@@ -37,7 +37,7 @@ pub fn view(
             "Are you sure you want to delete "
             <> item.name
             <> " ("
-            <> money.format(item.balance)
+            <> money.format(item.value)
             <> ")? This cannot be undone.",
           ),
         ])

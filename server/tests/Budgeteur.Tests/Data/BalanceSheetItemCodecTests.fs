@@ -6,6 +6,7 @@ module BalanceSheetItemCodecTests =
 
     open Budgeteur.Data
     open Budgeteur.Domain.BalanceSheetItem
+    open Budgeteur.Domain.Side
     open Budgeteur.Domain.Term
 
     let private okOrFail label =
@@ -19,27 +20,23 @@ module BalanceSheetItemCodecTests =
         let userId = "test"
 
         let tests =
-            List.allPairs [ ItemKind.Asset; ItemKind.Liability ] [
+            List.allPairs [ Side.Asset; Side.Liability ] [
                 Term.Current
                 Term.NonCurrent
             ]
-            |> List.map (fun (kind, term) ->
-                let kindName = ItemKind.toString kind
+            |> List.map (fun (side, term) ->
+                let sideName = Side.toString side
                 let termName = Term.toString term
 
                 testCase
-                    $"codec round trips for kind {kindName} and term {termName}"
+                    $"codec round trips for side {sideName} and term {termName}"
                     (fun () ->
-                        let sheetId = Guid.CreateVersion7 ()
-
                         let item : BalanceSheetItem = {
                             Id = Guid.CreateVersion7 ()
                             Name = ItemName.create "Foo" |> okOrFail "Name"
-                            Kind = kind
+                            Side = side
                             Term = term
-                            Balance =
-                                Balance.create 1.23m |> okOrFail "Balance"
-                            AsOf = DateOnly (2026, 3, 8)
+                            ClosedOn = Some (DateOnly (2026, 3, 8))
                         }
 
                         let row = BalanceSheetItemCodec.toRow item userId

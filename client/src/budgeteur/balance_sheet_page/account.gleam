@@ -2,10 +2,10 @@
 //// transactions happen, shown as a line when its balance is known. See
 //// docs/csv-import.md.
 
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
-import budgeteur/balance_sheet_page/term.{type Term}
 import budgeteur/shared/date
 import budgeteur/shared/money
+import budgeteur/shared/side.{type Side}
+import budgeteur/shared/term.{type Term}
 import budgeteur/shared/uuid as uuid_decoder
 import gleam/dynamic/decode
 import gleam/option.{type Option, None}
@@ -22,6 +22,8 @@ pub type Account {
     number: Option(String),
     // Whether the account is current or non-current.
     term: Term,
+    // The date the account was closed; None while it is open.
+    closed_on: Option(Date),
   )
 }
 
@@ -30,8 +32,8 @@ pub type AccountLine {
   AccountLine(
     account: Account,
     // Asset when the balance is zero or more, liability when it is negative.
-    kind: ItemKind,
-    // The magnitude of the current balance. Direction is implied by kind.
+    side: Side,
+    // The magnitude of the current balance. Direction is implied by side.
     balance: Float,
     // The date the current balance is accurate as of.
     as_of: Date,
@@ -49,13 +51,18 @@ pub fn decoder() -> decode.Decoder(Account) {
     decode.optional(decode.string),
   )
   use term <- decode.field("term", term.decoder())
-  decode.success(Account(id:, name:, number:, term:))
+  use closed_on <- decode.optional_field(
+    "closedOn",
+    None,
+    decode.optional(date.decoder()),
+  )
+  decode.success(Account(id:, name:, number:, term:, closed_on:))
 }
 
 pub fn line_decoder() -> decode.Decoder(AccountLine) {
   use account <- decode.then(decoder())
-  use kind <- decode.field("kind", item_kind.decoder())
+  use side <- decode.field("side", side.decoder())
   use balance <- decode.field("balance", money.decode_decimal())
   use as_of <- decode.field("asOf", date.decoder())
-  decode.success(AccountLine(account:, kind:, balance:, as_of:))
+  decode.success(AccountLine(account:, side:, balance:, as_of:))
 }

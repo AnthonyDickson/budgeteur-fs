@@ -1,15 +1,18 @@
+//// The item form: creates an item with its first value, or edits an item's
+//// name and term. An item's side is fixed at creation, and its later values
+//// are recorded with the value form. See decision 2 in docs/reports.md.
+
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_write_request.{
-  type ItemWriteRequest, ItemWriteRequest,
+  type ItemWriteRequest, CreateItem, UpdateItem,
 }
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
+import budgeteur/balance_sheet_page/value_form
 import budgeteur/shared/api_error.{type ApiError}
-import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
-import budgeteur/shared/money
+import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -33,33 +36,16 @@ pub type NameError {
   Duplicate
 }
 
-pub type BalanceError {
-  BalanceRequired
-  NotANumber
-  Negative
-}
-
-pub type AsOfError {
-  AsOfRequired
-  NotADate
-}
-
 pub type NameField =
   field.Field(String, NameError)
-
-pub type BalanceField =
-  field.Field(Float, BalanceError)
-
-pub type AsOfField =
-  field.Field(Date, AsOfError)
 
 pub type Form {
   Form(
     name: NameField,
-    kind: ItemKind,
+    side: Side,
     term: Term,
-    balance: BalanceField,
-    as_of: AsOfField,
+    // The first value of a new item; None when editing.
+    opening_value: Option(value_form.Form),
   )
 }
 
@@ -79,15 +65,15 @@ pub fn hidden() -> Modal {
 // Update
 
 pub type Msg {
-  // The kind is fixed by the entry point that opened the form; it is never a
+  // The side is fixed by the entry point that opened the form; it is never a
   // field, so an item can't be created on the wrong side of the sheet. The
-  // as-of date starts at the client's today, when it is known.
-  CreateRequested(kind: ItemKind, today: Option(Date))
+  // as-of date of the first value starts at the client's today, when it is
+  // known.
+  CreateRequested(side: Side, today: Option(Date))
   EditRequested(item: BalanceSheetItem)
   NameChanged(value: String)
   TermChanged(value: String)
-  BalanceChanged(value: String)
-  AsOfChanged(value: String)
+  ValueMsg(value_form.Msg)
   SaveRequested
   // Response to the in-flight create or update; the `Created`/`Updated`
   // outcome variant is chosen from the `mode` in the `Submitting` state.
@@ -106,10 +92,10 @@ pub fn update(
   items: List(BalanceSheetItem),
 ) -> #(Modal, Option(Request), Outcome) {
   case msg {
-    CreateRequested(kind:, today:) ->
+    CreateRequested(side:, today:) ->
       case state {
         form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
-        _ -> #(create_modal(kind, today), None, form_modal.NoChange)
+        _ -> #(create_modal(side, today), None, form_modal.NoChange)
       }
     EditRequested(item:) ->
       case state {
@@ -118,12 +104,19 @@ pub fn update(
       }
     NameChanged(value:) -> #(set_name(state, value), None, form_modal.NoChange)
     TermChanged(value:) -> #(set_term(state, value), None, form_modal.NoChange)
-    BalanceChanged(value:) -> #(
-      set_balance(state, value),
+    ValueMsg(value_msg) -> #(
+      form_modal.set_form(state, fn(form) {
+        Form(
+          ..form,
+          opening_value: option.map(form.opening_value, value_form.update(
+            _,
+            value_msg,
+          )),
+        )
+      }),
       None,
       form_modal.NoChange,
     )
-    AsOfChanged(value:) -> #(set_as_of(state, value), None, form_modal.NoChange)
     SaveRequested -> save(state, items)
     SaveCompleted(result: Ok(item)) -> {
       let #(modal, outcome) = form_modal.succeeded(state, item)
@@ -142,36 +135,26 @@ pub fn update(
   }
 }
 
-/// An empty modal for creating a new item of the given kind, dated today when
-/// today is known.
-fn create_modal(kind: ItemKind, today: Option(Date)) -> Modal {
-  form_modal.create(
-    Form(
-      name: field.Empty(""),
-      kind:,
-      term: Current,
-      balance: field.Empty(""),
-      as_of: case today {
-        Some(today) -> field.Valid(value: today, input: date.format(today))
-        None -> field.Empty("")
-      },
-    ),
-  )
+/// An empty modal for creating a new item on the given side, with its first
+/// value dated today when today is known.
+fn create_modal(side: Side, today: Option(Date)) -> Modal {
+  form_modal.create(Form(
+    name: field.Empty(""),
+    side:,
+    term: Current,
+    opening_value: Some(value_form.empty(today)),
+  ))
 }
 
-/// A modal pre-filled with an existing item, ready for editing.
+/// A modal pre-filled with an existing item's details, ready for editing.
 fn edit_modal(item: BalanceSheetItem) -> Modal {
   form_modal.edit(
     item.id,
     Form(
       name: field.Valid(value: item.name, input: item.name),
-      kind: item.kind,
+      side: item.side,
       term: item.term,
-      balance: field.Valid(
-        value: item.balance,
-        input: money.to_string(item.balance),
-      ),
-      as_of: field.Valid(value: item.as_of, input: date.format(item.as_of)),
+      opening_value: None,
     ),
   )
 }
@@ -189,27 +172,6 @@ fn set_term(state: Modal, value: String) -> Modal {
     Ok(term) -> form_modal.set_form(state, fn(form) { Form(..form, term:) })
     Error(Nil) -> state
   }
-}
-
-/// Validate and set the balance field. No op for Hidden and Submitting states.
-fn set_balance(state: Modal, value: String) -> Modal {
-  form_modal.set_form(state, fn(form) {
-    let value = money.clip_to_two_dp(value)
-    Form(
-      ..form,
-      balance: field.validate(value, validate_balance, is_balance_required),
-    )
-  })
-}
-
-/// Validate and set the as-of date. No op for Hidden and Submitting states.
-fn set_as_of(state: Modal, value: String) -> Modal {
-  form_modal.set_form(state, fn(form) {
-    Form(
-      ..form,
-      as_of: field.validate(value, validate_as_of, is_as_of_required),
-    )
-  })
 }
 
 fn save(
@@ -236,62 +198,58 @@ fn save(
 /// Validate the form against the other items. On success returns the write
 /// request and the (finalized) form to keep while submitting; on failure
 /// returns the form with inline errors set. `other_items` excludes the item
-/// being edited, if any.
+/// being edited, if any. A form with a first value creates an item; one
+/// without updates it.
 fn validate_form(
   form: Form,
   other_items: List(BalanceSheetItem),
 ) -> Result(#(ItemWriteRequest, Form), Form) {
-  let form = finalize(form, other_items)
+  let name = finalize_name(form, other_items)
+  let opening = option.map(form.opening_value, value_form.validate)
+  let form =
+    Form(
+      ..form,
+      name:,
+      opening_value: option.map(opening, fn(result) {
+        case result {
+          Ok(#(_, value)) | Error(value) -> value
+        }
+      }),
+    )
 
-  case
-    field.value(form.name),
-    field.value(form.balance),
-    field.value(form.as_of)
-  {
-    Some(name), Some(balance), Some(as_of) ->
-      Ok(#(
-        ItemWriteRequest(
-          name:,
-          kind: form.kind,
-          term: form.term,
-          balance:,
-          as_of:,
-        ),
-        form,
-      ))
-    _, _, _ -> Error(form)
+  case field.value(name), opening {
+    Some(name), Some(Ok(#(first, _))) ->
+      Ok(#(CreateItem(name:, side: form.side, term: form.term, first:), form))
+    Some(name), None -> Ok(#(UpdateItem(name:, term: form.term), form))
+    _, _ -> Error(form)
   }
 }
 
-/// Finalize the form after a submit attempt: blank fields become errors, and
-/// the name is checked against the other items with the same kind and term.
-/// The duplicate check mirrors the server's `UNIQUE(UserId, Name, Kind, Term)`
+/// Finalize the name after a submit attempt: a blank name is an error, and it
+/// is checked against the other items with the same side and term. The
+/// duplicate check mirrors the server's `UNIQUE(UserId, Name, Side, Term)`
 /// constraint so a duplicate is caught inline before the round trip; the server
 /// check remains authoritative when the client's list is stale.
-fn finalize(form: Form, other_items: List(BalanceSheetItem)) -> Form {
-  let Form(name:, kind:, term:, balance:, as_of:) = form
-  let name = field.finalize(name, fn() { NameRequired })
-  let name = case name {
+fn finalize_name(form: Form, other_items: List(BalanceSheetItem)) -> NameField {
+  let name = field.finalize(form.name, fn() { NameRequired })
+  case name {
     field.Valid(value:, ..) ->
-      case is_duplicate(other_items, value, kind, term) {
+      case is_duplicate(other_items, value, form.side, form.term) {
         True -> field.mark_invalid(name, Duplicate)
         False -> name
       }
     field.Empty(..) | field.Invalid(..) -> name
   }
-  let balance = field.finalize(balance, fn() { BalanceRequired })
-  let as_of = field.finalize(as_of, fn() { AsOfRequired })
-  Form(name:, kind:, term:, balance:, as_of:)
 }
 
 fn is_duplicate(
   items: List(BalanceSheetItem),
   name: String,
-  kind: ItemKind,
+  side: Side,
   term: Term,
 ) -> Bool {
   list.any(items, fn(item) {
-    item.name == name && item.kind == kind && item.term == term
+    item.name == name && item.side == side && item.term == term
   })
 }
 
@@ -308,54 +266,12 @@ fn validate_name(name: String) -> Result(String, NameError) {
   }
 }
 
-fn validate_balance(balance: String) -> Result(Float, BalanceError) {
-  let trimmed = string.trim(balance)
-
-  case string.is_empty(trimmed) {
-    True -> Error(BalanceRequired)
-    False ->
-      case money.parse_decimal(trimmed) {
-        Error(Nil) -> Error(NotANumber)
-        Ok(amount) ->
-          case amount <. 0.0 {
-            True -> Error(Negative)
-            False -> Ok(amount)
-          }
-      }
-  }
-}
-
 /// A parse error is demoted to a blank `Empty` field (no inline error while
 /// typing) only when it is the required error, e.g. a whitespace-only name.
 fn is_name_required(error: NameError) -> Bool {
   case error {
     NameRequired -> True
     TooLong | Duplicate -> False
-  }
-}
-
-fn is_balance_required(error: BalanceError) -> Bool {
-  case error {
-    BalanceRequired -> True
-    NotANumber | Negative -> False
-  }
-}
-
-fn validate_as_of(as_of: String) -> Result(Date, AsOfError) {
-  case string.trim(as_of) {
-    "" -> Error(AsOfRequired)
-    trimmed ->
-      case date.parse(trimmed) {
-        Ok(as_of) -> Ok(as_of)
-        Error(Nil) -> Error(NotADate)
-      }
-  }
-}
-
-fn is_as_of_required(error: AsOfError) -> Bool {
-  case error {
-    AsOfRequired -> True
-    NotADate -> False
   }
 }
 
@@ -393,23 +309,25 @@ fn view_form(
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
-  let Form(name:, kind:, term:, balance:, as_of:) = form
+  let Form(name:, side:, term:, opening_value:) = form
 
   let #(title, submit_label, submitting_label) = case mode {
     form_modal.Create ->
-      case kind {
+      case side {
         Asset -> #("Add asset", "Add asset", "Adding asset...")
         Liability -> #("Add liability", "Add liability", "Adding liability...")
       }
     form_modal.Edit(_) ->
-      case kind {
+      case side {
         Asset -> #("Edit asset", "Save", "Saving...")
         Liability -> #("Edit liability", "Save", "Saving...")
       }
   }
 
-  let balance_invalid = field.has_error(balance)
-  let as_of_invalid = field.has_error(as_of)
+  let value_invalid = case opening_value {
+    Some(value) -> value_form.has_error(value)
+    None -> False
+  }
 
   [
     html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
@@ -438,7 +356,7 @@ fn view_form(
           html.input([
             attribute.type_("text"),
             attribute.attribute("data-testid", "item-name-input"),
-            attribute.placeholder("e.g. Chequing account"),
+            attribute.placeholder("e.g. House"),
             attribute.class(input_class),
             attribute.classes([
               #(modal_ui.error_border_style, field.has_error(name)),
@@ -450,52 +368,21 @@ fn view_form(
           ]),
           view_name_error(field.error(name)),
         ]),
-        term_field(kind, term, submitting),
+        term_field(side, term, submitting),
         html.p([attribute.class("text-xs text-gray-500")], [
-          html.text(term_help(kind)),
+          html.text(term_help(side)),
         ]),
-        html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Balance")],
-          ),
-          html.input([
-            attribute.type_("text"),
-            attribute.attribute("data-testid", "item-balance-input"),
-            attribute.inputmode("decimal"),
-            attribute.step("0.01"),
-            attribute.placeholder("0.00"),
-            attribute.min("0"),
-            attribute.class(input_class),
-            attribute.classes([#(modal_ui.error_border_style, balance_invalid)]),
-            attribute.value(field.input(balance)),
-            attribute.disabled(submitting),
-            event.on_input(BalanceChanged),
-          ]),
-          view_balance_error(field.error(balance)),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
-            html.text(balance_help(kind)),
-          ]),
-        ]),
-        html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("As of")],
-          ),
-          html.input([
-            attribute.type_("date"),
-            attribute.attribute("data-testid", "item-as-of-input"),
-            attribute.class(input_class),
-            attribute.classes([#(modal_ui.error_border_style, as_of_invalid)]),
-            attribute.value(field.input(as_of)),
-            attribute.disabled(submitting),
-            event.on_input(AsOfChanged),
-          ]),
-          view_as_of_error(field.error(as_of)),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
-            html.text("The date the balance is accurate as of."),
-          ]),
-        ]),
+        case opening_value {
+          Some(value) ->
+            value_form.view(
+              value,
+              side:,
+              submitting:,
+              note: "Later values are recorded from the item's line.",
+            )
+            |> element.map(ValueMsg)
+          None -> element.none()
+        },
         modal_ui.form_footer(
           leading: case mode {
             form_modal.Create -> None
@@ -516,7 +403,7 @@ fn view_form(
             idle_label: submit_label,
             busy_label: submitting_label,
             busy: submitting,
-            disabled: field.has_error(name) || balance_invalid || as_of_invalid,
+            disabled: field.has_error(name) || value_invalid,
           ),
         ),
       ],
@@ -524,8 +411,9 @@ fn view_form(
   ]
 }
 
-fn term_field(kind: ItemKind, term: Term, submitting: Bool) -> Element(Msg) {
-  let #(current_label, non_current_label) = term_labels(kind)
+fn term_field(side: Side, term: Term, submitting: Bool) -> Element(Msg) {
+  let current_label = term.label(Current, side)
+  let non_current_label = term.label(NonCurrent, side)
 
   modal_ui.radio_group(
     legend: "Term",
@@ -543,29 +431,12 @@ fn term_field(kind: ItemKind, term: Term, submitting: Bool) -> Element(Msg) {
   )
 }
 
-/// The term labels that read best for the selected kind: assets are liquid or
-/// fixed, liabilities are short-term or long-term. The model always stores
-/// `Current` or `NonCurrent`.
-fn term_labels(kind: ItemKind) -> #(String, String) {
-  case kind {
-    Asset -> #("Liquid", "Fixed")
-    Liability -> #("Short-term", "Long-term")
-  }
-}
-
-fn term_help(kind: ItemKind) -> String {
-  case kind {
+fn term_help(side: Side) -> String {
+  case side {
     Asset ->
       "A liquid asset is cash, or can be turned into cash quickly without losing value. Everything else is fixed."
     Liability ->
       "A short-term liability is due within about 12 months. Everything else is long-term."
-  }
-}
-
-fn balance_help(kind: ItemKind) -> String {
-  case kind {
-    Asset -> "Enter what it is worth. Use zero if it is worth nothing."
-    Liability -> "Enter how much is owed. Use zero if nothing is outstanding."
   }
 }
 
@@ -580,29 +451,8 @@ fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
       )
     Some(Duplicate) ->
       modal_ui.form_error_message(
-        "An identical item already exists for this kind and term",
+        "An identical item already exists for this side and term",
       )
-    None -> element.none()
-  }
-}
-
-fn view_balance_error(balance_error: Option(BalanceError)) -> Element(Msg) {
-  case balance_error {
-    Some(BalanceRequired) ->
-      modal_ui.form_error_message("Balance cannot be empty")
-    Some(NotANumber) -> modal_ui.form_error_message("Not a valid number")
-    Some(Negative) ->
-      modal_ui.form_error_message(
-        "Balance cannot be negative. Use the kind to record what is owed.",
-      )
-    None -> element.none()
-  }
-}
-
-fn view_as_of_error(as_of_error: Option(AsOfError)) -> Element(Msg) {
-  case as_of_error {
-    Some(AsOfRequired) -> modal_ui.form_error_message("Date cannot be empty")
-    Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
     None -> element.none()
   }
 }

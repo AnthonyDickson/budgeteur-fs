@@ -1,14 +1,17 @@
 import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind, Asset, Liability}
 import budgeteur/balance_sheet_page/item_modal
-import budgeteur/balance_sheet_page/item_write_request.{ItemWriteRequest}
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
+import budgeteur/balance_sheet_page/item_write_request.{
+  CreateItem, UpdateItem, ValueEntry,
+}
+import budgeteur/balance_sheet_page/value_form
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{
   Active, Create, Edit, Hidden, NoChange, Post, Put, Submitting,
 }
+import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import gleam/int
 import gleam/option.{None, Some}
 import gleam/string
@@ -26,17 +29,18 @@ fn item_id(n: Int) -> Uuid {
 
 fn item(
   name name: String,
-  kind kind: ItemKind,
+  side side: Side,
   term term: Term,
-  balance balance: Float,
+  value value: Float,
 ) -> BalanceSheetItem {
   BalanceSheetItem(
     id: item_id(1),
     name: name,
-    kind: kind,
+    side: side,
     term: term,
-    balance: balance,
+    value: value,
     as_of: Date(2026, March, 1),
+    closed_on: None,
   )
 }
 
@@ -50,16 +54,22 @@ fn run(
   state
 }
 
-fn create_modal(kind: ItemKind) -> item_modal.Modal {
+fn value(msg: value_form.Msg) -> item_modal.Msg {
+  item_modal.ValueMsg(msg)
+}
+
+fn create_modal(side: Side) -> item_modal.Modal {
   run(
     item_modal.hidden(),
-    item_modal.CreateRequested(kind:, today: Some(today)),
+    item_modal.CreateRequested(side:, today: Some(today)),
     [],
   )
 }
 
-fn active_form(state: item_modal.Modal) -> item_modal.Form {
-  let assert Active(form: form, ..) = state
+/// The first value's fields of an open create form.
+fn opening_value(state: item_modal.Modal) -> value_form.Form {
+  let assert Active(form: item_modal.Form(opening_value: Some(form), ..), ..) =
+    state
   form
 }
 
@@ -95,16 +105,16 @@ pub fn over_long_name_is_reported_while_typing_test() {
   ) = state
 }
 
-pub fn duplicate_requires_the_name_kind_and_term_to_all_match_test() {
+pub fn duplicate_requires_the_name_side_and_term_to_all_match_test() {
   let existing =
-    item(name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
+    item(name: "Chequing", side: Asset, term: Current, value: 2000.0)
 
-  // A second part of the sheet can reuse a name as long as the kind or the
-  // term differs, because the server's key is (name, kind, term).
+  // A second part of the sheet can reuse a name as long as the side or the
+  // term differs, because the server's key is (name, side, term).
   let filled = fn(state, name, term) {
     state
     |> run(item_modal.NameChanged(name), [existing])
-    |> run(item_modal.BalanceChanged("10"), [existing])
+    |> run(value(value_form.ValueChanged("10")), [existing])
     |> run(item_modal.TermChanged(term), [existing])
   }
 
@@ -145,79 +155,66 @@ pub fn duplicate_requires_the_name_kind_and_term_to_all_match_test() {
     )
 }
 
-pub fn editing_an_item_does_not_count_it_as_its_own_duplicate_test() {
-  // The page passes the other items only, so renaming an item back to its own
-  // name is not a collision.
+pub fn editing_sends_only_the_name_and_term_test() {
+  // The page passes the other items only, so keeping an item's own name is
+  // not a collision. The edit form has no value: later values are recorded
+  // with the value form.
   let existing =
-    item(name: "Chequing", kind: Asset, term: Current, balance: 2000.0)
+    item(name: "Chequing", side: Asset, term: Current, value: 2000.0)
   let state =
     run(item_modal.hidden(), item_modal.EditRequested(existing), [existing])
 
+  let assert Active(form: item_modal.Form(opening_value: None, ..), ..) = state
+
   let assert #(submitting, Some(request), NoChange) =
-    item_modal.update(state, item_modal.SaveRequested, [])
+    item_modal.update(
+      run(state, item_modal.TermChanged("NonCurrent"), []),
+      item_modal.SaveRequested,
+      [],
+    )
 
   let assert Submitting(mode: Edit(id), ..) = submitting
-
   id |> should.equal(existing.id)
 
   request
   |> should.equal(Put(
     existing.id,
-    ItemWriteRequest(
-      name: "Chequing",
-      kind: Asset,
-      term: Current,
-      balance: 2000.0,
-      as_of: Date(2026, March, 1),
-    ),
+    UpdateItem(name: "Chequing", term: NonCurrent),
   ))
 }
 
-pub fn balance_is_required_numeric_and_non_negative_test() {
-  let balance_error = fn(input) {
+pub fn value_is_required_numeric_and_non_negative_test() {
+  let value_error = fn(input) {
     let state =
       create_modal(Asset)
       |> run(item_modal.NameChanged("Chequing"), [])
-      |> run(item_modal.BalanceChanged(input), [])
+      |> run(value(value_form.ValueChanged(input)), [])
 
-    active_form(state).balance
+    opening_value(state).value
   }
 
-  let assert field.Empty("") = balance_error("")
-  let assert field.Invalid(error: item_modal.NotANumber, ..) =
-    balance_error("twelve")
-  let assert field.Invalid(error: item_modal.Negative, ..) = balance_error("-1")
-  let assert field.Valid(value: 12.5, ..) = balance_error("12.50")
+  let assert field.Empty("") = value_error("")
+  let assert field.Invalid(error: value_form.NotANumber, ..) =
+    value_error("twelve")
+  let assert field.Invalid(error: value_form.Negative, ..) = value_error("-1")
+  let assert field.Valid(value: 12.5, ..) = value_error("12.50")
+  let assert field.Valid(value: 12.34, input: "12.34") = value_error("12.3456")
 
-  // A blank balance is only reported once the user submits.
+  // A blank value is only reported once the user submits.
   let state =
     create_modal(Asset)
     |> run(item_modal.NameChanged("Chequing"), [])
     |> run(item_modal.SaveRequested, [])
 
-  let assert Active(
-    form: item_modal.Form(
-      balance: field.Invalid(error: item_modal.BalanceRequired, ..),
-      ..,
-    ),
-    ..,
-  ) = state
+  let assert field.Invalid(error: value_form.ValueRequired, ..) =
+    opening_value(state).value
 }
 
-pub fn balance_input_is_clipped_to_two_decimal_places_test() {
-  let state =
-    create_modal(Asset)
-    |> run(item_modal.BalanceChanged("12.3456"), [])
-
-  let assert field.Valid(value: 12.34, input: "12.34") =
-    active_form(state).balance
-}
-
-pub fn create_builds_a_post_with_the_chosen_kind_test() {
+pub fn create_builds_a_post_with_the_chosen_side_and_first_value_test() {
   let state =
     create_modal(Liability)
     |> run(item_modal.NameChanged("  Mortgage  "), [])
-    |> run(item_modal.BalanceChanged("300000"), [])
+    |> run(value(value_form.ValueChanged("300000")), [])
     |> run(item_modal.TermChanged("NonCurrent"), [])
 
   let assert #(Submitting(mode: Create, ..), Some(request), NoChange) =
@@ -225,12 +222,11 @@ pub fn create_builds_a_post_with_the_chosen_kind_test() {
 
   request
   |> should.equal(
-    Post(ItemWriteRequest(
+    Post(CreateItem(
       name: "Mortgage",
-      kind: Liability,
+      side: Liability,
       term: NonCurrent,
-      balance: 300_000.0,
-      as_of: today,
+      first: ValueEntry(value: 300_000.0, as_of: today),
     )),
   )
 }
@@ -250,16 +246,18 @@ pub fn opening_the_form_always_starts_fresh_test() {
   let assert Active(
     form: item_modal.Form(
       name: field.Empty(""),
-      kind: Liability,
+      side: Liability,
       term: Current,
-      balance: field.Empty(""),
-      as_of: field.Valid(value: Date(2026, March, 8), input: "2026-03-08"),
+      opening_value: Some(value_form.Form(
+        value: field.Empty(""),
+        as_of: field.Valid(value: Date(2026, March, 8), input: "2026-03-08"),
+      )),
     ),
     mode: Create,
   ) =
     run(
       filled,
-      item_modal.CreateRequested(kind: Liability, today: Some(today)),
+      item_modal.CreateRequested(side: Liability, today: Some(today)),
       [],
     )
 }
@@ -269,32 +267,25 @@ pub fn the_as_of_date_is_required_and_must_be_a_date_test() {
   // only reported once the user submits.
   let state =
     item_modal.hidden()
-    |> run(item_modal.CreateRequested(kind: Asset, today: None), [])
+    |> run(item_modal.CreateRequested(side: Asset, today: None), [])
     |> run(item_modal.NameChanged("Chequing"), [])
-    |> run(item_modal.BalanceChanged("10"), [])
+    |> run(value(value_form.ValueChanged("10")), [])
 
-  let assert field.Empty("") = active_form(state).as_of
+  let assert field.Empty("") = opening_value(state).as_of
 
-  let assert #(
-    Active(
-      form: item_modal.Form(
-        as_of: field.Invalid(error: item_modal.AsOfRequired, ..),
-        ..,
-      ),
-      ..,
-    ),
-    None,
-    NoChange,
-  ) = item_modal.update(state, item_modal.SaveRequested, [])
+  let assert #(submitted, None, NoChange) =
+    item_modal.update(state, item_modal.SaveRequested, [])
+  let assert field.Invalid(error: value_form.AsOfRequired, ..) =
+    opening_value(submitted).as_of
 
-  let assert field.Invalid(error: item_modal.NotADate, ..) =
-    active_form(run(state, item_modal.AsOfChanged("yesterday"), [])).as_of
+  let assert field.Invalid(error: value_form.NotADate, ..) =
+    opening_value(run(state, value(value_form.AsOfChanged("yesterday")), [])).as_of
 
-  let assert #(_, Some(Post(ItemWriteRequest(as_of: as_of, ..))), NoChange) =
+  let assert #(_, Some(Post(CreateItem(first:, ..))), NoChange) =
     item_modal.update(
-      run(state, item_modal.AsOfChanged("2026-02-28"), []),
+      run(state, value(value_form.AsOfChanged("2026-02-28")), []),
       item_modal.SaveRequested,
       [],
     )
-  as_of |> should.equal(Date(2026, calendar.February, 28))
+  first.as_of |> should.equal(Date(2026, calendar.February, 28))
 }

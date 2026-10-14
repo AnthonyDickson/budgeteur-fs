@@ -1,9 +1,10 @@
-import budgeteur/balance_sheet_page/item_kind.{type ItemKind}
-import budgeteur/balance_sheet_page/term.{type Term}
 import budgeteur/shared/date
 import budgeteur/shared/money
+import budgeteur/shared/side.{type Side}
+import budgeteur/shared/term.{type Term}
 import budgeteur/shared/uuid as uuid_decoder
 import gleam/dynamic/decode
+import gleam/option.{type Option, None}
 import gleam/time/calendar.{type Date}
 import youid/uuid.{type Uuid}
 
@@ -14,22 +15,37 @@ pub type BalanceSheetItem {
     // A human-readable name, e.g. "Chequing account" or "Mortgage".
     name: String,
     // Whether the item is an asset or a liability.
-    kind: ItemKind,
+    side: Side,
     // Whether the item is current or non-current.
     term: Term,
-    // The positive magnitude of the item's value. Direction is implied by Kind.
-    balance: Float,
-    // The date the balance is accurate as of.
+    // The positive magnitude of the item's value. Direction is implied by side.
+    value: Float,
+    // The date the value is accurate as of.
     as_of: Date,
+    // The date the item was sold or repaid; None while it is held.
+    closed_on: Option(Date),
   )
 }
 
 pub fn decoder() -> decode.Decoder(BalanceSheetItem) {
   use id <- decode.field("id", uuid_decoder.decoder())
   use name <- decode.field("name", decode.string)
-  use kind <- decode.field("kind", item_kind.decoder())
+  use side <- decode.field("side", side.decoder())
   use term <- decode.field("term", term.decoder())
-  use balance <- decode.field("balance", money.decode_decimal())
+  use value <- decode.field("value", money.decode_decimal())
   use as_of <- decode.field("asOf", date.decoder())
-  decode.success(BalanceSheetItem(id:, name:, kind:, term:, balance:, as_of:))
+  use closed_on <- decode.optional_field(
+    "closedOn",
+    None,
+    decode.optional(date.decoder()),
+  )
+  decode.success(BalanceSheetItem(
+    id:,
+    name:,
+    side:,
+    term:,
+    value:,
+    as_of:,
+    closed_on:,
+  ))
 }

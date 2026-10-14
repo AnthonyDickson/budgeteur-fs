@@ -18,6 +18,22 @@ type AccountBalanceResponse = {
     AsOf : DateOnly
 }
 
+/// <summary>An account as the slice reads it: with its current balance, and
+/// any transactions dated after its close date.</summary>
+type AccountDetails = {
+    Balance : AccountBalance
+    TransactionsAfterClose : TransactionsAfterClose option
+}
+
+/// <summary>A closed account's transactions after its close date.</summary>
+type TransactionsAfterCloseResponse = {
+    /// <summary>How many there are.</summary>
+    Count : int
+
+    /// <summary>The date of the latest.</summary>
+    Latest : DateOnly
+}
+
 /// <summary>An account as returned by the API.</summary>
 type AccountResponse = {
     Id : Guid
@@ -38,10 +54,20 @@ type AccountResponse = {
     /// <summary>The current balance, or none when the balance is
     /// unknown.</summary>
     Balance : AccountBalanceResponse option
+
+    /// <summary>The date the account was closed, or none while it is
+    /// open.</summary>
+    ClosedOn : DateOnly option
+
+    /// <summary>Transactions dated after the close date, or none. A closed
+    /// account should have none, so they suggest the close date is wrong. See
+    /// decision 4 in docs/reports.md.</summary>
+    TransactionsAfterClose : TransactionsAfterCloseResponse option
 }
 
 module AccountResponse =
-    let fromDomain (accountBalance : AccountBalance) : AccountResponse =
+    let fromDomain (details : AccountDetails) : AccountResponse =
+        let accountBalance = details.Balance
         let account = accountBalance.Account
 
         {
@@ -54,5 +80,12 @@ module AccountResponse =
                 |> Option.map (fun observation -> {
                     Balance = Money.value observation.Balance
                     AsOf = observation.AsOf
+                })
+            ClosedOn = account.ClosedOn
+            TransactionsAfterClose =
+                details.TransactionsAfterClose
+                |> Option.map (fun summary -> {
+                    Count = summary.Count
+                    Latest = summary.Latest
                 })
         }

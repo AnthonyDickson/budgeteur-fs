@@ -48,5 +48,5 @@ codec.
 ## Not yet decided
 
 A server-side timezone is needed only once the server works out periods without
-a client request (e.g. scheduled snapshots). Per-user timezones are likewise
+a client request (e.g. a scheduled job). Per-user timezones are likewise
 deferred. See the backlog in [TODO.md](../TODO.md).

@@ -46,6 +46,12 @@ pub fn view(current_route: route.Route) -> Element(msg) {
             route.to_string(route.BalanceSheet),
             "Balance Sheet",
           ),
+          nav_link(
+            route.Reports,
+            current_route,
+            route.to_string(route.Reports),
+            "Reports",
+          ),
         ]),
       ],
     ),
@@ -58,7 +64,7 @@ fn nav_link(
   href: String,
   label: String,
 ) -> Element(msg) {
-  let is_active = current_route == target
+  let is_active = route.section(current_route) == target
   html.a(
     [
       attribute.href(href),

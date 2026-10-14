@@ -1,7 +1,9 @@
 import budgeteur/balance_sheet_page/balance_sheet_page
+import budgeteur/balance_sheet_page/line_details_page.{AccountRef, ItemRef}
 import budgeteur/dashboard_page/dashboard_page
 import budgeteur/header
 import budgeteur/quick_tagging_page/quick_tagging_page
+import budgeteur/reports_page/reports_page
 import budgeteur/shared/auth_route
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/guard
@@ -33,6 +35,8 @@ pub type Page {
   QuickTaggingPage(quick_tagging_page.Model)
   TaggingPage(tagging_page.Model)
   BalanceSheetPage(balance_sheet_page.Model)
+  LineDetailsPage(line_details_page.Model)
+  ReportsPage(reports_page.Model)
   NotFound
 }
 
@@ -47,6 +51,8 @@ pub type Msg {
   QuickTaggingPageMsg(quick_tagging_page.Msg)
   TaggingPageMsg(tagging_page.Msg)
   BalanceSheetPageMsg(balance_sheet_page.Msg)
+  LineDetailsPageMsg(line_details_page.Msg)
+  ReportsPageMsg(reports_page.Msg)
   ToastDismissed(id: Uuid)
   UrlChanged(url: String)
   NoOp
@@ -124,6 +130,22 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           let #(_, page_effect) = balance_sheet_page.init()
           #(model, effect.map(page_effect, BalanceSheetPageMsg))
         }
+        route.ItemDetails(id), LineDetailsPage(inner_model)
+          if inner_model.line_ref == ItemRef(id)
+        -> {
+          let #(_, page_effect) = line_details_page.init(ItemRef(id))
+          #(model, effect.map(page_effect, LineDetailsPageMsg))
+        }
+        route.AccountDetails(id), LineDetailsPage(inner_model)
+          if inner_model.line_ref == AccountRef(id)
+        -> {
+          let #(_, page_effect) = line_details_page.init(AccountRef(id))
+          #(model, effect.map(page_effect, LineDetailsPageMsg))
+        }
+        route.Reports, ReportsPage(_) -> {
+          let #(_, page_effect) = reports_page.init()
+          #(model, effect.map(page_effect, ReportsPageMsg))
+        }
         route.Dashboard, _ -> {
           let #(inner_model, inner_effect) = dashboard_page.init()
 
@@ -164,6 +186,16 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
           #(model, effect)
         }
+        route.Reports, _ -> {
+          let #(inner_model, inner_effect) = reports_page.init()
+
+          let model = Model(..model, page: ReportsPage(inner_model))
+          let effect = effect.map(inner_effect, ReportsPageMsg)
+
+          #(model, effect)
+        }
+        route.ItemDetails(id), _ -> open_line_details(model, ItemRef(id))
+        route.AccountDetails(id), _ -> open_line_details(model, AccountRef(id))
         route.NotFound, NotFound -> #(model, effect.none())
         route.NotFound, _ -> #(Model(..model, page: NotFound), effect.none())
       }
@@ -224,6 +256,27 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       )
       |> with_out_msg(out_msg)
     }
+    LineDetailsPageMsg(inner_msg), Model(page: LineDetailsPage(inner_model), ..)
+    -> {
+      let #(inner_model, inner_effect, out_msg) =
+        line_details_page.update(inner_model, inner_msg)
+
+      #(
+        Model(..model, page: LineDetailsPage(inner_model)),
+        effect.map(inner_effect, LineDetailsPageMsg),
+      )
+      |> with_out_msg(out_msg)
+    }
+    ReportsPageMsg(inner_msg), Model(page: ReportsPage(inner_model), ..) -> {
+      let #(inner_model, inner_effect, out_msg) =
+        reports_page.update(inner_model, inner_msg)
+
+      #(
+        Model(..model, page: ReportsPage(inner_model)),
+        effect.map(inner_effect, ReportsPageMsg),
+      )
+      |> with_out_msg(out_msg)
+    }
     ToastDismissed(id:), _ -> {
       let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
       #(Model(..model, toasts:), effect.none())
@@ -240,6 +293,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       #(model, effect.none())
     }
   }
+}
+
+fn open_line_details(
+  model: Model,
+  line_ref: line_details_page.LineRef,
+) -> #(Model, Effect(Msg)) {
+  let #(inner_model, inner_effect) = line_details_page.init(line_ref)
+  #(
+    Model(..model, page: LineDetailsPage(inner_model)),
+    effect.map(inner_effect, LineDetailsPageMsg),
+  )
 }
 
 /// Rewrite every `HttpRequest` effect so a 401 response dispatches
@@ -301,6 +365,14 @@ pub fn view(model: Model) -> Element(Msg) {
       balance_sheet_page.view(inner_model)
       |> element.map(BalanceSheetPageMsg)
 
+    LineDetailsPage(inner_model) ->
+      line_details_page.view(inner_model)
+      |> element.map(LineDetailsPageMsg)
+
+    ReportsPage(inner_model) ->
+      reports_page.view(inner_model)
+      |> element.map(ReportsPageMsg)
+
     NotFound -> view_not_found()
   }
 
@@ -324,6 +396,12 @@ fn current_route(page: Page) -> route.Route {
     QuickTaggingPage(_) -> route.QuickTagging
     TaggingPage(_) -> route.Tagging
     BalanceSheetPage(_) -> route.BalanceSheet
+    LineDetailsPage(inner_model) ->
+      case inner_model.line_ref {
+        ItemRef(id) -> route.ItemDetails(id)
+        AccountRef(id) -> route.AccountDetails(id)
+      }
+    ReportsPage(_) -> route.Reports
     NotFound -> route.NotFound
   }
 }

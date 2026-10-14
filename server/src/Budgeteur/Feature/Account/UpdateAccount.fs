@@ -64,6 +64,7 @@ module UpdateAccount =
                     for a in main.Accounts do
                         entity row
                         excludeColumn a.Id
+                        excludeColumn a.ClosedOn
                         where (a.Id = row.Id && a.UserId = userId)
                 }
 
@@ -114,8 +115,8 @@ module UpdateAccount =
 
         op.Description <-
             "Replaces the account's name, number, and term, leaving its \
-            balance history as it is. Returns the account with its current \
-            balance."
+            balance history and close date as they are. Returns the account \
+            with its current balance."
 
         op.Tags <- HashSet [ OpenApiTagReference "Accounts" ]
 

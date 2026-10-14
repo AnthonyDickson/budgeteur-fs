@@ -7,6 +7,7 @@ open FsCheck.FSharp
 
 open Budgeteur.Domain.BalanceSheet
 open Budgeteur.Domain.BalanceSheetItem
+open Budgeteur.Domain.Side
 open Budgeteur.Domain.Term
 
 module BalanceSheetItemTests =
@@ -87,27 +88,27 @@ module BalanceSheetItemTests =
         ]
 
     [<Tests>]
-    let itemKindTests =
-        testList "ItemKind" [
+    let sideTests =
+        testList "Side" [
             testCase "Asset round trip"
             <| fun () ->
                 Expect.equal
-                    (Ok ItemKind.Asset)
-                    (ItemKind.Asset |> ItemKind.toString |> ItemKind.parse)
+                    (Ok Side.Asset)
+                    (Side.Asset |> Side.toString |> Side.parse)
                     "Could not round trip Asset"
 
             testCase "Liability round trip"
             <| fun () ->
                 Expect.equal
-                    (Ok ItemKind.Liability)
-                    (ItemKind.Liability |> ItemKind.toString |> ItemKind.parse)
+                    (Ok Side.Liability)
+                    (Side.Liability |> Side.toString |> Side.parse)
                     "Could not round trip Liability"
 
             testCase "Parse rejects invalid value"
             <| fun () ->
                 Expect.isError
-                    (ItemKind.parse "foo")
-                    "ItemKind accepted invalid value 'foo'"
+                    (Side.parse "foo")
+                    "Side accepted invalid value 'foo'"
         ]
 
     [<Tests>]

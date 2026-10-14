@@ -29,7 +29,9 @@
 
     <Compile Include="Domain/Money.fs" />
     <Compile Include="Domain/AsOfDate.fs" />
+    <Compile Include="Domain/CloseDate.fs" />
     <Compile Include="Domain/Term.fs" />
+    <Compile Include="Domain/Side.fs" />
     <Compile Include="Domain/Tag.fs" />
     <Compile Include="Domain/Transaction.fs" />
     <Compile Include="Domain/Rule.fs" />
@@ -37,6 +39,8 @@
     <Compile Include="Domain/BalanceSheetItem.fs" />
     <Compile Include="Domain/Account.fs" />
     <Compile Include="Domain/BalanceSheet.fs" />
+    <Compile Include="Domain/IncomeStatement.fs" />
+    <Compile Include="Domain/ReportingPeriod.fs" />
 
     <Compile Include="Data/Db.fs" />
     <Compile Include="Data/Constraints.fs" />
@@ -46,22 +50,34 @@
     <Compile Include="Data/CategorisationStore.fs" />
     <Compile Include="Data/TransactionCodec.fs" />
     <Compile Include="Data/BalanceSheetItemCodec.fs" />
+    <Compile Include="Data/ItemObservationCodec.fs" />
+    <Compile Include="Data/ItemValueCodec.fs" />
+    <Compile Include="Data/ItemObservationStore.fs" />
     <Compile Include="Data/AccountCodec.fs" />
     <Compile Include="Data/BalanceObservationCodec.fs" />
     <Compile Include="Data/BalanceObservationStore.fs" />
     <Compile Include="Data/AccountBalanceCodec.fs" />
+    <Compile Include="Data/IncomeStatementQuery.fs" />
+    <Compile Include="Data/BalanceSheetHistoryQuery.fs" />
+    <Compile Include="Data/TransactionsAfterCloseQuery.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 
-    <Compile Include="Feature/BalanceSheet/WriteBalanceSheetItemRequest.fs" />
+    <Compile Include="Feature/BalanceSheet/ItemRequest.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetItemResponse.fs" />
     <Compile Include="Feature/BalanceSheet/AccountLineResponse.fs" />
+    <Compile Include="Feature/BalanceSheet/ItemQuery.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheet.fs" />
     <Compile Include="Feature/BalanceSheet/CreateBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/ReadBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/ReadAllBalanceSheetItems.fs" />
     <Compile Include="Feature/BalanceSheet/UpdateBalanceSheetItem.fs" />
+    <Compile Include="Feature/BalanceSheet/CloseBalanceSheetItem.fs" />
+    <Compile Include="Feature/BalanceSheet/ReopenBalanceSheetItem.fs" />
+    <Compile Include="Feature/BalanceSheet/RecordItemObservation.fs" />
+    <Compile Include="Feature/BalanceSheet/ReadItemObservations.fs" />
+    <Compile Include="Feature/BalanceSheet/DeleteItemObservation.fs" />
     <Compile Include="Feature/BalanceSheet/DeleteBalanceSheetItem.fs" />
     <Compile Include="Feature/BalanceSheet/BalanceSheetEndpoints.fs" />
 
@@ -72,7 +88,11 @@
     <Compile Include="Feature/Account/ReadAccount.fs" />
     <Compile Include="Feature/Account/ReadAllAccounts.fs" />
     <Compile Include="Feature/Account/UpdateAccount.fs" />
+    <Compile Include="Feature/Account/CloseAccount.fs" />
+    <Compile Include="Feature/Account/ReopenAccount.fs" />
     <Compile Include="Feature/Account/RecordBalance.fs" />
+    <Compile Include="Feature/Account/ReadBalanceObservations.fs" />
+    <Compile Include="Feature/Account/DeleteBalanceObservation.fs" />
     <Compile Include="Feature/Account/DeleteAccount.fs" />
     <Compile Include="Feature/Account/AccountEndpoints.fs" />
 
@@ -101,9 +121,11 @@
     <Compile Include="Feature/Transaction/DeleteTransaction.fs" />
     <Compile Include="Feature/Transaction/TransactionEndpoints.fs" />
 
-    <Compile Include="Feature/IncomeStatement/IncomeStatement.fs" />
     <Compile Include="Feature/IncomeStatement/ReadIncomeStatement.fs" />
     <Compile Include="Feature/IncomeStatement/IncomeStatementEndpoints.fs" />
+    <Compile Include="Feature/Report/Report.fs" />
+    <Compile Include="Feature/Report/ReadReport.fs" />
+    <Compile Include="Feature/Report/ReportEndpoints.fs" />
 
     <Compile Include="Feature/AutoTag/AutoTag.fs" />
     <Compile Include="Feature/AutoTag/RunAutoTag.fs" />

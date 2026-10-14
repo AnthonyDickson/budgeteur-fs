@@ -5,6 +5,7 @@ import { expect, test } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
 
 const modal = (page: Page) => page.getByTestId('balance-sheet-item-modal');
+const valueModal = (page: Page) => page.getByTestId('value-modal');
 
 const deleteModal = (page: Page) =>
   page.getByTestId('delete-balance-sheet-item-modal');
@@ -14,9 +15,29 @@ const itemRow = (page: Page, name: string) =>
     hasText: name,
   });
 
-/// Open an item's edit dialog by clicking its line.
+/// Open a line's details page by clicking its row.
+async function openDetails(page: Page, row: Locator) {
+  await row.getByTestId(/^open-(item|account)-/).click();
+  await expect(page.getByTestId('line-details-page')).toBeVisible();
+}
+
+/// Return from a details page to the balance sheet.
+async function backToSheet(page: Page) {
+  await page.getByTestId('line-details-back').click();
+  await expect(page.getByTestId('balance-sheet-page')).toBeVisible();
+}
+
+/// Open an item's value form from its details page.
+async function openItem(page: Page, name: string) {
+  await openDetails(page, itemRow(page, name));
+  await page.getByTestId('record-observation-button').click();
+  await expect(valueModal(page)).toBeVisible();
+}
+
+/// Open an item's edit dialog from its details page.
 async function editItem(page: Page, name: string) {
-  await itemRow(page, name).getByTestId(/^edit-item-/).click();
+  await openDetails(page, itemRow(page, name));
+  await page.getByTestId('edit-line-button').click();
   await expect(modal(page)).toBeVisible();
 }
 
@@ -38,24 +59,24 @@ async function gotoNewBalanceSheet(page: Page) {
   await expect(page.getByTestId('no-items-empty-state')).toBeVisible();
 }
 
-/// Add an item through the modal. The kind is chosen by which header button
+/// Add an item through the modal. The side is chosen by which header button
 /// opens the form; the term defaults to the current one.
 async function addItem(
   page: Page,
   args: {
-    kind: 'asset' | 'liability';
+    side: 'asset' | 'liability';
     name: string;
-    balance: string;
+    value: string;
     nonCurrent?: boolean;
   },
 ) {
-  const button = args.kind === 'asset'
+  const button = args.side === 'asset'
     ? 'add-asset-button'
     : 'add-liability-button';
   await page.getByTestId(button).click();
   await expect(modal(page)).toBeVisible();
   await modal(page).getByTestId('item-name-input').fill(args.name);
-  await modal(page).getByTestId('item-balance-input').fill(args.balance);
+  await modal(page).getByTestId('value-amount-input').fill(args.value);
   if (args.nonCurrent) {
     await modal(page).getByTestId('item-term-NonCurrent').check();
   }
@@ -73,6 +94,8 @@ async function deleteItem(page: Page, name: string) {
     .getByTestId('balance-sheet-item-delete-confirm-button')
     .click();
   await expect(deleteModal(page)).toBeHidden();
+  // Deleting the line returns to the balance sheet.
+  await expect(page.getByTestId('balance-sheet-page')).toBeVisible();
   await expect(itemRow(page, name)).toHaveCount(0);
 }
 
@@ -82,27 +105,27 @@ test.describe('balance sheet', () => {
     async ({ page }, testInfo) => {
       await gotoNewBalanceSheet(page);
 
-      // ── Create: one item per kind and term ───────────────────────────────────
+      // ── Create: one item per side and term ───────────────────────────────────
       await addItem(page, {
-        kind: 'asset',
+        side: 'asset',
         name: 'Chequing',
-        balance: '2000.00',
+        value: '2000.00',
       });
       await addItem(page, {
-        kind: 'asset',
+        side: 'asset',
         name: 'House',
-        balance: '400000.00',
+        value: '400000.00',
         nonCurrent: true,
       });
       await addItem(page, {
-        kind: 'liability',
+        side: 'liability',
         name: 'Credit card',
-        balance: '1500.00',
+        value: '1500.00',
       });
       await addItem(page, {
-        kind: 'liability',
+        side: 'liability',
         name: 'Mortgage',
-        balance: '300000.00',
+        value: '300000.00',
         nonCurrent: true,
       });
 
@@ -125,11 +148,12 @@ test.describe('balance sheet', () => {
         fullPage: true,
       });
 
-      // ── Update: a current asset moves every affected total ───────────────────
-      await editItem(page, 'Chequing');
-      await modal(page).getByTestId('item-balance-input').fill('3000.00');
-      await modal(page).getByTestId('item-submit-button').click();
-      await expect(modal(page)).toBeHidden();
+      // ── Record a value: a current asset moves every affected total ──────────
+      await openItem(page, 'Chequing');
+      await valueModal(page).getByTestId('value-amount-input').fill('3000.00');
+      await valueModal(page).getByTestId('value-submit-button').click();
+      await expect(valueModal(page)).toBeHidden();
+      await backToSheet(page);
 
       await expectAmount(itemGroup(page, 'Current assets'), 3000);
       await expectAmount(summaryCard(page, 'total-assets'), 403000);
@@ -166,6 +190,101 @@ test.describe('balance sheet', () => {
   );
 });
 
+test.describe('closing items', () => {
+  test('a closed item leaves the sheet and can be reopened', async ({ page }) => {
+    await gotoNewBalanceSheet(page);
+    await addItem(page, {
+      side: 'asset',
+      name: 'House',
+      value: '400000.00',
+      nonCurrent: true,
+    });
+    await expectAmount(summaryCard(page, 'net-worth'), 400000);
+
+    // Sold: it is closed from its details page.
+    await openDetails(page, itemRow(page, 'House'));
+    await page.getByTestId('close-line-button').click();
+    const closeModal = page.getByTestId('close-modal');
+    await closeModal.getByTestId('close-date-input').fill('2026-01-15');
+    await closeModal.getByTestId('close-submit-button').click();
+    await expect(closeModal).toBeHidden();
+    await expect(page.getByTestId('line-details-closed-on')).toContainText(
+      '2026-01-15',
+    );
+
+    // It leaves the sheet and its totals.
+    await page.getByTestId('line-details-back').click();
+    await expect(itemRow(page, 'House')).toHaveCount(0);
+    await expectAmount(summaryCard(page, 'net-worth'), 0);
+
+    // It is listed, collapsed, with its close date.
+    const closed = page.getByTestId('closed-lines');
+    await expect(closed).toContainText('Closed (1)');
+    await closed.locator('summary').click();
+    await expect(closed).toContainText('Closed on 2026-01-15');
+
+    // Reopened from its details page, it is back on the sheet.
+    await closed.getByTestId(/^open-closed-item-/).click();
+    await page.getByTestId('reopen-line-button').click();
+    await expect(page.getByTestId('line-details-closed-on')).toHaveCount(0);
+    await page.getByTestId('line-details-back').click();
+
+    await expect(itemRow(page, 'House')).toBeVisible();
+    await expectAmount(summaryCard(page, 'net-worth'), 400000);
+    await expect(closed).toHaveCount(0);
+  });
+});
+
+test.describe('line details', () => {
+  test("an item's history records and deletes values", async ({ page }) => {
+    await gotoNewBalanceSheet(page);
+    await addItem(page, {
+      side: 'asset',
+      name: 'House',
+      value: '400000.00',
+      nonCurrent: true,
+    });
+
+    // The line opens its details page, with the first value.
+    await openDetails(page, itemRow(page, 'House'));
+    const rows = page.locator('[data-testid^="observation-2"]');
+    await expect(rows).toHaveCount(1);
+
+    // An older value is recorded: it is listed below the current one.
+    await page.getByTestId('record-observation-button').click();
+    await expect(valueModal(page)).toBeVisible();
+    await valueModal(page).getByTestId('value-amount-input').fill('380000.00');
+    await valueModal(page).getByTestId('value-as-of-input').fill('2026-01-01');
+    await valueModal(page).getByTestId('value-submit-button').click();
+    await expect(valueModal(page)).toBeHidden();
+
+    await expect(rows).toHaveCount(2);
+    await expectAmount(rows.first(), 400000);
+    await expectAmount(page.getByTestId('observation-2026-01-01'), 380000);
+
+    // The newer value is deleted: the older one becomes current.
+    await rows.first().getByTestId(/^delete-observation-/).click();
+    const deleteDialog = page.getByTestId('delete-observation-modal');
+    await expect(deleteDialog).toBeVisible();
+    await deleteDialog.getByTestId('delete-observation-confirm-button').click();
+    await expect(deleteDialog).toBeHidden();
+    await expect(rows).toHaveCount(1);
+    await expect(page.getByTestId('line-details-current')).toContainText(
+      '2026-01-01',
+    );
+
+    // The only value left cannot be deleted: an item always has a value.
+    await expect(
+      rows.first().getByTestId(/^delete-observation-/),
+    ).toBeDisabled();
+
+    // Back on the balance sheet, the line shows the older value.
+    await page.getByTestId('line-details-back').click();
+    await expect(itemRow(page, 'House')).toBeVisible();
+    await expectAmount(itemRow(page, 'House'), 380000);
+  });
+});
+
 const accountModal = (page: Page) => page.getByTestId('account-modal');
 const balanceModal = (page: Page) => page.getByTestId('balance-modal');
 
@@ -174,17 +293,17 @@ const accountRow = (page: Page, name: string) =>
     hasText: name,
   });
 
-/// Open an account's balance form by clicking its line.
-async function openAccount(page: Page, name: string) {
-  await accountRow(page, name).getByTestId(/^record-balance-account-/).click();
+/// Open an account's balance form from its details page.
+async function openAccount(page: Page, row: Locator) {
+  await openDetails(page, row);
+  await page.getByTestId('record-observation-button').click();
   await expect(balanceModal(page)).toBeVisible();
 }
 
-/// Open an account's edit dialog from its balance form.
+/// Open an account's edit dialog from its details page.
 async function editAccount(page: Page, name: string) {
-  await openAccount(page, name);
-  await balanceModal(page).getByTestId('balance-edit-account-button').click();
-  await expect(balanceModal(page)).toBeHidden();
+  await openDetails(page, accountRow(page, name));
+  await page.getByTestId('edit-line-button').click();
   await expect(accountModal(page)).toBeVisible();
 }
 
@@ -246,8 +365,9 @@ test.describe('balance sheet accounts', () => {
       await expectAmount(summaryCard(page, 'net-worth'), 1000);
 
       // A liability balance makes it a current liability.
-      await unknown.getByTestId(/^record-balance-account-/).click();
+      await openAccount(page, unknown);
       await recordBalance(page, { side: 'Liability', amount: '400.00' });
+      await backToSheet(page);
       await expect(unknown).toBeHidden();
       await expectAmount(itemGroup(page, 'Current liabilities'), 400);
       await expectAmount(summaryCard(page, 'net-worth'), 600);
@@ -266,6 +386,7 @@ test.describe('balance sheet accounts', () => {
       await expect(deleteAccount).toContainText('transactions');
       await deleteAccount.getByTestId('account-delete-confirm-button').click();
       await expect(deleteAccount).toBeHidden();
+      await expect(page.getByTestId('balance-sheet-page')).toBeVisible();
       await expect(accountRow(page, 'Everyday')).toHaveCount(0);
       await expectAmount(summaryCard(page, 'net-worth'), -400);
     },
@@ -288,13 +409,14 @@ test.describe('balance sheet accounts', () => {
       await expect(accountModal(page)).toBeHidden();
       await expectAmount(itemGroup(page, 'Current assets'), 1000);
 
-      // Clicking the line opens the balance form on the current balance.
-      await openAccount(page, 'Everyday');
+      // The balance form opens on the current balance.
+      await openAccount(page, accountRow(page, 'Everyday'));
       await expect(balanceModal(page).getByTestId('balance-amount-input'))
         .toHaveValue('1000.00');
 
       // Recording an overdrawn balance moves the line to the liabilities.
       await recordBalance(page, { side: 'Liability', amount: '50.00' });
+      await backToSheet(page);
       await expectAmount(itemGroup(page, 'Current assets'), 0);
       await expectAmount(itemGroup(page, 'Current liabilities'), 50);
       await expectAmount(summaryCard(page, 'net-worth'), -50);
@@ -306,6 +428,7 @@ test.describe('balance sheet accounts', () => {
       await accountModal(page).getByTestId('account-name-input').fill('Bills');
       await accountModal(page).getByTestId('account-submit-button').click();
       await expect(accountModal(page)).toBeHidden();
+      await backToSheet(page);
       await expect(accountRow(page, 'Bills')).toBeVisible();
       await expectAmount(itemGroup(page, 'Current liabilities'), 50);
     },

@@ -57,6 +57,7 @@ module Seed =
 
     open Budgeteur.Feature.Account
     open Budgeteur.Feature.Tag
+    open Budgeteur.Feature.Transaction
 
     /// Create a tag and return its server-assigned id.
     let tag
@@ -141,6 +142,33 @@ module Seed =
                 response.StatusCode
                 HttpStatusCode.OK
                 "recording a balance should return 200"
+        }
+
+    /// Create an untagged transaction on the account.
+    let transaction
+        (client : HttpClient)
+        (accountId : Guid)
+        (date : DateOnly)
+        (amount : decimal)
+        : Async<unit> =
+        async {
+            let request : CreateTransaction.CreateTransactionRequest = {
+                Amount = amount
+                Description = "Seeded"
+                Date = date
+                IsTransfer = false
+                TagId = None
+                AccountId = Some accountId
+            }
+
+            let! response =
+                TestHttp.postJson client CreateTransaction.Path request
+                |> Async.AwaitTask
+
+            Expect.equal
+                response.StatusCode
+                HttpStatusCode.Created
+                "creating a transaction should return 201"
         }
 
 /// Assertions for user scoping: every query must filter by the `sub` claim.

@@ -29,11 +29,11 @@ module ResetUserDataTests =
         AccountId = None
     }
 
-    let private item : WriteBalanceSheetItemRequest = {
+    let private item : CreateBalanceSheetItemRequest = {
         Name = "Chequing"
-        Kind = "Asset"
+        Side = "Asset"
         Term = "Current"
-        Balance = 2000m
+        Value = 2000m
         AsOf = DateOnly (2026, 3, 8)
     }
 

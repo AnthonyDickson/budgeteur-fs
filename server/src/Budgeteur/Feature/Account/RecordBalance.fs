@@ -23,7 +23,7 @@ module RecordBalance =
     open Budgeteur.Shared.RequestLogging
 
     [<Literal>]
-    let Path = "/api/accounts/{%O:guid}/balances"
+    let Path = "/api/accounts/{%O:guid}/observations"
 
     /// <summary>Record the balance for the user's account and read the account
     /// back, in one database transaction. Fails with <c>NotFound</c> when the

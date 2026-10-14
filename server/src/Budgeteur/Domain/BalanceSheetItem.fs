@@ -3,6 +3,7 @@ namespace Budgeteur.Domain.BalanceSheetItem
 open System
 
 open Budgeteur.Domain.Money
+open Budgeteur.Domain.Side
 open Budgeteur.Domain.Term
 open Budgeteur.Shared.DomainError
 
@@ -44,79 +45,76 @@ module ItemName =
     /// from the database.
     let internal unsafeFromString name = ItemName name
 
-/// <summary>Whether an item is something owned (an asset) or owed (a
-/// liability).</summary>
-type ItemKind =
-    | Asset
-    | Liability
-
-module ItemKind =
-    let toString kind =
-        match kind with
-        | Asset -> "Asset"
-        | Liability -> "Liability"
-
-    let parse string =
-        match string with
-        | "Asset" -> Ok Asset
-        | "Liability" -> Ok Liability
-        | other ->
-            Error
-                $"\"{other}\" is not a valid value for ItemKind, expecting \
-                one of \"Asset\" or \"Liability\"."
-
 /// <summary>
 /// An item's value as a positive magnitude. The direction of the value is
-/// implied by the owning item's <see cref="ItemKind"/>, so a magnitude can
-/// never disagree with its classification.
+/// implied by the owning item's <see cref="Side"/>, so a magnitude can never
+/// disagree with its classification. An account's balance is signed instead;
+/// see <c>Budgeteur.Domain.Account</c>.
 /// </summary>
-type Balance = private Balance of decimal
+type Value = private Value of decimal
 
-module Balance =
+module Value =
     let private nonNegative (amount : decimal) =
         if amount < 0m then
             Error (
                 ValidationFailed
-                    "Balance must be a positive magnitude. Use ItemKind to \
-                    record whether the amount is an asset or a liability."
+                    "Value must be a positive magnitude. Use Side to record \
+                    whether the amount is an asset or a liability."
             )
         else
             Ok amount
 
-    /// <summary>Round to cents and validate that the balance is a positive
+    /// <summary>Round to cents and validate that the value is a positive
     /// magnitude.</summary>
     let create (amount : decimal) =
         amount
         |> nonNegative
         |> Result.map Money.roundToCents
-        |> Result.map Balance
+        |> Result.map Value
 
-    let value (Balance amount) = amount
+    let value (Value amount) = amount
 
     /// An escape hatch for the smart constructor for reading trusted values
     /// from the database.
-    let internal unsafeFromDecimal amount = Balance amount
+    let internal unsafeFromDecimal amount = Value amount
 
-/// <summary>A single line on the balance sheet: one asset or one
-/// liability.</summary>
+/// <summary>A single line on the balance sheet that is not an account: one
+/// asset or one liability. Its values are observations.</summary>
 type BalanceSheetItem = {
     /// <summary>Unique identifier for the item.</summary>
     Id : Guid
 
-    /// <summary>A human-readable name, e.g. "Chequing account" or
-    /// "Mortgage".</summary>
+    /// <summary>A human-readable name, e.g. "House" or "Mortgage".</summary>
     Name : ItemName
 
-    /// <summary>Whether the item is an asset or a liability.</summary>
-    Kind : ItemKind
+    /// <summary>Whether the item is an asset or a liability. Fixed at
+    /// creation.</summary>
+    Side : Side
 
     /// <summary>Whether the item is current or non-current.</summary>
     Term : Term
 
-    /// <summary>The positive magnitude of the item's value. Direction is
-    /// implied by Kind.</summary>
-    Balance : Balance
+    /// <summary>The date the item was sold or repaid, or none while it is
+    /// held. See decision 4 in docs/reports.md.</summary>
+    ClosedOn : DateOnly option
+}
 
-    /// <summary>The date the balance is accurate as of.</summary>
+/// <summary>A value an item had as of a date, entered by hand. An item has at
+/// most one observation per date: a new one replaces any on its date. See
+/// decision 2 in docs/reports.md.</summary>
+type ItemObservation = {
     AsOf : DateOnly
+
+    /// <summary>The positive magnitude of the item's value. Direction is
+    /// implied by the item's Side.</summary>
+    Value : Value
+}
+
+/// <summary>An item and its current value.</summary>
+type ItemValue = {
+    Item : BalanceSheetItem
+
+    /// <summary>The observation with the latest as-of date. Every item has
+    /// one: it is created with its first.</summary>
+    Current : ItemObservation
 }

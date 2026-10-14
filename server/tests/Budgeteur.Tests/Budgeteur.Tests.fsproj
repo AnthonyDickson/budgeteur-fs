@@ -24,11 +24,16 @@
     <Compile Include="Domain/AccountTests.fs" />
     <Compile Include="Domain/RuleTests.fs" />
     <Compile Include="Domain/CategorisationTests.fs" />
+    <Compile Include="Domain/IncomeStatementTests.fs" />
+    <Compile Include="Domain/ReportingPeriodTests.fs" />
     <Compile Include="Data/BalanceSheetItemCodecTests.fs" />
     <Compile Include="Account/EndpointTests.fs" />
     <Compile Include="BalanceSheet/EndpointTests.fs" />
-    <Compile Include="IncomeStatement/ComputeTests.fs" />
+    <Compile Include="BalanceSheet/ClosingTests.fs" />
+    <Compile Include="IncomeStatement/ValidatePeriodTests.fs" />
     <Compile Include="IncomeStatement/EndpointTests.fs" />
+    <Compile Include="Report/ComputeTests.fs" />
+    <Compile Include="Report/EndpointTests.fs" />
     <Compile Include="AutoTag/ChangesTests.fs" />
     <Compile Include="AutoTag/MatchesTests.fs" />
     <Compile Include="AutoTag/EndpointTests.fs" />

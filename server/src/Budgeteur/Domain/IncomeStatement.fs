@@ -1,4 +1,4 @@
-namespace Budgeteur.Feature.IncomeStatement
+namespace Budgeteur.Domain.IncomeStatement
 
 open System
 
@@ -160,3 +160,19 @@ module IncomeStatement =
                     Share = share line.Amount
                 })
         }
+
+    /// <summary>Net income as a percentage of income, rounded to two decimal
+    /// places, or none when income is zero or negative. It is on take-home
+    /// pay, since the app sees bank transactions. See decision 13 in
+    /// docs/dashboard.md.</summary>
+    let savingsRate (statement : IncomeStatement) : decimal option =
+        if statement.Income > 0m then
+            Some (
+                Decimal.Round (
+                    statement.NetIncome / statement.Income * 100m,
+                    2,
+                    MidpointRounding.AwayFromZero
+                )
+            )
+        else
+            None

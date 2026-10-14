@@ -3,8 +3,9 @@
 The requirements the system is built around, how the server and client are
 structured, and the rules that hold across both. Feature-level decisions live in
 their design briefs ([balance sheet](balance-sheet.md),
-[dashboard](dashboard.md), [auto-tagging](auto-tagging.md),
-[CSV import](csv-import.md)); storage, dates, and tests have their own docs.
+[dashboard](dashboard.md), [reports](reports.md),
+[auto-tagging](auto-tagging.md), [CSV import](csv-import.md)); storage, dates,
+and tests have their own docs.
 
 ## Requirements and constraints
 
@@ -221,7 +222,9 @@ Lists and tables open their entries: clicking anywhere on a row opens its edit
 dialog, and deleting starts from that dialog, which the page swaps for the
 delete confirmation. Rows show their content rather than a column of buttons. A
 row whose click already means something else keeps an edit button, as the tag
-list does, since clicking a tag selects it.
+list does, since clicking a tag selects it. A balance sheet line opens its
+details page rather than a dialog, since it has a history to list and several
+actions.
 
 ### Effect system
 

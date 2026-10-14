@@ -21,24 +21,13 @@ module ReadAllBalanceSheetItems =
     [<Literal>]
     let Path = "/api/balance-sheet/items"
 
-    let private getAll (queryContext : QueryContextFactory) (userId : string) =
-        task {
-            let! items =
-                selectTask queryContext {
-                    for item in main.BalanceSheetItems do
-                        select item
-                        where (item.UserId = userId)
-                }
-
-            return Seq.map BalanceSheetItemCodec.fromRow items |> List.ofSeq
-        }
-
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
-                let! items = getAll queryContext userId
+                use! db = queryContext.OpenContextAsync ()
+                let! items = ItemQuery.readAll db userId
 
                 log.Info (
                     $"Returned %i{List.length items} balance sheet items",

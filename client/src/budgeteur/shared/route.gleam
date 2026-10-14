@@ -1,5 +1,6 @@
 import gleam/string
 import gleam/uri
+import youid/uuid.{type Uuid}
 
 /// A route to a page in this SPA.
 pub type Route {
@@ -8,6 +9,11 @@ pub type Route {
   QuickTagging
   Tagging
   BalanceSheet
+  /// An item's details page, with its observation history.
+  ItemDetails(id: Uuid)
+  /// An account's details page, with its observation history.
+  AccountDetails(id: Uuid)
+  Reports
   NotFound
 }
 
@@ -19,7 +25,19 @@ pub fn to_string(route: Route) -> String {
     QuickTagging -> "/quick-tagging"
     Tagging -> "/tagging"
     BalanceSheet -> "/balance-sheet"
+    ItemDetails(id:) -> "/balance-sheet/items/" <> uuid.to_string(id)
+    AccountDetails(id:) -> "/balance-sheet/accounts/" <> uuid.to_string(id)
+    Reports -> "/reports"
     NotFound -> "/not_found"
+  }
+}
+
+/// The header section a route belongs to: a line's details page is part of the
+/// balance sheet.
+pub fn section(route: Route) -> Route {
+  case route {
+    ItemDetails(..) | AccountDetails(..) -> BalanceSheet
+    _ -> route
   }
 }
 
@@ -30,7 +48,17 @@ fn from_path_segments(path: List(String)) -> Route {
     ["quick-tagging"] -> QuickTagging
     ["tagging"] -> Tagging
     ["balance-sheet"] -> BalanceSheet
+    ["balance-sheet", "items", id] -> with_id(id, ItemDetails)
+    ["balance-sheet", "accounts", id] -> with_id(id, AccountDetails)
+    ["reports"] -> Reports
     _ -> NotFound
+  }
+}
+
+fn with_id(id: String, route: fn(Uuid) -> Route) -> Route {
+  case uuid.from_string(id) {
+    Ok(id) -> route(id)
+    Error(Nil) -> NotFound
   }
 }
 

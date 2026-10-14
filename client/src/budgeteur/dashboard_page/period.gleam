@@ -2,10 +2,8 @@
 //// worked out from the client's local `today` and a named preset. See
 //// docs/dashboard.md (decision 6) and docs/dates.md.
 
-import gleam/pair
+import budgeteur/shared/date
 import gleam/time/calendar.{type Date, Date}
-import gleam/time/duration
-import gleam/time/timestamp
 
 /// An inclusive range of calendar dates.
 pub type Period {
@@ -43,11 +41,11 @@ pub fn from_preset(preset: Preset, today: Date) -> Period {
     ThisMonth -> Period(from: first_of_month(today), to: today)
     LastMonth -> {
       let first_of_this_month = first_of_month(today)
-      let last_of_last_month = add_days(first_of_this_month, -1)
+      let last_of_last_month = date.add_days(first_of_this_month, -1)
       Period(from: first_of_month(last_of_last_month), to: last_of_last_month)
     }
-    Last28Days -> Period(from: add_days(today, -27), to: today)
-    Last365Days -> Period(from: add_days(today, -364), to: today)
+    Last28Days -> Period(from: date.add_days(today, -27), to: today)
+    Last365Days -> Period(from: date.add_days(today, -364), to: today)
     ThisFinancialYear -> {
       let year = case calendar.month_to_int(today.month) >= 4 {
         True -> today.year
@@ -94,17 +92,4 @@ pub fn parse_preset(value: String) -> Result(Preset, Nil) {
 
 fn first_of_month(date: Date) -> Date {
   Date(..date, day: 1)
-}
-
-/// Move a date by a number of days. The arithmetic runs on UTC midnight, which
-/// has no daylight saving changes, so every day is exactly 24 hours.
-fn add_days(date: Date, days: Int) -> Date {
-  timestamp.from_calendar(
-    date:,
-    time: calendar.TimeOfDay(0, 0, 0, 0),
-    offset: calendar.utc_offset,
-  )
-  |> timestamp.add(duration.hours(days * 24))
-  |> timestamp.to_calendar(calendar.utc_offset)
-  |> pair.first
 }
