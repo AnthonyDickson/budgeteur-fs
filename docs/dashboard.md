@@ -59,6 +59,9 @@ are on the reports page.
   flow side now means later reports extend it rather than rename it.
 - **Goal**: the dashboard is a composition of domain statements, not a bespoke
   aggregate that only the dashboard understands.
+- **Full dashboard**: both statements are still computed from the shared code,
+  but one dashboard read serves the page, and the income statement slice is
+  removed (decision 10).
 
 ### 2. Tags carry a kind: `Income` or `Expense`
 

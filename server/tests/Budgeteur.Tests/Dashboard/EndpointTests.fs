@@ -8,6 +8,7 @@ module EndpointTests =
 
     open Budgeteur.Feature.BalanceSheet
     open Budgeteur.Feature.Dashboard
+    open Budgeteur.Feature.QuickTag
     open Budgeteur.Feature.Transaction
     open Budgeteur.Shared.Clock
     open Budgeteur.Tests
@@ -20,7 +21,9 @@ module EndpointTests =
         TestApp.create (
             TestAppConfig.empty
             |> TestAppConfig.withBalanceSheet clock
+            |> TestAppConfig.withTags
             |> TestAppConfig.withTransactions
+            |> TestAppConfig.withQuickTag
             |> TestAppConfig.withDashboard
         )
 
@@ -29,25 +32,47 @@ module EndpointTests =
 
     let private onToday = "?today=2026-10-14"
 
+    let private postTransaction
+        (client : HttpClient)
+        (date : DateOnly)
+        (amount : decimal)
+        (tagId : Guid option)
+        (isTransfer : bool)
+        =
+        async {
+            let! response =
+                TestHttp.postJson
+                    client
+                    CreateTransaction.Path
+                    ({
+                        Amount = amount
+                        Description = "Transaction"
+                        Date = date
+                        IsTransfer = isTransfer
+                        TagId = tagId
+                        AccountId = None
+                    }
+                    : CreateTransaction.CreateTransactionRequest)
+                |> Async.AwaitTask
+
+            return! TestHttp.readJson<TransactionResponse> response
+        }
+
     let private createTransaction
         (client : HttpClient)
         (date : DateOnly)
         (amount : decimal)
         =
-        TestHttp.postJson
-            client
-            CreateTransaction.Path
-            ({
-                Amount = amount
-                Description = "Spending"
-                Date = date
-                IsTransfer = false
-                TagId = None
-                AccountId = None
-            }
-            : CreateTransaction.CreateTransactionRequest)
-        |> Async.AwaitTask
-        |> Async.Ignore
+        postTransaction client date amount None false |> Async.Ignore
+
+    let private readDashboard (client : HttpClient) =
+        async {
+            let! response = getDashboard client onToday
+            return! TestHttp.readJson<DashboardResponse> response
+        }
+
+    let private lineAmounts (lines : MonthLineResponse list) =
+        lines |> List.map (fun line -> line.Name, line.Amount)
 
     // The figures are covered by the periods, month, and history tests. These
     // tests cover what only the endpoint can get wrong: the query, loading,
@@ -139,6 +164,117 @@ module EndpointTests =
                     (foreign.History |> List.map _.Label)
                     [ "October 2026" ]
                     "today's month only"
+            }
+
+            testCaseAsync "each transaction is joined to its tag and kind"
+            <| async {
+                use app = newApp ()
+                let day = DateOnly (2026, 10, 10)
+
+                let! salary = Seed.tag app.Client "Salary" "Income"
+                let! rent = Seed.tag app.Client "Rent" "Expense"
+
+                do!
+                    postTransaction app.Client day 5000m (Some salary) false
+                    |> Async.Ignore
+
+                do!
+                    postTransaction app.Client day -2000m (Some rent) false
+                    |> Async.Ignore
+
+                do! createTransaction app.Client day -25m
+
+                let! dashboard = readDashboard app.Client
+
+                Expect.equal
+                    (dashboard.Month.IncomeLines
+                     |> List.map (fun line ->
+                         line.TagId, line.Name, line.Amount))
+                    [ Some salary, "Salary", 5000m ]
+                    "the income tag's transaction is income"
+
+                Expect.equal
+                    (dashboard.Month.ExpenseLines
+                     |> List.map (fun line ->
+                         line.TagId, line.Name, line.Amount))
+                    [ Some rent, "Rent", 2000m; None, "Untagged expenses", 25m ]
+                    "the expense tag's and the untagged transactions are \
+                    expenses"
+            }
+
+            testCaseAsync "a dismissed transaction counts as untagged"
+            <| async {
+                use app = newApp ()
+
+                let! created =
+                    postTransaction
+                        app.Client
+                        (DateOnly (2026, 10, 10))
+                        -25m
+                        None
+                        false
+
+                let! response =
+                    app.Client.DeleteAsync (
+                        TestHttp.itemPath DismissTransaction.Path created.Id
+                    )
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.NoContent
+                    "dismissing returns 204"
+
+                let! dashboard = readDashboard app.Client
+
+                Expect.equal
+                    (lineAmounts dashboard.Month.ExpenseLines)
+                    [ "Untagged expenses", 25m ]
+                    "a dismissal has no tag, so it is an untagged expense"
+            }
+
+            testCaseAsync "transfers and transactions after today are excluded"
+            <| async {
+                use app = newApp ()
+
+                do! createTransaction app.Client (DateOnly (2026, 10, 1)) -100m
+                do! createTransaction app.Client (DateOnly (2026, 10, 14)) -10m
+
+                do!
+                    postTransaction
+                        app.Client
+                        (DateOnly (2026, 10, 5))
+                        -999m
+                        None
+                        true
+                    |> Async.Ignore
+
+                do!
+                    postTransaction
+                        app.Client
+                        (DateOnly (2026, 10, 5))
+                        999m
+                        None
+                        true
+                    |> Async.Ignore
+
+                do!
+                    createTransaction
+                        app.Client
+                        (DateOnly (2026, 10, 15))
+                        -1000m
+
+                let! dashboard = readDashboard app.Client
+
+                Expect.equal
+                    dashboard.Month.Expenses.Amount
+                    110m
+                    "the first of the month and today count"
+
+                Expect.equal
+                    dashboard.Month.Income.Amount
+                    0m
+                    "the transfer in is not income"
             }
 
             testCaseAsync "a missing or malformed today is rejected"

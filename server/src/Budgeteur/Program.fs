@@ -32,7 +32,6 @@ open Budgeteur.Feature.AutoTag
 open Budgeteur.Feature.BalanceSheet
 open Budgeteur.Feature.Dashboard
 open Budgeteur.Feature.Import
-open Budgeteur.Feature.IncomeStatement
 open Budgeteur.Feature.QuickTag
 open Budgeteur.Feature.Report
 open Budgeteur.Feature.Rule
@@ -133,7 +132,6 @@ let private buildEndpoints
             BalanceSheetEndpoints.all queryContext Clock.system
             DashboardEndpoints.all queryContext
             ImportEndpoints.all queryContext
-            IncomeStatementEndpoints.all queryContext
             ReportEndpoints.all queryContext
             QuickTagEndpoints.all queryContext
             RuleEndpoints.all queryContext
