@@ -3,7 +3,10 @@ import budgeteur/balance_sheet_page/account_delete_modal
 import budgeteur/balance_sheet_page/account_modal
 import budgeteur/balance_sheet_page/account_write_request
 import budgeteur/balance_sheet_page/balance_modal
-import budgeteur/balance_sheet_page/balance_sheet.{type BalanceSheet}
+import budgeteur/balance_sheet_page/balance_sheet.{
+  type BalanceSheet, type ClosedAccount, type TransactionsAfterClose,
+  TransactionsAfterClose,
+}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_modal
@@ -304,7 +307,7 @@ fn model_accounts(model: Model) -> List(Account) {
       list.flatten([
         list.map(sheet.accounts, fn(line) { line.account }),
         sheet.unknown_balances,
-        sheet.closed_accounts,
+        list.map(sheet.closed_accounts, fn(closed) { closed.account }),
       ])
     Loading | Failed -> []
   }
@@ -838,9 +841,12 @@ fn loaded_sheet(sheet: BalanceSheet, today: Option(Date)) -> Element(Msg) {
 
 /// Lines the user no longer has are left off the sheet. They are listed,
 /// collapsed, so one can be reopened, corrected, or deleted from its edit form.
+/// A closed account with transactions after its close date is flagged, and the
+/// list opens so the flag is seen: the close date is likely wrong. See
+/// decision 4 in docs/reports.md.
 fn closed_lines(
   items: List(BalanceSheetItem),
-  accounts: List(Account),
+  accounts: List(ClosedAccount),
 ) -> Element(Msg) {
   let item_rows =
     list.map(items, fn(item) {
@@ -848,17 +854,23 @@ fn closed_lines(
         testid: "closed-item-" <> uuid.to_string(item.id),
         name: item.name,
         closed_on: item.closed_on,
+        after_close: None,
         on_click: UserRequestedItemEdit(item),
       )
     })
   let account_rows =
-    list.map(accounts, fn(account) {
+    list.map(accounts, fn(closed) {
       closed_row(
-        testid: "closed-account-" <> uuid.to_string(account.id),
-        name: account.name,
-        closed_on: account.closed_on,
-        on_click: UserRequestedAccountEdit(account),
+        testid: "closed-account-" <> uuid.to_string(closed.account.id),
+        name: closed.account.name,
+        closed_on: closed.account.closed_on,
+        after_close: closed.transactions_after_close,
+        on_click: UserRequestedAccountEdit(closed.account),
       )
+    })
+  let flagged =
+    list.count(accounts, fn(closed) {
+      option.is_some(closed.transactions_after_close)
     })
 
   case list.append(item_rows, account_rows) {
@@ -868,6 +880,7 @@ fn closed_lines(
         [
           attribute.class("mt-8 rounded-lg border border-gray-200 bg-white"),
           attribute.attribute("data-testid", "closed-lines"),
+          attribute.open(flagged > 0),
         ],
         [
           html.summary(
@@ -876,7 +889,19 @@ fn closed_lines(
                 "cursor-pointer px-4 py-3 text-sm font-medium text-gray-700",
               ),
             ],
-            [html.text("Closed (" <> int.to_string(list.length(rows)) <> ")")],
+            [
+              html.text("Closed (" <> int.to_string(list.length(rows)) <> ")"),
+              case flagged {
+                0 -> element.none()
+                _ ->
+                  html.span([attribute.class("ml-2 text-amber-700")], [
+                    html.text(
+                      int.to_string(flagged)
+                      <> " with transactions after closing",
+                    ),
+                  ])
+              },
+            ],
           ),
           html.ul([attribute.class("divide-y divide-gray-100 border-t")], rows),
         ],
@@ -888,6 +913,7 @@ fn closed_row(
   testid testid: String,
   name name: String,
   closed_on closed_on: Option(Date),
+  after_close after_close: Option(TransactionsAfterClose),
   on_click on_click: Msg,
 ) -> Element(Msg) {
   html.li(
@@ -914,6 +940,30 @@ fn closed_row(
             }),
           ],
         ),
+        case after_close {
+          Some(TransactionsAfterClose(count:, latest:)) ->
+            html.p(
+              [
+                attribute.class(
+                  row_ui.selectable_class <> " text-xs text-amber-700",
+                ),
+                attribute.attribute("data-testid", "transactions-after-close"),
+              ],
+              [
+                html.text(
+                  int.to_string(count)
+                  <> case count {
+                    1 -> " transaction"
+                    _ -> " transactions"
+                  }
+                  <> " after the close date, the latest on "
+                  <> date.format(latest)
+                  <> ". Check the close date.",
+                ),
+              ],
+            )
+          None -> element.none()
+        },
       ]),
       row_ui.chevron(class: ""),
     ],

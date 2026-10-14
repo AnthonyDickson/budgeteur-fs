@@ -59,6 +59,7 @@
     <Compile Include="Data/AccountBalanceCodec.fs" />
     <Compile Include="Data/IncomeStatementQuery.fs" />
     <Compile Include="Data/BalanceSheetHistoryQuery.fs" />
+    <Compile Include="Data/TransactionsAfterCloseQuery.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />

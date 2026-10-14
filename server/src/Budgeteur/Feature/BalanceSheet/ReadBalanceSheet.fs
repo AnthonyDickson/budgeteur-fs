@@ -1,6 +1,7 @@
 namespace Budgeteur.Feature.BalanceSheet
 
 module ReadBalanceSheet =
+    open System
     open System.Collections.Generic
     open System.Threading.Tasks
 
@@ -92,27 +93,40 @@ module ReadBalanceSheet =
             (sheet : BalanceSheet)
             (closedItems : ItemValue list)
             (closedAccounts : Account list)
-            : BalanceSheetResponse = {
-            Items = sheet.Items |> List.map BalanceSheetItemResponse.fromDomain
-            Accounts =
-                sheet.Accounts |> List.choose AccountLineResponse.fromDomain
-            UnknownBalances =
-                BalanceSheet.unknownBalances sheet
-                |> List.map UnknownBalanceResponse.fromDomain
-            ClosedItems =
-                closedItems |> List.map BalanceSheetItemResponse.fromDomain
-            ClosedAccounts =
-                closedAccounts |> List.choose ClosedAccountResponse.fromDomain
-            TotalCurrentAssets = BalanceSheet.totalCurrentAssets sheet
-            TotalCurrentLiabilities = BalanceSheet.totalCurrentLiabilities sheet
-            TotalNonCurrentAssets = BalanceSheet.totalNonCurrentAssets sheet
-            TotalNonCurrentLiabilities =
-                BalanceSheet.totalNonCurrentLiabilities sheet
-            TotalAssets = BalanceSheet.totalAssets sheet
-            TotalLiabilities = BalanceSheet.totalLiabilities sheet
-            NetWorth = BalanceSheet.netWorth sheet
-            WorkingCapital = BalanceSheet.workingCapital sheet
-        }
+            (transactionsAfterClose : (Guid * DateOnly) list)
+            : BalanceSheetResponse =
+            let datesAfterClose (account : Account) =
+                transactionsAfterClose
+                |> List.filter (fun (accountId, _) -> accountId = account.Id)
+                |> List.map snd
+
+            {
+                Items =
+                    sheet.Items |> List.map BalanceSheetItemResponse.fromDomain
+                Accounts =
+                    sheet.Accounts |> List.choose AccountLineResponse.fromDomain
+                UnknownBalances =
+                    BalanceSheet.unknownBalances sheet
+                    |> List.map UnknownBalanceResponse.fromDomain
+                ClosedItems =
+                    closedItems |> List.map BalanceSheetItemResponse.fromDomain
+                ClosedAccounts =
+                    closedAccounts
+                    |> List.choose (fun account ->
+                        ClosedAccountResponse.fromDomain
+                            (datesAfterClose account)
+                            account)
+                TotalCurrentAssets = BalanceSheet.totalCurrentAssets sheet
+                TotalCurrentLiabilities =
+                    BalanceSheet.totalCurrentLiabilities sheet
+                TotalNonCurrentAssets = BalanceSheet.totalNonCurrentAssets sheet
+                TotalNonCurrentLiabilities =
+                    BalanceSheet.totalNonCurrentLiabilities sheet
+                TotalAssets = BalanceSheet.totalAssets sheet
+                TotalLiabilities = BalanceSheet.totalLiabilities sheet
+                NetWorth = BalanceSheet.netWorth sheet
+                WorkingCapital = BalanceSheet.workingCapital sheet
+            }
 
     /// <summary>The user's balance sheet: every open item and account they
     /// track, and apart from it the closed ones. A user with neither has an
@@ -164,6 +178,9 @@ module ReadBalanceSheet =
                 let! sheet, closedItems, closedAccounts =
                     readBalanceSheet queryContext userId
 
+                and! transactionsAfterClose =
+                    TransactionsAfterCloseQuery.read queryContext userId
+
                 log.Info "Returned balance sheet"
 
                 do!
@@ -172,7 +189,8 @@ module ReadBalanceSheet =
                         (BalanceSheetResponse.fromDomain
                             sheet
                             closedItems
-                            closedAccounts)
+                            closedAccounts
+                            transactionsAfterClose)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

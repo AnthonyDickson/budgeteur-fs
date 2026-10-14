@@ -1,7 +1,10 @@
 import budgeteur/balance_sheet_page/account.{type Account, type AccountLine}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
+import budgeteur/shared/date
 import budgeteur/shared/money
 import gleam/dynamic/decode
+import gleam/option.{type Option, None}
+import gleam/time/calendar.{type Date}
 
 pub type BalanceSheet {
   BalanceSheet(
@@ -21,8 +24,22 @@ pub type BalanceSheet {
     // Items that were sold or repaid, left out of the sheet.
     closed_items: List(BalanceSheetItem),
     // Accounts that were closed, left out of the sheet.
-    closed_accounts: List(Account),
+    closed_accounts: List(ClosedAccount),
   )
+}
+
+/// A closed account, with any transactions dated after its close date.
+pub type ClosedAccount {
+  ClosedAccount(
+    account: Account,
+    // A closed account should have none, so they suggest the close date is
+    // wrong. See decision 4 in docs/reports.md.
+    transactions_after_close: Option(TransactionsAfterClose),
+  )
+}
+
+pub type TransactionsAfterClose {
+  TransactionsAfterClose(count: Int, latest: Date)
 }
 
 pub fn decoder() -> decode.Decoder(BalanceSheet) {
@@ -61,7 +78,7 @@ pub fn decoder() -> decode.Decoder(BalanceSheet) {
   )
   use closed_accounts <- decode.field(
     "closedAccounts",
-    decode.list(account.decoder()),
+    decode.list(closed_account_decoder()),
   )
   decode.success(BalanceSheet(
     total_assets:,
@@ -78,4 +95,18 @@ pub fn decoder() -> decode.Decoder(BalanceSheet) {
     closed_items:,
     closed_accounts:,
   ))
+}
+
+fn closed_account_decoder() -> decode.Decoder(ClosedAccount) {
+  use account <- decode.then(account.decoder())
+  use transactions_after_close <- decode.optional_field(
+    "transactionsAfterClose",
+    None,
+    decode.optional({
+      use count <- decode.field("count", decode.int)
+      use latest <- decode.field("latest", date.decoder())
+      decode.success(TransactionsAfterClose(count:, latest:))
+    }),
+  )
+  decode.success(ClosedAccount(account:, transactions_after_close:))
 }

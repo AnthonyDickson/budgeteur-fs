@@ -111,10 +111,19 @@ always clear from context; where it is not, say "balance sheet line".
   every closed line without knowing the client's today. The balance sheet page
   lists closed lines in a collapsed section, so they can be reopened or viewed.
   Deleting stays for mistakes, and removes the line's balance history.
+- **Transactions after the close date**: a closed account with transactions
+  dated after its close date is flagged in the closed section, which opens to
+  show the flag. Transactions on the close date are the account's last, so they
+  are not flagged. The flag is worked out when the sheet is read, and the user
+  corrects the close date in the account's edit form.
 - **Why**: deleting a sold or repaid line removes it from every past sheet and
   changes past net worth. A close date is one stored fact. The CSV import brief
   planned a final $0 observation instead; that needs a convention to tell a
-  closing $0 from a balance of $0, which an empty account has.
+  closing $0 from a balance of $0, which an empty account has. A transaction
+  after the close date means the close date is likely wrong, but reopening the
+  account on import was rejected: it would silently change every report after
+  that date. The import summary was rejected as the place for the flag, since
+  the flag would be lost with it.
 - **Goal**: past reports stay correct after a line is sold, repaid, or closed,
   and the current sheet only shows lines the user has.
 

@@ -444,6 +444,7 @@ module EndpointTests =
                         TestAppConfig.empty
                         |> TestAppConfig.withBalanceSheet clock
                         |> TestAppConfig.withAccounts clock
+                        |> TestAppConfig.withTransactions
                     )
 
                 let! house =
@@ -491,6 +492,16 @@ module EndpointTests =
                     HttpStatusCode.OK
                     "closing an account is 200"
 
+                // When: transactions on the card are dated on and after its
+                // close date.
+                for day in [ 6; 7; 8 ] do
+                    do!
+                        Seed.transaction
+                            app.Client
+                            card
+                            (DateOnly (2026, 3, day))
+                            -10m
+
                 // Then: they leave the sheet and its totals, and are listed
                 // apart with their close dates.
                 let! sheet = getSheetBody app.Client
@@ -510,9 +521,17 @@ module EndpointTests =
 
                 Expect.equal
                     (sheet.ClosedAccounts
-                     |> List.map (fun a -> a.Id, a.ClosedOn))
-                    [ card, DateOnly (2026, 3, 6) ]
-                    "the closed account is listed with its close date"
+                     |> List.map (fun a ->
+                         a.Id, a.ClosedOn, a.TransactionsAfterClose))
+                    [
+                        card,
+                        DateOnly (2026, 3, 6),
+                        Some {
+                            Count = 2
+                            Latest = DateOnly (2026, 3, 8)
+                        }
+                    ]
+                    "with the transactions after its close date, not on it"
 
                 // When: the house is reopened.
                 let! reopened =

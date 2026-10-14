@@ -55,6 +55,15 @@ type UnknownBalanceResponse = {
     Term : string
 }
 
+/// <summary>A closed account's transactions after its close date.</summary>
+type TransactionsAfterCloseResponse = {
+    /// <summary>How many there are.</summary>
+    Count : int
+
+    /// <summary>The date of the latest.</summary>
+    Latest : DateOnly
+}
+
 /// <summary>A closed account. It is left out of the sheet.</summary>
 type ClosedAccountResponse = {
     /// <summary>The account's id.</summary>
@@ -73,6 +82,11 @@ type ClosedAccountResponse = {
 
     /// <summary>The date the account was closed.</summary>
     ClosedOn : DateOnly
+
+    /// <summary>Transactions dated after the close date, or none. A closed
+    /// account should have none, so they suggest the close date is wrong. See
+    /// decision 4 in docs/reports.md.</summary>
+    TransactionsAfterClose : TransactionsAfterCloseResponse option
 }
 
 module AccountLineResponse =
@@ -110,8 +124,13 @@ module UnknownBalanceResponse =
 module ClosedAccountResponse =
     open Budgeteur.Domain.Account
 
-    /// <summary>The account's entry, or none when it is open.</summary>
-    let fromDomain (account : Account) : ClosedAccountResponse option =
+    /// <summary>The account's entry, or none when it is open.
+    /// <c>transactionDates</c> are the dates of its transactions after the
+    /// close date.</summary>
+    let fromDomain
+        (transactionDates : DateOnly list)
+        (account : Account)
+        : ClosedAccountResponse option =
         account.ClosedOn
         |> Option.map (fun closedOn -> {
             Id = account.Id
@@ -119,4 +138,12 @@ module ClosedAccountResponse =
             Number = account.Number |> Option.map AccountNumber.value
             Term = Term.toString account.Term
             ClosedOn = closedOn
+            TransactionsAfterClose =
+                match transactionDates with
+                | [] -> None
+                | dates ->
+                    Some {
+                        Count = List.length dates
+                        Latest = List.max dates
+                    }
         })
