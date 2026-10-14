@@ -4,12 +4,16 @@
 //// docs/reports.md.
 
 import budgeteur/balance_sheet_page/account.{type Account}
+import budgeteur/balance_sheet_page/account_delete_modal
+import budgeteur/balance_sheet_page/account_modal
 import budgeteur/balance_sheet_page/account_write_request
 import budgeteur/balance_sheet_page/balance_modal.{
   type CurrentBalance, CurrentBalance,
 }
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/close_modal
+import budgeteur/balance_sheet_page/item_delete_modal
+import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/item_write_request
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError}
@@ -29,6 +33,7 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/result
 import gleam/time/calendar.{type Date}
 import lustre/attribute
 import lustre/element.{type Element}
@@ -87,6 +92,10 @@ pub type Model {
     value_modal: value_modal.Modal,
     balance_modal: balance_modal.Modal,
     close_modal: close_modal.Modal,
+    item_modal: item_modal.Modal,
+    account_modal: account_modal.Modal,
+    item_delete_modal: item_delete_modal.DeleteModalState,
+    account_delete_modal: account_delete_modal.DeleteModalState,
     delete_modal: delete_modal.State(Entry, Place),
   )
 }
@@ -103,6 +112,14 @@ pub type Msg {
   CloseModalMsg(close_modal.Msg)
   UserRequestedReopen
   ServerReopened(Result(Nil, ApiError))
+  // The edit forms' `DeleteRequested` opens the line's delete confirmation.
+  UserRequestedEdit
+  ItemModalMsg(item_modal.Msg)
+  AccountModalMsg(account_modal.Msg)
+  UserConfirmedLineDelete
+  UserCancelledLineDelete
+  // 404 is folded into Ok: the line is gone, as the user intended.
+  ServerDeletedLine(Result(Nil, ApiError))
   UserRequestedDelete(Entry)
   UserConfirmedDelete
   UserCancelledDelete
@@ -191,6 +208,10 @@ pub fn init(line_ref: LineRef) -> #(Model, Effect(Msg)) {
       value_modal: value_modal.hidden(),
       balance_modal: balance_modal.hidden(),
       close_modal: close_modal.hidden(),
+      item_modal: item_modal.hidden(),
+      account_modal: account_modal.hidden(),
+      item_delete_modal: item_delete_modal.empty(),
+      account_delete_modal: account_delete_modal.empty(),
       delete_modal: delete_modal.empty(),
     ),
     effect.batch([
@@ -283,6 +304,38 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
         Loading | Failed -> #(model, effect.none(), None)
       }
     CloseModalMsg(inner_msg) -> run_close_modal(model, inner_msg)
+
+    UserRequestedEdit ->
+      case model.line {
+        Loaded(ItemLine(item:)) ->
+          run_item_modal(model, item_modal.EditRequested(item:))
+        Loaded(AccountWithBalance(account:, ..)) ->
+          run_account_modal(model, account_modal.EditRequested(account:))
+        Loading | Failed -> #(model, effect.none(), None)
+      }
+    ItemModalMsg(item_modal.DeleteRequested as inner_msg) ->
+      open_line_delete(model) |> run_item_modal(inner_msg)
+    ItemModalMsg(inner_msg) -> run_item_modal(model, inner_msg)
+    AccountModalMsg(account_modal.DeleteRequested as inner_msg) ->
+      open_line_delete(model) |> run_account_modal(inner_msg)
+    AccountModalMsg(inner_msg) -> run_account_modal(model, inner_msg)
+
+    UserConfirmedLineDelete -> confirm_line_delete(model)
+    UserCancelledLineDelete -> #(
+      Model(
+        ..model,
+        item_delete_modal: item_delete_modal.empty(),
+        account_delete_modal: account_delete_modal.empty(),
+      ),
+      effect.none(),
+      None,
+    )
+    ServerDeletedLine(Ok(Nil)) -> on_line_deleted(model)
+    ServerDeletedLine(Error(error)) ->
+      case api_error.is_not_found(error) {
+        True -> on_line_deleted(model)
+        False -> on_line_delete_failed(model, error)
+      }
 
     UserRequestedReopen -> #(model, reopen(model.line_ref), None)
     ServerReopened(Ok(Nil)) -> {
@@ -555,6 +608,184 @@ fn reopen(line_ref: LineRef) -> Effect(Msg) {
   )
 }
 
+/// Save the item's details. The form's duplicate check has no other items to
+/// compare against here, so the server's check reports a duplicate.
+fn run_item_modal(
+  model: Model,
+  msg: item_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(item_modal, request, outcome) =
+    item_modal.update(model.item_modal, msg, [])
+  let model = Model(..model, item_modal:)
+  let request_effect = case request {
+    Some(form_modal.Put(id:, payload:)) ->
+      effect.put(
+        api_route.UpdateBalanceSheetItem(id) |> api_route.to_string,
+        item_write_request.to_json(payload) |> json.to_string,
+        fn(result) {
+          case result {
+            Ok(body) ->
+              response.decode_success(body, balance_sheet_item.decoder())
+              |> item_modal.SaveCompleted
+            Error(http_error) ->
+              item_modal.SaveCompleted(
+                Error(response.http_error_to_api_error(http_error)),
+              )
+          }
+        },
+      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(ItemModalMsg)
+    // The page edits its item; items are created on the balance sheet.
+    Some(form_modal.Post(_)) | None -> effect.none()
+  }
+  let log_effect = case msg {
+    item_modal.SaveCompleted(result: Error(error)) ->
+      effect.LogError(api_error.describe(error))
+    _ -> effect.none()
+  }
+  on_saved(model, outcome, effect.batch([request_effect, log_effect]))
+}
+
+fn run_account_modal(
+  model: Model,
+  msg: account_modal.Msg,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(account_modal, request, outcome) =
+    account_modal.update(model.account_modal, msg)
+  let model = Model(..model, account_modal:)
+  let request_effect = case request {
+    Some(form_modal.Put(id:, payload:)) ->
+      effect.put(
+        api_route.UpdateAccount(id) |> api_route.to_string,
+        account_write_request.update_json(payload) |> json.to_string,
+        fn(result) {
+          case result {
+            Ok(body) ->
+              response.decode_success(body, account.decoder())
+              |> account_modal.SaveCompleted
+            Error(http_error) ->
+              account_modal.SaveCompleted(
+                Error(response.http_error_to_api_error(http_error)),
+              )
+          }
+        },
+      )
+      |> effect.with_timeout(form_modal.submit_timeout_ms)
+      |> effect.map(AccountModalMsg)
+    // The page edits its account; accounts are created on the balance sheet.
+    Some(form_modal.Post(_)) | None -> effect.none()
+  }
+  let log_effect = case msg {
+    account_modal.SaveCompleted(result: Error(error)) ->
+      effect.LogError(api_error.describe(error))
+    _ -> effect.none()
+  }
+  on_saved(model, outcome, effect.batch([request_effect, log_effect]))
+}
+
+/// A saved edit refetches the line for its header.
+fn on_saved(
+  model: Model,
+  outcome: form_modal.Outcome(entity),
+  effect: Effect(Msg),
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  case outcome {
+    form_modal.NoChange -> #(model, effect, None)
+    form_modal.Created(_) | form_modal.Updated(_) -> {
+      let #(model, refetch_effect) = refetch(model)
+      #(model, refetch_effect, Some(out_msg.success_toast("Saved")))
+    }
+  }
+}
+
+/// Open the delete confirmation for the line. Its edit form closes itself on
+/// the same message.
+fn open_line_delete(model: Model) -> Model {
+  case model.line {
+    Loaded(ItemLine(item:)) ->
+      Model(..model, item_delete_modal: item_delete_modal.open(item))
+    Loaded(AccountWithBalance(account:, ..)) ->
+      Model(..model, account_delete_modal: account_delete_modal.open(account))
+    Loading | Failed -> model
+  }
+}
+
+fn confirm_line_delete(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let callback = fn(result) {
+    case result {
+      // A successful delete returns 204 with no body.
+      Ok(_) -> ServerDeletedLine(Ok(Nil))
+      Error(http_error) ->
+        ServerDeletedLine(Error(response.http_error_to_api_error(http_error)))
+    }
+  }
+  let confirmed = case model.line_ref {
+    ItemRef(..) ->
+      delete_modal.confirm(model.item_delete_modal)
+      |> result.map(fn(confirmed) {
+        let #(state, item) = confirmed
+        #(
+          Model(..model, item_delete_modal: state),
+          api_route.DeleteBalanceSheetItem(item.id),
+        )
+      })
+    AccountRef(..) ->
+      delete_modal.confirm(model.account_delete_modal)
+      |> result.map(fn(confirmed) {
+        let #(state, account) = confirmed
+        #(
+          Model(..model, account_delete_modal: state),
+          api_route.DeleteAccount(account.id),
+        )
+      })
+  }
+  case confirmed {
+    Ok(#(model, route)) -> #(
+      model,
+      effect.delete(api_route.to_string(route), callback)
+        |> effect.with_timeout(delete_modal.delete_timeout_ms),
+      None,
+    )
+    Error(Nil) -> #(model, effect.none(), None)
+  }
+}
+
+/// The line is gone, so the page returns to the balance sheet.
+fn on_line_deleted(model: Model) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let name = case model.line {
+    Loaded(ItemLine(item:)) -> item.name
+    Loaded(AccountWithBalance(account:, ..)) -> account.name
+    Loading | Failed -> "the line"
+  }
+  #(
+    Model(
+      ..model,
+      item_delete_modal: item_delete_modal.empty(),
+      account_delete_modal: account_delete_modal.empty(),
+    ),
+    effect.push_url(route.to_string(route.BalanceSheet)),
+    Some(out_msg.success_toast("Deleted '" <> name <> "'")),
+  )
+}
+
+/// As for an entry, a stale response leaves a newer dialog session alone.
+fn on_line_delete_failed(
+  model: Model,
+  error: ApiError,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let updated =
+    Model(
+      ..model,
+      item_delete_modal: delete_modal.fail(model.item_delete_modal, error),
+      account_delete_modal: delete_modal.fail(model.account_delete_modal, error),
+    )
+  case updated == model {
+    True -> #(model, effect.none(), None)
+    False -> #(updated, effect.LogError(api_error.describe(error)), None)
+  }
+}
+
 /// What the line's observations are called.
 fn noun(line_ref: LineRef) -> String {
   case line_ref {
@@ -595,6 +826,18 @@ pub fn view(model: Model) -> Element(Msg) {
       balance_modal.view(model.balance_modal, editable: False)
         |> element.map(BalanceModalMsg),
       close_modal.view(model.close_modal) |> element.map(CloseModalMsg),
+      item_modal.view(model.item_modal) |> element.map(ItemModalMsg),
+      account_modal.view(model.account_modal) |> element.map(AccountModalMsg),
+      item_delete_modal.view(
+        model.item_delete_modal,
+        on_cancel: UserCancelledLineDelete,
+        on_confirm: UserConfirmedLineDelete,
+      ),
+      account_delete_modal.view(
+        model.account_delete_modal,
+        on_cancel: UserCancelledLineDelete,
+        on_confirm: UserConfirmedLineDelete,
+      ),
       delete_modal.view(
         model.delete_modal,
         delete_options(model.line_ref),
@@ -680,6 +923,14 @@ fn header(line: Line) -> Element(Msg) {
         },
       ]),
       html.div([attribute.class("flex shrink-0 gap-2")], [
+        html.button(
+          [
+            attribute.class(secondary_button_class),
+            attribute.attribute("data-testid", "edit-line-button"),
+            event.on_click(UserRequestedEdit),
+          ],
+          [html.text("Edit details")],
+        ),
         // A closed line is reopened rather than closed again; closing is
         // apart from editing, since it is an event rather than a detail.
         case closed_on {

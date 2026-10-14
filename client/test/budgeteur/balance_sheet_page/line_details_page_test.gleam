@@ -2,6 +2,7 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
 import budgeteur/balance_sheet_page/close_modal
+import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/line_details_page.{
   Earliest, Entry, HasEarlier, ItemLine, ItemRef, Only,
 }
@@ -234,5 +235,57 @@ pub fn reopening_deletes_the_close_date_and_refetches_test() {
     )
   after |> should.equal(loaded())
   let assert Some(out_msg.PageRequestedToast(title: "Could not reopen", ..)) =
+    out_msg
+}
+
+pub fn editing_saves_the_details_and_deleting_returns_to_the_sheet_test() {
+  let #(editing, _, _) =
+    line_details_page.update(loaded(), line_details_page.UserRequestedEdit)
+  let assert form_modal.Active(mode: form_modal.Edit(id), ..) =
+    editing.item_modal
+  id |> should.equal(house().id)
+
+  // Saving puts the details.
+  let #(_, effect, _) =
+    line_details_page.update(
+      editing,
+      line_details_page.ItemModalMsg(item_modal.SaveRequested),
+    )
+  let assert effect.Batch([effect.HttpRequest(method:, url:, ..), _]) = effect
+  method |> should.equal(http_effect.Put)
+  url
+  |> should.equal(
+    api_route.to_string(api_route.UpdateBalanceSheetItem(house().id)),
+  )
+
+  // Delete swaps the form for the confirmation, which deletes the item.
+  let #(confirming, _, _) =
+    line_details_page.update(
+      editing,
+      line_details_page.ItemModalMsg(item_modal.DeleteRequested),
+    )
+  confirming.item_modal |> should.equal(form_modal.Hidden)
+  let assert delete_modal.Confirming(target:, ..) = confirming.item_delete_modal
+  target |> should.equal(house())
+
+  let #(deleting, effect, _) =
+    line_details_page.update(
+      confirming,
+      line_details_page.UserConfirmedLineDelete,
+    )
+  let assert effect.HttpRequest(method: http_effect.Delete, url:, ..) = effect
+  url
+  |> should.equal(
+    api_route.to_string(api_route.DeleteBalanceSheetItem(house().id)),
+  )
+
+  // Once deleted, the page returns to the balance sheet.
+  let #(_, effect, out_msg) =
+    line_details_page.update(
+      deleting,
+      line_details_page.ServerDeletedLine(Ok(Nil)),
+    )
+  effect |> should.equal(effect.push_url("/balance-sheet"))
+  let assert Some(out_msg.PageRequestedToast(body: "Deleted 'House'", ..)) =
     out_msg
 }
