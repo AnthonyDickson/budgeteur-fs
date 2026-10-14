@@ -43,15 +43,14 @@ export function registerChart() {
 
         const width = this.clientWidth || 640;
         const draw = spec.kind === 'cashFlow' ? cashFlow : netWorth;
-        this.#root.replaceChildren(...draw(Plot, spec.months, width));
+        this.#root.replaceChildren(draw(Plot, spec.months, width));
       }
     },
   );
 }
 
 const fontSize = '12px';
-const income = '#4f46e5';
-const expenses = '#9ca3af';
+const accent = '#4f46e5';
 
 /// Months in the order the server sent them, labelled by their short name.
 function monthAxis(months) {
@@ -65,53 +64,37 @@ function monthAxis(months) {
 /// The month to date is drawn faded, as it is partial.
 const opacity = (month) => (month.complete ? 1 : 0.45);
 
-/// Income bars above the axis and expense bars below it, with net income as a
-/// line, and a legend above them.
+/// Net income per month as bars: above the axis for a month that saved and
+/// below it for one that did not.
 function cashFlow(Plot, months, width) {
-  const chart = Plot.plot({
+  return Plot.plot({
     width,
     height: 260,
     marginLeft: 64,
     style: { fontSize },
     x: monthAxis(months),
     y: { grid: true, label: null, tickFormat: '$,~s' },
-    color: {
-      domain: ['Income', 'Expenses', 'Net income'],
-      range: [income, expenses, 'currentColor'],
-    },
     marks: [
       Plot.barY(months, {
         x: 'label',
-        y: 'income',
-        fill: () => 'Income',
+        y: 'netIncome',
+        fill: accent,
         fillOpacity: opacity,
         tip: true,
-        title: (month) => `${month.label}\nIncome ${money(month.income)}`,
-      }),
-      Plot.barY(months, {
-        x: 'label',
-        y: (month) => -month.expenses,
-        fill: () => 'Expenses',
-        fillOpacity: opacity,
-        tip: true,
-        title: (month) => `${month.label}\nExpenses ${money(month.expenses)}`,
+        title: (month) =>
+          `${month.label}${month.complete ? '' : ' to date'}\nNet income ${
+            money(month.netIncome)
+          }`,
       }),
       Plot.ruleY([0]),
-      Plot.lineY(months, {
-        x: 'label',
-        y: 'netIncome',
-        stroke: () => 'Net income',
-      }),
-      ...dots(Plot, months, 'netIncome', 'currentColor', 'Net income'),
     ],
   });
-  return [chart.legend('color', { style: { fontSize } }), chart];
 }
 
 /// Net worth at each month's closing date. Months with no known balance are
 /// gaps.
 function netWorth(Plot, months, width) {
-  return [Plot.plot({
+  return Plot.plot({
     width,
     height: 260,
     marginLeft: 64,
@@ -119,10 +102,10 @@ function netWorth(Plot, months, width) {
     x: monthAxis(months),
     y: { grid: true, label: null, tickFormat: '$,~s' },
     marks: [
-      Plot.lineY(months, { x: 'label', y: 'netWorth', stroke: income }),
-      ...dots(Plot, months, 'netWorth', income, 'Net worth'),
+      Plot.lineY(months, { x: 'label', y: 'netWorth', stroke: accent }),
+      ...dots(Plot, months, 'netWorth', accent, 'Net worth'),
     ],
-  })];
+  });
 }
 
 /// A dot per month with its figure on hover: filled for complete months and

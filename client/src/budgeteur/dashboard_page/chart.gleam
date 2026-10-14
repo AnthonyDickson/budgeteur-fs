@@ -10,7 +10,7 @@ import lustre/attribute
 import lustre/element.{type Element}
 
 pub type Kind {
-  /// Income and expense bars per month, with a net income line.
+  /// Net income per month, as bars.
   CashFlow
   /// Net worth at each month's closing date.
   NetWorth
@@ -52,8 +52,6 @@ fn spec(kind: Kind, history: List(HistoryMonth)) -> Json {
         json.object([
           #("label", json.string(month.label)),
           #("complete", json.bool(month.complete)),
-          #("income", json.float(month.income)),
-          #("expenses", json.float(month.expenses)),
           #("netIncome", json.float(month.net_income)),
           #("netWorth", optional_float(month.net_worth)),
         ])

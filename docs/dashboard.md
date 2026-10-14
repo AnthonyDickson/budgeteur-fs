@@ -208,7 +208,7 @@ date, reporting periods, savings rate, and the shared statement code in
   | Am I saving?                              | Month    | Income, expenses, net income, savings rate, each against its baseline                                 |
   | Where does the money go; what is unusual? | Month    | Income and expense lines, each against its baseline; expense lines with an inline bar for their share |
   | Am I saving, over a year?                 | History  | Income, expenses, net income, and savings rate over the baseline months, with monthly averages        |
-  | Is this consistent?                       | History  | A cash flow chart (income and expenses per month, net income) and a net worth chart (month ends)      |
+  | Is this consistent?                       | History  | A cash flow chart (net income per month) and a net worth chart (month ends)                           |
 
 - **Why**: planners report a net worth statement, a cash flow statement, and a
   few standard ratios, chiefly the savings rate and the emergency fund
@@ -343,9 +343,10 @@ date, reporting periods, savings rate, and the shared statement code in
   containing the user's first observation or transaction, where reports start
   ([reports](reports.md) decision 5). Each month has income, expenses, net
   income, and net worth and working capital as of its last day (`today` for the
-  current month). Two charts show it: cash flow (income and expense bars per
-  month with a net income line) and net worth (a line). The current month is
-  drawn as partial. Each chart has its data as a table below it.
+  current month). Two charts show it: cash flow (a net income bar per month,
+  above or below zero) and net worth (a line). The current month is drawn as
+  partial. Each chart has its data as a table below it, which also has each
+  month's income and expenses.
 - **Totals**: above the charts, income, expenses, net income, and savings rate
   over the baseline months taken together, with income, expenses, and net income
   also as monthly averages. The section is labelled with the months they cover,
@@ -361,6 +362,11 @@ date, reporting periods, savings rate, and the shared statement code in
   with partial data is excluded for the same reason. The section has its own
   explicitly labelled window, so decision 6's goal (every figure says which
   period it covers) still holds.
+- **Cash flow as net income only**: the chart first had income and expense bars
+  with a net income line. The line was hard to see against the bars, and three
+  marks per month crowded the tooltips. Net income is the figure that answers
+  "is this consistent?", and the table keeps income and expenses. Bars suit a
+  monthly flow and keep it apart from net worth, a stock, drawn as a line.
 - **Reports**: each month's figures are its monthly report's: the income
   statement for the month and the balance sheet drawn for its closing date, from
   the same shared code. The report itself, with its opening sheet and other
