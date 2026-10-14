@@ -139,11 +139,9 @@ module ClosedAccountResponse =
             Term = Term.toString account.Term
             ClosedOn = closedOn
             TransactionsAfterClose =
-                match transactionDates with
-                | [] -> None
-                | dates ->
-                    Some {
-                        Count = List.length dates
-                        Latest = List.max dates
-                    }
+                TransactionsAfterClose.ofDates transactionDates
+                |> Option.map (fun summary -> {
+                    Count = summary.Count
+                    Latest = summary.Latest
+                })
         })

@@ -135,7 +135,13 @@ module ReadBalanceSheet =
     let private readBalanceSheet
         (queryContext : QueryContextFactory)
         (userId : string)
-        : Task<BalanceSheet * ItemValue list * Account list> =
+        : Task<
+              BalanceSheet *
+              ItemValue list *
+              Account list *
+              (Guid * DateOnly) list
+           >
+        =
         task {
             use! db = queryContext.OpenContextAsync ()
             let! items = ItemQuery.readAll db userId
@@ -166,7 +172,14 @@ module ReadBalanceSheet =
                 Accounts = openAccounts
             }
 
-            return sheet, closedItems, closedAccounts |> List.map _.Account
+            let! transactionsAfterClose =
+                TransactionsAfterCloseQuery.read db userId
+
+            return
+                sheet,
+                closedItems,
+                closedAccounts |> List.map _.Account,
+                transactionsAfterClose
         }
 
     let private handler (queryContext : QueryContextFactory) : EndpointHandler =
@@ -175,11 +188,8 @@ module ReadBalanceSheet =
                 let log = RequestLog.fromContext ctx
                 let! userId = Auth.getUserId ctx
 
-                let! sheet, closedItems, closedAccounts =
+                let! sheet, closedItems, closedAccounts, afterClose =
                     readBalanceSheet queryContext userId
-
-                and! transactionsAfterClose =
-                    TransactionsAfterCloseQuery.read queryContext userId
 
                 log.Info "Returned balance sheet"
 
@@ -190,7 +200,7 @@ module ReadBalanceSheet =
                             sheet
                             closedItems
                             closedAccounts
-                            transactionsAfterClose)
+                            afterClose)
             })
 
     let private configureOperation (op : OpenApiOperation) _ _ =

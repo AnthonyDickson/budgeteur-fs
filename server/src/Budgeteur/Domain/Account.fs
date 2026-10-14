@@ -156,6 +156,28 @@ type Account = {
     ClosedOn : DateOnly option
 }
 
+/// <summary>A closed account's transactions dated after its close date. A
+/// closed account should have none, so they suggest the close date is wrong.
+/// See decision 4 in docs/reports.md.</summary>
+type TransactionsAfterClose = {
+    Count : int
+
+    /// <summary>The date of the latest.</summary>
+    Latest : DateOnly
+}
+
+module TransactionsAfterClose =
+    /// <summary>The summary of the dates of an account's transactions after
+    /// its close date, or none when there are none.</summary>
+    let ofDates (dates : DateOnly list) : TransactionsAfterClose option =
+        match dates with
+        | [] -> None
+        | dates ->
+            Some {
+                Count = List.length dates
+                Latest = List.max dates
+            }
+
 /// <summary>A balance an account had as of a date, from a statement or entered
 /// by hand. An account has at most one observation per date: a new one
 /// replaces any on its date, whatever its source. See decision 3 in

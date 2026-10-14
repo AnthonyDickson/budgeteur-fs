@@ -16,12 +16,12 @@ module TransactionsAfterCloseQuery =
     /// after its account's close date. Transactions on the close date are the
     /// account's last, so they are not included.</summary>
     let read
-        (queryContext : QueryContextFactory)
+        (ctx : QueryContext)
         (userId : string)
         : Task<(Guid * DateOnly) list> =
         task {
             let! rows =
-                selectTask queryContext {
+                selectTask ctx {
                     for t in main.Transactions do
                         join a in main.Accounts on (t.AccountId = Some a.Id)
 

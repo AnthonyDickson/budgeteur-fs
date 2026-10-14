@@ -166,6 +166,24 @@ module ClosingTests =
                     ]
                     "with the transactions after its close date, not on it"
 
+                // Then: the account's own read carries them too, for its
+                // details page.
+                let! read =
+                    app.Client.GetAsync (
+                        TestHttp.itemPath ReadAccount.Path card
+                    )
+                    |> Async.AwaitTask
+
+                let! read = TestHttp.readJson<AccountResponse> read
+
+                Expect.equal
+                    read.TransactionsAfterClose
+                    (Some {
+                        Count = 2
+                        Latest = DateOnly (2026, 3, 8)
+                    })
+                    "the account read flags the transactions"
+
                 // When: the house and the card are reopened.
                 let! reopened =
                     app.Client.DeleteAsync (

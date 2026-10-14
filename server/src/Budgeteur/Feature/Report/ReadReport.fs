@@ -360,7 +360,10 @@ module ReadReport =
                         userId
 
                 and! transactionsAfterClose =
-                    TransactionsAfterCloseQuery.read queryContext userId
+                    task {
+                        use! db = queryContext.OpenContextAsync ()
+                        return! TransactionsAfterCloseQuery.read db userId
+                    }
 
                 let range =
                     Report.range
