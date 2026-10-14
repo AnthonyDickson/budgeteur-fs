@@ -11,12 +11,17 @@ export function redirect(url) {
   window.location.assign(url);
 }
 
+// The router's notifier, set by `initRouting`. `pushUrl` and `replaceUrl`
+// call it, since `history.pushState` and `replaceState` fire no `popstate`.
+let notifyRoute = () => {};
+
 export function initRouting(handler) {
   const notify = () => {
     handler(
       window.location.pathname + window.location.search + window.location.hash,
     );
   };
+  notifyRoute = notify;
 
   notify();
 
@@ -56,10 +61,12 @@ export function initRouting(handler) {
 
 export function pushUrl(url) {
   history.pushState(null, '', url);
+  notifyRoute();
 }
 
 export function replaceUrl(url) {
   history.replaceState(null, '', url);
+  notifyRoute();
 }
 
 export function setTitle(title) {
