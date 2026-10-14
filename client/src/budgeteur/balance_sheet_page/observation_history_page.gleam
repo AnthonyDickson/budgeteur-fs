@@ -474,7 +474,7 @@ fn header(line: Line) -> Element(Msg) {
   let #(name, details, current, closed_on, action) = case line {
     ItemLine(item:) -> #(
       item.name,
-      side_label(item.side) <> " · " <> term_label(item.side, item.term),
+      side_label(item.side) <> " · " <> term.label(item.term, item.side),
       "Current value "
         <> money.format(item.value)
         <> " as of "
@@ -556,16 +556,6 @@ fn side_label(side: side.Side) -> String {
   case side {
     Asset -> "Asset"
     Liability -> "Liability"
-  }
-}
-
-/// The term as the item form labels it.
-fn term_label(side: side.Side, term: term.Term) -> String {
-  case side, term {
-    Asset, Current -> "Liquid"
-    Asset, NonCurrent -> "Fixed"
-    Liability, Current -> "Short-term"
-    Liability, NonCurrent -> "Long-term"
   }
 }
 

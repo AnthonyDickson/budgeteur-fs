@@ -1,3 +1,4 @@
+import budgeteur/shared/side.{type Side, Asset, Liability}
 import gleam/dynamic/decode
 import gleam/json
 
@@ -33,5 +34,17 @@ pub fn decoder() -> decode.Decoder(Term) {
   case parse(variant) {
     Ok(term) -> decode.success(term)
     Error(Nil) -> decode.failure(Current, "Term")
+  }
+}
+
+/// The label that reads best for a term on a side: assets are liquid or
+/// fixed, liabilities are short-term or long-term. The model always stores
+/// `Current` or `NonCurrent`.
+pub fn label(term: Term, side: Side) -> String {
+  case side, term {
+    Asset, Current -> "Liquid"
+    Asset, NonCurrent -> "Fixed"
+    Liability, Current -> "Short-term"
+    Liability, NonCurrent -> "Long-term"
   }
 }

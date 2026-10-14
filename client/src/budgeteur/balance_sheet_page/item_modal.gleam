@@ -439,7 +439,8 @@ fn view_form(
 }
 
 fn term_field(side: Side, term: Term, submitting: Bool) -> Element(Msg) {
-  let #(current_label, non_current_label) = term_labels(side)
+  let current_label = term.label(Current, side)
+  let non_current_label = term.label(NonCurrent, side)
 
   modal_ui.radio_group(
     legend: "Term",
@@ -455,16 +456,6 @@ fn term_field(side: Side, term: Term, submitting: Bool) -> Element(Msg) {
       ),
     ],
   )
-}
-
-/// The term labels that read best for the side: assets are liquid or fixed,
-/// liabilities are short-term or long-term. The model always stores `Current`
-/// or `NonCurrent`.
-fn term_labels(side: Side) -> #(String, String) {
-  case side {
-    Asset -> #("Liquid", "Fixed")
-    Liability -> #("Short-term", "Long-term")
-  }
 }
 
 fn term_help(side: Side) -> String {
