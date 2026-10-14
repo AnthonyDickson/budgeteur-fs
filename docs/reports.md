@@ -8,7 +8,7 @@ source of intent. Change it when the reasoning changes.
 Reports build on the [balance sheet](balance-sheet.md), the income statement
 ([dashboard](dashboard.md)), and account balance observations
 ([CSV import](csv-import.md) decision 3). The
-[full dashboard](dashboard.md#full-dashboard) is planned on top of them.
+[full dashboard](dashboard.md#full-dashboard) is built on top of them.
 
 ## Goal
 
@@ -275,8 +275,8 @@ always clear from context; where it is not, say "balance sheet line".
   and closing balances side by side for each line, if the totals are not enough.
 - **Comparing periods.** A table of a frequency's reports, or a report against
   the one before, if stepping between reports is not enough.
-- **A line's balance chart.** On the line's details page, with the chart element
-  planned for the dashboard.
+- **A line's balance chart.** On the line's details page, with the dashboard's
+  chart element.
 - **Reconciliation.** Comparing an account's change in balance between
   observations with its transactions, as in the [CSV import](csv-import.md)
   Deferred list. The line's details page is where it would show.

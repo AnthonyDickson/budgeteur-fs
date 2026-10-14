@@ -4,10 +4,9 @@ Design brief for the dashboard. It records what we decided, why, and what each
 decision is meant to achieve, so later changes have one written source of
 intent. Change it when the reasoning changes.
 
-The brief has two parts. The [MVP](#mvp-decisions) is built. The
-[full dashboard](#full-dashboard) is planned and builds on
-[reports](reports.md), which are built; where it replaces an MVP decision, both
-decisions say so.
+The brief has two parts, both built: the [MVP](#mvp-decisions), and the
+[full dashboard](#full-dashboard), which builds on [reports](reports.md). Where
+the full dashboard replaces an MVP decision, both decisions say so.
 
 The previous Rust project (`budgeteur`, `server/src/dashboard/`) built two
 dashboards: an HTML page with charts, summary tables, and expenses-by-tag cards,
@@ -194,9 +193,9 @@ are on the reports page.
 
 ## Full dashboard
 
-Planned, not built. It builds on [reports](reports.md), which provide the
-balance sheet for a statement date, reporting periods, savings rate, and the
-shared statement code in `Domain/` and `Data/`.
+Built on [reports](reports.md), which provide the balance sheet for a statement
+date, reporting periods, savings rate, and the shared statement code in
+`Domain/` and `Data/`.
 
 ### 9. The page answers four questions with as little as possible
 
@@ -374,9 +373,10 @@ shared statement code in `Domain/` and `Data/`.
 
 - **Decision**: charts are drawn by Observable Plot inside a custom element
   defined in client FFI, as the modal dialog is. The page passes the chart's
-  figures as a property; the element redraws when they change. The element is
-  loaded only on the dashboard. The client only scales server figures to pixels;
-  it never sums, stacks, or accumulates them.
+  figures as a property; the element redraws when they change. Plot is loaded
+  when the element first draws, so only the dashboard fetches it. The client
+  only scales server figures to pixels; it never sums, stacks, or accumulates
+  them.
 - **Why**: Plot is a function from data to SVG, so a chart holds no state for
   the model to keep in step, which suits MVU. Its SVG follows `currentColor` and
   the page font, so dark mode works through Tailwind. It has sound default
