@@ -5,6 +5,7 @@ import budgeteur/balance_sheet_page/observation_history_page.{
 import budgeteur/dashboard_page/dashboard_page
 import budgeteur/header
 import budgeteur/quick_tagging_page/quick_tagging_page
+import budgeteur/reports_page/reports_page
 import budgeteur/shared/auth_route
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/guard
@@ -37,6 +38,7 @@ pub type Page {
   TaggingPage(tagging_page.Model)
   BalanceSheetPage(balance_sheet_page.Model)
   ObservationHistoryPage(observation_history_page.Model)
+  ReportsPage(reports_page.Model)
   NotFound
 }
 
@@ -52,6 +54,7 @@ pub type Msg {
   TaggingPageMsg(tagging_page.Msg)
   BalanceSheetPageMsg(balance_sheet_page.Msg)
   ObservationHistoryPageMsg(observation_history_page.Msg)
+  ReportsPageMsg(reports_page.Msg)
   ToastDismissed(id: Uuid)
   UrlChanged(url: String)
   NoOp
@@ -141,6 +144,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           let #(_, page_effect) = observation_history_page.init(AccountRef(id))
           #(model, effect.map(page_effect, ObservationHistoryPageMsg))
         }
+        route.Reports, ReportsPage(_) -> {
+          let #(_, page_effect) = reports_page.init()
+          #(model, effect.map(page_effect, ReportsPageMsg))
+        }
         route.Dashboard, _ -> {
           let #(inner_model, inner_effect) = dashboard_page.init()
 
@@ -178,6 +185,14 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
           let model = Model(..model, page: BalanceSheetPage(inner_model))
           let effect = effect.map(inner_effect, BalanceSheetPageMsg)
+
+          #(model, effect)
+        }
+        route.Reports, _ -> {
+          let #(inner_model, inner_effect) = reports_page.init()
+
+          let model = Model(..model, page: ReportsPage(inner_model))
+          let effect = effect.map(inner_effect, ReportsPageMsg)
 
           #(model, effect)
         }
@@ -252,6 +267,16 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       #(
         Model(..model, page: ObservationHistoryPage(inner_model)),
         effect.map(inner_effect, ObservationHistoryPageMsg),
+      )
+      |> with_out_msg(out_msg)
+    }
+    ReportsPageMsg(inner_msg), Model(page: ReportsPage(inner_model), ..) -> {
+      let #(inner_model, inner_effect, out_msg) =
+        reports_page.update(inner_model, inner_msg)
+
+      #(
+        Model(..model, page: ReportsPage(inner_model)),
+        effect.map(inner_effect, ReportsPageMsg),
       )
       |> with_out_msg(out_msg)
     }
@@ -347,6 +372,10 @@ pub fn view(model: Model) -> Element(Msg) {
       observation_history_page.view(inner_model)
       |> element.map(ObservationHistoryPageMsg)
 
+    ReportsPage(inner_model) ->
+      reports_page.view(inner_model)
+      |> element.map(ReportsPageMsg)
+
     NotFound -> view_not_found()
   }
 
@@ -375,6 +404,7 @@ fn current_route(page: Page) -> route.Route {
         ItemRef(id) -> route.ItemHistory(id)
         AccountRef(id) -> route.AccountHistory(id)
       }
+    ReportsPage(_) -> route.Reports
     NotFound -> route.NotFound
   }
 }

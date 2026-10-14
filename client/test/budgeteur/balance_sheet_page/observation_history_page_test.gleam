@@ -2,7 +2,7 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
 import budgeteur/balance_sheet_page/observation_history_page.{
-  type Entry, Entry, ItemLine, ItemRef,
+  Entry, ItemLine, ItemRef,
 }
 import budgeteur/balance_sheet_page/side.{Asset}
 import budgeteur/balance_sheet_page/term.{NonCurrent}

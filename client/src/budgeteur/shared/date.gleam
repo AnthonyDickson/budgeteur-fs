@@ -1,11 +1,14 @@
-//// Helpers for encoding and decoding ISO-8601 date strings.
+//// Helpers for calendar dates: ISO-8601 strings and day arithmetic.
 
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import gleam/pair
 import gleam/result
 import gleam/string
 import gleam/time/calendar.{type Date, Date}
+import gleam/time/duration
+import gleam/time/timestamp
 
 /// Parse an ISO-8601 date.
 ///
@@ -59,4 +62,17 @@ pub fn format(date: Date) -> String {
 /// Encode a `calendar.Date` as an ISO-8601 date.
 pub fn encode(date: Date) -> json.Json {
   json.string(format(date))
+}
+
+/// Move a date by a number of days. The arithmetic runs on UTC midnight, which
+/// has no daylight saving changes, so every day is exactly 24 hours.
+pub fn add_days(date: Date, days: Int) -> Date {
+  timestamp.from_calendar(
+    date:,
+    time: calendar.TimeOfDay(0, 0, 0, 0),
+    offset: calendar.utc_offset,
+  )
+  |> timestamp.add(duration.hours(days * 24))
+  |> timestamp.to_calendar(calendar.utc_offset)
+  |> pair.first
 }

@@ -1,4 +1,5 @@
 import budgeteur/shared/date
+import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
 import gleam/uri
 import youid/uuid.{type Uuid}
@@ -34,6 +35,9 @@ pub type ApiRoute {
   GetAccountObservations(account_id: Uuid)
   DeleteAccountObservation(account_id: Uuid, as_of: Date)
   GetIncomeStatement(from: Date, to: Date)
+  /// The report for the frequency's period containing `date`, or with no date
+  /// the latest complete period.
+  GetReport(frequency: String, today: Date, date: Option(Date))
   RunAutoTag
   GetRuleMatches(pattern: String)
   ImportStatements
@@ -93,6 +97,17 @@ pub fn to_string(route: ApiRoute) -> String {
       <> date.format(from)
       <> "&to="
       <> date.format(to)
+    GetReport(frequency:, today:, date:) ->
+      api_prefix
+      <> "/reports?"
+      <> uri.query_to_string([
+        #("frequency", frequency),
+        #("today", date.format(today)),
+        ..case date {
+          Some(date) -> [#("date", date.format(date))]
+          None -> []
+        }
+      ])
     RunAutoTag -> api_prefix <> "/auto-tag"
     ImportStatements -> api_prefix <> "/imports"
     GetQuickTagQueue -> api_prefix <> "/quick-tag"

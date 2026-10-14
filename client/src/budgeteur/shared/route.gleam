@@ -13,6 +13,7 @@ pub type Route {
   ItemHistory(id: Uuid)
   /// An account's observation history.
   AccountHistory(id: Uuid)
+  Reports
   NotFound
 }
 
@@ -26,6 +27,7 @@ pub fn to_string(route: Route) -> String {
     BalanceSheet -> "/balance-sheet"
     ItemHistory(id:) -> "/balance-sheet/items/" <> uuid.to_string(id)
     AccountHistory(id:) -> "/balance-sheet/accounts/" <> uuid.to_string(id)
+    Reports -> "/reports"
     NotFound -> "/not_found"
   }
 }
@@ -48,6 +50,7 @@ fn from_path_segments(path: List(String)) -> Route {
     ["balance-sheet"] -> BalanceSheet
     ["balance-sheet", "items", id] -> with_id(id, ItemHistory)
     ["balance-sheet", "accounts", id] -> with_id(id, AccountHistory)
+    ["reports"] -> Reports
     _ -> NotFound
   }
 }
