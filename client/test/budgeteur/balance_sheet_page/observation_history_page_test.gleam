@@ -2,7 +2,7 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
 import budgeteur/balance_sheet_page/observation_history_page.{
-  Entry, ItemLine, ItemRef,
+  Earliest, Entry, HasEarlier, ItemLine, ItemRef, Only,
 }
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError, ApiError}
@@ -118,14 +118,34 @@ pub fn deleting_an_entry_refetches_and_toasts_test() {
   body |> should.equal("Deleted the value on 2026-03-01")
 }
 
+pub fn the_delete_dialog_knows_where_the_entry_sits_test() {
+  let place = fn(model, entry) {
+    let #(after, _, _) =
+      observation_history_page.update(
+        model,
+        observation_history_page.UserRequestedDelete(entry),
+      )
+    let assert delete_modal.Confirming(context:, ..) = after.delete_modal
+    context
+  }
+
+  place(loaded(), newer) |> should.equal(HasEarlier)
+  place(loaded(), older) |> should.equal(Earliest)
+  place(
+    observation_history_page.Model(..loaded(), entries: Loaded([older])),
+    older,
+  )
+  |> should.equal(Only)
+}
+
 pub fn a_failed_delete_shows_inline_and_a_stale_one_is_ignored_test() {
   let model =
     observation_history_page.Model(
       ..loaded(),
-      delete_modal: delete_modal.Deleting(target: older, context: Nil),
+      delete_modal: delete_modal.Deleting(target: older, context: Earliest),
     )
 
-  // The item's only value is kept: the server rejects the delete.
+  // The server rejects the delete.
   let #(after, effect, out_msg) =
     observation_history_page.update(
       model,

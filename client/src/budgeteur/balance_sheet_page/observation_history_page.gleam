@@ -59,6 +59,18 @@ pub type Entry {
   Entry(as_of: Date, amount: Float)
 }
 
+/// Where an entry sits in the line's history, which decides what deleting it
+/// does to the balance sheets drawn from it.
+pub type Place {
+  /// The entry before it takes over from its date.
+  HasEarlier
+  /// Sheets before the next entry leave the line out.
+  Earliest
+  /// The account's balance becomes unknown. An item's only value cannot be
+  /// deleted.
+  Only
+}
+
 pub type Model {
   Model(
     line_ref: LineRef,
@@ -69,7 +81,7 @@ pub type Model {
     entries: Remote(List(Entry)),
     value_modal: value_modal.Modal,
     balance_modal: balance_modal.Modal,
-    delete_modal: delete_modal.State(Entry, Nil),
+    delete_modal: delete_modal.State(Entry, Place),
   )
 }
 
@@ -235,11 +247,17 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     ValueModalMsg(inner_msg) -> run_value_modal(model, inner_msg)
     BalanceModalMsg(inner_msg) -> run_balance_modal(model, inner_msg)
 
-    UserRequestedDelete(entry) -> #(
-      Model(..model, delete_modal: delete_modal.open(entry, Nil)),
-      effect.none(),
-      None,
-    )
+    UserRequestedDelete(entry) -> {
+      let place = case model.entries {
+        Loaded(entries) -> place_of(entries, entry)
+        Loading | Failed -> HasEarlier
+      }
+      #(
+        Model(..model, delete_modal: delete_modal.open(entry, place)),
+        effect.none(),
+        None,
+      )
+    }
     UserCancelledDelete -> #(
       Model(..model, delete_modal: delete_modal.empty()),
       effect.none(),
@@ -571,7 +589,11 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
         ],
         [html.text("No balances recorded yet.")],
       )
-    _ ->
+    _ -> {
+      let deletable = case line_ref, entries {
+        ItemRef(..), [_] -> False
+        _, _ -> True
+      }
       html.table(
         [
           attribute.class(
@@ -597,14 +619,17 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
           ]),
           html.tbody(
             [attribute.class("divide-y divide-gray-100")],
-            list.map(entries, entry_row),
+            list.map(entries, entry_row(_, deletable)),
           ),
         ],
       )
+    }
   }
 }
 
-fn entry_row(entry: Entry) -> Element(Msg) {
+/// `deletable` is False for an item's only value, which the server keeps: an
+/// item always has a value.
+fn entry_row(entry: Entry, deletable: Bool) -> Element(Msg) {
   let as_of = date.format(entry.as_of)
   html.tr([attribute.attribute("data-testid", "observation-" <> as_of)], [
     html.td([attribute.class("px-4 py-2 text-gray-900")], [html.text(as_of)]),
@@ -618,8 +643,19 @@ fn entry_row(entry: Entry) -> Element(Msg) {
     html.td([attribute.class("px-4 py-2 text-right")], [
       html.button(
         [
-          attribute.class("text-sm font-medium text-red-600 hover:text-red-500"),
+          attribute.class(
+            "text-sm font-medium text-red-600 hover:text-red-500 "
+            <> "disabled:cursor-not-allowed disabled:text-gray-400",
+          ),
           attribute.attribute("data-testid", "delete-observation-" <> as_of),
+          attribute.disabled(!deletable),
+          case deletable {
+            True -> attribute.none()
+            False ->
+              attribute.title(
+                "An item always has a value. Delete the item to remove it.",
+              )
+          },
           event.on_click(UserRequestedDelete(entry)),
         ],
         [html.text("Delete")],
@@ -628,8 +664,23 @@ fn entry_row(entry: Entry) -> Element(Msg) {
   ])
 }
 
-fn delete_options(line_ref: LineRef) -> delete_modal.Options(Entry, Nil, Msg) {
+/// The entry's place in `entries`, which are newest first.
+fn place_of(entries: List(Entry), entry: Entry) -> Place {
+  case entries, list.last(entries) {
+    [_], _ -> Only
+    _, Ok(earliest) if earliest == entry -> Earliest
+    _, _ -> HasEarlier
+  }
+}
+
+fn delete_options(
+  line_ref: LineRef,
+) -> delete_modal.Options(Entry, Place, Msg) {
   let noun = noun(line_ref)
+  let line_noun = case line_ref {
+    ItemRef(..) -> "item"
+    AccountRef(..) -> "account"
+  }
   delete_modal.Options(
     title: "Delete " <> noun,
     modal_testid: "delete-observation-modal",
@@ -637,7 +688,7 @@ fn delete_options(line_ref: LineRef) -> delete_modal.Options(Entry, Nil, Msg) {
     error_prefix: "Could not delete " <> noun,
     cancel_testid: "delete-observation-cancel-button",
     confirm_testid: "delete-observation-confirm-button",
-    body: fn(entry: Entry, _context: Nil) {
+    body: fn(entry: Entry, place: Place) {
       html.p([attribute.class("mb-4 text-sm text-gray-700")], [
         html.text(
           "Delete the "
@@ -646,9 +697,23 @@ fn delete_options(line_ref: LineRef) -> delete_modal.Options(Entry, Nil, Msg) {
           <> money.format(entry.amount)
           <> " on "
           <> date.format(entry.as_of)
-          <> "? Reports for that date use the "
-          <> noun
-          <> " before it instead.",
+          <> "? "
+          <> case place {
+            HasEarlier ->
+              "Balance sheets from that date use the " <> noun <> " before it."
+            Earliest ->
+              "It is the earliest, so balance sheets before the next "
+              <> noun
+              <> " leave the "
+              <> line_noun
+              <> " out."
+            Only ->
+              "It is the only one, so the "
+              <> line_noun
+              <> "'s "
+              <> noun
+              <> " becomes unknown."
+          },
         ),
       ])
     },

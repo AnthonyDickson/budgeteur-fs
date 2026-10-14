@@ -256,10 +256,9 @@ test.describe('observation history', () => {
     );
 
     // The only value left cannot be deleted: an item always has a value.
-    await rows.first().getByTestId(/^delete-observation-/).click();
-    await deleteDialog.getByTestId('delete-observation-confirm-button').click();
-    await expect(page.getByTestId('delete-observation-error')).toBeVisible();
-    await deleteDialog.getByTestId('delete-observation-cancel-button').click();
+    await expect(
+      rows.first().getByTestId(/^delete-observation-/),
+    ).toBeDisabled();
 
     // Back on the balance sheet, the line shows the older value.
     await page.getByTestId('observation-history-back').click();
