@@ -126,6 +126,7 @@
     <Compile Include="Feature/Report/Report.fs" />
     <Compile Include="Feature/Report/ReadReport.fs" />
     <Compile Include="Feature/Report/ReportEndpoints.fs" />
+    <Compile Include="Feature/Dashboard/Dashboard.fs" />
 
     <Compile Include="Feature/AutoTag/AutoTag.fs" />
     <Compile Include="Feature/AutoTag/RunAutoTag.fs" />

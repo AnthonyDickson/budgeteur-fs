@@ -119,17 +119,10 @@ module Report =
         (history : BalanceSheetHistory)
         (firstTransaction : DateOnly option)
         : DateOnly option =
-        let observations =
-            (history.ItemHistories
-             |> List.collect (fun (_, observations) ->
-                 observations |> List.map _.AsOf))
-            @ (history.AccountHistories
-               |> List.collect (fun (_, observations) ->
-                   observations
-                   |> List.map (fun (observation : BalanceObservation) ->
-                       observation.AsOf)))
-
-        match Option.toList firstTransaction @ observations with
+        match
+            Option.toList firstTransaction
+            @ Option.toList (BalanceSheet.firstObservation history)
+        with
         | [] -> None
         | dates -> Some (List.min dates)
 

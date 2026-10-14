@@ -154,6 +154,23 @@ module BalanceSheet =
         |> List.sortByDescending asOf
         |> List.tryHead
 
+    /// <summary>The as-of date of the earliest observation of any item or
+    /// account, if any.</summary>
+    let firstObservation (history : BalanceSheetHistory) : DateOnly option =
+        let dates =
+            (history.ItemHistories
+             |> List.collect (fun (_, observations) ->
+                 observations |> List.map _.AsOf))
+            @ (history.AccountHistories
+               |> List.collect (fun (_, observations) ->
+                   observations
+                   |> List.map (fun (observation : BalanceObservation) ->
+                       observation.AsOf)))
+
+        match dates with
+        | [] -> None
+        | dates -> Some (List.min dates)
+
     /// <summary>
     /// The balance sheet drawn for a statement date. Each line's balance is
     /// its latest observation on or before the date. A line enters the sheet
