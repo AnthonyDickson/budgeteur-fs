@@ -1,10 +1,13 @@
+import budgeteur/balance_sheet_page/account.{Account}
+import budgeteur/balance_sheet_page/balance_sheet.{TransactionsAfterClose}
 import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
 import budgeteur/balance_sheet_page/close_modal
 import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/line_details_page.{
-  Earliest, Entry, HasEarlier, ItemLine, ItemRef, Only,
+  AccountRef, AccountWithBalance, Earliest, Entry, HasEarlier, ItemLine, ItemRef,
+  Only,
 }
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError, ApiError}
@@ -17,7 +20,7 @@ import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/remote.{Loaded, Loading}
 import budgeteur/shared/side.{Asset}
-import budgeteur/shared/term.{NonCurrent}
+import budgeteur/shared/term.{Current, NonCurrent}
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, February, March}
@@ -288,4 +291,41 @@ pub fn editing_saves_the_details_and_deleting_returns_to_the_sheet_test() {
   effect |> should.equal(effect.push_url("/balance-sheet"))
   let assert Some(out_msg.PageRequestedToast(body: "Deleted 'House'", ..)) =
     out_msg
+}
+
+pub fn a_flagged_account_changes_its_close_date_from_the_latest_transaction_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-000000000009")
+  let card =
+    Account(
+      id:,
+      name: "Old card",
+      number: None,
+      term: Current,
+      closed_on: Some(Date(2026, February, 1)),
+    )
+  let model =
+    line_details_page.Model(
+      ..loaded(),
+      line_ref: AccountRef(id),
+      line: Loaded(AccountWithBalance(
+        account: card,
+        current: None,
+        after_close: Some(TransactionsAfterClose(
+          count: 2,
+          latest: Date(2026, February, 20),
+        )),
+      )),
+    )
+
+  let #(opened, _, _) =
+    line_details_page.update(model, line_details_page.UserRequestedClose)
+
+  // The card was likely used until its latest transaction.
+  let assert form_modal.Active(form:, ..) = opened.close_modal
+  form.changing |> should.be_true
+  form.closed_on
+  |> should.equal(field.Valid(
+    value: Date(2026, February, 20),
+    input: "2026-02-20",
+  ))
 }

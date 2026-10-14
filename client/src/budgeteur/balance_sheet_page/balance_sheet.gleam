@@ -102,11 +102,17 @@ fn closed_account_decoder() -> decode.Decoder(ClosedAccount) {
   use transactions_after_close <- decode.optional_field(
     "transactionsAfterClose",
     None,
-    decode.optional({
-      use count <- decode.field("count", decode.int)
-      use latest <- decode.field("latest", date.decoder())
-      decode.success(TransactionsAfterClose(count:, latest:))
-    }),
+    decode.optional(transactions_after_close_decoder()),
   )
   decode.success(ClosedAccount(account:, transactions_after_close:))
+}
+
+/// The summary the balance sheet and account reads give a closed account's
+/// transactions after its close date.
+pub fn transactions_after_close_decoder() -> decode.Decoder(
+  TransactionsAfterClose,
+) {
+  use count <- decode.field("count", decode.int)
+  use latest <- decode.field("latest", date.decoder())
+  decode.success(TransactionsAfterClose(count:, latest:))
 }

@@ -10,6 +10,7 @@ import budgeteur/balance_sheet_page/account_write_request
 import budgeteur/balance_sheet_page/balance_modal.{
   type CurrentBalance, CurrentBalance,
 }
+import budgeteur/balance_sheet_page/balance_sheet.{type TransactionsAfterClose}
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/close_modal
 import budgeteur/balance_sheet_page/item_delete_modal
@@ -30,6 +31,7 @@ import budgeteur/shared/route
 import budgeteur/shared/side.{Asset, Liability}
 import budgeteur/shared/term.{Current, NonCurrent}
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -61,7 +63,13 @@ pub type LineRef {
 /// The line, as the page's header and record form need it.
 pub type Line {
   ItemLine(item: BalanceSheetItem)
-  AccountWithBalance(account: Account, current: Option(CurrentBalance))
+  AccountWithBalance(
+    account: Account,
+    current: Option(CurrentBalance),
+    // Transactions after a closed account's close date, which suggest the
+    // close date is wrong. See decision 4 in docs/reports.md.
+    after_close: Option(TransactionsAfterClose),
+  )
 }
 
 /// One observation: an item's value, or an account's signed balance.
@@ -163,7 +171,12 @@ fn account_decoder() -> decode.Decoder(Line) {
       })
     }),
   )
-  decode.success(AccountWithBalance(account:, current:))
+  use after_close <- decode.optional_field(
+    "transactionsAfterClose",
+    None,
+    decode.optional(balance_sheet.transactions_after_close_decoder()),
+  )
+  decode.success(AccountWithBalance(account:, current:, after_close:))
 }
 
 fn fetch_entries(line_ref: LineRef) -> Effect(Msg) {
@@ -268,7 +281,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
             model,
             value_modal.OpenRequested(item:, today: model.today),
           )
-        Loaded(AccountWithBalance(account:, current:)) ->
+        Loaded(AccountWithBalance(account:, current:, ..)) ->
           run_balance_modal(
             model,
             balance_modal.OpenRequested(account:, current:, today: model.today),
@@ -288,17 +301,24 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
               id: item.id,
               kind: close_modal.Item,
               name: item.name,
-              today: model.today,
+              starts_on: option.or(item.closed_on, model.today),
+              changing: option.is_some(item.closed_on),
             ),
           )
-        Loaded(AccountWithBalance(account:, ..)) ->
+        Loaded(AccountWithBalance(account:, after_close:, ..)) ->
           run_close_modal(
             model,
             close_modal.OpenRequested(
               id: account.id,
               kind: close_modal.Account,
               name: account.name,
-              today: model.today,
+              // A flagged account was likely in use until its latest
+              // transaction, so the form starts there.
+              starts_on: after_close
+                |> option.map(fn(after_close) { after_close.latest })
+                |> option.or(account.closed_on)
+                |> option.or(model.today),
+              changing: option.is_some(account.closed_on),
             ),
           )
         Loading | Failed -> #(model, effect.none(), None)
@@ -849,7 +869,7 @@ pub fn view(model: Model) -> Element(Msg) {
 }
 
 fn header(line: Line) -> Element(Msg) {
-  let #(name, details, current, closed_on, action) = case line {
+  let #(name, details, current, closed_on, after_close, action) = case line {
     ItemLine(item:) -> #(
       item.name,
       side_label(item.side) <> " · " <> term.label(item.term, item.side),
@@ -858,9 +878,11 @@ fn header(line: Line) -> Element(Msg) {
         <> " as of "
         <> date.format(item.as_of),
       item.closed_on,
+      // Items have no transactions.
+      None,
       "Record value",
     )
-    AccountWithBalance(account:, current:) -> #(
+    AccountWithBalance(account:, current:, after_close:) -> #(
       account.name,
       "Account · "
         <> case account.term {
@@ -885,6 +907,7 @@ fn header(line: Line) -> Element(Msg) {
         None -> "Balance unknown"
       },
       account.closed_on,
+      after_close,
       "Record balance",
     )
   }
@@ -921,6 +944,33 @@ fn header(line: Line) -> Element(Msg) {
             )
           None -> element.none()
         },
+        case after_close {
+          Some(after_close) ->
+            html.p(
+              [
+                attribute.class(
+                  "mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800",
+                ),
+                attribute.attribute(
+                  "data-testid",
+                  "line-details-transactions-after-close",
+                ),
+              ],
+              [
+                html.text(
+                  int.to_string(after_close.count)
+                  <> case after_close.count {
+                    1 -> " transaction is"
+                    _ -> " transactions are"
+                  }
+                  <> " dated after the close date, the latest on "
+                  <> date.format(after_close.latest)
+                  <> ". If the account was used until then, change the close date; if it is still open, reopen it.",
+                ),
+              ],
+            )
+          None -> element.none()
+        },
       ]),
       html.div([attribute.class("flex shrink-0 gap-2")], [
         html.button(
@@ -931,18 +981,23 @@ fn header(line: Line) -> Element(Msg) {
           ],
           [html.text("Edit details")],
         ),
-        // A closed line is reopened rather than closed again; closing is
-        // apart from editing, since it is an event rather than a detail.
+        // Closing is apart from editing, since it is an event rather than a
+        // detail. A closed line can have its close date changed, or reopen.
+        html.button(
+          [
+            attribute.class(secondary_button_class),
+            attribute.attribute("data-testid", "close-line-button"),
+            event.on_click(UserRequestedClose),
+          ],
+          [
+            html.text(case closed_on {
+              None -> "Close"
+              Some(_) -> "Change close date"
+            }),
+          ],
+        ),
         case closed_on {
-          None ->
-            html.button(
-              [
-                attribute.class(secondary_button_class),
-                attribute.attribute("data-testid", "close-line-button"),
-                event.on_click(UserRequestedClose),
-              ],
-              [html.text("Close")],
-            )
+          None -> element.none()
           Some(_) ->
             html.button(
               [

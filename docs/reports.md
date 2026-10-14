@@ -115,12 +115,14 @@ always clear from context; where it is not, say "balance sheet line".
   history.
 - **Transactions after the close date**: a closed account with transactions
   dated after its close date is flagged in the closed section, which opens to
-  show the flag. A report whose income statement includes such transactions
-  names the accounts: the statement counts the transactions while the balance
-  sheets leave the accounts out, so other changes are off by their net amount.
-  Transactions on the close date are the account's last, so they are not
-  flagged. The flags are worked out when the sheet or report is read, and the
-  user corrects the close date by closing the account again, or reopens it.
+  show the flag, and on the account's details page, beside the actions that fix
+  it. A report whose income statement includes such transactions names the
+  accounts: the statement counts the transactions while the balance sheets leave
+  the accounts out, so other changes are off by their net amount. Transactions
+  on the close date are the account's last, so they are not flagged. The flags
+  are worked out when the sheet, account, or report is read. The user changes
+  the close date, which then starts on the latest transaction's date, or reopens
+  the account.
 - **Why**: deleting a sold or repaid line removes it from every past sheet and
   changes past net worth. A close date is one stored fact. The CSV import brief
   planned a final $0 observation instead; that needs a convention to tell a
@@ -212,11 +214,11 @@ always clear from context; where it is not, say "balance sheet line".
   app's delete dialog. The page header shows the line's name, side, term,
   current balance, and close date, with actions that record an observation using
   the line's value or balance form, edit its details, from where the line is
-  deleted, and close or reopen it (decision 4). Clicking a line on the balance
-  sheet opens its details page; the balance sheet itself only adds lines.
-  Deleting an account's last observation leaves its balance unknown. Deleting an
-  item's last observation is rejected: an item always has a known value, so the
-  user deletes the item instead.
+  deleted, and close it, change its close date, or reopen it (decision 4).
+  Clicking a line on the balance sheet opens its details page; the balance sheet
+  itself only adds lines. Deleting an account's last observation leaves its
+  balance unknown. Deleting an item's last observation is rejected: an item
+  always has a known value, so the user deletes the item instead.
 - **Why**: with history in reports, a wrong old observation changes past figures
   while being invisible on today's sheet, so the user needs to see and remove
   it. A page rather than a modal: Kiwibank imports record an observation per

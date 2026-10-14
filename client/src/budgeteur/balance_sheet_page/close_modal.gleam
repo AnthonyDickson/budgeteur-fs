@@ -37,7 +37,13 @@ pub type CloseDateError {
 }
 
 pub type Form {
-  Form(kind: Kind, name: String, closed_on: field.Field(Date, CloseDateError))
+  Form(
+    kind: Kind,
+    name: String,
+    // Whether the line is closed already, so its close date changes.
+    changing: Bool,
+    closed_on: field.Field(Date, CloseDateError),
+  )
 }
 
 pub type Modal =
@@ -57,8 +63,15 @@ pub fn hidden() -> Modal {
 // Update
 
 pub type Msg {
-  // The date starts at the client's today, when known.
-  OpenRequested(id: Uuid, kind: Kind, name: String, today: Option(Date))
+  // `starts_on` is the date the form starts on: today for an open line. A
+  // closed line is `changing` its close date.
+  OpenRequested(
+    id: Uuid,
+    kind: Kind,
+    name: String,
+    starts_on: Option(Date),
+    changing: Bool,
+  )
   ClosedOnChanged(value: String)
   SaveRequested
   // Response to the in-flight request. Transport timeouts surface here as
@@ -70,15 +83,15 @@ pub type Msg {
 
 pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
   case msg {
-    OpenRequested(id:, kind:, name:, today:) ->
+    OpenRequested(id:, kind:, name:, starts_on:, changing:) ->
       case state {
         form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
         _ -> #(
           form_modal.edit(
             id,
-            Form(kind:, name:, closed_on: case today {
-              Some(today) ->
-                field.Valid(value: today, input: date.format(today))
+            Form(kind:, name:, changing:, closed_on: case starts_on {
+              Some(starts_on) ->
+                field.Valid(value: starts_on, input: date.format(starts_on))
               None -> field.Empty("")
             }),
           ),
@@ -164,14 +177,16 @@ fn view_form(
   api_error api_error: Option(String),
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
-  let #(title, label, help) = case form.kind {
+  let title = case form.changing {
+    True -> "Change the close date of " <> form.name
+    False -> "Close " <> form.name
+  }
+  let #(label, help) = case form.kind {
     Item -> #(
-      "Close " <> form.name,
       "Sold or repaid on",
       "Balance sheets from this date leave the item out, and earlier ones keep it. Reopen it from this page if you still have it.",
     )
     Account -> #(
-      "Close " <> form.name,
       "Closed on",
       "Balance sheets from this date leave the account out, and earlier ones keep it. Its transactions and balances stay. Reopen it from this page if it is still open.",
     )
@@ -231,8 +246,11 @@ fn view_form(
           ),
           submit: modal_ui.submit_button(
             testid: "close-submit-button",
-            idle_label: "Close",
-            busy_label: "Closing...",
+            idle_label: case form.changing {
+              True -> "Save"
+              False -> "Close"
+            },
+            busy_label: "Saving...",
             busy: submitting,
             disabled: field.has_error(form.closed_on),
           ),
