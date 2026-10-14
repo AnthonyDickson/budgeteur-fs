@@ -76,6 +76,11 @@ module ComputeTests =
     let private month (m : int) =
         ReportingPeriod.containing Monthly (date m 1)
 
+    /// <summary>The monthly reports on <c>today</c> for data from 10
+    /// January.</summary>
+    let private rangeOn (today : DateOnly) =
+        Report.range Monthly today (Some (date 1 10))
+
     [<Tests>]
     let tests =
         testList "Report" [
@@ -84,7 +89,7 @@ module ComputeTests =
                 let report =
                     Report.compute
                         (date 10 14)
-                        (Some (date 1 10))
+                        (rangeOn (date 10 14))
                         (month 3)
                         history
                         entries
@@ -118,7 +123,7 @@ module ComputeTests =
                 let report =
                     Report.compute
                         (date 10 14)
-                        (Some (date 1 10))
+                        (rangeOn (date 10 14))
                         (month 1)
                         history
                         []
@@ -135,7 +140,7 @@ module ComputeTests =
                 let report =
                     Report.compute
                         (date 3 15)
-                        (Some (date 1 10))
+                        (rangeOn (date 3 15))
                         (month 3)
                         history
                         entries
@@ -153,7 +158,9 @@ module ComputeTests =
             testCase "the default period is the latest complete one"
             <| fun () ->
                 let pick firstDate requested =
-                    Report.period Monthly (date 3 15) firstDate requested
+                    Report.period
+                        (Report.range Monthly (date 3 15) firstDate)
+                        requested
                     |> Option.map ReportingPeriod.fromDate
 
                 Expect.equal

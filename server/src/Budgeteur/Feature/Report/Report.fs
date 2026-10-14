@@ -19,6 +19,16 @@ type ChangeInNetWorth = {
     OtherChanges : decimal
 }
 
+/// <summary>The periods of a frequency that have reports: from the one
+/// containing the user's first observation or transaction to the one
+/// containing today. See decision 5 in docs/reports.md.</summary>
+type ReportRange = {
+    First : ReportingPeriod
+
+    /// <summary>The period containing today, which is to date.</summary>
+    Current : ReportingPeriod
+}
+
 /// <summary>The position and performance for one reporting period. See
 /// docs/reports.md.</summary>
 type Report = {
@@ -43,47 +53,53 @@ type Report = {
 }
 
 module Report =
-    /// <summary>The periods of a frequency that have reports: from the one
-    /// containing the user's first observation or transaction to the one
-    /// containing today. A user with neither has today's period only.</summary>
-    let private range
+    /// <summary>The periods of the frequency that have reports, given the
+    /// user's first data date. A user with no data has today's period
+    /// only.</summary>
+    let range
         (frequency : Frequency)
         (today : DateOnly)
         (firstDate : DateOnly option)
-        =
+        : ReportRange =
         let first =
             firstDate
             |> Option.map (min today)
             |> Option.defaultValue today
             |> ReportingPeriod.containing frequency
 
-        first, ReportingPeriod.containing frequency today
+        {
+            First = first
+            Current = ReportingPeriod.containing frequency today
+        }
+
+    let private isInRange (range : ReportRange) (period : ReportingPeriod) =
+        ReportingPeriod.fromDate period >= ReportingPeriod.fromDate range.First
+        && ReportingPeriod.fromDate period
+           <= ReportingPeriod.fromDate range.Current
 
     /// <summary>The period to report on: the one containing <c>date</c>, or
     /// with no date the latest complete period, falling back to the period
     /// to date when no complete one has data. None when the date is outside
-    /// the periods that have reports.</summary>
+    /// the range.</summary>
     let period
-        (frequency : Frequency)
-        (today : DateOnly)
-        (firstDate : DateOnly option)
+        (range : ReportRange)
         (date : DateOnly option)
         : ReportingPeriod option =
-        let first, current = range frequency today firstDate
-
-        let inRange (period : ReportingPeriod) =
-            ReportingPeriod.fromDate period >= ReportingPeriod.fromDate first
-            && ReportingPeriod.fromDate period
-               <= ReportingPeriod.fromDate current
-
         match date with
         | Some date ->
-            Some (ReportingPeriod.containing frequency date)
-            |> Option.filter inRange
+            Some (
+                ReportingPeriod.containing
+                    (ReportingPeriod.frequency range.Current)
+                    date
+            )
+            |> Option.filter (isInRange range)
         | None ->
-            let previous = ReportingPeriod.previous current
+            let previous = ReportingPeriod.previous range.Current
 
-            if inRange previous then Some previous else Some current
+            if isInRange range previous then
+                Some previous
+            else
+                Some range.Current
 
     /// <summary>The earliest date the user has data for: their first
     /// observation or first transaction, whichever is earlier.</summary>
@@ -135,18 +151,15 @@ module Report =
     /// <summary>
     /// Compute the report for a period from the user's balance sheet history
     /// and the period's income statement entries, which run from the period's
-    /// first day to the closing date.
+    /// first day to the closing date. The period is one of the range.
     /// </summary>
     let compute
         (today : DateOnly)
-        (firstDate : DateOnly option)
+        (range : ReportRange)
         (period : ReportingPeriod)
         (history : BalanceSheetHistory)
         (entries : Entry list)
         : Report =
-        let first, current =
-            range (ReportingPeriod.frequency period) today firstDate
-
         let closingDate = closingDate today period
 
         let opening =
@@ -181,9 +194,6 @@ module Report =
             ChangeInNetWorth = changeInNetWorth
             IncomeStatement = statement
             SavingsRate = IncomeStatement.savingsRate statement
-            HasPrevious =
-                ReportingPeriod.fromDate period > ReportingPeriod.fromDate first
-            HasNext =
-                ReportingPeriod.fromDate period <
-                    ReportingPeriod.fromDate current
+            HasPrevious = period <> range.First
+            HasNext = period <> range.Current
         }

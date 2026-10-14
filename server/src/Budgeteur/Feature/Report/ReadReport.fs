@@ -344,14 +344,14 @@ module ReadReport =
                         queryContext
                         userId
 
-                let firstDate = Report.firstDate history firstTransaction
-
-                let! period =
-                    Report.period
+                let range =
+                    Report.range
                         query.Frequency
                         query.Today
-                        firstDate
-                        query.Date
+                        (Report.firstDate history firstTransaction)
+
+                let! period =
+                    Report.period range query.Date
                     |> Result.requireSome (
                         NotFound "There is no report for that period"
                     )
@@ -363,7 +363,7 @@ module ReadReport =
                         (Report.statementPeriod query.Today period)
 
                 let report =
-                    Report.compute query.Today firstDate period history entries
+                    Report.compute query.Today range period history entries
 
                 log.Info (
                     $"Returned the report for %s{ReportingPeriod.label period}",
