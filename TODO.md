@@ -18,14 +18,12 @@
 
 ## Current Tasks
 
-- Move Reports after dashboard in navbar
-- Except for transaction table and data entry, round to the nearest dollar
-- Page transactions in table view
-  - Next page should append to list, search should replace paging many times.
-  - Response could include path with query params to get next page or none if at
-    last page.
-  - Paging is expected to used infrequently
 - Plan out transaction search
+  - Page transactions in table view
+    - Next page should append to list, search should replace paging many times.
+    - Response could include path with query params to get next page or none if at
+      last page.
+    - Paging is expected to used infrequently
 
 ## Backlog
 
@@ -33,6 +31,7 @@
   styling.
   - Consider Catppuccin Latte and Mocha
     - Migrate tag colour swatch
+- Except for transaction table and data entry, consider rounding to the nearest dollar
 - For modals, ensure that focus is returned to the element focused before
   opening the modal. This is needed due to the custom dialog wrapped deleting
   the wrapping DOM element instead of calling `.close()` on the native dialog.
