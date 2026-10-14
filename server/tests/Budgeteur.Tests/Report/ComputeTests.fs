@@ -69,8 +69,16 @@ module ComputeTests =
     }
 
     let private entries : Entry list = [
-        { Amount = 5000m; Tag = Some salary }
-        { Amount = -2000m; Tag = None }
+        {
+            Date = date 3 1
+            Amount = 5000m
+            Tag = Some salary
+        }
+        {
+            Date = date 3 2
+            Amount = -2000m
+            Tag = None
+        }
     ]
 
     let private month (m : int) =

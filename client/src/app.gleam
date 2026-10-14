@@ -1,5 +1,6 @@
 import budgeteur/balance_sheet_page/balance_sheet_page
 import budgeteur/balance_sheet_page/line_details_page.{AccountRef, ItemRef}
+import budgeteur/dashboard_page/chart
 import budgeteur/dashboard_page/dashboard_page
 import budgeteur/header
 import budgeteur/quick_tagging_page/quick_tagging_page
@@ -423,6 +424,7 @@ fn view_not_found() -> Element(Msg) {
 
 pub fn main() {
   modal_ui.register()
+  chart.register()
   let #(init_model, init_effect) = init(Nil) |> with_auth_redirect
 
   let app =

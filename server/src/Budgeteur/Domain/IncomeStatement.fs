@@ -10,9 +10,11 @@ open Budgeteur.Domain.Tag
 type Period = private Period of fromDate : DateOnly * toDate : DateOnly
 
 module Period =
-    /// <summary>The longest period, in days: a leap year.</summary>
+    /// <summary>The longest period, in days: two years, one of them a leap
+    /// year. Long enough for the dashboard's history, which spans up to
+    /// thirteen months.</summary>
     [<Literal>]
-    let MaxDays = 366
+    let MaxDays = 731
 
     let create
         (fromDate : DateOnly)
@@ -31,9 +33,14 @@ module Period =
 
     let toDate (Period (_, toDate)) = toDate
 
-/// <summary>A non-transfer transaction in the period, with its tag if it has
-/// one.</summary>
-type Entry = { Amount : decimal; Tag : Tag option }
+/// <summary>A non-transfer transaction in the period, with its date and its
+/// tag if it has one. The income statement ignores the date; it lets one read
+/// be split into several periods.</summary>
+type Entry = {
+    Date : DateOnly
+    Amount : decimal
+    Tag : Tag option
+}
 
 /// <summary>One tag's net amount for the period, or the untagged income or
 /// untagged expenses (<c>Tag = None</c>). Income lines are amounts received;

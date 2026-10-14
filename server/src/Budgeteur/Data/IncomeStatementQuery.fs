@@ -37,7 +37,7 @@ module IncomeStatementQuery =
                             && (isNullValue a.Kind || a.Kind <> transfer)
                         )
 
-                        select (t.Amount, a.TagId)
+                        select (t.Date, t.Amount, a.TagId)
                 }
 
             and! tags =
@@ -55,8 +55,9 @@ module IncomeStatementQuery =
 
             return
                 transactions
-                |> Seq.map (fun (amount, tagId) -> {
-                    Entry.Amount = amount
+                |> Seq.map (fun (date, amount, tagId) -> {
+                    Entry.Date = date
+                    Amount = amount
                     Tag =
                         tagId
                         |> Option.bind (fun id -> Map.tryFind id tagsById)

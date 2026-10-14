@@ -1,43 +1,68 @@
-import budgeteur/dashboard_page/balance_summary.{BalanceSummary}
-import budgeteur/dashboard_page/dashboard_page.{
-  ClientFetchedBalance, ClientFetchedStatement, ClientGotToday,
-  ClientRestoredPreset, UserRetriedBalance, UserRetriedStatement,
-  UserSelectedPreset,
+import budgeteur/dashboard_page/dashboard.{
+  type Dashboard, Dashboard, Figure, HistoryMonth, Line, Month, Position, Totals,
 }
-import budgeteur/dashboard_page/income_statement.{IncomeStatement}
-import budgeteur/dashboard_page/period.{LastMonth, Period, ThisMonth}
+import budgeteur/dashboard_page/dashboard_page.{
+  ClientFetchedDashboard, ClientGotToday, Higher, Lower, UserRetried,
+}
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/effect
 import budgeteur/shared/remote.{Failed, Loaded, Loading}
+import gleam/json
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, October, September}
 import gleeunit/should
 
-const today = Date(2026, October, 10)
+const today = Date(2026, October, 14)
 
-fn this_month() -> period.Period {
-  Period(from: Date(2026, October, 1), to: today)
+fn dashboard_url() -> String {
+  api_route.GetDashboard(today:) |> api_route.to_string
 }
 
-fn last_month() -> period.Period {
-  Period(from: Date(2026, September, 1), to: Date(2026, September, 30))
+fn no_change(amount: Float) -> dashboard.Figure {
+  Figure(amount:, baseline: None, change: None, change_percent: None)
 }
 
-fn statement_url(period: period.Period) -> String {
-  api_route.GetIncomeStatement(from: period.from, to: period.to)
-  |> api_route.to_string
+fn dashboard() -> Dashboard {
+  Dashboard(
+    position: Position(
+      is_empty: False,
+      net_worth: 400_000.0,
+      working_capital: 6000.0,
+      runway: Some(3.0),
+      oldest_as_of: Some(Date(2026, October, 5)),
+    ),
+    month: Month(
+      label: "October 2026",
+      from: Date(2026, October, 1),
+      to: today,
+      income: no_change(5000.0),
+      expenses: no_change(400.0),
+      net_income: no_change(4600.0),
+      savings_rate: Some(92.0),
+      savings_rate_baseline: None,
+      savings_rate_change: None,
+      baseline_month_count: 0,
+      latest_transaction: Some(Date(2026, October, 5)),
+      income_lines: [],
+      expense_lines: [],
+    ),
+    history: [],
+    totals: None,
+  )
 }
 
-fn statement(period: period.Period) -> income_statement.IncomeStatement {
-  IncomeStatement(
-    from: period.from,
-    to: period.to,
-    income: 5000.0,
-    expenses: 2000.0,
-    net_income: 3000.0,
-    income_lines: [],
-    expense_lines: [],
+fn history_month(label: String, complete: Bool) -> dashboard.HistoryMonth {
+  HistoryMonth(
+    label:,
+    from: Date(2026, October, 1),
+    closing_date: today,
+    complete:,
+    income: 0.0,
+    expenses: 0.0,
+    net_income: 0.0,
+    net_worth: None,
+    working_capital: None,
   )
 }
 
@@ -56,156 +81,141 @@ fn update(model: dashboard_page.Model, msg: dashboard_page.Msg) {
   #(model, effect)
 }
 
-/// A page that knows today and has fetched nothing yet.
-fn model_with_today() -> dashboard_page.Model {
-  let #(model, _) = dashboard_page.init()
-  let #(model, _) = update(model, ClientGotToday(today))
-  model
-}
-
-pub fn init_restores_the_preset_asks_for_today_and_fetches_the_balance_and_waiting_count_test() {
+pub fn init_asks_for_today_and_fetches_the_waiting_count_test() {
   let #(model, effect) = dashboard_page.init()
 
-  model.preset |> should.equal(period.default_preset)
-  model.statement |> should.equal(Loading)
-  model.balance |> should.equal(Loading)
+  model.dashboard |> should.equal(Loading)
   model.waiting |> should.equal(Loading)
 
   let assert effect.Batch([
-    effect.LoadFromStore(key:, ..),
     effect.GetLocalDate(_),
-    effect.HttpRequest(url: balance_url, ..),
     effect.HttpRequest(url: waiting_url, ..),
   ]) = effect
-  key |> should.equal(dashboard_page.storage_key)
-  balance_url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
   waiting_url |> should.equal(api_route.to_string(api_route.GetQuickTagQueue))
 }
 
-pub fn today_fetches_the_statement_for_the_default_preset_test() {
+pub fn today_fetches_the_dashboard_test() {
   let #(model, _) = dashboard_page.init()
 
   let #(model, effect) = update(model, ClientGotToday(today))
-
-  dashboard_page.current_period(model) |> should.equal(Some(this_month()))
   let assert effect.HttpRequest(url:, ..) = effect
-  url |> should.equal(statement_url(this_month()))
+  url |> should.equal("/api/dashboard?today=2026-10-14")
+  url |> should.equal(dashboard_url())
+
+  let #(model, _) = update(model, ClientFetchedDashboard(Ok(dashboard())))
+  model.dashboard |> should.equal(Loaded(dashboard()))
 }
 
-pub fn the_statement_loads_for_the_current_period_test() {
-  let #(model, _) =
-    update(
-      model_with_today(),
-      ClientFetchedStatement(this_month(), Ok(statement(this_month()))),
-    )
-
-  model.statement |> should.equal(Loaded(statement(this_month())))
-}
-
-pub fn choosing_a_preset_refetches_and_saves_it_test() {
-  let #(model, _) =
-    update(
-      model_with_today(),
-      ClientFetchedStatement(this_month(), Ok(statement(this_month()))),
-    )
-
-  let #(model, effect) = update(model, UserSelectedPreset(LastMonth))
-
-  model.preset |> should.equal(LastMonth)
-  model.statement |> should.equal(Loading)
-  let assert effect.Batch([
-    effect.HttpRequest(url:, ..),
-    effect.SaveToStore(key:, value:),
-  ]) = effect
-  url |> should.equal(statement_url(last_month()))
-  key |> should.equal(dashboard_page.storage_key)
-  value |> should.equal("{\"preset\":\"LastMonth\"}")
-}
-
-pub fn a_response_for_an_earlier_period_is_ignored_test() {
-  let #(model, _) = update(model_with_today(), UserSelectedPreset(LastMonth))
-
-  // The this-month request was still in flight when the user switched.
-  let #(model, _) =
-    update(
-      model,
-      ClientFetchedStatement(this_month(), Ok(statement(this_month()))),
-    )
-  model.statement |> should.equal(Loading)
-
-  let #(model, _) =
-    update(
-      model,
-      ClientFetchedStatement(last_month(), Ok(statement(last_month()))),
-    )
-  model.statement |> should.equal(Loaded(statement(last_month())))
-}
-
-pub fn a_restored_preset_refetches_the_statement_test() {
-  let #(model, effect) =
-    update(model_with_today(), ClientRestoredPreset(Some(LastMonth)))
-
-  model.preset |> should.equal(LastMonth)
-  let assert effect.HttpRequest(url:, ..) = effect
-  url |> should.equal(statement_url(last_month()))
-}
-
-pub fn a_preset_restored_before_today_waits_for_today_test() {
+pub fn a_failed_dashboard_can_be_retried_test() {
   let #(model, _) = dashboard_page.init()
+  let #(model, _) = update(model, ClientGotToday(today))
 
-  let #(model, effect) = update(model, ClientRestoredPreset(Some(LastMonth)))
-  effect |> should.equal(effect.none())
-
-  let #(_, effect) = update(model, ClientGotToday(today))
-  let assert effect.HttpRequest(url:, ..) = effect
-  url |> should.equal(statement_url(last_month()))
-}
-
-pub fn restoring_the_same_preset_does_not_refetch_test() {
-  let #(_, effect) =
-    update(model_with_today(), ClientRestoredPreset(Some(ThisMonth)))
-
-  effect |> should.equal(effect.none())
-}
-
-pub fn a_failed_statement_can_be_retried_test() {
   let #(model, effect) =
-    update(
-      model_with_today(),
-      ClientFetchedStatement(this_month(), Error(api_error(500))),
-    )
-  model.statement |> should.equal(Failed)
+    update(model, ClientFetchedDashboard(Error(api_error(500))))
+  model.dashboard |> should.equal(Failed)
   let assert effect.LogError(_) = effect
 
-  let #(model, effect) = update(model, UserRetriedStatement)
-  model.statement |> should.equal(Loading)
+  let #(model, effect) = update(model, UserRetried)
+  model.dashboard |> should.equal(Loading)
   let assert effect.HttpRequest(url:, ..) = effect
-  url |> should.equal(statement_url(this_month()))
-
-  let #(model, _) =
-    update(
-      model,
-      ClientFetchedStatement(this_month(), Ok(statement(this_month()))),
-    )
-  model.statement |> should.equal(Loaded(statement(this_month())))
+  url |> should.equal(dashboard_url())
 }
 
-pub fn a_failed_balance_can_be_retried_test() {
-  let #(model, _) =
-    update(model_with_today(), ClientFetchedBalance(Error(api_error(500))))
-  model.balance |> should.equal(Failed)
+pub fn improvements_are_decreases_in_expenses_and_increases_elsewhere_test() {
+  dashboard_page.is_improvement(-50.0, Lower) |> should.be_true
+  dashboard_page.is_improvement(50.0, Lower) |> should.be_false
+  dashboard_page.is_improvement(50.0, Higher) |> should.be_true
+  dashboard_page.is_improvement(-50.0, Higher) |> should.be_false
+  dashboard_page.is_improvement(0.0, Higher) |> should.be_false
+}
 
-  let #(model, effect) = update(model, UserRetriedBalance)
-  model.balance |> should.equal(Loading)
-  let assert effect.HttpRequest(url:, ..) = effect
-  url |> should.equal(api_route.to_string(api_route.GetBalanceSheet))
+pub fn the_decoder_reads_figures_and_lines_with_their_baselines_test() {
+  let body =
+    "{\"position\":{\"isEmpty\":false,\"netWorth\":\"400000\",\"workingCapital\":\"6000.50\",\"runway\":null},"
+    <> "\"month\":{\"label\":\"October 2026\",\"from\":\"2026-10-01\",\"to\":\"2026-10-14\","
+    <> "\"income\":{\"amount\":\"5000\",\"baseline\":\"4000\",\"change\":\"1000\",\"changePercent\":\"25\"},"
+    <> "\"expenses\":{\"amount\":\"400\",\"baseline\":\"0\",\"change\":\"400\",\"changePercent\":null},"
+    <> "\"netIncome\":{\"amount\":\"4600\"},"
+    <> "\"savingsRate\":\"92\",\"savingsRateBaseline\":\"80\",\"savingsRateChange\":\"12\","
+    <> "\"baselineMonthCount\":2,\"latestTransaction\":\"2026-10-05\","
+    <> "\"incomeLines\":[],"
+    <> "\"expenseLines\":[{\"tagId\":null,\"name\":\"Untagged expenses\",\"color\":null,"
+    <> "\"amount\":\"0\",\"share\":\"0\",\"baseline\":\"20\",\"change\":\"-20\",\"changePercent\":\"-100\"}]},"
+    <> "\"history\":[{\"label\":\"September 2026\",\"from\":\"2026-09-01\",\"closingDate\":\"2026-09-30\",\"complete\":true,"
+    <> "\"income\":\"4000\",\"expenses\":\"1000\",\"netIncome\":\"3000\",\"netWorth\":null,\"workingCapital\":null}],"
+    <> "\"totals\":{\"monthCount\":1,\"income\":\"4000\",\"expenses\":\"1000\",\"netIncome\":\"3000\",\"savingsRate\":\"75\","
+    <> "\"averageIncome\":\"4000\",\"averageExpenses\":\"1000\",\"averageNetIncome\":\"3000\"}}"
 
-  let summary =
-    BalanceSummary(
-      net_worth: 100_500.0,
-      working_capital: 500.0,
-      is_empty: False,
-    )
-  let #(model, _) = update(model, ClientFetchedBalance(Ok(summary)))
-  model.balance |> should.equal(Loaded(summary))
+  let assert Ok(decoded) = json.parse(body, dashboard.decoder())
+
+  decoded.position.working_capital |> should.equal(6000.5)
+  decoded.position.runway |> should.equal(None)
+  decoded.month.income
+  |> should.equal(Figure(
+    amount: 5000.0,
+    baseline: Some(4000.0),
+    change: Some(1000.0),
+    change_percent: Some(25.0),
+  ))
+  decoded.month.net_income |> should.equal(no_change(4600.0))
+  decoded.month.latest_transaction |> should.equal(Some(Date(2026, October, 5)))
+  decoded.month.expense_lines
+  |> should.equal([
+    Line(
+      name: "Untagged expenses",
+      color: None,
+      figure: Figure(
+        amount: 0.0,
+        baseline: Some(20.0),
+        change: Some(-20.0),
+        change_percent: Some(-100.0),
+      ),
+      share: Some(0.0),
+    ),
+  ])
+  decoded.history
+  |> should.equal([
+    HistoryMonth(
+      label: "September 2026",
+      from: Date(2026, September, 1),
+      closing_date: Date(2026, September, 30),
+      complete: True,
+      income: 4000.0,
+      expenses: 1000.0,
+      net_income: 3000.0,
+      net_worth: None,
+      working_capital: None,
+    ),
+  ])
+  decoded.totals
+  |> should.equal(
+    Some(Totals(
+      month_count: 1,
+      income: 4000.0,
+      expenses: 1000.0,
+      net_income: 3000.0,
+      savings_rate: Some(75.0),
+      average_income: 4000.0,
+      average_expenses: 1000.0,
+      average_net_income: 3000.0,
+    )),
+  )
+}
+
+pub fn the_history_heading_counts_the_complete_months_test() {
+  dashboard_page.history_heading([history_month("October 2026", False)])
+  |> should.equal("October 2026 to date")
+
+  dashboard_page.history_heading([
+    history_month("September 2026", True),
+    history_month("October 2026", False),
+  ])
+  |> should.equal("Last month and October 2026 to date")
+
+  dashboard_page.history_heading([
+    history_month("August 2026", True),
+    history_month("September 2026", True),
+    history_month("October 2026", False),
+  ])
+  |> should.equal("Last 2 months and October 2026 to date")
 }

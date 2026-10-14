@@ -11,7 +11,7 @@
 - [x] CSV Imports
 - [x] Quick-tagging
 - [x] Reports: balance sheets and income statements per period
-- [ ] Full dashboard w/ charts (planned in docs/dashboard.md)
+- [x] Full dashboard w/ charts
 - [ ] Transaction search
 - [ ] Mobile support and UI cleanup
 - [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
