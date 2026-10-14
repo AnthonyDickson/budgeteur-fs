@@ -8,8 +8,6 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/item_write_request
-import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
@@ -22,6 +20,8 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/row_ui
+import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import gleam/float
 import gleam/int
 import gleam/json

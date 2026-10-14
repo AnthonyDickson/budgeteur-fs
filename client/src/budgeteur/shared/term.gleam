@@ -1,7 +1,7 @@
 import gleam/dynamic/decode
 import gleam/json
 
-/// Whether the item is current or non-current.
+/// Whether a balance sheet line is current or non-current.
 pub type Term {
   Current
   NonCurrent

@@ -2,12 +2,12 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
   type BalanceSheetItem, BalanceSheetItem,
 }
 import budgeteur/balance_sheet_page/item_write_request.{ValueEntry}
-import budgeteur/balance_sheet_page/side.{Asset}
-import budgeteur/balance_sheet_page/term.{NonCurrent}
 import budgeteur/balance_sheet_page/value_form
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{Active, Edit, Hidden, NoChange, Put, Updated}
+import budgeteur/shared/side.{Asset}
+import budgeteur/shared/term.{NonCurrent}
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, March}
 import gleeunit/should

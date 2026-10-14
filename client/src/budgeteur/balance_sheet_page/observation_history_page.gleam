@@ -9,8 +9,6 @@ import budgeteur/balance_sheet_page/balance_modal.{
 }
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_write_request
-import budgeteur/balance_sheet_page/side.{Asset, Liability}
-import budgeteur/balance_sheet_page/term.{Current, NonCurrent}
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
@@ -23,6 +21,8 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
+import budgeteur/shared/side.{Asset, Liability}
+import budgeteur/shared/term.{Current, NonCurrent}
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list

@@ -13,8 +13,6 @@ import budgeteur/balance_sheet_page/balance_sheet_page
 import budgeteur/balance_sheet_page/close_date
 import budgeteur/balance_sheet_page/item_delete_modal
 import budgeteur/balance_sheet_page/item_modal
-import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/balance_sheet_page/value_form
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError, ApiError}
@@ -25,6 +23,8 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
+import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/toast
 import gleam/int
 import gleam/option.{None, Some}

@@ -4,8 +4,6 @@ import budgeteur/balance_sheet_page/balance_sheet_item.{
 import budgeteur/balance_sheet_page/observation_history_page.{
   Entry, ItemLine, ItemRef,
 }
-import budgeteur/balance_sheet_page/side.{Asset}
-import budgeteur/balance_sheet_page/term.{NonCurrent}
 import budgeteur/balance_sheet_page/value_modal
 import budgeteur/shared/api_error.{type ApiError, ApiError}
 import budgeteur/shared/api_route
@@ -15,6 +13,8 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg
 import budgeteur/shared/remote.{Loaded, Loading}
+import budgeteur/shared/side.{Asset}
+import budgeteur/shared/term.{NonCurrent}
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, February, March}

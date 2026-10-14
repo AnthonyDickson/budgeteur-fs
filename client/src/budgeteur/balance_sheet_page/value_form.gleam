@@ -7,11 +7,11 @@
 import budgeteur/balance_sheet_page/item_write_request.{
   type ValueEntry, ValueEntry,
 }
-import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
 import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/modal_ui
 import budgeteur/shared/money
+import budgeteur/shared/side.{type Side, Asset, Liability}
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}

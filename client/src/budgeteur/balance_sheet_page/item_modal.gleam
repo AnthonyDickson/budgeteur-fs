@@ -7,13 +7,13 @@ import budgeteur/balance_sheet_page/close_date
 import budgeteur/balance_sheet_page/item_write_request.{
   type ItemWriteRequest, CreateItem, UpdateItem,
 }
-import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/balance_sheet_page/value_form
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
+import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}

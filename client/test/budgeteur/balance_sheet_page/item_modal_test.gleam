@@ -5,13 +5,13 @@ import budgeteur/balance_sheet_page/item_modal
 import budgeteur/balance_sheet_page/item_write_request.{
   CreateItem, UpdateItem, ValueEntry,
 }
-import budgeteur/balance_sheet_page/side.{type Side, Asset, Liability}
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/balance_sheet_page/value_form
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{
   Active, Create, Edit, Hidden, NoChange, Post, Put, Submitting,
 }
+import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import gleam/int
 import gleam/option.{None, Some}
 import gleam/string

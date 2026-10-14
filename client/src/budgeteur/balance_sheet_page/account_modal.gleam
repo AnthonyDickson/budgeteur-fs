@@ -8,11 +8,11 @@ import budgeteur/balance_sheet_page/account_write_request.{
 }
 import budgeteur/balance_sheet_page/balance_form
 import budgeteur/balance_sheet_page/close_date
-import budgeteur/balance_sheet_page/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
+import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import gleam/string

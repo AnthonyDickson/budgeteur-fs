@@ -8,13 +8,13 @@
 
 import budgeteur/balance_sheet_page/balance_sheet_item.{type BalanceSheetItem}
 import budgeteur/balance_sheet_page/item_write_request.{type ValueEntry}
-import budgeteur/balance_sheet_page/side
 import budgeteur/balance_sheet_page/value_form
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/money
+import budgeteur/shared/side
 import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
 import lustre/attribute

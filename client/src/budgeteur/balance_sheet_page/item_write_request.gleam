@@ -1,7 +1,7 @@
-import budgeteur/balance_sheet_page/side.{type Side}
-import budgeteur/balance_sheet_page/term.{type Term}
 import budgeteur/shared/date
 import budgeteur/shared/money
+import budgeteur/shared/side.{type Side}
+import budgeteur/shared/term.{type Term}
 import gleam/json
 import gleam/option.{type Option}
 import gleam/time/calendar.{type Date}

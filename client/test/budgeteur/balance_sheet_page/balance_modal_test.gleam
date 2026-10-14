@@ -2,10 +2,10 @@ import budgeteur/balance_sheet_page/account.{type Account, Account}
 import budgeteur/balance_sheet_page/account_write_request.{BalanceEntry}
 import budgeteur/balance_sheet_page/balance_form
 import budgeteur/balance_sheet_page/balance_modal.{CurrentBalance}
-import budgeteur/balance_sheet_page/side.{Asset, Liability}
-import budgeteur/balance_sheet_page/term.{Current}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal.{Active, Edit, NoChange, Put, Updated}
+import budgeteur/shared/side.{Asset, Liability}
+import budgeteur/shared/term.{Current}
 import gleam/option.{None, Some}
 import gleam/time/calendar.{Date, March}
 import gleeunit/should

@@ -10,12 +10,12 @@
 import budgeteur/balance_sheet_page/account.{type Account}
 import budgeteur/balance_sheet_page/account_write_request.{type BalanceEntry}
 import budgeteur/balance_sheet_page/balance_form
-import budgeteur/balance_sheet_page/side.{type Side}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/form_modal
 import budgeteur/shared/modal_ui
 import budgeteur/shared/money
+import budgeteur/shared/side.{type Side}
 import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
 import lustre/attribute
