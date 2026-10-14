@@ -10,9 +10,11 @@ open Budgeteur.Domain.Tag
 type Period = private Period of fromDate : DateOnly * toDate : DateOnly
 
 module Period =
-    /// <summary>The longest period, in days: a leap year.</summary>
+    /// <summary>The longest period, in days: two years, one of them a leap
+    /// year. Long enough for the dashboard's history, which spans up to
+    /// thirteen months.</summary>
     [<Literal>]
-    let MaxDays = 366
+    let MaxDays = 731
 
     let create
         (fromDate : DateOnly)

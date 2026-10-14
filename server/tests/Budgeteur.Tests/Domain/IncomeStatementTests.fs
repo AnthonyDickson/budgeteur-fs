@@ -293,17 +293,17 @@ module PeriodTests =
                     "from > to should be rejected"
             }
 
-            test "a leap year is the longest valid period" {
+            test "two years with a leap year are the longest valid period" {
                 Expect.isOk
                     (Period.create
-                        (DateOnly (2028, 1, 1))
+                        (DateOnly (2027, 1, 1))
                         (DateOnly (2028, 12, 31)))
-                    "366 days should be valid"
+                    "731 days should be valid"
 
                 Expect.isError
                     (Period.create
-                        (DateOnly (2028, 1, 1))
+                        (DateOnly (2027, 1, 1))
                         (DateOnly (2029, 1, 1)))
-                    "367 days should be rejected"
+                    "732 days should be rejected"
             }
         ]

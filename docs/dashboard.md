@@ -102,7 +102,8 @@ are on the reports page.
 - **Why**: covered in [dates.md](dates.md). The previous project derived `today`
   on the server and needed a configured timezone to do it.
 - **Validation**: both dates must be `yyyy-MM-dd`, `from <= to`, and the span is
-  at most 366 days. Every failure is reported in one `400`.
+  at most two years (731 days), long enough for the full dashboard's history
+  (decision 14). Every failure is reported in one `400`.
 - **Goal**: no server timezone for the MVP, and endpoint tests are
   deterministic.
 - **Full dashboard**: the dashboard endpoint takes `today` only (decision 11),
