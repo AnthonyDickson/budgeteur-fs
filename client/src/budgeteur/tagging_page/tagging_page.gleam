@@ -792,7 +792,7 @@ pub fn view(model: Model) -> Element(Msg) {
         ),
       ],
       [
-        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
           html.text("Tags & Rules"),
         ]),
         // Runs apply every rule, not the selected tag's, so the buttons sit
@@ -910,7 +910,7 @@ fn loading_state() -> Element(Msg) {
       attribute.attribute("data-testid", "tagging-loading-state"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Loading tags and rules..."),
       ]),
     ],
@@ -925,10 +925,10 @@ fn failed_state() -> Element(Msg) {
       attribute.attribute("data-testid", "tagging-load-error"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("Could not load tags and rules"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Check your connection and try again."),
       ]),
       button.view(

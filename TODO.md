@@ -33,7 +33,7 @@
          use them; toasts use the status tints (decisions 7 and 11).
   6. [x] Move the remaining colours to roles in the shell, header, and
          transactions page with its modals (decision 4).
-  7. [ ] Move the remaining colours to roles in the tagging page with its modals
+  7. [x] Move the remaining colours to roles in the tagging page with its modals
          (decision 4).
   8. [ ] Move the remaining colours to roles in the balance sheet and line
          details pages with their modals (decision 4).

@@ -405,7 +405,7 @@ fn view_form(
   let has_error = field.has_error(pattern) || tag_error
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     case api_error {
@@ -439,7 +439,7 @@ fn view_form(
               html.span(
                 [
                   attribute.class(
-                    "mb-1 block text-sm font-medium text-gray-700",
+                    "mb-1 block text-sm font-medium text-fg-muted",
                   ),
                 ],
                 [html.text("Pattern")],
@@ -473,7 +473,7 @@ fn view_form(
           html.p(
             [
               attribute.id(pattern_hint_id),
-              attribute.class("mt-1 text-xs text-gray-500"),
+              attribute.class("mt-1 text-xs text-fg-muted"),
             ],
             [
               html.text("Prefer longer, more specific patterns."),
@@ -507,7 +507,7 @@ fn view_form(
             True -> input.error_message("Select a tag")
             False -> element.none()
           },
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
             html.text("Changing the tag moves this rule to that tag."),
           ]),
         ]),
@@ -548,7 +548,7 @@ fn view_match_count(
     html.p(
       [
         attribute.attribute("data-testid", "rule-match-count"),
-        attribute.class("mt-1 text-xs text-gray-500"),
+        attribute.class("mt-1 text-xs text-fg-muted"),
       ],
       [html.text(text)],
     )
@@ -573,7 +573,7 @@ fn view_match_count(
         html.ul(
           [
             attribute.attribute("data-testid", "rule-match-samples"),
-            attribute.class("mt-1 space-y-0.5 text-xs text-gray-500"),
+            attribute.class("mt-1 space-y-0.5 text-xs text-fg-muted"),
           ],
           list.map(samples, fn(sample) {
             html.li([attribute.class("truncate")], [html.text(sample)])

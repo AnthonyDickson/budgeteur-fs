@@ -288,7 +288,7 @@ fn view_form(
   let has_error = field.has_error(name)
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     html.form(
@@ -319,7 +319,7 @@ fn view_form(
             input.invalid(has_error),
           ]),
           view_name_error(name_error),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
             html.text("Prefer broad categories, e.g. Food & Drink over Coffee."),
           ]),
         ]),
@@ -337,14 +337,14 @@ fn view_form(
             #(tag.kind_to_string(Income), "Income", kind == Income, KindChosen),
           ],
         ),
-        html.p([attribute.class("-mt-3 text-xs text-gray-500")], [
+        html.p([attribute.class("-mt-3 text-xs text-fg-muted")], [
           html.text(
             "Refunds stay on the tag's side: they reduce its expenses rather than count as income.",
           ),
         ]),
         html.fieldset([attribute.class("block")], [
           html.legend(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
+            [attribute.class("mb-1 block text-sm font-medium text-fg-muted")],
             [html.text("Color")],
           ),
           html.div(
@@ -360,12 +360,12 @@ fn view_form(
                   ),
                   attribute.class(
                     "flex h-8 w-8 items-center justify-center rounded-full "
-                    <> "focus:outline-none focus:ring-2 focus:ring-offset-2 "
+                    <> "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface "
                     <> "disabled:cursor-not-allowed disabled:opacity-60 "
                     <> case is_selected {
                       True ->
-                        "ring-2 ring-gray-900 ring-offset-2 "
-                        <> "border-2 border-white"
+                        "ring-2 ring-fg ring-offset-2 ring-offset-surface "
+                        <> "border-2 border-surface"
                       False -> "hover:scale-105"
                     },
                   ),
@@ -432,7 +432,7 @@ fn check_icon() -> Element(Msg) {
       attribute.attribute("viewBox", "0 0 24 24"),
       attribute.attribute("stroke-width", "3"),
       attribute.attribute("stroke", "currentColor"),
-      attribute.class("h-4 w-4 text-white"),
+      attribute.class("h-4 w-4 text-on-primary"),
       attribute.attribute("aria-hidden", "true"),
     ],
     [

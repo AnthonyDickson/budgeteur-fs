@@ -96,13 +96,10 @@ pub fn view_retag_confirmation(
         busy: False,
         on_dismiss: on_cancel,
         children: [
-          html.h2(
-            [attribute.class("mb-4 text-lg font-semibold text-gray-900")],
-            [
-              html.text("Re-tag all transactions"),
-            ],
-          ),
-          html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+          html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
+            html.text("Re-tag all transactions"),
+          ]),
+          html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
             html.text(
               "Tags set by rules may change or be cleared to match the current "
               <> "rules. Tags you set are kept. This cannot be undone.",

@@ -33,12 +33,12 @@ pub fn view(
       confirm_testid: "rule-delete-confirm-button",
       body: fn(rule: Rule, tag_name: String) {
         html.div([], [
-          html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+          html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
             html.text(
               "Delete rule '" <> rule.pattern <> "'" <> " > " <> tag_name <> "?",
             ),
           ]),
-          html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+          html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
             html.text(
               "Transactions matching this pattern will no longer be auto-tagged. "
               <> "This action cannot be undone.",

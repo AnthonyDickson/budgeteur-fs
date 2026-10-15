@@ -40,7 +40,7 @@ pub fn panel(
       html.div(
         [
           attribute.class(
-            "flex h-12 items-center justify-between gap-4 border-b border-gray-200 px-4",
+            "flex h-12 items-center justify-between gap-4 border-b border-border px-4",
           ),
         ],
         [
@@ -48,13 +48,13 @@ pub fn panel(
             html.span(
               [
                 attribute.class(
-                  "text-xs font-semibold uppercase tracking-wide text-gray-500",
+                  "text-xs font-semibold uppercase tracking-wide text-fg-muted",
                 ),
               ],
               [html.text("Rules")],
             ),
             swatch.view(selected_tag.color),
-            html.h2([attribute.class("text-sm font-semibold text-gray-900")], [
+            html.h2([attribute.class("text-sm font-semibold text-fg")], [
               html.text(selected_tag.name),
             ]),
           ]),
@@ -89,14 +89,14 @@ fn column_headers() -> Element(msg) {
   html.div(
     [
       attribute.class(
-        "flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2",
+        "flex items-center gap-3 border-b border-border bg-surface-hover px-4 py-2",
       ),
     ],
     [
       html.span(
         [
           attribute.class(
-            "text-xs font-medium uppercase tracking-wide text-gray-500",
+            "text-xs font-medium uppercase tracking-wide text-fg-muted",
           ),
         ],
         [html.text("Pattern")],
@@ -110,12 +110,12 @@ fn rules_list(
   on_edit on_edit: fn(Uuid) -> msg,
 ) -> Element(msg) {
   html.ul(
-    [attribute.class("flex-1 divide-y divide-gray-100 overflow-y-auto")],
+    [attribute.class("flex-1 divide-y divide-border overflow-y-auto")],
     list.map(rules, fn(rule) {
       html.li(
         [
           attribute.class(
-            "group relative flex h-11 items-center gap-3 px-4 hover:bg-gray-50",
+            "group relative flex h-11 items-center gap-3 px-4 hover:bg-surface-hover",
           ),
           attribute.attribute("data-testid", "rule-row"),
         ],
@@ -129,7 +129,7 @@ fn rules_list(
                 html.code(
                   [
                     attribute.class(
-                      "rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-800",
+                      "rounded bg-surface-hover px-1.5 py-0.5 text-xs font-medium text-fg",
                     ),
                   ],
                   [html.text(rule.pattern)],
@@ -146,7 +146,7 @@ fn rules_list(
 
 fn rules_prompt() -> Element(msg) {
   html.div([attribute.class("flex flex-1 flex-col")], [
-    html.div([attribute.class("h-12 border-b border-gray-200")], []),
+    html.div([attribute.class("h-12 border-b border-border")], []),
     html.div(
       [
         attribute.class(
@@ -154,7 +154,7 @@ fn rules_prompt() -> Element(msg) {
         ),
       ],
       [
-        html.p([attribute.class("text-sm text-gray-500")], [
+        html.p([attribute.class("text-sm text-fg-muted")], [
           html.text("Select a tag to see its rules"),
         ]),
       ],
@@ -170,10 +170,10 @@ fn rules_empty_state(tag: Tag) -> Element(msg) {
       ),
     ],
     [
-      html.h3([attribute.class("text-sm font-medium text-gray-900")], [
+      html.h3([attribute.class("text-sm font-medium text-fg")], [
         html.text("No rules for \"" <> tag.name <> "\" yet"),
       ]),
-      html.p([attribute.class("mt-1 max-w-sm text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 max-w-sm text-sm text-fg-muted")], [
         html.text(
           "Rules auto-tag transactions whose description contains a pattern, "
           <> "e.g. \"STARBUCKS\" > Coffee.",

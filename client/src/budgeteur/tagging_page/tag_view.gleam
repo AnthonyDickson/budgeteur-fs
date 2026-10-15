@@ -23,20 +23,20 @@ pub fn panel(
 ) -> Element(msg) {
   html.div(
     [
-      attribute.class("flex w-72 shrink-0 flex-col border-r border-gray-200"),
+      attribute.class("flex w-72 shrink-0 flex-col border-r border-border"),
       attribute.attribute("data-testid", "tags-panel"),
     ],
     [
       html.h2(
         [
           attribute.class(
-            "flex h-12 items-center border-b border-gray-200 px-4 text-xs font-semibold uppercase tracking-wide text-gray-500",
+            "flex h-12 items-center border-b border-border px-4 text-xs font-semibold uppercase tracking-wide text-fg-muted",
           ),
         ],
         [html.text("Tags")],
       ),
       html.ul(
-        [attribute.class("flex-1 divide-y divide-gray-100 overflow-y-auto")],
+        [attribute.class("flex-1 divide-y divide-border overflow-y-auto")],
         list.map(tags, fn(tag) {
           let is_selected = selected_tag == Some(tag.id)
           html.li([attribute.class("group relative")], [
@@ -45,10 +45,11 @@ pub fn panel(
                 attribute.class(
                   "flex h-11 w-full cursor-pointer items-center gap-3 px-4 text-left "
                   <> "focus:outline-none focus:ring-2 focus:ring-inset "
-                  <> "focus:ring-indigo-500 "
+                  <> "focus:ring-primary "
                   <> case is_selected {
-                    True -> "border-l-2 border-indigo-600 bg-indigo-50"
-                    False -> "border-l-2 border-transparent hover:bg-gray-50"
+                    True -> "border-l-2 border-primary bg-primary-tint"
+                    False ->
+                      "border-l-2 border-transparent hover:bg-surface-hover"
                   },
                 ),
                 attribute.attribute(
@@ -68,8 +69,8 @@ pub fn panel(
                     attribute.class(
                       "flex-1 truncate pr-12 text-sm "
                       <> case is_selected {
-                        True -> "font-medium text-gray-900"
-                        False -> "text-gray-700"
+                        True -> "font-medium text-fg"
+                        False -> "text-fg-muted"
                       },
                     ),
                   ],
@@ -94,9 +95,9 @@ pub fn panel(
                   [
                     attribute.class(
                       "flex h-9 w-9 shrink-0 items-center justify-center "
-                      <> "rounded-md text-indigo-600 hover:bg-indigo-100 "
+                      <> "rounded-md text-primary hover:bg-primary-tint "
                       <> "focus:outline-none focus:ring-2 focus:ring-inset "
-                      <> "focus:ring-indigo-500",
+                      <> "focus:ring-primary",
                     ),
                     attribute.attribute(
                       "data-testid",
@@ -113,14 +114,14 @@ pub fn panel(
           ])
         }),
       ),
-      html.div([attribute.class("mt-auto border-t border-gray-200 p-3")], [
+      html.div([attribute.class("mt-auto border-t border-border p-3")], [
         html.button(
           [
             attribute.class(
-              "w-full rounded-md border border-dashed border-gray-300 px-3 py-2 "
-              <> "text-sm font-medium text-gray-600 hover:border-indigo-400 "
-              <> "hover:text-indigo-600 focus:outline-none focus:ring-2 "
-              <> "focus:ring-indigo-500 focus:ring-offset-2",
+              "w-full rounded-md border border-dashed border-border-input px-3 py-2 "
+              <> "text-sm font-medium text-fg-muted hover:border-primary "
+              <> "hover:text-primary-hover focus:outline-none focus:ring-2 "
+              <> "focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface",
             ),
             attribute.attribute("data-testid", "new-tag-button"),
             event.on_click(on_create),
@@ -141,10 +142,10 @@ pub fn no_tags_empty_state(on_create on_create: msg) -> Element(msg) {
       attribute.attribute("data-testid", "no-tags-empty-state"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("No tags yet"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text(
           "Tags help you categorise transactions and power auto-tagging rules.",
         ),
