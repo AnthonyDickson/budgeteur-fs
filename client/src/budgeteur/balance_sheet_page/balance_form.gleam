@@ -179,7 +179,7 @@ pub fn view(
           }),
         ],
       ),
-      html.p([attribute.class("text-xs text-gray-500")], [
+      html.p([attribute.class("text-xs text-fg-muted")], [
         html.text(
           "Liability when the account is overdrawn or a card balance is owing. The line moves sides when the balance changes sign.",
         ),
@@ -204,7 +204,7 @@ pub fn view(
           )
         None -> element.none()
       },
-      html.p([attribute.class("text-xs text-gray-500")], [html.text(note)]),
+      html.p([attribute.class("text-xs text-fg-muted")], [html.text(note)]),
     ]),
     html.label([attribute.class("block")], [
       input.label("Balance as of"),

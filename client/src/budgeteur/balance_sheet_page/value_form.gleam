@@ -162,7 +162,7 @@ pub fn view(
           )
         None -> element.none()
       },
-      html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+      html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
         html.text(value_help(side) <> " " <> note),
       ]),
     ]),

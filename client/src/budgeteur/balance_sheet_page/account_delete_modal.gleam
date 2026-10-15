@@ -31,11 +31,11 @@ pub fn view(
       cancel_testid: "account-delete-cancel-button",
       confirm_testid: "account-delete-confirm-button",
       body: fn(account: Account, _context: Nil) {
-        html.div([attribute.class("mb-4 space-y-2 text-sm text-gray-700")], [
+        html.div([attribute.class("mb-4 space-y-2 text-sm text-fg-muted")], [
           html.p([], [
             html.text("Are you sure you want to delete " <> account.name <> "?"),
           ]),
-          html.p([attribute.class("font-medium text-red-700")], [
+          html.p([attribute.class("font-medium text-danger")], [
             html.text(
               "Its transactions and balance history are deleted with it. This cannot be undone.",
             ),

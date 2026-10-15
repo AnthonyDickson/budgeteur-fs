@@ -405,7 +405,7 @@ fn closed_lines(
     rows ->
       html.details(
         [
-          attribute.class("mt-8 rounded-lg border border-gray-200 bg-white"),
+          attribute.class("mt-8 rounded-lg border border-border bg-surface"),
           attribute.attribute("data-testid", "closed-lines"),
           attribute.open(flagged > 0),
         ],
@@ -413,7 +413,7 @@ fn closed_lines(
           html.summary(
             [
               attribute.class(
-                "cursor-pointer px-4 py-3 text-sm font-medium text-gray-700",
+                "cursor-pointer px-4 py-3 text-sm font-medium text-fg-muted",
               ),
             ],
             [
@@ -421,16 +421,23 @@ fn closed_lines(
               case flagged {
                 0 -> element.none()
                 _ ->
-                  html.span([attribute.class("ml-2 text-amber-700")], [
-                    html.text(
-                      int.to_string(flagged)
-                      <> " with transactions after closing",
-                    ),
-                  ])
+                  html.span(
+                    [
+                      attribute.class(
+                        "ml-2 rounded-full bg-warning-tint px-2 py-0.5 text-xs text-fg",
+                      ),
+                    ],
+                    [
+                      html.text(
+                        int.to_string(flagged)
+                        <> " with transactions after closing",
+                      ),
+                    ],
+                  )
               },
             ],
           ),
-          html.ul([attribute.class("divide-y divide-gray-100 border-t")], rows),
+          html.ul([attribute.class("divide-y divide-border border-t")], rows),
         ],
       )
   }
@@ -446,7 +453,7 @@ fn closed_row(
   html.li(
     [
       attribute.class(
-        "group relative flex items-center gap-3 px-4 py-3 hover:bg-gray-50",
+        "group relative flex items-center gap-3 px-4 py-3 hover:bg-surface-hover",
       ),
       attribute.attribute("data-testid", testid),
     ],
@@ -459,7 +466,7 @@ fn closed_row(
           children: [html.text(name)],
         ),
         html.p(
-          [attribute.class(row.selectable_class <> " text-xs text-gray-500")],
+          [attribute.class(row.selectable_class <> " text-xs text-fg-muted")],
           [
             html.text(case closed_on {
               Some(closed_on) -> "Closed on " <> date.format(closed_on)
@@ -517,10 +524,10 @@ fn failed_state() -> Element(Msg) {
         attribute.attribute("data-testid", "balance-sheet-load-error"),
       ],
       [
-        html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+        html.h2([attribute.class("text-base font-semibold text-fg")], [
           html.text("Could not load the balance sheet"),
         ]),
-        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+        html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
           html.text("Check your connection and try again."),
         ]),
         button.view(
@@ -545,7 +552,7 @@ fn loading_state() -> Element(Msg) {
       attribute.attribute("data-testid", "balance-sheet-loading-state"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Loading balance sheet..."),
       ]),
     ],
@@ -557,10 +564,10 @@ fn page_header(subtitle: String) -> Element(Msg) {
     [attribute.class("mb-6 flex flex-wrap items-center justify-between gap-4")],
     [
       html.div([], [
-        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
           html.text("Balance Sheet"),
         ]),
-        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+        html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
           html.text(subtitle),
         ]),
       ]),
@@ -627,16 +634,14 @@ fn summary_card(label: String, amount: Float, testid: String) -> Element(Msg) {
       html.p(
         [
           attribute.class(
-            "text-xs font-medium uppercase tracking-wide text-gray-500",
+            "text-xs font-medium uppercase tracking-wide text-fg-muted",
           ),
         ],
         [html.text(label)],
       ),
       html.p(
         [
-          attribute.class(
-            "mt-1 text-xl font-semibold tabular-nums text-gray-900",
-          ),
+          attribute.class("mt-1 text-xl font-semibold tabular-nums text-fg"),
           attribute.attribute("data-amount", float.to_string(amount)),
         ],
         [html.text(money.format(amount))],
@@ -706,7 +711,7 @@ fn sheet_side(
       html.h2(
         [
           attribute.class(
-            "border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900",
+            "border-b border-border px-4 py-3 text-base font-semibold text-fg",
           ),
         ],
         [html.text(title)],
@@ -715,19 +720,17 @@ fn sheet_side(
       html.div(
         [
           attribute.class(
-            "flex items-center justify-between border-t border-gray-200 bg-gray-50 py-3 "
+            "flex items-center justify-between border-t border-border bg-surface-hover py-3 "
             <> total_row_padding,
           ),
         ],
         [
-          html.span([attribute.class("text-sm font-semibold text-gray-900")], [
+          html.span([attribute.class("text-sm font-semibold text-fg")], [
             html.text(total_label),
           ]),
           html.span(
             [
-              attribute.class(
-                "text-sm font-semibold tabular-nums text-gray-900",
-              ),
+              attribute.class("text-sm font-semibold tabular-nums text-fg"),
               attribute.attribute("data-amount", float.to_string(total)),
             ],
             [html.text(money.format(total))],
@@ -756,7 +759,7 @@ fn line_group(
     html.div(
       [
         attribute.class(
-          "flex items-center justify-between bg-gray-50 py-2 "
+          "flex items-center justify-between bg-surface-hover py-2 "
           <> total_row_padding,
         ),
       ],
@@ -764,14 +767,14 @@ fn line_group(
         html.h3(
           [
             attribute.class(
-              "text-xs font-semibold uppercase tracking-wide text-gray-500",
+              "text-xs font-semibold uppercase tracking-wide text-fg-muted",
             ),
           ],
           [html.text(title)],
         ),
         html.span(
           [
-            attribute.class("text-xs font-semibold text-gray-500"),
+            attribute.class("text-xs font-semibold text-fg-muted"),
             attribute.attribute("data-amount", float.to_string(subtotal)),
           ],
           [html.text(money.format(subtotal))],
@@ -780,10 +783,10 @@ fn line_group(
     ),
     case rows {
       [] ->
-        html.p([attribute.class("px-4 py-3 text-sm text-gray-400")], [
+        html.p([attribute.class("px-4 py-3 text-sm text-fg-subtle")], [
           html.text("None"),
         ])
-      _ -> html.ul([attribute.class("divide-y divide-gray-100")], rows)
+      _ -> html.ul([attribute.class("divide-y divide-border")], rows)
     },
   ])
 }
@@ -832,7 +835,7 @@ fn line_row(
   html.li(
     [
       attribute.class(
-        "group relative flex items-start gap-3 px-4 py-3 hover:bg-gray-50",
+        "group relative flex items-start gap-3 px-4 py-3 hover:bg-surface-hover",
       ),
       attribute.attribute("data-testid", testid),
     ],
@@ -840,15 +843,14 @@ fn line_row(
       html.div([attribute.class("min-w-0 flex-1")], [
         name,
         html.p(
-          [attribute.class(row.selectable_class <> " text-xs text-gray-400")],
+          [attribute.class(row.selectable_class <> " text-xs text-fg-subtle")],
           [html.text(string.join(details, " · "))],
         ),
       ]),
       html.span(
         [
           attribute.class(
-            row.selectable_class
-            <> " text-right text-sm tabular-nums text-gray-900",
+            row.selectable_class <> " text-right text-sm tabular-nums text-fg",
           ),
           attribute.attribute("data-amount", float.to_string(amount)),
         ],
@@ -969,10 +971,10 @@ fn empty_card(
       attribute.attribute("data-testid", testid),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text(heading),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text(body),
       ]),
     ],

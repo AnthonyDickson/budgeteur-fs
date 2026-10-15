@@ -35,7 +35,7 @@
          transactions page with its modals (decision 4).
   7. [x] Move the remaining colours to roles in the tagging page with its modals
          (decision 4).
-  8. [ ] Move the remaining colours to roles in the balance sheet and line
+  8. [x] Move the remaining colours to roles in the balance sheet and line
          details pages with their modals (decision 4).
   9. [ ] Move the remaining colours to roles in the dashboard, reports, and
          quick tagging pages; the improvement figure becomes a success pill

@@ -191,7 +191,7 @@ fn view_form(
   }
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     html.form(
@@ -224,7 +224,7 @@ fn view_form(
             Some(NotADate) -> input.error_message("Not a valid date")
             None -> element.none()
           },
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
             html.text(help),
           ]),
         ]),

@@ -47,7 +47,9 @@ import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
 
-const link_class = "text-sm font-medium text-indigo-600 hover:text-indigo-500"
+/// The back link sits on the page background, where primary text falls short of
+/// AA in Latte (decision 6 in docs/styling.md).
+const link_class = "text-sm font-medium text-fg-muted hover:text-fg"
 
 // Types
 // -----
@@ -916,15 +918,15 @@ fn header(line: Line) -> Element(Msg) {
     ],
     [
       html.div([], [
-        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
           html.text(name),
         ]),
-        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+        html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
           html.text(details),
         ]),
         html.p(
           [
-            attribute.class("mt-1 text-sm text-gray-700"),
+            attribute.class("mt-1 text-sm text-fg-muted"),
             attribute.attribute("data-testid", "line-details-current"),
           ],
           [html.text(current)],
@@ -933,7 +935,7 @@ fn header(line: Line) -> Element(Msg) {
           Some(closed_on) ->
             html.p(
               [
-                attribute.class("mt-1 text-sm text-gray-500"),
+                attribute.class("mt-1 text-sm text-fg-muted"),
                 attribute.attribute("data-testid", "line-details-closed-on"),
               ],
               [html.text("Closed on " <> date.format(closed_on))],
@@ -1035,7 +1037,7 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
       html.p(
         [
           attribute.class(
-            "rounded-lg border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500",
+            "rounded-lg border border-border bg-surface px-4 py-8 text-center text-sm text-fg-muted",
           ),
           attribute.attribute("data-testid", "line-details-empty"),
         ],
@@ -1049,28 +1051,31 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
       html.table(
         [
           attribute.class(
-            "w-full overflow-hidden rounded-lg border border-gray-200 bg-white text-sm",
+            "w-full overflow-hidden rounded-lg border border-border bg-surface text-sm",
           ),
         ],
         [
-          html.thead([attribute.class("bg-gray-50 text-left text-gray-500")], [
-            html.tr([], [
-              html.th([attribute.class("px-4 py-2 font-medium")], [
-                html.text("As of"),
+          html.thead(
+            [attribute.class("bg-surface-hover text-left text-fg-muted")],
+            [
+              html.tr([], [
+                html.th([attribute.class("px-4 py-2 font-medium")], [
+                  html.text("As of"),
+                ]),
+                html.th([attribute.class("px-4 py-2 text-right font-medium")], [
+                  html.text(case line_ref {
+                    ItemRef(..) -> "Value"
+                    AccountRef(..) -> "Balance"
+                  }),
+                ]),
+                html.th([attribute.class("px-4 py-2")], [
+                  html.span([attribute.class("sr-only")], [html.text("Actions")]),
+                ]),
               ]),
-              html.th([attribute.class("px-4 py-2 text-right font-medium")], [
-                html.text(case line_ref {
-                  ItemRef(..) -> "Value"
-                  AccountRef(..) -> "Balance"
-                }),
-              ]),
-              html.th([attribute.class("px-4 py-2")], [
-                html.span([attribute.class("sr-only")], [html.text("Actions")]),
-              ]),
-            ]),
-          ]),
+            ],
+          ),
           html.tbody(
-            [attribute.class("divide-y divide-gray-100")],
+            [attribute.class("divide-y divide-border")],
             list.map(entries, entry_row(_, deletable)),
           ),
         ],
@@ -1084,10 +1089,10 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
 fn entry_row(entry: Entry, deletable: Bool) -> Element(Msg) {
   let as_of = date.format(entry.as_of)
   html.tr([attribute.attribute("data-testid", "observation-" <> as_of)], [
-    html.td([attribute.class("px-4 py-2 text-gray-900")], [html.text(as_of)]),
+    html.td([attribute.class("px-4 py-2 text-fg")], [html.text(as_of)]),
     html.td(
       [
-        attribute.class("px-4 py-2 text-right tabular-nums text-gray-900"),
+        attribute.class("px-4 py-2 text-right tabular-nums text-fg"),
         attribute.attribute("data-amount", money.to_string(entry.amount)),
       ],
       [html.text(money.format(entry.amount))],
@@ -1096,8 +1101,8 @@ fn entry_row(entry: Entry, deletable: Bool) -> Element(Msg) {
       html.button(
         [
           attribute.class(
-            "text-sm font-medium text-red-600 hover:text-red-500 "
-            <> "disabled:cursor-not-allowed disabled:text-gray-400",
+            "text-sm font-medium text-danger hover:text-danger "
+            <> "disabled:cursor-not-allowed disabled:text-fg-subtle",
           ),
           attribute.attribute("data-testid", "delete-observation-" <> as_of),
           attribute.disabled(!deletable),
@@ -1141,7 +1146,7 @@ fn delete_options(
     cancel_testid: "delete-observation-cancel-button",
     confirm_testid: "delete-observation-confirm-button",
     body: fn(entry: Entry, place: Place) {
-      html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+      html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
         html.text(
           "Delete the "
           <> noun
@@ -1175,7 +1180,7 @@ fn delete_options(
 fn loading_state() -> Element(Msg) {
   html.p(
     [
-      attribute.class("mt-6 text-sm text-gray-500"),
+      attribute.class("mt-6 text-sm text-fg-muted"),
       attribute.attribute("data-testid", "line-details-loading"),
     ],
     [html.text("Loading...")],
@@ -1189,7 +1194,7 @@ fn failed_state() -> Element(Msg) {
       attribute.attribute("data-testid", "line-details-load-error"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-700")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Could not load the line."),
       ]),
       button.view(

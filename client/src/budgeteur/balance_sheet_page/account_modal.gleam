@@ -268,7 +268,7 @@ fn view_form(
     }
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     html.form(
@@ -319,7 +319,7 @@ fn view_form(
             attribute.disabled(submitting),
             event.on_input(NumberChanged),
           ]),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
             html.text(
               "Imports find the account by its number. Set it before the first import so the statement does not create a second account.",
             ),
@@ -339,7 +339,7 @@ fn view_form(
             ),
           ],
         ),
-        html.p([attribute.class("text-xs text-gray-500")], [
+        html.p([attribute.class("text-xs text-fg-muted")], [
           html.text(
             "Current for everyday, savings, and credit card accounts. The side of the balance sheet follows the balance.",
           ),

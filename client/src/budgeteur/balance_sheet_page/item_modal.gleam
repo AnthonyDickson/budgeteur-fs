@@ -328,7 +328,7 @@ fn view_form(
   }
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     html.form(
@@ -366,7 +366,7 @@ fn view_form(
           view_name_error(field.error(name)),
         ]),
         term_field(side, term, submitting),
-        html.p([attribute.class("text-xs text-gray-500")], [
+        html.p([attribute.class("text-xs text-fg-muted")], [
           html.text(term_help(side)),
         ]),
         case opening_value {

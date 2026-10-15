@@ -131,12 +131,12 @@ fn view_form(
   let item = form.item
 
   [
-    html.h2([attribute.class("text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("text-lg font-semibold text-fg")], [
       html.text("Record value"),
     ]),
     html.p(
       [
-        attribute.class("mb-4 text-sm text-gray-500"),
+        attribute.class("mb-4 text-sm text-fg-muted"),
         attribute.attribute("data-testid", "value-current"),
       ],
       [

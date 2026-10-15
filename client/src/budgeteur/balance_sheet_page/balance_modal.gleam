@@ -150,12 +150,12 @@ fn view_form(
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
   [
-    html.h2([attribute.class("text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("text-lg font-semibold text-fg")], [
       html.text("Record balance"),
     ]),
     html.p(
       [
-        attribute.class("mb-4 text-sm text-gray-500"),
+        attribute.class("mb-4 text-sm text-fg-muted"),
         attribute.attribute("data-testid", "balance-current"),
       ],
       [html.text(form.account.name <> ": " <> describe_current(form.current))],
