@@ -20,7 +20,7 @@
 
 - Transaction search ([design brief](docs/transaction-search.md)), one commit
   each:
-  1. [ ] Add the description-matching SQL function in `Data/`, with tests for
+  1. [x] Add the description-matching SQL function in `Data/`, with tests for
          ASCII and non-ASCII case and literal `%` and `_` (decision 2). Check
          first that SqlHydra renders a marked function in a `where` clause.
   2. [ ] Add the pure search module in the Transaction slice: request types,
