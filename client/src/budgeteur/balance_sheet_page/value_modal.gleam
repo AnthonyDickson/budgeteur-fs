@@ -12,9 +12,10 @@ import budgeteur/balance_sheet_page/value_form
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/side
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/dialog
 import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
 import lustre/attribute
@@ -103,7 +104,7 @@ pub fn update(state: Modal, msg: Msg) -> #(Modal, Option(Request), Outcome) {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "value-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -130,12 +131,12 @@ fn view_form(
   let item = form.item
 
   [
-    html.h2([attribute.class("text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("text-lg font-semibold text-fg")], [
       html.text("Record value"),
     ]),
     html.p(
       [
-        attribute.class("mb-4 text-sm text-gray-500"),
+        attribute.class("mb-4 text-sm text-fg-muted"),
         attribute.attribute("data-testid", "value-current"),
       ],
       [
@@ -161,10 +162,10 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
-              testid: "value-api-error",
-              message: "Could not record value: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [attribute.attribute("data-testid", "value-api-error")],
+              [html.text("Could not record value: " <> message)],
             )
           None -> element.none()
         },
@@ -175,14 +176,14 @@ fn view_form(
           note: "To correct the current value, keep its date: a value on a date that already has one replaces it.",
         )
           |> element.map(ValueMsg),
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: None,
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "value-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "value-submit-button",
             idle_label: "Record value",
             busy_label: "Recording...",

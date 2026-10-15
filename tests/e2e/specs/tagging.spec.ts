@@ -3,7 +3,8 @@ import { type Page } from '@playwright/test';
 import { expect, test } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
 
-const colorTestId = (hex: string) => `tag-color-hex${hex.replace('#', '')}`;
+// A tag colour is a Catppuccin accent name, e.g. 'red'.
+const colorTestId = (name: string) => `tag-color-${name}`;
 
 const tagModal = (page: Page) => page.getByTestId('tag-modal');
 const ruleModal = (page: Page) => page.getByTestId('rule-modal');
@@ -91,7 +92,7 @@ test.describe('tagging', () => {
     async ({ page }, testInfo) => {
       await gotoEmptyTagging(page);
 
-      await createFirstTag(page, 'Groceries', '#EF4444');
+      await createFirstTag(page, 'Groceries', 'red');
 
       await expect(page.getByTestId('no-tags-empty-state')).toBeHidden();
       await expect(page.getByTestId('tags-panel')).toBeVisible();

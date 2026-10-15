@@ -43,14 +43,29 @@ export function registerChart() {
 
         const width = this.clientWidth || 640;
         const draw = spec.kind === 'cashFlow' ? cashFlow : netWorth;
-        this.#root.replaceChildren(draw(Plot, spec.months, width));
+        this.#root.replaceChildren(
+          plotBackground(),
+          draw(Plot, spec.months, width),
+        );
       }
     },
   );
 }
 
 const fontSize = '12px';
-const accent = '#4f46e5';
+// Colours are colour roles from the page's stylesheet, which inherit into the
+// shadow root, so a drawn chart follows a change of mode. See decision 10 in
+// docs/styling.md.
+const accent = 'var(--color-primary)';
+const surface = 'var(--color-surface)';
+
+/// Plot fills tooltips with `--plot-background`, which it sets to white in a
+/// `:where` rule, so this rule wins.
+function plotBackground() {
+  const style = document.createElement('style');
+  style.textContent = `svg { --plot-background: ${surface}; }`;
+  return style;
+}
 
 /// Months in the order the server sent them, labelled by their short name.
 function monthAxis(months) {
@@ -122,7 +137,7 @@ function dots(Plot, months, field, color, name) {
     y: field,
     filter: (month) => month.complete === complete,
     stroke: color,
-    fill: complete ? color : 'white',
+    fill: complete ? color : surface,
     tip: true,
     title: (month) =>
       `${month.label}${complete ? '' : ' to date'}\n${name} ${

@@ -13,9 +13,10 @@ import budgeteur/balance_sheet_page/balance_form
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/side.{type Side}
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/dialog
 import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
 import lustre/attribute
@@ -124,7 +125,7 @@ fn validate_form(form: Form) -> Result(#(BalanceEntry, Form), Form) {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "balance-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -149,12 +150,12 @@ fn view_form(
   submitting submitting: Bool,
 ) -> List(Element(Msg)) {
   [
-    html.h2([attribute.class("text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("text-lg font-semibold text-fg")], [
       html.text("Record balance"),
     ]),
     html.p(
       [
-        attribute.class("mb-4 text-sm text-gray-500"),
+        attribute.class("mb-4 text-sm text-fg-muted"),
         attribute.attribute("data-testid", "balance-current"),
       ],
       [html.text(form.account.name <> ": " <> describe_current(form.current))],
@@ -167,10 +168,10 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
-              testid: "balance-api-error",
-              message: "Could not record balance: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [attribute.attribute("data-testid", "balance-api-error")],
+              [html.text("Could not record balance: " <> message)],
             )
           None -> element.none()
         },
@@ -180,14 +181,14 @@ fn view_form(
           note: "To correct the current balance, keep its date: a balance on a date that already has one replaces it.",
         )
           |> element.map(BalanceMsg),
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: None,
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "balance-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "balance-submit-button",
             idle_label: "Record balance",
             busy_label: "Recording...",

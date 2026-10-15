@@ -32,7 +32,7 @@ pub fn view(
       cancel_testid: "balance-sheet-item-delete-cancel-button",
       confirm_testid: "balance-sheet-item-delete-confirm-button",
       body: fn(item: BalanceSheetItem, _context: Nil) {
-        html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+        html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
           html.text(
             "Are you sure you want to delete "
             <> item.name

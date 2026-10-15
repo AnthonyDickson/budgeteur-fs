@@ -17,9 +17,12 @@ import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/route
-import budgeteur/shared/row_ui
 import budgeteur/shared/side.{type Side, Asset, Liability}
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
+import budgeteur/shared/ui/row
 import gleam/float
 import gleam/int
 import gleam/json
@@ -32,9 +35,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import youid/uuid
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 
 /// Horizontal padding for subtotal and total rows. The right side matches a
 /// line's padding plus its chevron and gap (4 + 4 + 3), so every amount on the
@@ -405,7 +405,7 @@ fn closed_lines(
     rows ->
       html.details(
         [
-          attribute.class("mt-8 rounded-lg border border-gray-200 bg-white"),
+          attribute.class("mt-8 rounded-lg border border-border bg-surface"),
           attribute.attribute("data-testid", "closed-lines"),
           attribute.open(flagged > 0),
         ],
@@ -413,7 +413,7 @@ fn closed_lines(
           html.summary(
             [
               attribute.class(
-                "cursor-pointer px-4 py-3 text-sm font-medium text-gray-700",
+                "cursor-pointer px-4 py-3 text-sm font-medium text-fg-muted",
               ),
             ],
             [
@@ -421,16 +421,23 @@ fn closed_lines(
               case flagged {
                 0 -> element.none()
                 _ ->
-                  html.span([attribute.class("ml-2 text-amber-700")], [
-                    html.text(
-                      int.to_string(flagged)
-                      <> " with transactions after closing",
-                    ),
-                  ])
+                  html.span(
+                    [
+                      attribute.class(
+                        "ml-2 rounded-full bg-warning-tint px-2 py-0.5 text-xs text-fg",
+                      ),
+                    ],
+                    [
+                      html.text(
+                        int.to_string(flagged)
+                        <> " with transactions after closing",
+                      ),
+                    ],
+                  )
               },
             ],
           ),
-          html.ul([attribute.class("divide-y divide-gray-100 border-t")], rows),
+          html.ul([attribute.class("divide-y divide-border border-t")], rows),
         ],
       )
   }
@@ -446,20 +453,20 @@ fn closed_row(
   html.li(
     [
       attribute.class(
-        "group relative flex items-center gap-3 px-4 py-3 hover:bg-gray-50",
+        "group relative flex items-center gap-3 px-4 py-3 hover:bg-surface-hover",
       ),
       attribute.attribute("data-testid", testid),
     ],
     [
       html.div([attribute.class("min-w-0 flex-1")], [
-        row_ui.open_link(
+        row.open_link(
           testid: "open-" <> testid,
           href: route.to_string(page),
           class: "block max-w-full truncate",
           children: [html.text(name)],
         ),
         html.p(
-          [attribute.class(row_ui.selectable_class <> " text-xs text-gray-500")],
+          [attribute.class(row.selectable_class <> " text-xs text-fg-muted")],
           [
             html.text(case closed_on {
               Some(closed_on) -> "Closed on " <> date.format(closed_on)
@@ -472,7 +479,7 @@ fn closed_row(
             html.p(
               [
                 attribute.class(
-                  row_ui.selectable_class <> " text-xs text-amber-700",
+                  row.selectable_class <> " text-xs text-fg-muted",
                 ),
                 attribute.attribute("data-testid", "transactions-after-close"),
               ],
@@ -492,7 +499,7 @@ fn closed_row(
           None -> element.none()
         },
       ]),
-      row_ui.chevron(class: ""),
+      row.chevron(class: ""),
     ],
   )
 }
@@ -511,23 +518,23 @@ fn statement_date_subtitle(today: Option(Date)) -> String {
 fn failed_state() -> Element(Msg) {
   html.div([], [
     page_header("Not available"),
-    html.div(
+    card.empty_state(
       [
-        attribute.class(
-          "mx-auto max-w-md rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-        ),
+        attribute.class("mx-auto max-w-md"),
         attribute.attribute("data-testid", "balance-sheet-load-error"),
       ],
       [
-        html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+        html.h2([attribute.class("text-base font-semibold text-fg")], [
           html.text("Could not load the balance sheet"),
         ]),
-        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+        html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
           html.text("Check your connection and try again."),
         ]),
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class("mt-4 " <> primary_button_class),
+            attribute.class("mt-4"),
             attribute.attribute("data-testid", "balance-sheet-retry"),
             event.on_click(UserRequestedSheetReload),
           ],
@@ -539,15 +546,13 @@ fn failed_state() -> Element(Msg) {
 }
 
 fn loading_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "mx-auto max-w-md rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
+      attribute.class("mx-auto max-w-md"),
       attribute.attribute("data-testid", "balance-sheet-loading-state"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Loading balance sheet..."),
       ]),
     ],
@@ -559,33 +564,36 @@ fn page_header(subtitle: String) -> Element(Msg) {
     [attribute.class("mb-6 flex flex-wrap items-center justify-between gap-4")],
     [
       html.div([], [
-        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
           html.text("Balance Sheet"),
         ]),
-        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+        html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
           html.text(subtitle),
         ]),
       ]),
       html.div([attribute.class("flex flex-wrap items-center gap-2")], [
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class(primary_button_class),
             attribute.attribute("data-testid", "add-asset-button"),
             event.on_click(UserRequestedItemCreation(Asset)),
           ],
           [html.text("Add asset")],
         ),
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class(primary_button_class),
             attribute.attribute("data-testid", "add-liability-button"),
             event.on_click(UserRequestedItemCreation(Liability)),
           ],
           [html.text("Add liability")],
         ),
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class(primary_button_class),
             attribute.attribute("data-testid", "add-account-button"),
             event.on_click(UserRequestedAccountCreation),
           ],
@@ -617,27 +625,23 @@ fn summary_cards(sheet: BalanceSheet) -> Element(Msg) {
 }
 
 fn summary_card(label: String, amount: Float, testid: String) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm",
-      ),
+      attribute.class("px-4 py-3"),
       attribute.attribute("data-testid", testid),
     ],
     [
       html.p(
         [
           attribute.class(
-            "text-xs font-medium uppercase tracking-wide text-gray-500",
+            "text-xs font-medium uppercase tracking-wide text-fg-muted",
           ),
         ],
         [html.text(label)],
       ),
       html.p(
         [
-          attribute.class(
-            "mt-1 text-xl font-semibold tabular-nums text-gray-900",
-          ),
+          attribute.class("mt-1 text-xl font-semibold tabular-nums text-fg"),
           attribute.attribute("data-amount", float.to_string(amount)),
         ],
         [html.text(money.format(amount))],
@@ -699,17 +703,15 @@ fn sheet_side(
   total_label total_label: String,
   total total: Float,
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(
-        "overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm",
-      ),
+      attribute.class("overflow-hidden"),
     ],
     [
       html.h2(
         [
           attribute.class(
-            "border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900",
+            "border-b border-border px-4 py-3 text-base font-semibold text-fg",
           ),
         ],
         [html.text(title)],
@@ -718,19 +720,17 @@ fn sheet_side(
       html.div(
         [
           attribute.class(
-            "flex items-center justify-between border-t border-gray-200 bg-gray-50 py-3 "
+            "flex items-center justify-between border-t border-border bg-surface-hover py-3 "
             <> total_row_padding,
           ),
         ],
         [
-          html.span([attribute.class("text-sm font-semibold text-gray-900")], [
+          html.span([attribute.class("text-sm font-semibold text-fg")], [
             html.text(total_label),
           ]),
           html.span(
             [
-              attribute.class(
-                "text-sm font-semibold tabular-nums text-gray-900",
-              ),
+              attribute.class("text-sm font-semibold tabular-nums text-fg"),
               attribute.attribute("data-amount", float.to_string(total)),
             ],
             [html.text(money.format(total))],
@@ -759,7 +759,7 @@ fn line_group(
     html.div(
       [
         attribute.class(
-          "flex items-center justify-between bg-gray-50 py-2 "
+          "flex items-center justify-between bg-surface-hover py-2 "
           <> total_row_padding,
         ),
       ],
@@ -767,14 +767,14 @@ fn line_group(
         html.h3(
           [
             attribute.class(
-              "text-xs font-semibold uppercase tracking-wide text-gray-500",
+              "text-xs font-semibold uppercase tracking-wide text-fg-muted",
             ),
           ],
           [html.text(title)],
         ),
         html.span(
           [
-            attribute.class("text-xs font-semibold text-gray-500"),
+            attribute.class("text-xs font-semibold text-fg-muted"),
             attribute.attribute("data-amount", float.to_string(subtotal)),
           ],
           [html.text(money.format(subtotal))],
@@ -783,10 +783,10 @@ fn line_group(
     ),
     case rows {
       [] ->
-        html.p([attribute.class("px-4 py-3 text-sm text-gray-400")], [
+        html.p([attribute.class("px-4 py-3 text-sm text-fg-subtle")], [
           html.text("None"),
         ])
-      _ -> html.ul([attribute.class("divide-y divide-gray-100")], rows)
+      _ -> html.ul([attribute.class("divide-y divide-border")], rows)
     },
   ])
 }
@@ -835,7 +835,7 @@ fn line_row(
   html.li(
     [
       attribute.class(
-        "group relative flex items-start gap-3 px-4 py-3 hover:bg-gray-50",
+        "group relative flex items-start gap-3 px-4 py-3 hover:bg-surface-hover",
       ),
       attribute.attribute("data-testid", testid),
     ],
@@ -843,21 +843,20 @@ fn line_row(
       html.div([attribute.class("min-w-0 flex-1")], [
         name,
         html.p(
-          [attribute.class(row_ui.selectable_class <> " text-xs text-gray-400")],
+          [attribute.class(row.selectable_class <> " text-xs text-fg-subtle")],
           [html.text(string.join(details, " · "))],
         ),
       ]),
       html.span(
         [
           attribute.class(
-            row_ui.selectable_class
-            <> " text-right text-sm tabular-nums text-gray-900",
+            row.selectable_class <> " text-right text-sm tabular-nums text-fg",
           ),
           attribute.attribute("data-amount", float.to_string(amount)),
         ],
         [html.text(money.format(amount))],
       ),
-      row_ui.chevron(class: "mt-0.5"),
+      row.chevron(class: "mt-0.5"),
     ],
   )
 }
@@ -868,7 +867,7 @@ fn line_link(
   page page: route.Route,
   name name: String,
 ) -> Element(Msg) {
-  row_ui.open_link(
+  row.open_link(
     testid:,
     href: route.to_string(page),
     class: "block max-w-full truncate",
@@ -892,18 +891,17 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
   case accounts {
     [] -> element.none()
     _ ->
-      html.div(
+      banner.view(
+        banner.Warning,
         [
-          attribute.class(
-            "mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3",
-          ),
+          attribute.class("mb-6"),
           attribute.attribute("data-testid", "unknown-balances"),
         ],
         [
-          html.h2([attribute.class("text-sm font-semibold text-amber-900")], [
+          html.h2([attribute.class("text-sm font-semibold")], [
             html.text("Unknown balances"),
           ]),
-          html.p([attribute.class("mt-1 text-sm text-amber-800")], [
+          html.p([attribute.class("mt-1")], [
             html.text(
               "These accounts have no balance yet, so they are left out of the totals.",
             ),
@@ -919,7 +917,7 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
                 [
                   attribute.class(
                     "group relative flex items-start gap-3 overflow-hidden rounded-md border "
-                    <> "border-amber-200 bg-white px-3 py-2 hover:bg-amber-100",
+                    <> "border-warning/60 bg-surface px-3 py-2 hover:bg-surface-hover",
                   ),
                   attribute.attribute(
                     "data-testid",
@@ -934,8 +932,7 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
                         html.p(
                           [
                             attribute.class(
-                              row_ui.selectable_class
-                              <> " text-xs text-amber-700",
+                              row.selectable_class <> " text-xs text-fg-muted",
                             ),
                           ],
                           [
@@ -945,7 +942,7 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
                       None -> element.none()
                     },
                   ]),
-                  row_ui.chevron(class: "mt-0.5"),
+                  row.chevron(class: "mt-0.5"),
                 ],
               )
             }),
@@ -968,18 +965,16 @@ fn empty_card(
   heading heading: String,
   body body: String,
 ) -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "mx-auto max-w-md rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
+      attribute.class("mx-auto max-w-md"),
       attribute.attribute("data-testid", testid),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text(heading),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text(body),
       ]),
     ],

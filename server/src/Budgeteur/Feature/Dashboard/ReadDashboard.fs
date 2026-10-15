@@ -54,7 +54,8 @@ type MonthLineResponse = {
     /// expenses".</summary>
     Name : string
 
-    /// <summary>The tag's hex color, or none for an untagged line.</summary>
+    /// <summary>The tag's colour, a Catppuccin accent name, or none for an
+    /// untagged line.</summary>
     Color : string option
 
     /// <summary>Zero for a tag with nothing this month but an amount in the
@@ -192,7 +193,7 @@ module DashboardResponse =
             line.Tag
             |> Option.map (fun tag -> TagName.value tag.Name)
             |> Option.defaultValue untaggedName
-        Color = line.Tag |> Option.map (fun tag -> TagColor.value tag.Color)
+        Color = line.Tag |> Option.map (fun tag -> TagColor.toString tag.Color)
         Amount = line.Amount
         Share = line.Share
         Baseline = line.Comparison |> Option.map _.Baseline

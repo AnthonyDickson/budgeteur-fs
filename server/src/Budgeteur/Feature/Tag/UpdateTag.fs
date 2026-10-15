@@ -25,6 +25,8 @@ module UpdateTag =
     /// <summary>Payload for updating a tag.</summary>
     type UpdateTagRequest = {
         Name : string
+        /// <summary>A Catppuccin accent colour, by name.</summary>
+        [<SchemaHint.Enum(typeof<TagColor>)>]
         Color : string
 
         /// <summary>Which side of the income statement the tag's transactions
@@ -102,7 +104,10 @@ module UpdateTag =
                 let! userId = Auth.getUserId ctx
 
                 let! name = TagName.create req.Name
-                let! color = TagColor.create req.Color
+
+                let! color =
+                    TagColor.parse req.Color
+                    |> Result.mapError ValidationFailed
 
                 let! kind =
                     TagKind.parse req.Kind |> Result.mapError ValidationFailed

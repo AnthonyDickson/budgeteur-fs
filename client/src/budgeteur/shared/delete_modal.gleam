@@ -1,7 +1,7 @@
 //// Generic delete-confirmation dialog shared by the transactions, tags, and
 //// rules features.
 ////
-//// `view` renders the dialog (`modal_ui.dialog`) for every state except
+//// `view` renders the dialog (`dialog.dialog`) for every state except
 //// `Hidden`, so the dialog is open exactly while the state says so. The
 //// feature-specific bits (title, test ids, body copy) are handed in through
 //// `Options`. The browser dismissing the dialog (Escape or an outside click)
@@ -10,7 +10,8 @@
 //// race a newer modal session.
 
 import budgeteur/shared/api_error.{type ApiError}
-import budgeteur/shared/modal_ui
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/dialog
 import gleam/option.{type Option, None, Some}
 import lustre/attribute
 import lustre/element.{type Element}
@@ -92,7 +93,7 @@ pub fn view(
   on_confirm on_confirm: msg,
 ) -> Element(msg) {
   let open = fn(target, context, error, deleting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: options.modal_testid,
       busy: deleting,
       on_dismiss: on_cancel,
@@ -127,26 +128,29 @@ fn dialog_content(
   on_confirm on_confirm: msg,
 ) -> List(Element(msg)) {
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(options.title),
     ]),
     options.body(target, context),
     case error {
       Some(message) ->
-        modal_ui.error_banner(
-          testid: options.error_testid,
-          message: options.error_prefix <> ": " <> message,
-          extra_class: "mb-4",
+        banner.view(
+          banner.Error,
+          [
+            attribute.class("mb-4"),
+            attribute.attribute("data-testid", options.error_testid),
+          ],
+          [html.text(options.error_prefix <> ": " <> message)],
         )
       None -> element.none()
     },
     html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-      modal_ui.cancel_button(
+      dialog.cancel_button(
         testid: options.cancel_testid,
         disabled: deleting,
         on_click: on_cancel,
       ),
-      modal_ui.delete_button(
+      dialog.delete_button(
         testid: options.confirm_testid,
         busy: deleting,
         on_click: on_confirm,

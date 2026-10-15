@@ -76,7 +76,8 @@ type ReportLineResponse = {
     /// expenses".</summary>
     Name : string
 
-    /// <summary>The tag's hex color, or none for an untagged line.</summary>
+    /// <summary>The tag's colour, a Catppuccin accent name, or none for an
+    /// untagged line.</summary>
     Color : string option
 
     Amount : decimal
@@ -210,7 +211,7 @@ module ReportResponse =
             tag
             |> Option.map (fun tag -> TagName.value tag.Name)
             |> Option.defaultValue untaggedName
-        Color = tag |> Option.map (fun tag -> TagColor.value tag.Color)
+        Color = tag |> Option.map (fun tag -> TagColor.toString tag.Color)
         Amount = amount
         Share = share
     }

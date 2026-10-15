@@ -1,7 +1,8 @@
 import budgeteur/shared/guard
-import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag}
-import budgeteur/shared/tag_ui
+import budgeteur/shared/ui/button
+import budgeteur/shared/ui/row
+import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/rule.{type Rule}
 import gleam/list
 import gleam/option.{type Option}
@@ -39,7 +40,7 @@ pub fn panel(
       html.div(
         [
           attribute.class(
-            "flex h-12 items-center justify-between gap-4 border-b border-gray-200 px-4",
+            "flex h-12 items-center justify-between gap-4 border-b border-border px-4",
           ),
         ],
         [
@@ -47,23 +48,20 @@ pub fn panel(
             html.span(
               [
                 attribute.class(
-                  "text-xs font-semibold uppercase tracking-wide text-gray-500",
+                  "text-xs font-semibold uppercase tracking-wide text-fg-muted",
                 ),
               ],
               [html.text("Rules")],
             ),
-            tag_ui.color_swatch(selected_tag.color),
-            html.h2([attribute.class("text-sm font-semibold text-gray-900")], [
+            swatch.view(selected_tag.color),
+            html.h2([attribute.class("text-sm font-semibold text-fg")], [
               html.text(selected_tag.name),
             ]),
           ]),
-          html.button(
+          button.view(
+            button.Primary,
+            button.Small,
             [
-              attribute.class(
-                "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium "
-                <> "text-white hover:bg-indigo-500 focus:outline-none "
-                <> "focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
-              ),
               attribute.attribute("data-testid", "new-rule-button"),
               event.on_click(on_create_rule),
             ],
@@ -91,14 +89,14 @@ fn column_headers() -> Element(msg) {
   html.div(
     [
       attribute.class(
-        "flex items-center gap-3 border-b border-gray-200 bg-gray-50 px-4 py-2",
+        "flex items-center gap-3 border-b border-border bg-surface-hover px-4 py-2",
       ),
     ],
     [
       html.span(
         [
           attribute.class(
-            "text-xs font-medium uppercase tracking-wide text-gray-500",
+            "text-xs font-medium uppercase tracking-wide text-fg-muted",
           ),
         ],
         [html.text("Pattern")],
@@ -112,18 +110,18 @@ fn rules_list(
   on_edit on_edit: fn(Uuid) -> msg,
 ) -> Element(msg) {
   html.ul(
-    [attribute.class("flex-1 divide-y divide-gray-100 overflow-y-auto")],
+    [attribute.class("flex-1 divide-y divide-border overflow-y-auto")],
     list.map(rules, fn(rule) {
       html.li(
         [
           attribute.class(
-            "group relative flex h-11 items-center gap-3 px-4 hover:bg-gray-50",
+            "group relative flex h-11 items-center gap-3 px-4 hover:bg-surface-hover",
           ),
           attribute.attribute("data-testid", "rule-row"),
         ],
         [
           html.div([attribute.class("min-w-0 flex-1")], [
-            row_ui.open_button(
+            row.open_button(
               testid: "edit-rule-" <> uuid.to_string(rule.id),
               on_click: on_edit(rule.id),
               class: "block max-w-full truncate",
@@ -131,7 +129,7 @@ fn rules_list(
                 html.code(
                   [
                     attribute.class(
-                      "rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-800",
+                      "rounded bg-surface-hover px-1.5 py-0.5 text-xs font-medium text-fg",
                     ),
                   ],
                   [html.text(rule.pattern)],
@@ -139,7 +137,7 @@ fn rules_list(
               ],
             ),
           ]),
-          row_ui.chevron(class: ""),
+          row.chevron(class: ""),
         ],
       )
     }),
@@ -148,7 +146,7 @@ fn rules_list(
 
 fn rules_prompt() -> Element(msg) {
   html.div([attribute.class("flex flex-1 flex-col")], [
-    html.div([attribute.class("h-12 border-b border-gray-200")], []),
+    html.div([attribute.class("h-12 border-b border-border")], []),
     html.div(
       [
         attribute.class(
@@ -156,7 +154,7 @@ fn rules_prompt() -> Element(msg) {
         ),
       ],
       [
-        html.p([attribute.class("text-sm text-gray-500")], [
+        html.p([attribute.class("text-sm text-fg-muted")], [
           html.text("Select a tag to see its rules"),
         ]),
       ],
@@ -172,10 +170,10 @@ fn rules_empty_state(tag: Tag) -> Element(msg) {
       ),
     ],
     [
-      html.h3([attribute.class("text-sm font-medium text-gray-900")], [
+      html.h3([attribute.class("text-sm font-medium text-fg")], [
         html.text("No rules for \"" <> tag.name <> "\" yet"),
       ]),
-      html.p([attribute.class("mt-1 max-w-sm text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 max-w-sm text-sm text-fg-muted")], [
         html.text(
           "Rules auto-tag transactions whose description contains a pattern, "
           <> "e.g. \"STARBUCKS\" > Coffee.",

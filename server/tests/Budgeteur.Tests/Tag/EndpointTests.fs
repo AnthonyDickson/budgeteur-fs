@@ -12,7 +12,7 @@ module EndpointTests =
         (kind : string)
         : CreateTag.CreateTagRequest = {
         Name = name
-        Color = "#22C55E"
+        Color = "Green"
         Kind = kind
     }
 
@@ -21,7 +21,7 @@ module EndpointTests =
         (kind : string)
         : UpdateTag.UpdateTagRequest = {
         Name = name
-        Color = "#22C55E"
+        Color = "Green"
         Kind = kind
     }
 
@@ -117,5 +117,22 @@ module EndpointTests =
 
                 let! tags = TestHttp.readJson<TagResponse list> tags
                 Expect.isEmpty tags "a rejected tag should not be stored"
+            }
+
+            testCaseAsync "an unknown colour is reported as a bad request"
+            <| async {
+                use app = newApp ()
+
+                let! response =
+                    TestHttp.postJson app.Client CreateTag.Path {
+                        createRequest "Groceries" "Expense" with
+                            Color = "#22C55E"
+                    }
+                    |> Async.AwaitTask
+
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.BadRequest
+                    "a hex colour should be rejected"
             }
         ]

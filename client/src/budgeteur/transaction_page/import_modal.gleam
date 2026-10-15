@@ -3,7 +3,8 @@
 //// effects. See decisions 10 and 13 in docs/csv-import.md.
 
 import budgeteur/shared/api_error.{type ApiError}
-import budgeteur/shared/modal_ui
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/dialog
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -223,15 +224,15 @@ fn dialog(
   errors errors: List(String),
   busy busy: Bool,
 ) -> Element(Msg) {
-  modal_ui.dialog(
+  dialog.dialog(
     testid: "import-modal",
     busy:,
     on_dismiss: CancelRequested,
     children: [
-      html.h2([attribute.class("mb-2 text-lg font-semibold text-gray-900")], [
+      html.h2([attribute.class("mb-2 text-lg font-semibold text-fg")], [
         html.text("Import statements"),
       ]),
-      html.p([attribute.class("mb-4 text-sm text-gray-500")], [
+      html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
         html.text(
           "Choose CSV exports from Kiwibank or ASB credit cards. Transactions already imported are skipped, and accounts are created for new account numbers.",
         ),
@@ -245,22 +246,19 @@ fn dialog(
           case errors {
             [] -> element.none()
             _ ->
-              html.div(
+              banner.view(
+                banner.Error,
                 [
-                  attribute.class(
-                    "max-h-64 overflow-y-auto rounded-md border border-red-200 bg-red-50 px-3 py-2",
-                  ),
+                  attribute.class("max-h-64 overflow-y-auto"),
                   attribute.attribute("data-testid", "import-errors"),
                 ],
                 [
-                  html.p([attribute.class("text-sm font-medium text-red-800")], [
+                  html.p([attribute.class("font-medium")], [
                     html.text("Nothing was imported. Fix these and try again:"),
                   ]),
                   html.ul(
                     [
-                      attribute.class(
-                        "mt-1 list-disc space-y-1 pl-5 text-sm text-red-700",
-                      ),
+                      attribute.class("mt-1 list-disc space-y-1 pl-5"),
                     ],
                     list.map(errors, fn(error) {
                       html.li([attribute.class("whitespace-pre-wrap")], [
@@ -279,9 +277,9 @@ fn dialog(
             attribute.multiple(True),
             attribute.disabled(busy),
             attribute.class(
-              "block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 "
-              <> "file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 "
-              <> "hover:file:bg-indigo-100",
+              "block w-full text-sm text-fg-muted file:mr-3 file:rounded-md file:border file:border-border-input "
+              <> "file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg "
+              <> "hover:file:bg-surface-hover",
             ),
             event.on(
               "change",
@@ -290,12 +288,12 @@ fn dialog(
             ),
           ]),
           html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-            modal_ui.cancel_button(
+            dialog.cancel_button(
               testid: "import-cancel-button",
               disabled: busy,
               on_click: CancelRequested,
             ),
-            modal_ui.submit_button(
+            dialog.submit_button(
               testid: "import-submit-button",
               idle_label: "Import",
               busy_label: "Importing...",

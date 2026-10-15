@@ -30,9 +30,9 @@ pub fn open_button(
     [
       attribute.type_("button"),
       attribute.class(
-        "cursor-pointer text-left text-sm text-gray-900 group-hover:text-indigo-600 "
+        "cursor-pointer text-left text-sm text-fg group-hover:text-primary "
         <> "focus:outline-none after:absolute after:inset-0 focus-visible:after:ring-2 "
-        <> "focus-visible:after:ring-inset focus-visible:after:ring-indigo-500 "
+        <> "focus-visible:after:ring-inset focus-visible:after:ring-primary "
         <> class,
       ),
       attribute.attribute("data-testid", testid),
@@ -46,7 +46,9 @@ pub fn open_button(
 /// line it up with the first line of text in a row whose items start at the
 /// top.
 pub fn chevron(class class: String) -> Element(msg) {
-  icon.chevron_right(class: "text-gray-400 group-hover:text-gray-600 " <> class)
+  icon.chevron_right(
+    class: "text-fg-subtle group-hover:text-fg-muted " <> class,
+  )
 }
 
 /// A row that opens a page rather than a dialog: `open_button`'s whole-row
@@ -62,9 +64,9 @@ pub fn open_link(
     [
       attribute.href(href),
       attribute.class(
-        "text-left text-sm text-gray-900 group-hover:text-indigo-600 "
+        "text-left text-sm text-fg group-hover:text-primary "
         <> "focus:outline-none after:absolute after:inset-0 focus-visible:after:ring-2 "
-        <> "focus-visible:after:ring-inset focus-visible:after:ring-indigo-500 "
+        <> "focus-visible:after:ring-inset focus-visible:after:ring-primary "
         <> class,
       ),
       attribute.attribute("data-testid", testid),

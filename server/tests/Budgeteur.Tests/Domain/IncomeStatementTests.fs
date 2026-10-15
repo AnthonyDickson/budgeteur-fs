@@ -10,7 +10,7 @@ module IncomeStatementTests =
     let private tag (name : string) (kind : TagKind) : Tag = {
         Id = Guid.CreateVersion7 ()
         Name = TagName.unsafeFromString name
-        Color = TagColor.unsafeFromString "#6366F1"
+        Color = Lavender
         Kind = kind
     }
 

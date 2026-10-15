@@ -7,6 +7,8 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import budgeteur/tagging_page/auto_tag
 import budgeteur/tagging_page/rule.{type Rule}
 import budgeteur/tagging_page/rule_delete_modal
@@ -790,7 +792,7 @@ pub fn view(model: Model) -> Element(Msg) {
         ),
       ],
       [
-        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
           html.text("Tags & Rules"),
         ]),
         // Runs apply every rule, not the selected tag's, so the buttons sit
@@ -834,16 +836,13 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-const secondary_button_class = "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium "
-  <> "text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-
 /// "Tag untagged" and "Re-tag all", both disabled while a run is in progress.
 fn auto_tag_buttons(run: auto_tag.Run) -> Element(Msg) {
-  let button = fn(testid, label, busy_label, action, on_click) {
-    html.button(
+  let auto_tag_button = fn(testid, label, busy_label, action, on_click) {
+    button.view(
+      button.Secondary,
+      button.Small,
       [
-        attribute.class(secondary_button_class),
         attribute.attribute("data-testid", testid),
         attribute.disabled(run != auto_tag.Idle),
         event.on_click(on_click),
@@ -858,14 +857,14 @@ fn auto_tag_buttons(run: auto_tag.Run) -> Element(Msg) {
   }
 
   html.div([attribute.class("flex gap-2")], [
-    button(
+    auto_tag_button(
       "tag-untagged-button",
       "Tag untagged",
       "Tagging...",
       auto_tag.TagUntagged,
       UserRequestedTagUntagged,
     ),
-    button(
+    auto_tag_button(
       "retag-all-button",
       "Re-tag all",
       "Re-tagging...",
@@ -880,11 +879,9 @@ fn master_detail(
   rules: List(Rule),
   selected_tag: Option(Uuid),
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(
-        "h-[30rem] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm",
-      ),
+      attribute.class("h-[30rem] overflow-hidden"),
     ],
     [
       html.div([attribute.class("flex h-full")], [
@@ -907,19 +904,13 @@ fn master_detail(
   )
 }
 
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-
 fn loading_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "tagging-loading-state"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Loading tags and rules..."),
       ]),
     ],
@@ -929,23 +920,22 @@ fn loading_state() -> Element(Msg) {
 /// The first load failed; the page offers a retry rather than an indefinite
 /// loading state.
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "tagging-load-error"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("Could not load tags and rules"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Check your connection and try again."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "tagging-retry"),
           event.on_click(UserRequestedReload),
         ],

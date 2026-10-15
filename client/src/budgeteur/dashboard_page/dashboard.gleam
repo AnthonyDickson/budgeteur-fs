@@ -3,6 +3,7 @@
 
 import budgeteur/shared/date
 import budgeteur/shared/money
+import budgeteur/shared/tag.{type TagColor}
 import gleam/dynamic/decode
 import gleam/option.{type Option}
 import gleam/time/calendar.{type Date}
@@ -50,7 +51,7 @@ pub type Figure {
 pub type Line {
   Line(
     name: String,
-    color: Option(String),
+    color: Option(TagColor),
     figure: Figure,
     /// An expense line's percentage of the month's expenses.
     share: Option(Float),
@@ -224,7 +225,7 @@ fn line_decoder() -> decode.Decoder(Line) {
   use color <- decode.optional_field(
     "color",
     option.None,
-    decode.optional(decode.string),
+    decode.optional(tag.color_decoder()),
   )
   use figure <- decode.then(figure_decoder())
   use share <- optional_decimal("share")

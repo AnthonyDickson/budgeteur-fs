@@ -22,10 +22,6 @@ None
 
 ## Backlog
 
-- Consider how to manage styling across pages/source code files for consistent
-  styling.
-  - Consider Catppuccin Latte and Mocha
-    - Migrate tag colour swatch
 - Except for transaction table and data entry, consider rounding to the nearest
   dollar
 - For modals, ensure that focus is returned to the element focused before

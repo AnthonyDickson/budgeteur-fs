@@ -4,14 +4,16 @@ import budgeteur/shared/date
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
-import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
+import budgeteur/shared/ui/input
+import budgeteur/shared/ui/row
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/import_modal
 import budgeteur/transaction_page/transaction.{type Transaction}
@@ -794,7 +796,7 @@ pub fn view(model: Model) -> Element(Msg) {
 
   html.div([attribute.class("mx-auto max-w-4xl px-4 py-8 sm:px-6")], [
     html.div([attribute.class("flex items-center justify-between gap-4 mb-6")], [
-      html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+      html.h1([attribute.class("text-2xl font-semibold text-fg")], [
         html.text("Transactions"),
       ]),
       // Offered only once the list has loaded, so a new transaction always
@@ -802,25 +804,28 @@ pub fn view(model: Model) -> Element(Msg) {
       case model.results {
         Loaded(_) ->
           html.div([attribute.class("flex items-center gap-2")], [
-            html.a(
+            button.link(
+              button.Secondary,
+              button.Regular,
               [
                 attribute.href(route.to_string(route.QuickTagging)),
-                attribute.class(secondary_button_class),
                 attribute.attribute("data-testid", "quick-tag-link"),
               ],
               [html.text("Quick tag")],
             ),
-            html.button(
+            button.view(
+              button.Secondary,
+              button.Regular,
               [
-                attribute.class(secondary_button_class),
                 attribute.attribute("data-testid", "import-button"),
                 event.on_click(ImportModalMsg(import_modal.OpenRequested)),
               ],
               [html.text("Import")],
             ),
-            html.button(
+            button.view(
+              button.Primary,
+              button.Regular,
               [
-                attribute.class(primary_button_class),
                 attribute.attribute("data-testid", "record-transaction-button"),
                 event.on_click(UserRequestedCreationForm),
               ],
@@ -885,20 +890,20 @@ fn search_bar(search: Search, filters_open: Bool) -> Element(Msg) {
         html.span([attribute.class("sr-only")], [
           html.text("Search descriptions"),
         ]),
-        html.input([
+        input.text([
           attribute.type_("search"),
           attribute.attribute("data-testid", "search-input"),
           attribute.placeholder("Search descriptions"),
           attribute.maxlength(transaction_search.max_text_length),
           attribute.value(search.text),
-          attribute.class(text_input_class),
           event.on_input(UserChangedText),
         ]),
       ],
     ),
-    html.button(
+    button.view(
+      button.Secondary,
+      button.Regular,
       [
-        attribute.class(secondary_button_class),
         attribute.attribute("data-testid", "filters-button"),
         attribute.aria_expanded(filters_open),
         attribute.aria_controls(filters_panel_id),
@@ -913,9 +918,10 @@ fn search_bar(search: Search, filters_open: Bool) -> Element(Msg) {
     ),
     case transaction_search.is_set(search) {
       True ->
-        html.button(
+        button.view(
+          button.Secondary,
+          button.Regular,
           [
-            attribute.class(secondary_button_class),
             attribute.attribute("data-testid", "clear-search-button"),
             event.on_click(UserClearedSearch),
           ],
@@ -935,12 +941,10 @@ fn filters_panel(model: Model, results: Results) -> Element(Msg) {
       transaction_search.Invalid(dates: None, minimum: None, maximum: None)
     Error(invalid) -> invalid
   }
-  html.div(
+  card.panel(
     [
       attribute.id(filters_panel_id),
-      attribute.class(
-        "mb-4 grid gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-2",
-      ),
+      attribute.class("mb-4 grid gap-4 p-4 sm:grid-cols-2"),
       attribute.attribute("data-testid", "filters-panel"),
     ],
     [
@@ -966,10 +970,9 @@ fn account_filter(
     )
   }
   html.label([attribute.class("block")], [
-    html.span([attribute.class(label_class)], [html.text("Account")]),
-    html.select(
+    input.label("Account"),
+    input.select(
       [
-        attribute.class(select_class),
         attribute.attribute("data-testid", "account-select"),
         event.on_change(fn(value) {
           UserChangedAccount(transaction_search.parse_account(value))
@@ -1011,10 +1014,9 @@ fn tag_filter(selected: TagFilter, tags: List(Tag)) -> Element(Msg) {
     )
   }
   html.label([attribute.class("block")], [
-    html.span([attribute.class(label_class)], [html.text("Tag")]),
-    html.select(
+    input.label("Tag"),
+    input.select(
       [
-        attribute.class(select_class),
         attribute.attribute("data-testid", "tag-select"),
         event.on_change(fn(value) {
           UserChangedTag(transaction_search.parse_tag(value))
@@ -1042,10 +1044,9 @@ fn dates_filter(
 ) -> Element(Msg) {
   html.div([attribute.class("space-y-2")], [
     html.label([attribute.class("block")], [
-      html.span([attribute.class(label_class)], [html.text("Dates")]),
-      html.select(
+      input.label("Dates"),
+      input.select(
         [
-          attribute.class(select_class),
           attribute.attribute("data-testid", "dates-select"),
           event.on_change(fn(value) {
             transaction_search.parse_preset(value)
@@ -1087,7 +1088,7 @@ fn field_error(testid: String, error: Option(String)) -> Element(Msg) {
     Some(error) ->
       html.p(
         [
-          attribute.class("text-sm text-red-600"),
+          attribute.class("text-sm text-danger"),
           attribute.attribute("data-testid", testid),
         ],
         [html.text(error)],
@@ -1104,10 +1105,9 @@ fn amount_filter(
 ) -> Element(Msg) {
   html.div([attribute.class("space-y-2")], [
     html.label([attribute.class("block")], [
-      html.span([attribute.class(label_class)], [html.text("Direction")]),
-      html.select(
+      input.label("Direction"),
+      input.select(
         [
-          attribute.class(select_class),
           attribute.attribute("data-testid", "direction-select"),
           event.on_change(fn(value) {
             UserChangedDirection(transaction_search.parse_direction(value))
@@ -1156,19 +1156,16 @@ fn size_input(
 ) -> Element(Msg) {
   html.div([], [
     html.label([attribute.class("block")], [
-      html.span([attribute.class(label_class)], [html.text(label)]),
-      html.input([
+      input.label(label),
+      input.text([
         attribute.type_("text"),
         attribute.attribute("data-testid", testid),
         attribute.inputmode("decimal"),
         attribute.placeholder("0.00"),
         attribute.value(value),
-        attribute.class(text_input_class),
-        attribute.classes([
-          #(modal_ui.error_border_style, option.is_some(error)),
-        ]),
         event.on_input(on_input),
         event.on_change(fn(_) { UserCommittedSize }),
+        input.invalid(option.is_some(error)),
       ]),
     ]),
     field_error(testid <> "-error", error),
@@ -1182,12 +1179,11 @@ fn date_input(
   on_input: fn(String) -> Msg,
 ) -> Element(Msg) {
   html.label([attribute.class("block")], [
-    html.span([attribute.class(label_class)], [html.text(label)]),
-    html.input([
+    input.label(label),
+    input.text([
       attribute.type_("date"),
       attribute.attribute("data-testid", testid),
       attribute.value(value),
-      attribute.class(text_input_class),
       event.on_input(on_input),
     ]),
   ])
@@ -1200,7 +1196,7 @@ fn resolved_days(preset: DatePreset, results: Results) -> Element(Msg) {
     True, Some(from), Some(to) ->
       html.p(
         [
-          attribute.class("text-sm text-gray-500"),
+          attribute.class("text-sm text-fg-muted"),
           attribute.attribute("data-testid", "dates-range"),
         ],
         [html.text(date.format(from) <> " to " <> date.format(to))],
@@ -1214,7 +1210,7 @@ fn resolved_days(preset: DatePreset, results: Results) -> Element(Msg) {
 fn searching_note(searching: Bool) -> Element(Msg) {
   html.p(
     [
-      attribute.class("mb-2 h-5 text-sm text-gray-500"),
+      attribute.class("mb-2 h-5 text-sm text-fg-muted"),
       attribute.attribute("data-testid", "searching-note"),
       attribute.aria_live("polite"),
     ],
@@ -1232,18 +1228,18 @@ fn transactions_table(
   html.div(
     [
       attribute.class(
-        "overflow-hidden rounded-lg border border-gray-200 shadow-sm",
+        "overflow-hidden rounded-lg border border-border shadow-sm",
       ),
     ],
     [
-      html.table([attribute.class("min-w-full divide-y divide-gray-200")], [
+      html.table([attribute.class("min-w-full divide-y divide-border")], [
         html.caption([attribute.class("sr-only")], [
           html.text("All transactions"),
         ]),
         html.thead(
           [
             attribute.class(
-              "bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
+              "bg-surface-hover text-left text-xs font-medium uppercase tracking-wide text-fg-muted",
             ),
           ],
           [
@@ -1269,18 +1265,18 @@ fn transactions_table(
           ],
         ),
         html.tbody(
-          [attribute.class("divide-y divide-gray-200 bg-white")],
+          [attribute.class("divide-y divide-border bg-surface")],
           list.map(transactions, fn(transaction) {
             html.tr(
               [
-                attribute.class("group relative hover:bg-gray-50"),
+                attribute.class("group relative hover:bg-surface-hover"),
                 attribute.attribute("data-testid", "transaction-row"),
               ],
               [
                 html.td(
                   [
                     attribute.class(
-                      "whitespace-nowrap px-4 py-3 text-sm text-gray-700",
+                      "whitespace-nowrap px-4 py-3 text-sm text-fg-muted",
                     ),
                   ],
                   [html.text(transaction.date |> date.format)],
@@ -1288,7 +1284,7 @@ fn transactions_table(
                 html.td(
                   [
                     attribute.class(
-                      "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-gray-900 text-right",
+                      "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-fg text-right",
                     ),
                     attribute.attribute(
                       "data-amount",
@@ -1298,7 +1294,7 @@ fn transactions_table(
                   [html.text(transaction.amount |> money.format)],
                 ),
                 html.td([attribute.class("px-4 py-3")], [
-                  row_ui.open_button(
+                  row.open_button(
                     testid: "edit-transaction-"
                       <> uuid.to_string(transaction.id),
                     on_click: UserRequestedEditForm(transaction.id),
@@ -1306,10 +1302,10 @@ fn transactions_table(
                     children: [html.text(transaction.description)],
                   ),
                 ]),
-                html.td([attribute.class("px-4 py-3 text-sm text-gray-700")], [
+                html.td([attribute.class("px-4 py-3 text-sm text-fg-muted")], [
                   html.text(transaction.account_name |> option.unwrap("-")),
                 ]),
-                html.td([attribute.class("px-4 py-3 text-sm text-gray-700")], [
+                html.td([attribute.class("px-4 py-3 text-sm text-fg-muted")], [
                   html.text(case transaction.is_transfer {
                     // A transfer has no tag: it is neither income nor
                     // an expense.
@@ -1320,7 +1316,7 @@ fn transactions_table(
                   }),
                 ]),
                 html.td([attribute.class("py-3 pr-4")], [
-                  row_ui.chevron(class: "block"),
+                  row.chevron(class: "block"),
                 ]),
               ],
             )
@@ -1337,9 +1333,10 @@ fn load_more(results: Results, loading_more: Bool) -> Element(Msg) {
     None -> element.none()
     Some(_) ->
       html.div([attribute.class("mt-4 flex justify-center")], [
-        html.button(
+        button.view(
+          button.Secondary,
+          button.Regular,
           [
-            attribute.class(secondary_button_class),
             attribute.attribute("data-testid", "load-more-button"),
             attribute.disabled(loading_more),
             event.on_click(UserRequestedMore),
@@ -1359,18 +1356,15 @@ fn load_more(results: Results, loading_more: Bool) -> Element(Msg) {
 /// "Record Transaction" button in the page header stays visible, so no extra
 /// call to action is needed here.
 fn no_transactions_empty_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "no-transactions-empty-state"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("No transactions yet"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Use \"Record Transaction\" to add your first one."),
       ]),
     ],
@@ -1379,20 +1373,19 @@ fn no_transactions_empty_state() -> Element(Msg) {
 
 /// Shown in place of the table when the search matches nothing.
 fn no_matches_empty_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "no-matches-empty-state"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("No transactions match your search"),
       ]),
-      html.button(
+      button.view(
+        button.Secondary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> secondary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "clear-search-empty-button"),
           event.on_click(UserClearedSearch),
         ],
@@ -1402,32 +1395,13 @@ fn no_matches_empty_state() -> Element(Msg) {
   )
 }
 
-const label_class = "mb-1 block text-sm font-medium text-gray-700"
-
-const select_class = "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-
-const text_input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-
-const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 "
-  <> "focus:ring-indigo-500 focus:ring-offset-2"
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
-  <> "focus:ring-indigo-500 focus:ring-offset-2"
-
 fn loading_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "transactions-loading-state"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Loading transactions..."),
       ]),
     ],
@@ -1437,23 +1411,22 @@ fn loading_state() -> Element(Msg) {
 /// The first load failed; the page offers a retry rather than an indefinite
 /// loading state.
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "transactions-load-error"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("Could not load transactions"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Check your connection and try again."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "transactions-retry"),
           event.on_click(UserRequestedReload),
         ],

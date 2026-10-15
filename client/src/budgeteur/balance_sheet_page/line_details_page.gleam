@@ -31,6 +31,9 @@ import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/side.{Asset, Liability}
 import budgeteur/shared/term.{Current, NonCurrent}
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -44,13 +47,9 @@ import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
 
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-
-const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-
-const link_class = "text-sm font-medium text-indigo-600 hover:text-indigo-500"
+/// The back link sits on the page background, where primary text falls short of
+/// AA in Latte (decision 6 in docs/styling.md).
+const link_class = "text-sm font-medium text-fg-muted hover:text-fg"
 
 // Types
 // -----
@@ -919,15 +918,15 @@ fn header(line: Line) -> Element(Msg) {
     ],
     [
       html.div([], [
-        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
           html.text(name),
         ]),
-        html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+        html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
           html.text(details),
         ]),
         html.p(
           [
-            attribute.class("mt-1 text-sm text-gray-700"),
+            attribute.class("mt-1 text-sm text-fg-muted"),
             attribute.attribute("data-testid", "line-details-current"),
           ],
           [html.text(current)],
@@ -936,7 +935,7 @@ fn header(line: Line) -> Element(Msg) {
           Some(closed_on) ->
             html.p(
               [
-                attribute.class("mt-1 text-sm text-gray-500"),
+                attribute.class("mt-1 text-sm text-fg-muted"),
                 attribute.attribute("data-testid", "line-details-closed-on"),
               ],
               [html.text("Closed on " <> date.format(closed_on))],
@@ -945,11 +944,10 @@ fn header(line: Line) -> Element(Msg) {
         },
         case after_close {
           Some(after_close) ->
-            html.p(
+            banner.view(
+              banner.Warning,
               [
-                attribute.class(
-                  "mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800",
-                ),
+                attribute.class("mt-2"),
                 attribute.attribute(
                   "data-testid",
                   "line-details-transactions-after-close",
@@ -974,9 +972,10 @@ fn header(line: Line) -> Element(Msg) {
       // The actions sit on their own row, so the details and any warning
       // above them take the page's width.
       html.div([attribute.class("flex flex-wrap gap-2")], [
-        html.button(
+        button.view(
+          button.Secondary,
+          button.Regular,
           [
-            attribute.class(secondary_button_class),
             attribute.attribute("data-testid", "edit-line-button"),
             event.on_click(UserRequestedEdit),
           ],
@@ -984,9 +983,10 @@ fn header(line: Line) -> Element(Msg) {
         ),
         // Closing is apart from editing, since it is an event rather than a
         // detail. A closed line can have its close date changed, or reopen.
-        html.button(
+        button.view(
+          button.Secondary,
+          button.Regular,
           [
-            attribute.class(secondary_button_class),
             attribute.attribute("data-testid", "close-line-button"),
             event.on_click(UserRequestedClose),
           ],
@@ -1000,18 +1000,20 @@ fn header(line: Line) -> Element(Msg) {
         case closed_on {
           None -> element.none()
           Some(_) ->
-            html.button(
+            button.view(
+              button.Secondary,
+              button.Regular,
               [
-                attribute.class(secondary_button_class),
                 attribute.attribute("data-testid", "reopen-line-button"),
                 event.on_click(UserRequestedReopen),
               ],
               [html.text("Reopen")],
             )
         },
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class(primary_button_class),
             attribute.attribute("data-testid", "record-observation-button"),
             event.on_click(UserRequestedRecord),
           ],
@@ -1035,7 +1037,7 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
       html.p(
         [
           attribute.class(
-            "rounded-lg border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500",
+            "rounded-lg border border-border bg-surface px-4 py-8 text-center text-sm text-fg-muted",
           ),
           attribute.attribute("data-testid", "line-details-empty"),
         ],
@@ -1049,28 +1051,31 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
       html.table(
         [
           attribute.class(
-            "w-full overflow-hidden rounded-lg border border-gray-200 bg-white text-sm",
+            "w-full overflow-hidden rounded-lg border border-border bg-surface text-sm",
           ),
         ],
         [
-          html.thead([attribute.class("bg-gray-50 text-left text-gray-500")], [
-            html.tr([], [
-              html.th([attribute.class("px-4 py-2 font-medium")], [
-                html.text("As of"),
+          html.thead(
+            [attribute.class("bg-surface-hover text-left text-fg-muted")],
+            [
+              html.tr([], [
+                html.th([attribute.class("px-4 py-2 font-medium")], [
+                  html.text("As of"),
+                ]),
+                html.th([attribute.class("px-4 py-2 text-right font-medium")], [
+                  html.text(case line_ref {
+                    ItemRef(..) -> "Value"
+                    AccountRef(..) -> "Balance"
+                  }),
+                ]),
+                html.th([attribute.class("px-4 py-2")], [
+                  html.span([attribute.class("sr-only")], [html.text("Actions")]),
+                ]),
               ]),
-              html.th([attribute.class("px-4 py-2 text-right font-medium")], [
-                html.text(case line_ref {
-                  ItemRef(..) -> "Value"
-                  AccountRef(..) -> "Balance"
-                }),
-              ]),
-              html.th([attribute.class("px-4 py-2")], [
-                html.span([attribute.class("sr-only")], [html.text("Actions")]),
-              ]),
-            ]),
-          ]),
+            ],
+          ),
           html.tbody(
-            [attribute.class("divide-y divide-gray-100")],
+            [attribute.class("divide-y divide-border")],
             list.map(entries, entry_row(_, deletable)),
           ),
         ],
@@ -1084,21 +1089,19 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
 fn entry_row(entry: Entry, deletable: Bool) -> Element(Msg) {
   let as_of = date.format(entry.as_of)
   html.tr([attribute.attribute("data-testid", "observation-" <> as_of)], [
-    html.td([attribute.class("px-4 py-2 text-gray-900")], [html.text(as_of)]),
+    html.td([attribute.class("px-4 py-2 text-fg")], [html.text(as_of)]),
     html.td(
       [
-        attribute.class("px-4 py-2 text-right tabular-nums text-gray-900"),
+        attribute.class("px-4 py-2 text-right tabular-nums text-fg"),
         attribute.attribute("data-amount", money.to_string(entry.amount)),
       ],
       [html.text(money.format(entry.amount))],
     ),
     html.td([attribute.class("px-4 py-2 text-right")], [
-      html.button(
+      button.view(
+        button.DangerText,
+        button.Small,
         [
-          attribute.class(
-            "text-sm font-medium text-red-600 hover:text-red-500 "
-            <> "disabled:cursor-not-allowed disabled:text-gray-400",
-          ),
           attribute.attribute("data-testid", "delete-observation-" <> as_of),
           attribute.disabled(!deletable),
           case deletable {
@@ -1141,7 +1144,7 @@ fn delete_options(
     cancel_testid: "delete-observation-cancel-button",
     confirm_testid: "delete-observation-confirm-button",
     body: fn(entry: Entry, place: Place) {
-      html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+      html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
         html.text(
           "Delete the "
           <> noun
@@ -1175,7 +1178,7 @@ fn delete_options(
 fn loading_state() -> Element(Msg) {
   html.p(
     [
-      attribute.class("mt-6 text-sm text-gray-500"),
+      attribute.class("mt-6 text-sm text-fg-muted"),
       attribute.attribute("data-testid", "line-details-loading"),
     ],
     [html.text("Loading...")],
@@ -1183,20 +1186,20 @@ fn loading_state() -> Element(Msg) {
 }
 
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "mt-6 rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
+      attribute.class("mt-6"),
       attribute.attribute("data-testid", "line-details-load-error"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-700")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Could not load the line."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "line-details-retry"),
           event.on_click(UserRetried),
         ],

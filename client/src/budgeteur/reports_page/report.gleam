@@ -4,6 +4,7 @@
 import budgeteur/shared/date
 import budgeteur/shared/money
 import budgeteur/shared/side.{type Side}
+import budgeteur/shared/tag.{type TagColor}
 import budgeteur/shared/term.{type Term}
 import budgeteur/shared/uuid as uuid_codec
 import gleam/dynamic/decode
@@ -113,7 +114,7 @@ pub type Line {
   Line(
     tag_id: Option(Uuid),
     name: String,
-    color: Option(String),
+    color: Option(TagColor),
     amount: Float,
     // An expense line's percentage of total expenses.
     share: Option(Float),
@@ -230,7 +231,7 @@ fn line_decoder() -> decode.Decoder(Line) {
   use color <- decode.optional_field(
     "color",
     None,
-    decode.optional(decode.string),
+    decode.optional(tag.color_decoder()),
   )
   use amount <- decode.field("amount", money.decode_decimal())
   use share <- optional_money("share")

@@ -256,6 +256,15 @@ The client always calls same-origin URLs. In development Vite proxies the
 backend paths (`/api`, `/login`, `/logout`, `/signin-oidc`) to the server; in
 production the server serves the SPA. No CORS is configured.
 
+### Styling
+
+Views name colours by purpose, through roles such as surface, muted text, and
+primary, which the stylesheet maps to Catppuccin Latte or Mocha as the OS
+chooses. Tailwind's own palette is cleared, so roles are the only colours a view
+can use. Shared elements (buttons, inputs, cards, banners, the modal dialog) are
+stateless view functions in the client's `shared/ui/`, which own their classes;
+layout and one-off elements stay inline. See [styling](styling.md).
+
 ## Money
 
 - The server rounds every amount to cents, midpoint away from zero, through the

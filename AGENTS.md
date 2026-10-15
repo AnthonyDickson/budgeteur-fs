@@ -41,6 +41,7 @@ implementations of the patterns in [docs/architecture.md](docs/architecture.md).
 | [csv-import.md](docs/csv-import.md)                 | CSV import and accounts design brief: formats, hashes, flow    |
 | [quick-tagging.md](docs/quick-tagging.md)           | Quick tagging design brief: queue, dismissals, one click       |
 | [transaction-search.md](docs/transaction-search.md) | Transaction search design brief: criteria, matching, paging    |
+| [styling.md](docs/styling.md)                       | Styling design brief: Catppuccin roles, modes, components      |
 | [fp-showcase.md](docs/fp-showcase.md)               | Tour of the codebase's functional programming ideas (tutorial) |
 
 Docs record requirements, design decisions and their rationale, and conventions
@@ -134,6 +135,10 @@ Each rule is explained in the linked doc.
   committed, and never hand-edited. See [docs/database.md](docs/database.md).
 - **No cached server data on the client** — localStorage holds user preferences
   only.
+- **Colours** — views use colour roles (`bg-surface`, `text-fg-muted`,
+  `bg-primary`), never palette colours, and shared elements come from the
+  client's `shared/ui/`. Text meets WCAG AA in both modes. See
+  [styling](docs/styling.md).
 - **E2E selectors** — use `data-testid` attributes; add them when introducing
   interactive elements.
 - **Secrets** — never log secrets or tokens; source them from environment

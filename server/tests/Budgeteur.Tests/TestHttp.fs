@@ -68,7 +68,7 @@ module Seed =
         async {
             let request : CreateTag.CreateTagRequest = {
                 Name = name
-                Color = "#22C55E"
+                Color = "Green"
                 Kind = kind
             }
 

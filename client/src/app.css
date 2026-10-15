@@ -1,5 +1,116 @@
 @import "tailwindcss";
 
+/* Colours come in two layers; see docs/styling.md. The palette layer holds
+   Catppuccin's colours for the active flavour. The role layer below names
+   colours by purpose, and views use roles only. */
+
+/* Palette layer: Catppuccin Latte, the default. */
+:root {
+  color-scheme: light;
+
+  --ctp-rosewater: #dc8a78;
+  --ctp-flamingo: #dd7878;
+  --ctp-pink: #ea76cb;
+  --ctp-mauve: #8839ef;
+  --ctp-red: #d20f39;
+  --ctp-maroon: #e64553;
+  --ctp-peach: #fe640b;
+  --ctp-yellow: #df8e1d;
+  --ctp-green: #40a02b;
+  --ctp-teal: #179299;
+  --ctp-sky: #04a5e5;
+  --ctp-sapphire: #209fb5;
+  --ctp-blue: #1e66f5;
+  --ctp-lavender: #7287fd;
+  --ctp-text: #4c4f69;
+  --ctp-subtext1: #5c5f77;
+  --ctp-subtext0: #6c6f85;
+  --ctp-overlay2: #7c7f93;
+  --ctp-overlay1: #8c8fa1;
+  --ctp-overlay0: #9ca0b0;
+  --ctp-surface2: #acb0be;
+  --ctp-surface1: #bcc0cc;
+  --ctp-surface0: #ccd0da;
+  --ctp-base: #eff1f5;
+  --ctp-mantle: #e6e9ef;
+  --ctp-crust: #dce0e8;
+}
+
+/* Palette layer: Catppuccin Mocha, when the OS asks for dark mode. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --ctp-rosewater: #f5e0dc;
+    --ctp-flamingo: #f2cdcd;
+    --ctp-pink: #f5c2e7;
+    --ctp-mauve: #cba6f7;
+    --ctp-red: #f38ba8;
+    --ctp-maroon: #eba0ac;
+    --ctp-peach: #fab387;
+    --ctp-yellow: #f9e2af;
+    --ctp-green: #a6e3a1;
+    --ctp-teal: #94e2d5;
+    --ctp-sky: #89dceb;
+    --ctp-sapphire: #74c7ec;
+    --ctp-blue: #89b4fa;
+    --ctp-lavender: #b4befe;
+    --ctp-text: #cdd6f4;
+    --ctp-subtext1: #bac2de;
+    --ctp-subtext0: #a6adc8;
+    --ctp-overlay2: #9399b2;
+    --ctp-overlay1: #7f849c;
+    --ctp-overlay0: #6c7086;
+    --ctp-surface2: #585b70;
+    --ctp-surface1: #45475a;
+    --ctp-surface0: #313244;
+    --ctp-base: #1e1e2e;
+    --ctp-mantle: #181825;
+    --ctp-crust: #11111b;
+  }
+}
+
+/* Role layer. `static` keeps every role a CSS variable, so the charts and
+   swatches can refer to roles that no utility uses. */
+@theme static {
+  /* Only the roles below are colours; Tailwind's palette is cleared so a
+     view cannot use it (decision 8 in docs/styling.md). */
+  --color-*: initial;
+
+  --color-page: var(--ctp-mantle);
+  --color-surface: var(--ctp-base);
+  --color-surface-hover: color-mix(in oklab, var(--ctp-text) 3%, var(--ctp-base));
+  --color-backdrop: var(--ctp-crust);
+
+  --color-fg: var(--ctp-text);
+  --color-fg-muted: var(--ctp-subtext1);
+  --color-fg-subtle: var(--ctp-overlay2);
+
+  --color-border: var(--ctp-surface0);
+  --color-border-input: var(--ctp-surface1);
+
+  --color-primary: var(--ctp-mauve);
+  --color-primary-hover: color-mix(in oklab, var(--ctp-text) 10%, var(--ctp-mauve));
+  --color-primary-tint: color-mix(in oklab, var(--ctp-mauve) 15%, var(--ctp-base));
+  --color-on-primary: var(--ctp-base);
+
+  --color-danger: var(--ctp-red);
+  --color-danger-hover: color-mix(in oklab, var(--ctp-text) 10%, var(--ctp-red));
+  --color-danger-tint: color-mix(in oklab, var(--ctp-red) 15%, var(--ctp-base));
+
+  --color-success: var(--ctp-green);
+  --color-success-tint: color-mix(in oklab, var(--ctp-green) 15%, var(--ctp-base));
+
+  --color-warning: var(--ctp-yellow);
+  --color-warning-tint: color-mix(in oklab, var(--ctp-yellow) 15%, var(--ctp-base));
+}
+
+@layer base {
+  body {
+    @apply bg-page text-fg;
+  }
+}
+
 @keyframes toast-in {
   from { opacity: 0; transform: translateX(100%); }
   to { opacity: 1; transform: translateX(0); }

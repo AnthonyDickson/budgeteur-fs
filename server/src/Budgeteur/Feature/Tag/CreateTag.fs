@@ -26,6 +26,8 @@ module CreateTag =
     /// server-side.</summary>
     type CreateTagRequest = {
         Name : string
+        /// <summary>A Catppuccin accent colour, by name.</summary>
+        [<SchemaHint.Enum(typeof<TagColor>)>]
         Color : string
 
         /// <summary>Which side of the income statement the tag's transactions
@@ -89,7 +91,10 @@ module CreateTag =
                 let! (req : CreateTagRequest) = Json.read ctx
 
                 let! tagName = TagName.create req.Name
-                let! tagColor = TagColor.create req.Color
+
+                let! tagColor =
+                    TagColor.parse req.Color
+                    |> Result.mapError ValidationFailed
 
                 let! tagKind =
                     TagKind.parse req.Kind |> Result.mapError ValidationFailed

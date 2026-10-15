@@ -18,10 +18,10 @@ pub type Toast {
 
 fn level_to_class(level: ToastLevel) -> String {
   case level {
-    Success -> "border-l-green-500 bg-green-50"
-    Info -> "border-l-indigo-500 bg-indigo-50"
-    Warning -> "border-l-amber-500 bg-amber-50"
-    Error -> "border-l-red-500 bg-red-50"
+    Success -> "border-l-success bg-success-tint"
+    Info -> "border-l-primary bg-primary-tint"
+    Warning -> "border-l-warning bg-warning-tint"
+    Error -> "border-l-danger bg-danger-tint"
   }
 }
 
@@ -38,7 +38,7 @@ pub fn view(toast: Toast, on_dismiss: fn(Uuid) -> msg) -> Element(msg) {
   html.div(
     [
       attribute.class(
-        "pointer-events-auto rounded-lg border border-gray-200 border-l-4 "
+        "pointer-events-auto rounded-lg border border-border border-l-4 "
         <> level_to_class(toast.level)
         <> " shadow-xl p-4 max-w-sm animate-[toast-in_0.3s_ease-out]",
       ),
@@ -48,17 +48,17 @@ pub fn view(toast: Toast, on_dismiss: fn(Uuid) -> msg) -> Element(msg) {
     [
       html.div([attribute.class("flex justify-between items-start gap-3")], [
         html.div([], [
-          html.p([attribute.class("text-sm font-medium text-gray-900")], [
+          html.p([attribute.class("text-sm font-medium text-fg")], [
             html.text(toast.title),
           ]),
-          html.p([attribute.class("text-sm text-gray-500 mt-1")], [
+          html.p([attribute.class("text-sm text-fg-muted mt-1")], [
             html.text(toast.body),
           ]),
         ]),
         html.button(
           [
             attribute.class(
-              "shrink-0 -m-1 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 cursor-pointer text-lg leading-none",
+              "shrink-0 -m-1 rounded-md p-1 text-fg-subtle hover:bg-surface-hover hover:text-fg cursor-pointer text-lg leading-none",
             ),
             attribute.aria_label("Dismiss"),
             event.on_click(on_dismiss(toast.id)),

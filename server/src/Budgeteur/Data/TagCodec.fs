@@ -8,14 +8,18 @@ module TagCodec =
         Id = tag.Id
         Name = TagName.value tag.Name
         UserId = userId
-        Color = TagColor.value tag.Color
+        Color = TagColor.toString tag.Color
         Kind = TagKind.toString tag.Kind
     }
 
     let fromRow (row : main.Tags) : Tag = {
         Id = row.Id
         Name = TagName.unsafeFromString row.Name
-        Color = TagColor.unsafeFromString row.Color
+        Color =
+            match TagColor.parse row.Color with
+            | Ok color -> color
+            // Only the tag endpoints write this column, and they parse it first
+            | Error error -> failwith error
         Kind =
             match TagKind.parse row.Kind with
             | Ok kind -> kind

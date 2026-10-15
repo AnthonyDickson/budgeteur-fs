@@ -1,8 +1,13 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
-import budgeteur/shared/tag.{type Tag, type TagKind, Expense, Income, Tag}
+import budgeteur/shared/tag.{
+  type Tag, type TagColor, type TagKind, Expense, Income, Tag,
+}
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
+import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
 }
@@ -20,21 +25,9 @@ pub const max_name_length = 64
 /// Default kind selected in the create form. Most tags are expenses.
 pub const default_kind = Expense
 
-/// Default color selected in the create form.
-pub const default_color = "#6366F1"
-
-pub const color_palette = [
-  "#64748B",
-  "#EF4444",
-  "#F97316",
-  "#F59E0B",
-  "#22C55E",
-  "#14B8A6",
-  "#0EA5E9",
-  "#6366F1",
-  "#8B5CF6",
-  "#EC4899",
-]
+/// Default colour selected in the create form: the primary, so a new tag
+/// matches the app until the user picks another.
+pub const default_color = tag.Mauve
 
 pub type NameError {
   NameRequired
@@ -46,7 +39,7 @@ pub type NameField =
   field.Field(String, NameError)
 
 pub type Form {
-  Form(name: NameField, color: String, kind: TagKind)
+  Form(name: NameField, color: TagColor, kind: TagKind)
 }
 
 pub type Modal =
@@ -68,7 +61,7 @@ pub type Msg {
   CreateRequested
   EditRequested(tag: Tag)
   NameChanged(value: String)
-  ColorChosen(value: String)
+  ColorChosen(value: TagColor)
   KindChosen(value: String)
   SaveRequested
   // Response to the in-flight create or update; the `Created`/`Updated`
@@ -149,7 +142,7 @@ fn set_name(state: Modal, name: String) -> Modal {
 }
 
 /// Validate and set the color field. No op for Hidden and Submitting states.
-fn set_color(state: Modal, color: String) -> Modal {
+fn set_color(state: Modal, color: TagColor) -> Modal {
   form_modal.set_form(state, fn(form) { Form(..form, color:) })
 }
 
@@ -247,7 +240,7 @@ fn is_required(error: NameError) -> Bool {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "tag-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -286,7 +279,7 @@ fn view_form(
   let has_error = field.has_error(name)
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     html.form(
@@ -297,41 +290,31 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
-              testid: "tag-api-error",
-              message: "Could not save tag: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [attribute.attribute("data-testid", "tag-api-error")],
+              [html.text("Could not save tag: " <> message)],
             )
           None -> element.none()
         },
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Name")],
-          ),
-          html.input([
+          input.label("Name"),
+          input.text([
             attribute.type_("text"),
             attribute.attribute("data-testid", "tag-name-input"),
             attribute.placeholder("e.g. Food & Drink"),
-            attribute.class(
-              "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-              <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-              <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-            ),
-            attribute.classes([
-              #(modal_ui.error_border_style, has_error),
-            ]),
             attribute.autofocus(True),
             attribute.value(field.input(name)),
             attribute.disabled(submitting),
             event.on_input(NameChanged),
+            input.invalid(has_error),
           ]),
           view_name_error(name_error),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
             html.text("Prefer broad categories, e.g. Food & Drink over Coffee."),
           ]),
         ]),
-        modal_ui.radio_group(
+        input.radio_group(
           legend: "Kind",
           testid: "tag-kind",
           disabled: submitting,
@@ -345,40 +328,45 @@ fn view_form(
             #(tag.kind_to_string(Income), "Income", kind == Income, KindChosen),
           ],
         ),
-        html.p([attribute.class("-mt-3 text-xs text-gray-500")], [
+        html.p([attribute.class("-mt-3 text-xs text-fg-muted")], [
           html.text(
             "Refunds stay on the tag's side: they reduce its expenses rather than count as income.",
           ),
         ]),
         html.fieldset([attribute.class("block")], [
           html.legend(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
+            [attribute.class("mb-1 block text-sm font-medium text-fg-muted")],
             [html.text("Color")],
           ),
           html.div(
             [attribute.class("flex flex-wrap gap-3")],
-            list.map(color_palette, fn(palette_color) {
+            list.map(tag.colors, fn(palette_color) {
               let is_selected = palette_color == color
+              let color_name = tag.color_to_string(palette_color)
               html.button(
                 [
                   attribute.type_("button"),
                   attribute.attribute(
                     "data-testid",
-                    "tag-color-" <> string.replace(palette_color, "#", "hex"),
+                    "tag-color-" <> string.lowercase(color_name),
                   ),
                   attribute.class(
                     "flex h-8 w-8 items-center justify-center rounded-full "
-                    <> "focus:outline-none focus:ring-2 focus:ring-offset-2 "
+                    <> "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface "
                     <> "disabled:cursor-not-allowed disabled:opacity-60 "
                     <> case is_selected {
                       True ->
-                        "ring-2 ring-gray-900 ring-offset-2 "
-                        <> "border-2 border-white"
+                        "ring-2 ring-fg ring-offset-2 ring-offset-surface "
+                        <> "border-2 border-surface"
                       False -> "hover:scale-105"
                     },
                   ),
-                  attribute.style("background-color", palette_color),
-                  attribute.aria_label("Use color " <> palette_color),
+                  swatch.background(palette_color),
+                  attribute.aria_label("Use color " <> color_name),
+                  attribute.attribute("aria-pressed", case is_selected {
+                    True -> "true"
+                    False -> "false"
+                  }),
                   attribute.disabled(submitting),
                   event.on_click(ColorChosen(palette_color)),
                 ],
@@ -390,22 +378,22 @@ fn view_form(
             }),
           ),
         ]),
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: case mode {
             form_modal.Create -> None
             form_modal.Edit(_) ->
-              Some(modal_ui.delete_request_button(
+              Some(dialog.delete_request_button(
                 testid: "tag-delete-button",
                 disabled: submitting,
                 on_click: DeleteRequested,
               ))
           },
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "tag-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "tag-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,
@@ -420,15 +408,15 @@ fn view_form(
 
 fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
   case name_error {
-    Some(NameRequired) -> modal_ui.form_error_message("Name cannot be empty")
+    Some(NameRequired) -> input.error_message("Name cannot be empty")
     Some(TooLong) ->
-      modal_ui.form_error_message(
+      input.error_message(
         "Name cannot be longer than "
         <> int.to_string(max_name_length)
         <> " characters",
       )
     Some(Duplicate) ->
-      modal_ui.form_error_message("A tag with this name already exists")
+      input.error_message("A tag with this name already exists")
     None -> element.none()
   }
 }
@@ -440,7 +428,7 @@ fn check_icon() -> Element(Msg) {
       attribute.attribute("viewBox", "0 0 24 24"),
       attribute.attribute("stroke-width", "3"),
       attribute.attribute("stroke", "currentColor"),
-      attribute.class("h-4 w-4 text-white"),
+      attribute.class("h-4 w-4 text-on-primary"),
       attribute.attribute("aria-hidden", "true"),
     ],
     [

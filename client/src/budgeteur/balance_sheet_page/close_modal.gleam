@@ -11,7 +11,9 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -20,10 +22,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
-
-const input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
 
 /// What is being closed, which words the form.
 pub type Kind {
@@ -153,7 +151,7 @@ fn parse(input: String) -> Result(Date, CloseDateError) {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "close-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -193,7 +191,7 @@ fn view_form(
   }
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     html.form(
@@ -204,47 +202,40 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
-              testid: "close-api-error",
-              message: "Could not close: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [attribute.attribute("data-testid", "close-api-error")],
+              [html.text("Could not close: " <> message)],
             )
           None -> element.none()
         },
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text(label)],
-          ),
-          html.input([
+          input.label(label),
+          input.text([
             attribute.type_("date"),
             attribute.attribute("data-testid", "close-date-input"),
-            attribute.class(input_class),
-            attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(form.closed_on)),
-            ]),
             attribute.value(field.input(form.closed_on)),
             attribute.disabled(submitting),
             event.on_input(ClosedOnChanged),
+            input.invalid(field.has_error(form.closed_on)),
           ]),
           case field.error(form.closed_on) {
-            Some(Required) ->
-              modal_ui.form_error_message("Date cannot be empty")
-            Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
+            Some(Required) -> input.error_message("Date cannot be empty")
+            Some(NotADate) -> input.error_message("Not a valid date")
             None -> element.none()
           },
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
             html.text(help),
           ]),
         ]),
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: None,
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "close-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "close-submit-button",
             idle_label: case form.changing {
               True -> "Save"

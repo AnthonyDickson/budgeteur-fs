@@ -1,4 +1,4 @@
-import budgeteur/shared/tag.{type TagKind}
+import budgeteur/shared/tag.{type TagColor, type TagKind}
 import gleam/dynamic/decode
 import gleam/json
 
@@ -6,21 +6,21 @@ import gleam/json
 /// create and update. The server generates the id and derives the user id from
 /// auth.
 pub type TagWriteRequest {
-  TagWriteRequest(name: String, color: String, kind: TagKind)
+  TagWriteRequest(name: String, color: TagColor, kind: TagKind)
 }
 
 pub fn to_json(tag_write_request: TagWriteRequest) -> json.Json {
   let TagWriteRequest(name:, color:, kind:) = tag_write_request
   json.object([
     #("name", json.string(name)),
-    #("color", json.string(color)),
+    #("color", tag.color_to_json(color)),
     #("kind", tag.kind_to_json(kind)),
   ])
 }
 
 pub fn decoder() -> decode.Decoder(TagWriteRequest) {
   use name <- decode.field("name", decode.string)
-  use color <- decode.field("color", decode.string)
+  use color <- decode.field("color", tag.color_decoder())
   use kind <- decode.field("kind", tag.kind_decoder())
   decode.success(TagWriteRequest(name:, color:, kind:))
 }

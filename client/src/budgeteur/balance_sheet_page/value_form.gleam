@@ -9,9 +9,9 @@ import budgeteur/balance_sheet_page/item_write_request.{
 }
 import budgeteur/shared/date
 import budgeteur/shared/field
-import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/ui/input
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -19,10 +19,6 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-
-const input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
 
 pub type ValueError {
   ValueRequired
@@ -146,57 +142,43 @@ pub fn view(
 
   html.div([attribute.class("space-y-4")], [
     html.label([attribute.class("block")], [
-      html.span(
-        [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-        [html.text("Value")],
-      ),
-      html.input([
+      input.label("Value"),
+      input.text([
         attribute.type_("text"),
         attribute.attribute("data-testid", "value-amount-input"),
         attribute.inputmode("decimal"),
         attribute.placeholder("0.00"),
-        attribute.class(input_class),
-        attribute.classes([
-          #(modal_ui.error_border_style, field.has_error(value)),
-        ]),
         attribute.value(field.input(value)),
         attribute.disabled(submitting),
         event.on_input(ValueChanged),
+        input.invalid(field.has_error(value)),
       ]),
       case field.error(value) {
-        Some(ValueRequired) ->
-          modal_ui.form_error_message("Value cannot be empty")
-        Some(NotANumber) -> modal_ui.form_error_message("Not a valid number")
+        Some(ValueRequired) -> input.error_message("Value cannot be empty")
+        Some(NotANumber) -> input.error_message("Not a valid number")
         Some(Negative) ->
-          modal_ui.form_error_message(
+          input.error_message(
             "Value cannot be negative. Record what is owed as a liability.",
           )
         None -> element.none()
       },
-      html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+      html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
         html.text(value_help(side) <> " " <> note),
       ]),
     ]),
     html.label([attribute.class("block")], [
-      html.span(
-        [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-        [html.text("Value as of")],
-      ),
-      html.input([
+      input.label("Value as of"),
+      input.text([
         attribute.type_("date"),
         attribute.attribute("data-testid", "value-as-of-input"),
-        attribute.class(input_class),
-        attribute.classes([
-          #(modal_ui.error_border_style, field.has_error(as_of)),
-        ]),
         attribute.value(field.input(as_of)),
         attribute.disabled(submitting),
         event.on_input(AsOfChanged),
+        input.invalid(field.has_error(as_of)),
       ]),
       case field.error(as_of) {
-        Some(AsOfRequired) ->
-          modal_ui.form_error_message("Date cannot be empty")
-        Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
+        Some(AsOfRequired) -> input.error_message("Date cannot be empty")
+        Some(NotADate) -> input.error_message("Not a valid date")
         None -> element.none()
       },
     ]),

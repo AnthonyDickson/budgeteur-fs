@@ -20,7 +20,7 @@
 //// newer modal session. The double-submit guard falls out of `submit` being a
 //// no-op while `Submitting`.
 ////
-//// The feature's `view` renders the dialog (`modal_ui.dialog`) for every state
+//// The feature's `view` renders the dialog (`dialog.dialog`) for every state
 //// except `Hidden`, so the dialog is open exactly while the modal is. While a
 //// request is in flight the dialog is locked (`closedby="none"`), so a response
 //// can never race a newer modal session.

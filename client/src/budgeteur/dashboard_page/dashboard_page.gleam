@@ -16,7 +16,10 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
-import budgeteur/shared/tag_ui
+import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
+import budgeteur/shared/ui/link
+import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
 import gleam/float
 import gleam/int
@@ -27,13 +30,6 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-
-const card_class = "rounded-lg border border-gray-200 bg-white shadow-sm"
-
-const link_class = "font-medium text-indigo-600 hover:text-indigo-500"
 
 // Types
 // -----
@@ -180,12 +176,12 @@ pub fn view(model: Model) -> Element(Msg) {
       attribute.attribute("data-testid", "dashboard-page"),
     ],
     [
-      html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+      html.h1([attribute.class("text-2xl font-semibold text-fg")], [
         html.text("Dashboard"),
       ]),
       ..case model.dashboard {
         Loading -> [
-          html.p([attribute.class("text-sm text-gray-500")], [
+          html.p([attribute.class("text-sm text-fg-muted")], [
             html.text("Loading the dashboard..."),
           ]),
         ]
@@ -208,10 +204,10 @@ pub fn view(model: Model) -> Element(Msg) {
 
 fn section_heading(title: String, subtitle: String) -> Element(Msg) {
   html.div([], [
-    html.h2([attribute.class("text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
-    html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+    html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
       html.text(subtitle),
     ]),
   ])
@@ -252,7 +248,7 @@ fn position_section(position: Position) -> Element(Msg) {
               None -> "Not available"
             }),
           ]),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
             html.text("Working capital over average monthly expenses"),
           ]),
         ]),
@@ -288,7 +284,7 @@ fn month_section(month: Month, waiting: Remote(Int)) -> Element(Msg) {
       ),
       html.p(
         [
-          attribute.class("text-sm text-gray-500"),
+          attribute.class("text-sm text-fg-muted"),
           attribute.attribute("data-testid", "dashboard-freshness"),
         ],
         [
@@ -314,7 +310,7 @@ fn month_section(month: Month, waiting: Remote(Int)) -> Element(Msg) {
         ),
         savings_rate_card(month),
       ]),
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text(
           "The savings rate is on take-home pay: contributions taken out of pay, such as KiwiSaver, are not in it.",
         ),
@@ -353,7 +349,7 @@ fn month_section(month: Month, waiting: Remote(Int)) -> Element(Msg) {
   )
 }
 
-const big_figure_class = "mt-1 text-xl font-semibold tabular-nums text-gray-900"
+const big_figure_class = "mt-1 text-xl font-semibold tabular-nums text-fg"
 
 /// A total with its typical amount and change below it, once there is a
 /// baseline.
@@ -413,7 +409,7 @@ fn comparison_grid(
   typical: String,
   change: List(Element(Msg)),
 ) -> Element(Msg) {
-  let label_class = "text-gray-500"
+  let label_class = "text-fg-muted"
 
   html.dl(
     [
@@ -425,7 +421,7 @@ fn comparison_grid(
       html.dt([attribute.class(label_class)], [html.text("Typical")]),
       html.dd(
         [
-          attribute.class("text-right text-gray-700"),
+          attribute.class("text-right text-fg-muted"),
           attribute.attribute("data-testid", "dashboard-typical"),
         ],
         [html.text(typical)],
@@ -452,20 +448,20 @@ fn lines_table(
   compared compared: Bool,
 ) -> Element(Msg) {
   let header_class =
-    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500"
+    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-fg-muted"
 
-  html.div([attribute.class("overflow-hidden " <> card_class)], [
+  card.panel([attribute.class("overflow-hidden")], [
     html.h3(
       [
         attribute.class(
-          "border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900",
+          "border-b border-border px-4 py-3 text-base font-semibold text-fg",
         ),
       ],
       [html.text(title)],
     ),
     case lines {
       [] ->
-        html.p([attribute.class("px-4 py-3 text-sm text-gray-400")], [
+        html.p([attribute.class("px-4 py-3 text-sm text-fg-subtle")], [
           html.text("None"),
         ])
       _ ->
@@ -475,13 +471,13 @@ fn lines_table(
             attribute.attribute("data-testid", testid),
           ],
           [
-            html.thead([attribute.class("border-b border-gray-100")], [
+            html.thead([attribute.class("border-b border-border")], [
               html.tr([], [
                 html.th(
                   [
                     attribute.scope("col"),
                     attribute.class(
-                      "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
+                      "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-fg-muted",
                     ),
                   ],
                   [html.text("Tag")],
@@ -515,7 +511,7 @@ fn lines_table(
               ]),
             ]),
             html.tbody(
-              [attribute.class("divide-y divide-gray-100")],
+              [attribute.class("divide-y divide-border")],
               list.map(lines, line_row(_, better, compared)),
             ),
           ],
@@ -530,14 +526,14 @@ fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
 
   html.tr([attribute.attribute("data-testid", "dashboard-line")], [
     html.td([attribute.class("px-4 py-2")], [
-      html.span([attribute.class("flex items-center gap-2 text-gray-700")], [
+      html.span([attribute.class("flex items-center gap-2 text-fg-muted")], [
         case line.color {
-          Some(color) -> tag_ui.color_swatch(color)
+          Some(color) -> swatch.view(color)
           None ->
             html.span(
               [
                 attribute.class(
-                  "inline-block h-3 w-3 shrink-0 rounded-full border border-dashed border-gray-400",
+                  "inline-block h-3 w-3 shrink-0 rounded-full border border-dashed border-fg-subtle",
                 ),
               ],
               [],
@@ -549,14 +545,14 @@ fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
     ]),
     html.td(
       [
-        attribute.class(number_class <> " text-gray-900"),
+        attribute.class(number_class <> " text-fg"),
         attribute.attribute("data-amount", float.to_string(figure.amount)),
       ],
       [html.text(money.format(figure.amount))],
     ),
     ..case compared {
       True -> [
-        html.td([attribute.class(number_class <> " text-gray-500")], [
+        html.td([attribute.class(number_class <> " text-fg-muted")], [
           html.text(case figure.baseline {
             Some(baseline) -> money.format(baseline)
             None -> ""
@@ -589,14 +585,14 @@ fn share_bar(share: Option(Float)) -> Element(Msg) {
     Some(share) if share >. 0.0 ->
       html.div(
         [
-          attribute.class("mt-1 h-1 rounded-full bg-gray-100"),
+          attribute.class("mt-1 h-1 rounded-full bg-surface-hover"),
           attribute.title(percent(share) <> " of expenses"),
           attribute.attribute("data-testid", "dashboard-share-bar"),
         ],
         [
           html.div(
             [
-              attribute.class("h-1 rounded-full bg-indigo-400"),
+              attribute.class("h-1 rounded-full bg-primary"),
               attribute.style(
                 "width",
                 float.to_string(float.min(share, 100.0)) <> "%",
@@ -611,7 +607,8 @@ fn share_bar(share: Option(Float)) -> Element(Msg) {
 }
 
 /// A change's amount and percentage, each its own cell so they line up. Both
-/// are green when the change is an improvement and uncoloured otherwise. The
+/// sit on the success tint when the change is an improvement and are plain
+/// otherwise. Success is never a text colour (decision 6 in docs/styling.md). The
 /// sign carries the direction, so colour is not the only cue.
 fn change_cells(
   amount: String,
@@ -619,26 +616,24 @@ fn change_cells(
   change: Float,
   better: Better,
 ) -> List(Element(Msg)) {
-  let class = case is_improvement(change, better) {
-    True -> "font-medium text-green-700"
-    False -> "text-gray-700"
+  let improved = is_improvement(change, better)
+
+  // An empty cell, e.g. a percentage of a zero typical figure, stays plain
+  // rather than showing an empty tint.
+  let cell = fn(text, testid) {
+    let class = case improved && text != "" {
+      True -> "rounded bg-success-tint px-1 font-medium text-fg"
+      False -> "text-fg-muted"
+    }
+    html.span(
+      [attribute.class(class), attribute.attribute("data-testid", testid)],
+      [html.text(text)],
+    )
   }
 
   [
-    html.span(
-      [
-        attribute.class(class),
-        attribute.attribute("data-testid", "dashboard-change"),
-      ],
-      [html.text(amount)],
-    ),
-    html.span(
-      [
-        attribute.class(class),
-        attribute.attribute("data-testid", "dashboard-change-percent"),
-      ],
-      [html.text(percentage)],
-    ),
+    cell(amount, "dashboard-change"),
+    cell(percentage, "dashboard-change-percent"),
   ]
 }
 
@@ -681,7 +676,7 @@ fn untagged_note(waiting: Remote(Int)) -> Element(Msg) {
     Loaded(count) ->
       html.p(
         [
-          attribute.class("text-sm text-gray-500"),
+          attribute.class("text-sm text-fg-muted"),
           attribute.attribute("data-testid", "dashboard-untagged-note"),
         ],
         [
@@ -762,7 +757,7 @@ fn history_section(
               True ->
                 chart.view(chart.NetWorth, history, "dashboard-net-worth-chart")
               False ->
-                html.p([attribute.class("text-sm text-gray-500")], [
+                html.p([attribute.class("text-sm text-fg-muted")], [
                   html.text("No balances known in these months."),
                 ])
             },
@@ -781,7 +776,7 @@ fn totals_cards(totals: Option(Totals)) -> Element(Msg) {
     None ->
       html.p(
         [
-          attribute.class("text-sm text-gray-500"),
+          attribute.class("text-sm text-fg-muted"),
           attribute.attribute("data-testid", "dashboard-no-totals"),
         ],
         [
@@ -792,7 +787,7 @@ fn totals_cards(totals: Option(Totals)) -> Element(Msg) {
       )
     Some(totals) ->
       html.div([attribute.class("space-y-2")], [
-        html.h3([attribute.class("text-base font-semibold text-gray-900")], [
+        html.h3([attribute.class("text-base font-semibold text-fg")], [
           html.text(months_label(totals.month_count)),
         ]),
         html.div([attribute.class("grid grid-cols-1 gap-4 sm:grid-cols-4")], [
@@ -842,7 +837,7 @@ fn total_card(
       ],
       [html.text(money.format(total))],
     ),
-    html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+    html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
       html.text(money.format(average) <> " a month"),
     ]),
   ])
@@ -857,11 +852,11 @@ fn history_table(
   history history: List(HistoryMonth),
   cells cells: fn(HistoryMonth) -> List(Option(Float)),
 ) -> Element(Msg) {
-  html.div([attribute.class("overflow-hidden " <> card_class)], [
+  card.panel([attribute.class("overflow-hidden")], [
     html.h3(
       [
         attribute.class(
-          "border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900",
+          "border-b border-border px-4 py-3 text-base font-semibold text-fg",
         ),
       ],
       [html.text(title)],
@@ -869,11 +864,11 @@ fn history_table(
     html.div([attribute.class("px-4 py-3")], [chart]),
     // Collapsed until asked for: the chart is the overview, and the table is
     // for exact figures. The browser keeps whether it is open.
-    html.details([attribute.class("border-t border-gray-100")], [
+    html.details([attribute.class("border-t border-border")], [
       html.summary(
         [
           attribute.class(
-            "cursor-pointer px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900",
+            "cursor-pointer px-4 py-2 text-sm font-medium text-fg-muted hover:text-fg",
           ),
           attribute.attribute("data-testid", testid <> "-toggle"),
         ],
@@ -893,22 +888,22 @@ fn history_figures(
   cells: fn(HistoryMonth) -> List(Option(Float)),
 ) -> Element(Msg) {
   let header_class =
-    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500"
-  let number_class = "px-4 py-2 text-right tabular-nums text-gray-900"
+    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-fg-muted"
+  let number_class = "px-4 py-2 text-right tabular-nums text-fg"
 
   html.table(
     [
-      attribute.class("w-full border-t border-gray-100 text-sm"),
+      attribute.class("w-full border-t border-border text-sm"),
       attribute.attribute("data-testid", testid),
     ],
     [
-      html.thead([attribute.class("border-b border-gray-100")], [
+      html.thead([attribute.class("border-b border-border")], [
         html.tr([], [
           html.th(
             [
               attribute.scope("col"),
               attribute.class(
-                "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
+                "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-fg-muted",
               ),
             ],
             [html.text("Month")],
@@ -921,10 +916,10 @@ fn history_figures(
         ]),
       ]),
       html.tbody(
-        [attribute.class("divide-y divide-gray-100")],
+        [attribute.class("divide-y divide-border")],
         list.map(history, fn(month) {
           html.tr([attribute.attribute("data-testid", "dashboard-month-row")], [
-            html.td([attribute.class("px-4 py-2 text-gray-700")], [
+            html.td([attribute.class("px-4 py-2 text-fg-muted")], [
               html.text(case month.complete {
                 True -> month.label
                 False -> month.label <> " to date"
@@ -961,16 +956,16 @@ fn card(
   testid: String,
   children: List(Element(Msg)),
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(card_class <> " px-4 py-3"),
+      attribute.class("px-4 py-3"),
       attribute.attribute("data-testid", testid),
     ],
     [
       html.p(
         [
           attribute.class(
-            "text-xs font-medium uppercase tracking-wide text-gray-500",
+            "text-xs font-medium uppercase tracking-wide text-fg-muted",
           ),
         ],
         [html.text(label)],
@@ -997,16 +992,16 @@ fn message_card(
   heading heading: String,
   body body: List(Element(Msg)),
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(card_class <> " px-6 py-8 text-center"),
+      attribute.class("px-6 py-8 text-center"),
       attribute.attribute("data-testid", testid),
     ],
     [
-      html.h3([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h3([attribute.class("text-base font-semibold text-fg")], [
         html.text(heading),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], body),
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], body),
     ],
   )
 }
@@ -1016,21 +1011,23 @@ fn retry_card(
   heading heading: String,
   on_retry on_retry: Msg,
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(card_class <> " px-6 py-8 text-center"),
+      attribute.class("px-6 py-8 text-center"),
       attribute.attribute("data-testid", testid),
     ],
     [
-      html.h3([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h3([attribute.class("text-base font-semibold text-fg")], [
         html.text(heading),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Check your connection and try again."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           event.on_click(on_retry),
         ],
         [html.text("Retry")],
@@ -1040,8 +1037,5 @@ fn retry_card(
 }
 
 fn page_link(target: route.Route, label: String) -> Element(Msg) {
-  html.a(
-    [attribute.href(route.to_string(target)), attribute.class(link_class)],
-    [html.text(label)],
-  )
+  link.view([attribute.href(route.to_string(target))], [html.text(label)])
 }

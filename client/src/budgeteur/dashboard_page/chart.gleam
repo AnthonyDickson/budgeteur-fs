@@ -29,7 +29,7 @@ pub fn view(
   element.element(
     "dashboard-chart",
     [
-      attribute.class("block text-gray-700"),
+      attribute.class("block text-fg-muted"),
       attribute.property("spec", spec(kind, history)),
       attribute.attribute("data-testid", testid),
     ],

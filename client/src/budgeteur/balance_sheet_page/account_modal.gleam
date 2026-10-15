@@ -10,8 +10,10 @@ import budgeteur/balance_sheet_page/balance_form
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
+import budgeteur/shared/ui/banner
+import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import gleam/string
@@ -23,10 +25,6 @@ import lustre/event
 
 /// Max length of an account name. Mirrors the server's `AccountName.MaxLength`.
 pub const max_name_length = 128
-
-const input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
 
 pub type NameError {
   NameRequired
@@ -227,7 +225,7 @@ fn validate_name(name: String) -> Result(String, NameError) {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "account-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -270,7 +268,7 @@ fn view_form(
     }
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     html.form(
@@ -281,36 +279,29 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
-              testid: "account-api-error",
-              message: "Could not save account: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [attribute.attribute("data-testid", "account-api-error")],
+              [html.text("Could not save account: " <> message)],
             )
           None -> element.none()
         },
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Name")],
-          ),
-          html.input([
+          input.label("Name"),
+          input.text([
             attribute.type_("text"),
             attribute.attribute("data-testid", "account-name-input"),
             attribute.placeholder("e.g. Everyday"),
-            attribute.class(input_class),
-            attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(name)),
-            ]),
             attribute.autofocus(True),
             attribute.value(field.input(name)),
             attribute.disabled(submitting),
             event.on_input(NameChanged),
+            input.invalid(field.has_error(name)),
           ]),
           case field.error(name) {
-            Some(NameRequired) ->
-              modal_ui.form_error_message("Name cannot be empty")
+            Some(NameRequired) -> input.error_message("Name cannot be empty")
             Some(TooLong) ->
-              modal_ui.form_error_message(
+              input.error_message(
                 "Name cannot be longer than "
                 <> int.to_string(max_name_length)
                 <> " characters",
@@ -319,26 +310,22 @@ fn view_form(
           },
         ]),
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Account number (optional)")],
-          ),
-          html.input([
+          input.label("Account number (optional)"),
+          input.text([
             attribute.type_("text"),
             attribute.attribute("data-testid", "account-number-input"),
             attribute.placeholder("e.g. 12-3456-0789012-00"),
-            attribute.class(input_class),
             attribute.value(number),
             attribute.disabled(submitting),
             event.on_input(NumberChanged),
           ]),
-          html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
             html.text(
               "Imports find the account by its number. Set it before the first import so the statement does not create a second account.",
             ),
           ]),
         ]),
-        modal_ui.radio_group(
+        input.radio_group(
           legend: "Term",
           testid: "account-term",
           disabled: submitting,
@@ -352,7 +339,7 @@ fn view_form(
             ),
           ],
         ),
-        html.p([attribute.class("text-xs text-gray-500")], [
+        html.p([attribute.class("text-xs text-fg-muted")], [
           html.text(
             "Current for everyday, savings, and credit card accounts. The side of the balance sheet follows the balance.",
           ),
@@ -367,22 +354,22 @@ fn view_form(
             |> element.map(BalanceMsg)
           None -> element.none()
         },
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: case mode {
             form_modal.Create -> None
             form_modal.Edit(_) ->
-              Some(modal_ui.delete_request_button(
+              Some(dialog.delete_request_button(
                 testid: "account-delete-button",
                 disabled: submitting,
                 on_click: DeleteRequested,
               ))
           },
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "account-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "account-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,

@@ -13,9 +13,12 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
-import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag, Expense, Income}
-import budgeteur/shared/tag_ui
+import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
+import budgeteur/shared/ui/link
+import budgeteur/shared/ui/row
+import budgeteur/shared/ui/swatch
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/int
@@ -30,20 +33,8 @@ import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
 
-const card_class = "rounded-lg border border-gray-200 bg-white shadow-sm"
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
-  <> "focus:ring-indigo-500 focus:ring-offset-2"
-
-const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 "
-  <> "focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-
 const choice_button_class = "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium "
-  <> "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait"
-
-const link_class = "font-medium text-indigo-600 hover:text-indigo-500"
+  <> "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait"
 
 // Types
 // -----
@@ -326,14 +317,14 @@ pub fn view(model: Model) -> Element(Msg) {
     ],
     [
       html.div([], [
-        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
           html.text("Quick tagging"),
         ]),
         case waiting(model) {
           Some(count) ->
             html.p(
               [
-                attribute.class("mt-1 text-sm text-gray-500"),
+                attribute.class("mt-1 text-sm text-fg-muted"),
                 attribute.attribute("data-testid", "quick-tag-waiting"),
               ],
               [html.text(waiting_text(count))],
@@ -388,10 +379,10 @@ fn batch(
           }),
         ),
         html.div([attribute.class("flex justify-end")], [
-          html.button(
+          button.view(
+            button.Secondary,
+            button.Regular,
             [
-              attribute.type_("button"),
-              attribute.class(secondary_button_class),
               attribute.disabled(is_saving),
               attribute.attribute("data-testid", "quick-tag-next-batch"),
               event.on_click(UserRequestedNextBatch),
@@ -404,12 +395,11 @@ fn batch(
 }
 
 fn no_tags_note() -> Element(Msg) {
-  html.p([attribute.class("text-sm text-gray-500")], [
+  html.p([attribute.class("text-sm text-fg-muted")], [
     html.text("You have no tags yet. Create them on the "),
-    html.a(
+    link.view(
       [
         attribute.href(route.to_string(route.Tagging)),
-        attribute.class(link_class),
       ],
       [html.text("Tags & Rules page")],
     ),
@@ -424,22 +414,22 @@ fn no_tags_note() -> Element(Msg) {
 fn transaction_row(
   transaction: QueuedTransaction,
   tags: List(Tag),
-  row: Option(Row),
+  state: Option(Row),
 ) -> Element(Msg) {
   let details = case transaction.account_name {
     Some(account_name) -> date.format(transaction.date) <> " · " <> account_name
     None -> date.format(transaction.date)
   }
 
-  let #(row_class, text_class) = case row {
-    Some(Saved(_)) -> #("bg-gray-50", "text-gray-500")
-    Some(Saving(..)) | None -> #("bg-white", "text-gray-900")
+  let #(row_class, text_class) = case state {
+    Some(Saved(_)) -> #("bg-surface-hover", "text-fg-muted")
+    Some(Saving(..)) | None -> #("bg-surface", "text-fg")
   }
 
   html.li(
     [
       attribute.class(
-        "rounded-lg border border-gray-200 px-4 py-3 shadow-sm space-y-3 "
+        "rounded-lg border border-border px-4 py-3 shadow-sm space-y-3 "
         <> row_class,
       ),
       attribute.attribute("data-testid", "quick-tag-row"),
@@ -450,14 +440,14 @@ fn transaction_row(
           html.p(
             [
               attribute.class(
-                row_ui.selectable_class
+                row.selectable_class
                 <> " break-words text-sm font-medium "
                 <> text_class,
               ),
             ],
             [html.text(transaction.description)],
           ),
-          html.p([attribute.class("mt-0.5 text-sm text-gray-500")], [
+          html.p([attribute.class("mt-0.5 text-sm text-fg-muted")], [
             html.text(details),
           ]),
         ]),
@@ -476,23 +466,23 @@ fn transaction_row(
           list.map(tags, fn(tag) {
             choice_button(
               transaction.id,
-              row,
+              state,
               TagWith(tag.id),
               testid: "quick-tag-button",
-              children: [tag_ui.color_swatch(tag.color), html.text(tag.name)],
+              children: [swatch.view(tag.color), html.text(tag.name)],
             )
           }),
           [
             choice_button(
               transaction.id,
-              row,
+              state,
               Transfer,
               testid: "quick-tag-transfer",
               children: [html.text("Transfer")],
             ),
             choice_button(
               transaction.id,
-              row,
+              state,
               Dismiss,
               testid: "quick-tag-dismiss",
               children: [html.text("Dismiss")],
@@ -524,14 +514,15 @@ fn choice_button(
   }
 
   let style = case choice, is_pressed {
-    TagWith(_), True -> "border-indigo-600 bg-indigo-50 text-indigo-700"
+    TagWith(_), True -> "border-primary bg-primary-tint text-fg"
     TagWith(_), False ->
-      "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-    Transfer, True -> "border-gray-600 bg-gray-100 text-gray-800"
-    Transfer, False -> "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-    Dismiss, True -> "border-dashed border-gray-500 bg-gray-100 text-gray-700"
+      "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
+    Transfer, True -> "border-fg-muted bg-surface-hover text-fg"
+    Transfer, False ->
+      "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
+    Dismiss, True -> "border-dashed border-fg-muted bg-surface-hover text-fg"
     Dismiss, False ->
-      "border-dashed border-gray-300 bg-white text-gray-500 hover:bg-gray-50"
+      "border-dashed border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
   }
 
   html.button(
@@ -551,21 +542,19 @@ fn choice_button(
 }
 
 fn empty_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(card_class <> " px-6 py-12 text-center"),
       attribute.attribute("data-testid", "quick-tag-empty-state"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("No transactions are waiting for a tag"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Import or record transactions on the "),
-        html.a(
+        link.view(
           [
             attribute.href(route.to_string(route.Transactions)),
-            attribute.class(link_class),
           ],
           [html.text("Transactions page")],
         ),
@@ -576,13 +565,12 @@ fn empty_state() -> Element(Msg) {
 }
 
 fn loading_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(card_class <> " px-6 py-12 text-center"),
       attribute.attribute("data-testid", "quick-tag-loading-state"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Loading transactions..."),
       ]),
     ],
@@ -590,22 +578,22 @@ fn loading_state() -> Element(Msg) {
 }
 
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(card_class <> " px-6 py-12 text-center"),
       attribute.attribute("data-testid", "quick-tag-load-error"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("Could not load the transactions waiting for a tag"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Check your connection and try again."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.type_("button"),
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "quick-tag-retry"),
           event.on_click(UserRetried),
         ],

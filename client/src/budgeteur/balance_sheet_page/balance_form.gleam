@@ -8,9 +8,9 @@ import budgeteur/balance_sheet_page/account_write_request.{
 }
 import budgeteur/shared/date
 import budgeteur/shared/field
-import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/ui/input
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -18,10 +18,6 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-
-const input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
 
 pub type AmountError {
   AmountRequired
@@ -172,7 +168,7 @@ pub fn view(
 
   html.div([attribute.class("space-y-4")], [
     html.div([attribute.class("space-y-2")], [
-      modal_ui.radio_group(
+      input.radio_group(
         legend: "Balance",
         testid: "balance-side",
         disabled: submitting,
@@ -183,57 +179,46 @@ pub fn view(
           }),
         ],
       ),
-      html.p([attribute.class("text-xs text-gray-500")], [
+      html.p([attribute.class("text-xs text-fg-muted")], [
         html.text(
           "Liability when the account is overdrawn or a card balance is owing. The line moves sides when the balance changes sign.",
         ),
       ]),
-      html.input([
+      input.text([
         attribute.type_("text"),
         attribute.attribute("data-testid", "balance-amount-input"),
         attribute.attribute("aria-label", "Amount"),
         attribute.inputmode("decimal"),
         attribute.placeholder("0.00"),
-        attribute.class(input_class),
-        attribute.classes([
-          #(modal_ui.error_border_style, field.has_error(amount)),
-        ]),
         attribute.value(field.input(amount)),
         attribute.disabled(submitting),
         event.on_input(AmountChanged),
+        input.invalid(field.has_error(amount)),
       ]),
       case field.error(amount) {
-        Some(AmountRequired) ->
-          modal_ui.form_error_message("Amount cannot be empty")
-        Some(NotANumber) -> modal_ui.form_error_message("Not a valid number")
+        Some(AmountRequired) -> input.error_message("Amount cannot be empty")
+        Some(NotANumber) -> input.error_message("Not a valid number")
         Some(Negative) ->
-          modal_ui.form_error_message(
+          input.error_message(
             "Enter the amount without a sign. Choose asset or liability instead.",
           )
         None -> element.none()
       },
-      html.p([attribute.class("text-xs text-gray-500")], [html.text(note)]),
+      html.p([attribute.class("text-xs text-fg-muted")], [html.text(note)]),
     ]),
     html.label([attribute.class("block")], [
-      html.span(
-        [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-        [html.text("Balance as of")],
-      ),
-      html.input([
+      input.label("Balance as of"),
+      input.text([
         attribute.type_("date"),
         attribute.attribute("data-testid", "balance-as-of-input"),
-        attribute.class(input_class),
-        attribute.classes([
-          #(modal_ui.error_border_style, field.has_error(as_of)),
-        ]),
         attribute.value(field.input(as_of)),
         attribute.disabled(submitting),
         event.on_input(AsOfChanged),
+        input.invalid(field.has_error(as_of)),
       ]),
       case field.error(as_of) {
-        Some(AsOfRequired) ->
-          modal_ui.form_error_message("Date cannot be empty")
-        Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
+        Some(AsOfRequired) -> input.error_message("Date cannot be empty")
+        Some(NotADate) -> input.error_message("Not a valid date")
         None -> element.none()
       },
     ]),

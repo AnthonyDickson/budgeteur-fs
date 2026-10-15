@@ -34,7 +34,7 @@ pub fn view(
       confirm_testid: "tag-delete-confirm-button",
       body: fn(tag: Tag, rule_count: Int) {
         html.div([], [
-          html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+          html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
             html.text(
               "Are you sure you want to delete "
               <> tag.name
@@ -44,7 +44,7 @@ pub fn view(
           html.ul(
             [
               attribute.class(
-                "mb-4 list-disc space-y-1 pl-5 text-sm text-gray-700",
+                "mb-4 list-disc space-y-1 pl-5 text-sm text-fg-muted",
               ),
             ],
             [
