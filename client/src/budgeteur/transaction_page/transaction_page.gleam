@@ -45,6 +45,9 @@ pub type Model {
     search: Search,
     /// The last search's matches, with the user's changes applied.
     results: Remote(Results),
+    /// Whether a search for the current criteria is in flight. The results
+    /// shown stay until it returns.
+    searching: Bool,
     /// Whether a "Load more" request is in flight.
     loading_more: Bool,
     /// Names the transactions' tags and fills the modal's tag select. Empty
@@ -76,6 +79,10 @@ pub type Results {
 
 pub type Msg {
   ClientGotToday(Date)
+  UserChangedText(String)
+  /// The search box went `search_delay_ms` without input.
+  UserPausedTyping(String)
+  UserClearedSearch
   /// The first page of a search's matches.
   ClientSearched(search: Search, result: Result(Page, ApiError))
   UserRequestedMore
@@ -152,12 +159,18 @@ fn fetch_page(
   )
 }
 
+/// How long typing pauses before the search box runs a search: the rule
+/// modal's delay for counting a pattern's matches.
+const search_delay_ms = 300
+
 /// Run the page's search from the first page, once today is known.
-fn run_search(model: Model) -> Effect(Msg) {
+fn run_search(model: Model) -> #(Model, Effect(Msg)) {
   case model.today {
-    Some(today) ->
-      fetch_page(model.search, today, None, ClientSearched(model.search, _))
-    None -> effect.none()
+    Some(today) -> #(
+      Model(..model, searching: True),
+      fetch_page(model.search, today, None, ClientSearched(model.search, _)),
+    )
+    None -> #(model, effect.none())
   }
 }
 
@@ -233,6 +246,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       today: None,
       search: transaction_search.new(),
       results: Loading,
+      searching: False,
       loading_more: False,
       tags: [],
       accounts: [],
@@ -249,8 +263,29 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     // Returning to the page asks for today again, which runs the page's
     // search again.
     ClientGotToday(today) -> {
-      let model = Model(..model, today: Some(today))
-      #(model, run_search(model), None)
+      let #(model, effect) = run_search(Model(..model, today: Some(today)))
+      #(model, effect, None)
+    }
+
+    // The text is kept as typed; the search runs once typing pauses.
+    UserChangedText(text) -> #(
+      Model(..model, search: transaction_search.Search(text:)),
+      effect.none(),
+      None,
+    )
+
+    UserPausedTyping(text) if text == model.search.text -> {
+      let #(model, effect) = run_search(model)
+      #(model, effect, None)
+    }
+
+    // A pause from before the box was cleared.
+    UserPausedTyping(_) -> #(model, effect.none(), None)
+
+    UserClearedSearch -> {
+      let #(model, effect) =
+        run_search(Model(..model, search: transaction_search.new()))
+      #(model, effect, None)
     }
 
     // A response for criteria other than the current ones is ignored, so a
@@ -269,6 +304,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
           transactions: page.transactions,
           next: page.next,
         )),
+        searching: False,
         // A "Load more" in flight continues the replaced results.
         loading_more: False,
       ),
@@ -280,7 +316,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       case model.results {
         // The results shown are still the latest the page has.
         Loaded(_) -> #(
-          model,
+          Model(..model, searching: False),
           effect.LogError(api_error.describe(error)),
           Some(out_msg.error_toast(
             "Could not search transactions",
@@ -288,7 +324,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
           )),
         )
         Loading | Failed -> #(
-          Model(..model, results: Failed),
+          Model(..model, results: Failed, searching: False),
           effect.LogError(api_error.describe(error)),
           None,
         )
@@ -450,6 +486,15 @@ fn run_import_modal(
   let #(import_modal, command, outcome) =
     import_modal.update(model.import_modal, msg)
   let model = Model(..model, import_modal:)
+  // The import added transactions the user has not seen and maybe accounts,
+  // so the search runs again and the accounts are fetched again.
+  let #(model, imported) = case outcome {
+    import_modal.NoChange -> #(model, [])
+    import_modal.Imported(_) -> {
+      let #(model, search_effect) = run_search(model)
+      #(model, [search_effect, fetch_accounts()])
+    }
+  }
   let effects = case command {
     Some(import_modal.ReadFiles) -> [
       effect.ReadFiles(import_modal.file_input_id, fn(result) {
@@ -482,12 +527,10 @@ fn run_import_modal(
     ]
     _ -> effects
   }
-  // The import added transactions the user has not seen and maybe accounts,
-  // so the search runs again and the accounts are fetched again.
   let #(effects, out_msg) = case outcome {
     import_modal.NoChange -> #(effects, None)
     import_modal.Imported(result) -> #(
-      list.append(effects, [run_search(model), fetch_accounts()]),
+      list.append(effects, imported),
       // The counts and created accounts take a while to read, so the toast
       // stays until dismissed.
       Some(
@@ -701,7 +744,13 @@ pub fn view(model: Model) -> Element(Msg) {
       Failed -> failed_state()
       Loaded(results) ->
         html.div([], [
-          transactions_table(results.transactions, tag_names_by_id),
+          search_bar(model.search),
+          searching_note(model.searching),
+          case results.transactions, transaction_search.is_set(results.search) {
+            [], False -> no_transactions_empty_state()
+            [], True -> no_matches_empty_state()
+            transactions, _ -> transactions_table(transactions, tag_names_by_id)
+          },
           load_more(results, model.loading_more),
         ])
     },
@@ -726,125 +775,166 @@ fn tag_name(
   |> option.from_result
 }
 
+/// The search box, and "Clear" while any criterion is set.
+fn search_bar(search: Search) -> Element(Msg) {
+  html.div([attribute.class("mb-4 flex flex-wrap items-center gap-2")], [
+    html.label(
+      [
+        attribute.class("min-w-48 flex-1"),
+        // The input's own handler keeps the text as typed. Input events bubble
+        // to this label, which runs the search once typing pauses.
+        event.debounce(event.on_input(UserPausedTyping), search_delay_ms),
+      ],
+      [
+        html.span([attribute.class("sr-only")], [
+          html.text("Search descriptions"),
+        ]),
+        html.input([
+          attribute.type_("search"),
+          attribute.attribute("data-testid", "search-input"),
+          attribute.placeholder("Search descriptions"),
+          attribute.maxlength(transaction_search.max_text_length),
+          attribute.value(search.text),
+          attribute.class(text_input_class),
+          event.on_input(UserChangedText),
+        ]),
+      ],
+    ),
+    case transaction_search.is_set(search) {
+      True ->
+        html.button(
+          [
+            attribute.class(secondary_button_class),
+            attribute.attribute("data-testid", "clear-search-button"),
+            event.on_click(UserClearedSearch),
+          ],
+          [html.text("Clear")],
+        )
+      False -> element.none()
+    },
+  ])
+}
+
+/// Shown above the results while a search is in flight; the previous results
+/// stay, so the table does not flash on every pause in typing.
+fn searching_note(searching: Bool) -> Element(Msg) {
+  html.p(
+    [
+      attribute.class("mb-2 h-5 text-sm text-gray-500"),
+      attribute.attribute("data-testid", "searching-note"),
+      attribute.aria_live("polite"),
+    ],
+    case searching {
+      True -> [html.text("Searching…")]
+      False -> []
+    },
+  )
+}
+
 fn transactions_table(
   transactions: List(Transaction),
   tag_names_by_id: dict.Dict(Uuid, String),
 ) -> Element(Msg) {
-  case list.is_empty(transactions) {
-    True -> no_transactions_empty_state()
-    False ->
-      html.div(
-        [
-          attribute.class(
-            "overflow-hidden rounded-lg border border-gray-200 shadow-sm",
-          ),
-        ],
-        [
-          html.table([attribute.class("min-w-full divide-y divide-gray-200")], [
-            html.caption([attribute.class("sr-only")], [
-              html.text("All transactions"),
+  html.div(
+    [
+      attribute.class(
+        "overflow-hidden rounded-lg border border-gray-200 shadow-sm",
+      ),
+    ],
+    [
+      html.table([attribute.class("min-w-full divide-y divide-gray-200")], [
+        html.caption([attribute.class("sr-only")], [
+          html.text("All transactions"),
+        ]),
+        html.thead(
+          [
+            attribute.class(
+              "bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
+            ),
+          ],
+          [
+            html.tr([], [
+              html.th([attribute.class("px-4 py-3 font-medium")], [
+                html.text("Date"),
+              ]),
+              html.th([attribute.class("px-4 py-3 font-medium text-right")], [
+                html.text("Amount"),
+              ]),
+              html.th([attribute.class("px-4 py-3 font-medium")], [
+                html.text("Description"),
+              ]),
+              html.th([attribute.class("px-4 py-3 font-medium")], [
+                html.text("Account"),
+              ]),
+              html.th([attribute.class("px-4 py-3 font-medium")], [
+                html.text("Tag"),
+              ]),
+              // The chevron column.
+              html.td([], []),
             ]),
-            html.thead(
+          ],
+        ),
+        html.tbody(
+          [attribute.class("divide-y divide-gray-200 bg-white")],
+          list.map(transactions, fn(transaction) {
+            html.tr(
               [
-                attribute.class(
-                  "bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
-                ),
+                attribute.class("group relative hover:bg-gray-50"),
+                attribute.attribute("data-testid", "transaction-row"),
               ],
               [
-                html.tr([], [
-                  html.th([attribute.class("px-4 py-3 font-medium")], [
-                    html.text("Date"),
-                  ]),
-                  html.th(
-                    [attribute.class("px-4 py-3 font-medium text-right")],
-                    [
-                      html.text("Amount"),
-                    ],
+                html.td(
+                  [
+                    attribute.class(
+                      "whitespace-nowrap px-4 py-3 text-sm text-gray-700",
+                    ),
+                  ],
+                  [html.text(transaction.date |> date.format)],
+                ),
+                html.td(
+                  [
+                    attribute.class(
+                      "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-gray-900 text-right",
+                    ),
+                    attribute.attribute(
+                      "data-amount",
+                      float.to_string(transaction.amount),
+                    ),
+                  ],
+                  [html.text(transaction.amount |> money.format)],
+                ),
+                html.td([attribute.class("px-4 py-3")], [
+                  row_ui.open_button(
+                    testid: "edit-transaction-"
+                      <> uuid.to_string(transaction.id),
+                    on_click: UserRequestedEditForm(transaction.id),
+                    class: "",
+                    children: [html.text(transaction.description)],
                   ),
-                  html.th([attribute.class("px-4 py-3 font-medium")], [
-                    html.text("Description"),
-                  ]),
-                  html.th([attribute.class("px-4 py-3 font-medium")], [
-                    html.text("Account"),
-                  ]),
-                  html.th([attribute.class("px-4 py-3 font-medium")], [
-                    html.text("Tag"),
-                  ]),
-                  // The chevron column.
-                  html.td([], []),
+                ]),
+                html.td([attribute.class("px-4 py-3 text-sm text-gray-700")], [
+                  html.text(transaction.account_name |> option.unwrap("-")),
+                ]),
+                html.td([attribute.class("px-4 py-3 text-sm text-gray-700")], [
+                  html.text(case transaction.is_transfer {
+                    // A transfer has no tag: it is neither income nor
+                    // an expense.
+                    True -> "Transfer"
+                    False ->
+                      tag_name(transaction, tag_names_by_id)
+                      |> option.unwrap("-")
+                  }),
+                ]),
+                html.td([attribute.class("py-3 pr-4")], [
+                  row_ui.chevron(class: "block"),
                 ]),
               ],
-            ),
-            html.tbody(
-              [attribute.class("divide-y divide-gray-200 bg-white")],
-              list.map(transactions, fn(transaction) {
-                html.tr(
-                  [
-                    attribute.class("group relative hover:bg-gray-50"),
-                    attribute.attribute("data-testid", "transaction-row"),
-                  ],
-                  [
-                    html.td(
-                      [
-                        attribute.class(
-                          "whitespace-nowrap px-4 py-3 text-sm text-gray-700",
-                        ),
-                      ],
-                      [html.text(transaction.date |> date.format)],
-                    ),
-                    html.td(
-                      [
-                        attribute.class(
-                          "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-gray-900 text-right",
-                        ),
-                        attribute.attribute(
-                          "data-amount",
-                          float.to_string(transaction.amount),
-                        ),
-                      ],
-                      [html.text(transaction.amount |> money.format)],
-                    ),
-                    html.td([attribute.class("px-4 py-3")], [
-                      row_ui.open_button(
-                        testid: "edit-transaction-"
-                          <> uuid.to_string(transaction.id),
-                        on_click: UserRequestedEditForm(transaction.id),
-                        class: "",
-                        children: [html.text(transaction.description)],
-                      ),
-                    ]),
-                    html.td(
-                      [attribute.class("px-4 py-3 text-sm text-gray-700")],
-                      [
-                        html.text(
-                          transaction.account_name |> option.unwrap("-"),
-                        ),
-                      ],
-                    ),
-                    html.td(
-                      [attribute.class("px-4 py-3 text-sm text-gray-700")],
-                      [
-                        html.text(case transaction.is_transfer {
-                          // A transfer has no tag: it is neither income nor
-                          // an expense.
-                          True -> "Transfer"
-                          False ->
-                            tag_name(transaction, tag_names_by_id)
-                            |> option.unwrap("-")
-                        }),
-                      ],
-                    ),
-                    html.td([attribute.class("py-3 pr-4")], [
-                      row_ui.chevron(class: "block"),
-                    ]),
-                  ],
-                )
-              }),
-            ),
-          ]),
-        ],
-      )
-  }
+            )
+          }),
+        ),
+      ]),
+    ],
+  )
 }
 
 /// Shown below the table while the search has another page.
@@ -892,6 +982,34 @@ fn no_transactions_empty_state() -> Element(Msg) {
     ],
   )
 }
+
+/// Shown in place of the table when the search matches nothing.
+fn no_matches_empty_state() -> Element(Msg) {
+  html.div(
+    [
+      attribute.class(
+        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
+      ),
+      attribute.attribute("data-testid", "no-matches-empty-state"),
+    ],
+    [
+      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+        html.text("No transactions match your search"),
+      ]),
+      html.button(
+        [
+          attribute.class("mt-4 " <> secondary_button_class),
+          attribute.attribute("data-testid", "clear-search-empty-button"),
+          event.on_click(UserClearedSearch),
+        ],
+        [html.text("Clear search")],
+      ),
+    ],
+  )
+}
+
+const text_input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
+  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
 
 const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
   <> "hover:bg-gray-50 focus:outline-none focus:ring-2 "

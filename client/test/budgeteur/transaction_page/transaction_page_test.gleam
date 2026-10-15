@@ -728,6 +728,7 @@ fn empty_model() -> transaction_page.Model {
     today: Some(today()),
     search: transaction_search.new(),
     results: loaded([]),
+    searching: False,
     loading_more: False,
     tags: [],
     accounts: [],
@@ -852,4 +853,104 @@ pub fn an_updated_transaction_keeps_its_place_test() {
   new_model |> shown |> should.equal(remote.Loaded([first, updated]))
   // A change never runs the search again.
   effect |> should.equal(effect.none())
+}
+
+// ── Searching ────────────────────────────────────────────────────────────────
+
+pub fn typing_searches_once_typing_pauses_test() {
+  let #(typed, effect, _) =
+    transaction_page.update(
+      empty_model(),
+      transaction_page.UserChangedText("coffee"),
+    )
+
+  typed.search |> should.equal(transaction_search.Search(text: "coffee"))
+  effect |> should.equal(effect.none())
+
+  let #(searching, effect, _) =
+    transaction_page.update(typed, transaction_page.UserPausedTyping("coffee"))
+
+  searching.searching |> should.be_true
+  let assert effect.HttpRequest(url:, body:, ..) = effect
+  url |> should.equal("/api/transactions/search")
+  body |> string.contains("\"text\":\"coffee\"") |> should.be_true
+
+  // The previous results stay until the search returns.
+  searching.results |> should.equal(empty_model().results)
+
+  let match = sample_transaction()
+  let #(searched, _, _) =
+    transaction_page.update(
+      searching,
+      transaction_page.ClientSearched(
+        transaction_search.Search(text: "coffee"),
+        Ok(page([match], None)),
+      ),
+    )
+
+  searched.searching |> should.be_false
+  searched |> shown |> should.equal(remote.Loaded([match]))
+}
+
+pub fn a_response_for_text_since_changed_is_ignored_test() {
+  let searching =
+    empty_model()
+    |> run(transaction_page.UserChangedText("cof"))
+    |> run(transaction_page.UserPausedTyping("cof"))
+    |> run(transaction_page.UserChangedText("coffee"))
+    |> run(transaction_page.UserPausedTyping("coffee"))
+
+  let #(new_model, _, _) =
+    transaction_page.update(
+      searching,
+      transaction_page.ClientSearched(
+        transaction_search.Search(text: "cof"),
+        Ok(page([sample_transaction()], None)),
+      ),
+    )
+
+  new_model |> should.equal(searching)
+}
+
+pub fn clearing_resets_the_criteria_and_searches_test() {
+  let model =
+    empty_model()
+    |> run(transaction_page.UserChangedText("coffee"))
+    |> run(transaction_page.UserPausedTyping("coffee"))
+
+  let #(cleared, effect, _) =
+    transaction_page.update(model, transaction_page.UserClearedSearch)
+
+  cleared.search |> should.equal(transaction_search.new())
+  cleared.searching |> should.be_true
+  let assert effect.HttpRequest(body:, ..) = effect
+  body |> string.contains("\"text\":\"\"") |> should.be_true
+
+  // A pause from before the clear runs no search.
+  let #(_, effect, _) =
+    transaction_page.update(
+      cleared,
+      transaction_page.UserPausedTyping("coffee"),
+    )
+  effect |> should.equal(effect.none())
+}
+
+pub fn a_failed_search_stops_searching_test() {
+  let model =
+    empty_model()
+    |> run(transaction_page.UserChangedText("coffee"))
+    |> run(transaction_page.UserPausedTyping("coffee"))
+
+  let #(failed, _, out_msg) =
+    transaction_page.update(
+      model,
+      transaction_page.ClientSearched(
+        transaction_search.Search(text: "coffee"),
+        Error(server_error()),
+      ),
+    )
+
+  failed.searching |> should.be_false
+  failed.results |> should.equal(model.results)
+  let assert Some(out_msg.PageRequestedToast(level: toast.Error, ..)) = out_msg
 }

@@ -6,7 +6,11 @@ import budgeteur/transaction_page/transaction.{type Transaction}
 import gleam/dynamic/decode
 import gleam/json
 import gleam/option.{type Option, None}
+import gleam/string
 import gleam/time/calendar.{type Date}
+
+/// The longest text the server accepts: a rule pattern's maximum length.
+pub const max_text_length = 128
 
 /// The criteria of a search. A search matches the transactions meeting all of
 /// them; with none set, every transaction.
@@ -30,6 +34,11 @@ pub type Page {
 /// The search with no criteria set, which matches every transaction.
 pub fn new() -> Search {
   Search(text: "")
+}
+
+/// Whether any criterion is set. Blank text sets none.
+pub fn is_set(search: Search) -> Bool {
+  string.trim(search.text) != ""
 }
 
 /// The request for the page of the search's matches starting at the cursor,

@@ -33,7 +33,7 @@
          more", skipping rows already shown; patch updates in place, add creates
          at the top, and run the search again after an import; remove
          client-side sorting (decisions 6 and 10).
-  5. [ ] Client: add the search box with debounced searches, ignored stale
+  5. [x] Client: add the search box with debounced searches, ignored stale
          responses, "Searching…", the no-match empty state, and "Clear"
          (decisions 9 and 11).
   6. [ ] Client: add the filters panel and the dates select with presets, custom
