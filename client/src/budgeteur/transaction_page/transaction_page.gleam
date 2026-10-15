@@ -18,6 +18,7 @@ import budgeteur/transaction_page/transaction_delete_modal.{
   type DeleteModalState,
 }
 import budgeteur/transaction_page/transaction_modal
+import budgeteur/transaction_page/transaction_search.{type Page, type Search}
 import budgeteur/transaction_page/transaction_write_request
 import gleam/dict
 import gleam/dynamic/decode
@@ -25,10 +26,10 @@ import gleam/float
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/order
 import gleam/result
+import gleam/set
 import gleam/string
-import gleam/time/calendar
+import gleam/time/calendar.{type Date}
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
@@ -37,8 +38,15 @@ import youid/uuid.{type Uuid}
 
 pub type Model {
   Model(
-    /// Newest first.
-    transactions: Remote(List(Transaction)),
+    /// The client's date, which the server resolves date presets from. None
+    /// until the browser reports it; no search runs before then.
+    today: Option(Date),
+    /// The criteria the page shows.
+    search: Search,
+    /// The last search's matches, with the user's changes applied.
+    results: Remote(Results),
+    /// Whether a "Load more" request is in flight.
+    loading_more: Bool,
     /// Names the transactions' tags and fills the modal's tag select. Empty
     /// until loaded; if the fetch fails, transactions show without tag names.
     tags: List(Tag),
@@ -51,8 +59,32 @@ pub type Model {
   )
 }
 
+/// The rows the page shows. See decisions 6 and 10 in
+/// docs/transaction-search.md.
+pub type Results {
+  Results(
+    /// The search the matches came from. "Load more" continues it.
+    search: Search,
+    /// The matches in the server's order, with the user's changes applied: a
+    /// created transaction is added at the top, an updated one keeps its
+    /// place even if it no longer matches, and a deleted one is removed.
+    transactions: List(Transaction),
+    /// Where the search's next page starts, or None on the last page.
+    next: Option(String),
+  )
+}
+
 pub type Msg {
-  ClientFetchedTransactions(Result(List(Transaction), ApiError))
+  ClientGotToday(Date)
+  /// The first page of a search's matches.
+  ClientSearched(search: Search, result: Result(Page, ApiError))
+  UserRequestedMore
+  /// The page of a search's matches starting at the cursor.
+  ClientFetchedMore(
+    search: Search,
+    cursor: String,
+    result: Result(Page, ApiError),
+  )
   ClientFetchedTags(Result(List(Tag), ApiError))
   ClientFetchedAccounts(Result(List(Account), ApiError))
   // Retry after a failed first load.
@@ -99,21 +131,43 @@ fn fetch_accounts() -> Effect(Msg) {
   })
 }
 
-// TODO: Page results
-fn fetch_transactions() -> Effect(Msg) {
-  effect.get(api_route.GetAllTransactions |> api_route.to_string, fn(result) {
-    case result {
-      Ok(body) ->
-        ClientFetchedTransactions(response.decode_success(
-          body,
-          decode.list(transaction.transaction_decoder()),
-        ))
-      Error(http_error) ->
-        ClientFetchedTransactions(
-          Error(response.http_error_to_api_error(http_error)),
-        )
-    }
-  })
+/// Fetch the page of the search's matches starting at the cursor, or the
+/// first page.
+fn fetch_page(
+  search: Search,
+  today: Date,
+  cursor: Option(String),
+  to_msg: fn(Result(Page, ApiError)) -> Msg,
+) -> Effect(Msg) {
+  effect.post(
+    api_route.SearchTransactions |> api_route.to_string,
+    transaction_search.request_json(search, today, cursor) |> json.to_string,
+    fn(result) {
+      to_msg(case result {
+        Ok(body) ->
+          response.decode_success(body, transaction_search.page_decoder())
+        Error(http_error) -> Error(response.http_error_to_api_error(http_error))
+      })
+    },
+  )
+}
+
+/// Run the page's search from the first page, once today is known.
+fn run_search(model: Model) -> Effect(Msg) {
+  case model.today {
+    Some(today) ->
+      fetch_page(model.search, today, None, ClientSearched(model.search, _))
+    None -> effect.none()
+  }
+}
+
+/// Searching waits for today, so the page asks for it first.
+fn load() -> Effect(Msg) {
+  effect.batch([
+    effect.GetLocalDate(ClientGotToday),
+    fetch_tags(),
+    fetch_accounts(),
+  ])
 }
 
 fn delete_transaction(transaction: Transaction) -> Effect(Msg) {
@@ -139,55 +193,157 @@ fn sort_tags(tags: List(Tag)) -> List(Tag) {
   list.sort(tags, by: fn(a, b) { string.compare(a.name, b.name) })
 }
 
-fn sort_transactions(transactions: List(Transaction)) -> List(Transaction) {
-  list.sort(transactions, by: fn(a, b) {
-    calendar.naive_date_compare(a.date, b.date)
-    |> order.negate
-    |> order.lazy_break_tie(fn() {
-      string.compare(a.description, b.description)
-    })
-  })
+/// The transactions the page shows, or none until a search has loaded.
+fn shown(model: Model) -> List(Transaction) {
+  case model.results {
+    Loaded(results) -> results.transactions
+    Loading | Failed -> []
+  }
+}
+
+/// Apply a change to the transactions the page shows.
+fn map_shown(
+  model: Model,
+  f: fn(List(Transaction)) -> List(Transaction),
+) -> Model {
+  Model(
+    ..model,
+    results: remote.map(model.results, fn(results) {
+      Results(..results, transactions: f(results.transactions))
+    }),
+  )
+}
+
+/// Append a later page, skipping transactions already shown: a created or
+/// updated transaction can also be on a later page.
+fn append_unshown(
+  shown: List(Transaction),
+  more: List(Transaction),
+) -> List(Transaction) {
+  let shown_ids = shown |> list.map(fn(t) { t.id }) |> set.from_list
+  list.append(
+    shown,
+    list.filter(more, fn(t) { !set.contains(shown_ids, t.id) }),
+  )
 }
 
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
     Model(
-      transactions: Loading,
+      today: None,
+      search: transaction_search.new(),
+      results: Loading,
+      loading_more: False,
       tags: [],
       accounts: [],
       modal: transaction_modal.hidden(),
       delete_modal: transaction_delete_modal.empty(),
       import_modal: import_modal.Hidden,
     ),
-    effect.batch([fetch_transactions(), fetch_tags(), fetch_accounts()]),
+    load(),
   )
 }
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   case msg {
-    ClientFetchedTransactions(Ok(transactions)) -> #(
-      Model(..model, transactions: Loaded(sort_transactions(transactions))),
+    // Returning to the page asks for today again, which runs the page's
+    // search again.
+    ClientGotToday(today) -> {
+      let model = Model(..model, today: Some(today))
+      #(model, run_search(model), None)
+    }
+
+    // A response for criteria other than the current ones is ignored, so a
+    // slow response never replaces a newer one.
+    ClientSearched(search:, result: _) if search != model.search -> #(
+      model,
       effect.none(),
       None,
     )
 
-    ClientFetchedTransactions(Error(error)) ->
-      case model.transactions {
-        // A refetch failed (e.g. on returning to the page); the loaded list is
-        // still the latest the page has seen.
+    ClientSearched(search:, result: Ok(page)) -> #(
+      Model(
+        ..model,
+        results: Loaded(Results(
+          search:,
+          transactions: page.transactions,
+          next: page.next,
+        )),
+        // A "Load more" in flight continues the replaced results.
+        loading_more: False,
+      ),
+      effect.none(),
+      None,
+    )
+
+    ClientSearched(search: _, result: Error(error)) ->
+      case model.results {
+        // The results shown are still the latest the page has.
         Loaded(_) -> #(
           model,
           effect.LogError(api_error.describe(error)),
           Some(out_msg.error_toast(
-            "Could not refresh transactions",
+            "Could not search transactions",
             "Showing the transactions loaded earlier",
           )),
         )
         Loading | Failed -> #(
-          Model(..model, transactions: Failed),
+          Model(..model, results: Failed),
           effect.LogError(api_error.describe(error)),
           None,
         )
+      }
+
+    UserRequestedMore ->
+      case model.results, model.today, model.loading_more {
+        Loaded(Results(search:, next: Some(cursor), ..)), Some(today), False -> #(
+          Model(..model, loading_more: True),
+          fetch_page(search, today, Some(cursor), ClientFetchedMore(
+            search,
+            cursor,
+            _,
+          )),
+          None,
+        )
+        _, _, _ -> #(model, effect.none(), None)
+      }
+
+    ClientFetchedMore(search:, cursor:, result:) ->
+      case model.results {
+        // Only the page after the results shown is appended; a search since
+        // replaced them.
+        Loaded(results)
+          if results.search == search && results.next == Some(cursor)
+        ->
+          case result {
+            Ok(page) -> #(
+              Model(
+                ..model,
+                results: Loaded(
+                  Results(
+                    ..results,
+                    transactions: append_unshown(
+                      results.transactions,
+                      page.transactions,
+                    ),
+                    next: page.next,
+                  ),
+                ),
+                loading_more: False,
+              ),
+              effect.none(),
+              None,
+            )
+            Error(error) -> #(
+              Model(..model, loading_more: False),
+              effect.LogError(api_error.describe(error)),
+              Some(out_msg.error_toast(
+                "Could not load more transactions",
+                "Showing the transactions loaded so far",
+              )),
+            )
+          }
+        _ -> #(model, effect.none(), None)
       }
 
     ClientFetchedTags(Ok(tags)) -> #(
@@ -220,18 +376,13 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       )),
     )
 
-    UserRequestedReload -> #(
-      Model(..model, transactions: Loading),
-      effect.batch([fetch_transactions(), fetch_tags(), fetch_accounts()]),
-      None,
-    )
+    UserRequestedReload -> #(Model(..model, results: Loading), load(), None)
 
     UserRequestedCreationForm ->
       run_transaction_modal(model, transaction_modal.CreateRequested)
 
     UserRequestedEditForm(id) -> {
-      let transactions = remote.unwrap(model.transactions, or: [])
-      case list.find(transactions, fn(t) { t.id == id }) {
+      case list.find(shown(model), fn(t) { t.id == id }) {
         Ok(transaction) ->
           run_transaction_modal(
             model,
@@ -282,8 +433,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 fn open_delete(model: Model) -> Model {
   let transaction = case form_modal.mode(model.modal) {
     Some(form_modal.Edit(id:)) ->
-      remote.unwrap(model.transactions, or: [])
-      |> list.find(fn(t) { t.id == id })
+      shown(model) |> list.find(fn(t) { t.id == id })
     Some(form_modal.Create) | None -> Error(Nil)
   }
   case transaction {
@@ -332,12 +482,12 @@ fn run_import_modal(
     ]
     _ -> effects
   }
-  // The import added transactions and maybe accounts, so both are fetched
-  // again rather than merged in here.
+  // The import added transactions the user has not seen and maybe accounts,
+  // so the search runs again and the accounts are fetched again.
   let #(effects, out_msg) = case outcome {
     import_modal.NoChange -> #(effects, None)
     import_modal.Imported(result) -> #(
-      list.append(effects, [fetch_transactions(), fetch_accounts()]),
+      list.append(effects, [run_search(model), fetch_accounts()]),
       // The counts and created accounts take a while to read, so the toast
       // stays until dismissed.
       Some(
@@ -383,28 +533,25 @@ fn apply_outcome(
 ) -> #(Model, Option(OutMsg)) {
   case outcome {
     form_modal.NoChange -> #(model, None)
-    form_modal.Created(entity: transaction) -> {
-      let transactions =
-        remote.map(model.transactions, fn(transactions) {
-          [transaction, ..transactions] |> sort_transactions
-        })
-      let model = Model(..model, transactions:)
-      #(model, Some(out_msg.success_toast("Transaction created")))
-    }
-    form_modal.Updated(entity: updated) -> {
-      let transactions =
-        remote.map(model.transactions, fn(transactions) {
-          list.map(transactions, fn(t) {
-            case t.id == updated.id {
-              True -> updated
-              False -> t
-            }
-          })
-          |> sort_transactions
-        })
-      let model = Model(..model, transactions:)
-      #(model, Some(out_msg.success_toast("Transaction updated")))
-    }
+    // Changes apply to the rows shown and never run the search again, so the
+    // user sees the result of every change. See decision 10 in
+    // docs/transaction-search.md.
+    form_modal.Created(entity: transaction) -> #(
+      map_shown(model, fn(transactions) { [transaction, ..transactions] }),
+      Some(out_msg.success_toast("Transaction created")),
+    )
+    form_modal.Updated(entity: updated) -> #(
+      map_shown(
+        model,
+        list.map(_, fn(t) {
+          case t.id == updated.id {
+            True -> updated
+            False -> t
+          }
+        }),
+      ),
+      Some(out_msg.success_toast("Transaction updated")),
+    )
   }
 }
 
@@ -482,11 +629,7 @@ fn on_delete_succeeded(
 ) -> #(Model, Effect(Msg), Option(OutMsg)) {
   #(
     Model(
-      ..model,
-      transactions: remote.map(
-        model.transactions,
-        list.filter(_, fn(t) { t.id != transaction.id }),
-      ),
+      ..map_shown(model, list.filter(_, fn(t) { t.id != transaction.id })),
       delete_modal: transaction_delete_modal.empty(),
     ),
     effect.none(),
@@ -522,7 +665,7 @@ pub fn view(model: Model) -> Element(Msg) {
       ]),
       // Offered only once the list has loaded, so a new transaction always
       // has a list to join.
-      case model.transactions {
+      case model.results {
         Loaded(_) ->
           html.div([attribute.class("flex items-center gap-2")], [
             html.a(
@@ -553,10 +696,14 @@ pub fn view(model: Model) -> Element(Msg) {
         Loading | Failed -> element.none()
       },
     ]),
-    case model.transactions {
+    case model.results {
       Loading -> loading_state()
       Failed -> failed_state()
-      Loaded(transactions) -> transactions_table(transactions, tag_names_by_id)
+      Loaded(results) ->
+        html.div([], [
+          transactions_table(results.transactions, tag_names_by_id),
+          load_more(results, model.loading_more),
+        ])
     },
     transaction_modal.view(model.modal, model.tags, model.accounts)
       |> element.map(TransactionModalMsg),
@@ -697,6 +844,30 @@ fn transactions_table(
           ]),
         ],
       )
+  }
+}
+
+/// Shown below the table while the search has another page.
+fn load_more(results: Results, loading_more: Bool) -> Element(Msg) {
+  case results.next {
+    None -> element.none()
+    Some(_) ->
+      html.div([attribute.class("mt-4 flex justify-center")], [
+        html.button(
+          [
+            attribute.class(secondary_button_class),
+            attribute.attribute("data-testid", "load-more-button"),
+            attribute.disabled(loading_more),
+            event.on_click(UserRequestedMore),
+          ],
+          [
+            html.text(case loading_more {
+              True -> "Loading…"
+              False -> "Load more"
+            }),
+          ],
+        ),
+      ])
   }
 }
 

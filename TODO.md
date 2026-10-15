@@ -29,7 +29,7 @@
   3. [x] Add `POST /api/transactions/search` returning a page and the next
          cursor, with endpoint tests for each criterion, user scoping, and
          paging (decisions 6 and 7).
-  4. [ ] Client: fetch the page through search with no criteria and add "Load
+  4. [x] Client: fetch the page through search with no criteria and add "Load
          more", skipping rows already shown; patch updates in place, add creates
          at the top, and run the search again after an import; remove
          client-side sorting (decisions 6 and 10).
