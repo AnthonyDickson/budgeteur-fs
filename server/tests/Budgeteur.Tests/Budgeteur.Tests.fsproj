@@ -48,6 +48,7 @@
     <Compile Include="Import/EndpointTests.fs" />
     <Compile Include="Rule/EndpointTests.fs" />
     <Compile Include="Tag/EndpointTests.fs" />
+    <Compile Include="Transaction/SearchTests.fs" />
     <Compile Include="Transaction/EndpointTests.fs" />
     <Compile Include="TestSupport/ResetUserDataTests.fs" />
     <None Include="Import/Fixtures/*.csv" CopyToOutputDirectory="PreserveNewest" />

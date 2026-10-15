@@ -115,6 +115,7 @@
 
     <Compile Include="Feature/Transaction/TransactionResponse.fs" />
     <Compile Include="Feature/Transaction/TransactionQuery.fs" />
+    <Compile Include="Feature/Transaction/TransactionSearch.fs" />
     <Compile Include="Feature/Transaction/CreateTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadAllTransactions.fs" />

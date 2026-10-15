@@ -23,7 +23,7 @@
   1. [x] Add the description-matching SQL function in `Data/`, with tests for
          ASCII and non-ASCII case and literal `%` and `_` (decision 2). Check
          first that SqlHydra renders a marked function in a `where` clause.
-  2. [ ] Add the pure search module in the Transaction slice: request types,
+  2. [x] Add the pure search module in the Transaction slice: request types,
          criteria validation, preset resolution through the reporting periods,
          and the cursor (decisions 3-6).
   3. [ ] Add `POST /api/transactions/search` returning a page and the next
