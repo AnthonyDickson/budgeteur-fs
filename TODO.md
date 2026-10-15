@@ -36,7 +36,7 @@
   5. [x] Client: add the search box with debounced searches, ignored stale
          responses, "Searching…", the no-match empty state, and "Clear"
          (decisions 9 and 11).
-  6. [ ] Client: add the filters panel and the dates select with presets, custom
+  6. [x] Client: add the filters panel and the dates select with presets, custom
          dates, and the resolved range (decisions 3 and 11).
   7. [ ] Client: add the account and tag selects to the filters panel (decision
          4).

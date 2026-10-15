@@ -18,11 +18,14 @@ import budgeteur/transaction_page/transaction_delete_modal.{
   type DeleteModalState,
 }
 import budgeteur/transaction_page/transaction_modal
-import budgeteur/transaction_page/transaction_search.{type Page, type Search}
+import budgeteur/transaction_page/transaction_search.{
+  type Criteria, type DatePreset, type Page, type Search,
+}
 import budgeteur/transaction_page/transaction_write_request
 import gleam/dict
 import gleam/dynamic/decode
 import gleam/float
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -50,6 +53,8 @@ pub type Model {
     searching: Bool,
     /// Whether a "Load more" request is in flight.
     loading_more: Bool,
+    /// Whether the filters panel is open.
+    filters_open: Bool,
     /// Names the transactions' tags and fills the modal's tag select. Empty
     /// until loaded; if the fetch fails, transactions show without tag names.
     tags: List(Tag),
@@ -74,6 +79,10 @@ pub type Results {
     transactions: List(Transaction),
     /// Where the search's next page starts, or None on the last page.
     next: Option(String),
+    /// The dates criterion's first day, with a preset resolved.
+    from: Option(Date),
+    /// The dates criterion's last day, with a preset resolved.
+    to: Option(Date),
   )
 }
 
@@ -83,6 +92,10 @@ pub type Msg {
   /// The search box went `search_delay_ms` without input.
   UserPausedTyping(String)
   UserClearedSearch
+  UserToggledFilters
+  UserChangedDatePreset(DatePreset)
+  UserChangedFromDate(String)
+  UserChangedToDate(String)
   /// The first page of a search's matches.
   ClientSearched(search: Search, result: Result(Page, ApiError))
   UserRequestedMore
@@ -138,17 +151,17 @@ fn fetch_accounts() -> Effect(Msg) {
   })
 }
 
-/// Fetch the page of the search's matches starting at the cursor, or the
+/// Fetch the page of the criteria's matches starting at the cursor, or the
 /// first page.
 fn fetch_page(
-  search: Search,
+  criteria: Criteria,
   today: Date,
   cursor: Option(String),
   to_msg: fn(Result(Page, ApiError)) -> Msg,
 ) -> Effect(Msg) {
   effect.post(
     api_route.SearchTransactions |> api_route.to_string,
-    transaction_search.request_json(search, today, cursor) |> json.to_string,
+    transaction_search.request_json(criteria, today, cursor) |> json.to_string,
     fn(result) {
       to_msg(case result {
         Ok(body) ->
@@ -163,15 +176,25 @@ fn fetch_page(
 /// modal's delay for counting a pattern's matches.
 const search_delay_ms = 300
 
-/// Run the page's search from the first page, once today is known.
+/// Run the page's search from the first page, once today is known. Invalid
+/// input runs no search; its field shows the error.
 fn run_search(model: Model) -> #(Model, Effect(Msg)) {
-  case model.today {
-    Some(today) -> #(
+  case model.today, transaction_search.validate(model.search) {
+    Some(today), Ok(criteria) -> #(
       Model(..model, searching: True),
-      fetch_page(model.search, today, None, ClientSearched(model.search, _)),
+      fetch_page(criteria, today, None, ClientSearched(model.search, _)),
     )
-    None -> #(model, effect.none())
+    _, _ -> #(Model(..model, searching: False), effect.none())
   }
+}
+
+/// Change the criteria and run the search.
+fn change_search(
+  model: Model,
+  search: Search,
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  let #(model, effect) = run_search(Model(..model, search:))
+  #(model, effect, None)
 }
 
 /// Searching waits for today, so the page asks for it first.
@@ -248,6 +271,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
       results: Loading,
       searching: False,
       loading_more: False,
+      filters_open: False,
       tags: [],
       accounts: [],
       modal: transaction_modal.hidden(),
@@ -269,7 +293,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
     // The text is kept as typed; the search runs once typing pauses.
     UserChangedText(text) -> #(
-      Model(..model, search: transaction_search.Search(text:)),
+      Model(..model, search: transaction_search.Search(..model.search, text:)),
       effect.none(),
       None,
     )
@@ -282,11 +306,22 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
     // A pause from before the box was cleared.
     UserPausedTyping(_) -> #(model, effect.none(), None)
 
-    UserClearedSearch -> {
-      let #(model, effect) =
-        run_search(Model(..model, search: transaction_search.new()))
-      #(model, effect, None)
-    }
+    UserClearedSearch -> change_search(model, transaction_search.new())
+
+    UserToggledFilters -> #(
+      Model(..model, filters_open: !model.filters_open),
+      effect.none(),
+      None,
+    )
+
+    UserChangedDatePreset(preset) ->
+      change_search(model, transaction_search.Search(..model.search, preset:))
+
+    UserChangedFromDate(from) ->
+      change_search(model, transaction_search.Search(..model.search, from:))
+
+    UserChangedToDate(to) ->
+      change_search(model, transaction_search.Search(..model.search, to:))
 
     // A response for criteria other than the current ones is ignored, so a
     // slow response never replaces a newer one.
@@ -303,6 +338,8 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
           search:,
           transactions: page.transactions,
           next: page.next,
+          from: page.from,
+          to: page.to,
         )),
         searching: False,
         // A "Load more" in flight continues the replaced results.
@@ -332,15 +369,20 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
     UserRequestedMore ->
       case model.results, model.today, model.loading_more {
-        Loaded(Results(search:, next: Some(cursor), ..)), Some(today), False -> #(
-          Model(..model, loading_more: True),
-          fetch_page(search, today, Some(cursor), ClientFetchedMore(
-            search,
-            cursor,
-            _,
-          )),
-          None,
-        )
+        Loaded(Results(search:, next: Some(cursor), ..)), Some(today), False ->
+          // The results' search was valid when it was sent.
+          case transaction_search.validate(search) {
+            Ok(criteria) -> #(
+              Model(..model, loading_more: True),
+              fetch_page(criteria, today, Some(cursor), ClientFetchedMore(
+                search,
+                cursor,
+                _,
+              )),
+              None,
+            )
+            Error(_) -> #(model, effect.none(), None)
+          }
         _, _, _ -> #(model, effect.none(), None)
       }
 
@@ -744,7 +786,11 @@ pub fn view(model: Model) -> Element(Msg) {
       Failed -> failed_state()
       Loaded(results) ->
         html.div([], [
-          search_bar(model.search),
+          search_bar(model.search, model.filters_open),
+          case model.filters_open {
+            True -> filters_panel(model.search, results)
+            False -> element.none()
+          },
           searching_note(model.searching),
           case results.transactions, transaction_search.is_set(results.search) {
             [], False -> no_transactions_empty_state()
@@ -775,8 +821,9 @@ fn tag_name(
   |> option.from_result
 }
 
-/// The search box, and "Clear" while any criterion is set.
-fn search_bar(search: Search) -> Element(Msg) {
+/// The search box, the "Filters" button, and "Clear" while any criterion is
+/// set.
+fn search_bar(search: Search, filters_open: Bool) -> Element(Msg) {
   html.div([attribute.class("mb-4 flex flex-wrap items-center gap-2")], [
     html.label(
       [
@@ -800,6 +847,21 @@ fn search_bar(search: Search) -> Element(Msg) {
         ]),
       ],
     ),
+    html.button(
+      [
+        attribute.class(secondary_button_class),
+        attribute.attribute("data-testid", "filters-button"),
+        attribute.aria_expanded(filters_open),
+        attribute.aria_controls(filters_panel_id),
+        event.on_click(UserToggledFilters),
+      ],
+      [
+        html.text(case transaction_search.filter_count(search) {
+          0 -> "Filters"
+          count -> "Filters (" <> int.to_string(count) <> ")"
+        }),
+      ],
+    ),
     case transaction_search.is_set(search) {
       True ->
         html.button(
@@ -813,6 +875,115 @@ fn search_bar(search: Search) -> Element(Msg) {
       False -> element.none()
     },
   ])
+}
+
+const filters_panel_id = "transaction-filters"
+
+/// The criteria other than text. The fields stack on narrow screens.
+fn filters_panel(search: Search, results: Results) -> Element(Msg) {
+  html.div(
+    [
+      attribute.id(filters_panel_id),
+      attribute.class(
+        "mb-4 grid gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-2",
+      ),
+      attribute.attribute("data-testid", "filters-panel"),
+    ],
+    [dates_filter(search, results)],
+  )
+}
+
+/// The dates select, with the first and last day inputs for custom dates and
+/// the resolved days for a preset.
+fn dates_filter(search: Search, results: Results) -> Element(Msg) {
+  let error = case transaction_search.validate(search) {
+    Error(transaction_search.Invalid(dates: error)) -> error
+    Ok(_) -> None
+  }
+  html.div([attribute.class("space-y-2")], [
+    html.label([attribute.class("block")], [
+      html.span([attribute.class(label_class)], [html.text("Dates")]),
+      html.select(
+        [
+          attribute.class(select_class),
+          attribute.attribute("data-testid", "dates-select"),
+          event.on_change(fn(value) {
+            transaction_search.parse_preset(value)
+            |> result.unwrap(transaction_search.AnyTime)
+            |> UserChangedDatePreset
+          }),
+        ],
+        list.map(transaction_search.date_presets, fn(preset) {
+          html.option(
+            [
+              attribute.value(transaction_search.preset_to_string(preset)),
+              attribute.selected(preset == search.preset),
+            ],
+            transaction_search.preset_label(preset),
+          )
+        }),
+      ),
+    ]),
+    case search.preset {
+      transaction_search.Custom ->
+        html.div([attribute.class("grid grid-cols-2 gap-2")], [
+          date_input(
+            "First day",
+            "from-date-input",
+            search.from,
+            UserChangedFromDate,
+          ),
+          date_input("Last day", "to-date-input", search.to, UserChangedToDate),
+        ])
+      transaction_search.AnyTime -> element.none()
+      preset -> resolved_days(preset, results)
+    },
+    case error {
+      Some(error) ->
+        html.p(
+          [
+            attribute.class("text-sm text-red-600"),
+            attribute.attribute("data-testid", "dates-error"),
+          ],
+          [html.text(error)],
+        )
+      None -> element.none()
+    },
+  ])
+}
+
+fn date_input(
+  label: String,
+  testid: String,
+  value: String,
+  on_input: fn(String) -> Msg,
+) -> Element(Msg) {
+  html.label([attribute.class("block")], [
+    html.span([attribute.class(label_class)], [html.text(label)]),
+    html.input([
+      attribute.type_("date"),
+      attribute.attribute("data-testid", testid),
+      attribute.value(value),
+      attribute.class(text_input_class),
+      event.on_input(on_input),
+    ]),
+  ])
+}
+
+/// The days the server resolved the preset to, once results for it have
+/// loaded.
+fn resolved_days(preset: DatePreset, results: Results) -> Element(Msg) {
+  case results.search.preset == preset, results.from, results.to {
+    True, Some(from), Some(to) ->
+      html.p(
+        [
+          attribute.class("text-sm text-gray-500"),
+          attribute.attribute("data-testid", "dates-range"),
+        ],
+        [html.text(date.format(from) <> " to " <> date.format(to))],
+      )
+    _, _, _ -> element.none()
+  }
 }
 
 /// Shown above the results while a search is in flight; the previous results
@@ -1007,6 +1178,11 @@ fn no_matches_empty_state() -> Element(Msg) {
     ],
   )
 }
+
+const label_class = "mb-1 block text-sm font-medium text-gray-700"
+
+const select_class = "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
+  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
 
 const text_input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
   <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"

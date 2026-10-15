@@ -502,10 +502,7 @@ pub fn a_search_shows_matches_in_the_servers_order_test() {
 
 pub fn a_response_for_other_criteria_is_ignored_test() {
   let model =
-    transaction_page.Model(
-      ..empty_model(),
-      search: transaction_search.Search(text: "coffee"),
-    )
+    transaction_page.Model(..empty_model(), search: with_text("coffee"))
 
   let #(new_model, effect, _) =
     transaction_page.update(
@@ -673,6 +670,10 @@ pub fn a_failed_load_more_keeps_the_results_test() {
   let assert Some(out_msg.PageRequestedToast(level: toast.Error, ..)) = out_msg
 }
 
+fn with_text(text: String) -> transaction_search.Search {
+  transaction_search.Search(..transaction_search.new(), text:)
+}
+
 fn today() -> calendar.Date {
   calendar.Date(2026, calendar.March, 15)
 }
@@ -691,7 +692,7 @@ fn page(
   transactions: List(transaction.Transaction),
   next: option.Option(String),
 ) -> transaction_search.Page {
-  transaction_search.Page(transactions:, next:)
+  transaction_search.Page(transactions:, next:, from: None, to: None)
 }
 
 /// The results of the search with no criteria, on its last page.
@@ -702,6 +703,8 @@ fn loaded(
     search: transaction_search.new(),
     transactions:,
     next: None,
+    from: None,
+    to: None,
   ))
 }
 
@@ -713,6 +716,8 @@ fn loaded_with_next(
     search: transaction_search.new(),
     transactions:,
     next: Some("next"),
+    from: None,
+    to: None,
   ))
 }
 
@@ -730,6 +735,7 @@ fn empty_model() -> transaction_page.Model {
     results: loaded([]),
     searching: False,
     loading_more: False,
+    filters_open: False,
     tags: [],
     accounts: [],
     modal: transaction_modal.hidden(),
@@ -864,7 +870,7 @@ pub fn typing_searches_once_typing_pauses_test() {
       transaction_page.UserChangedText("coffee"),
     )
 
-  typed.search |> should.equal(transaction_search.Search(text: "coffee"))
+  typed.search |> should.equal(with_text("coffee"))
   effect |> should.equal(effect.none())
 
   let #(searching, effect, _) =
@@ -883,7 +889,7 @@ pub fn typing_searches_once_typing_pauses_test() {
     transaction_page.update(
       searching,
       transaction_page.ClientSearched(
-        transaction_search.Search(text: "coffee"),
+        with_text("coffee"),
         Ok(page([match], None)),
       ),
     )
@@ -904,7 +910,7 @@ pub fn a_response_for_text_since_changed_is_ignored_test() {
     transaction_page.update(
       searching,
       transaction_page.ClientSearched(
-        transaction_search.Search(text: "cof"),
+        with_text("cof"),
         Ok(page([sample_transaction()], None)),
       ),
     )
@@ -945,7 +951,7 @@ pub fn a_failed_search_stops_searching_test() {
     transaction_page.update(
       model,
       transaction_page.ClientSearched(
-        transaction_search.Search(text: "coffee"),
+        with_text("coffee"),
         Error(server_error()),
       ),
     )
@@ -953,4 +959,84 @@ pub fn a_failed_search_stops_searching_test() {
   failed.searching |> should.be_false
   failed.results |> should.equal(model.results)
   let assert Some(out_msg.PageRequestedToast(level: toast.Error, ..)) = out_msg
+}
+
+// ── Filters ──────────────────────────────────────────────────────────────────
+
+pub fn choosing_a_date_preset_searches_and_shows_its_days_test() {
+  let #(searching, effect, _) =
+    transaction_page.update(
+      empty_model(),
+      transaction_page.UserChangedDatePreset(transaction_search.LastMonth),
+    )
+
+  searching.searching |> should.be_true
+  let assert effect.HttpRequest(body:, ..) = effect
+  body
+  |> string.contains("\"preset\":\"LastMonth\",\"from\":null,\"to\":null")
+  |> should.be_true
+
+  let from = calendar.Date(2026, calendar.February, 1)
+  let to = calendar.Date(2026, calendar.February, 28)
+  let #(searched, _, _) =
+    transaction_page.update(
+      searching,
+      transaction_page.ClientSearched(
+        searching.search,
+        Ok(transaction_search.Page(
+          transactions: [],
+          next: None,
+          from: Some(from),
+          to: Some(to),
+        )),
+      ),
+    )
+
+  let assert remote.Loaded(results) = searched.results
+  #(results.from, results.to) |> should.equal(#(Some(from), Some(to)))
+}
+
+pub fn custom_dates_are_sent_as_typed_test() {
+  let model =
+    empty_model()
+    |> run(transaction_page.UserChangedDatePreset(transaction_search.Custom))
+
+  let #(_, effect, _) =
+    transaction_page.update(
+      model,
+      transaction_page.UserChangedFromDate("2026-02-01"),
+    )
+
+  let assert effect.HttpRequest(body:, ..) = effect
+  body
+  |> string.contains(
+    "\"preset\":\"Custom\",\"from\":\"2026-02-01\",\"to\":null",
+  )
+  |> should.be_true
+}
+
+pub fn a_first_day_after_the_last_day_sends_nothing_test() {
+  let model =
+    empty_model()
+    |> run(transaction_page.UserChangedDatePreset(transaction_search.Custom))
+    |> run(transaction_page.UserChangedFromDate("2026-03-01"))
+
+  let #(invalid, effect, _) =
+    transaction_page.update(
+      model,
+      transaction_page.UserChangedToDate("2026-02-01"),
+    )
+
+  effect |> should.equal(effect.none())
+  invalid.searching |> should.be_false
+  let assert Error(transaction_search.Invalid(dates: Some(_))) =
+    transaction_search.validate(invalid.search)
+}
+
+pub fn the_filters_button_toggles_the_panel_test() {
+  let opened = run(empty_model(), transaction_page.UserToggledFilters)
+  opened.filters_open |> should.be_true
+
+  let closed = run(opened, transaction_page.UserToggledFilters)
+  closed.filters_open |> should.be_false
 }
