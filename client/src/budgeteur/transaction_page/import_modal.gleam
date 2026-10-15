@@ -229,10 +229,10 @@ fn dialog(
     busy:,
     on_dismiss: CancelRequested,
     children: [
-      html.h2([attribute.class("mb-2 text-lg font-semibold text-gray-900")], [
+      html.h2([attribute.class("mb-2 text-lg font-semibold text-fg")], [
         html.text("Import statements"),
       ]),
-      html.p([attribute.class("mb-4 text-sm text-gray-500")], [
+      html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
         html.text(
           "Choose CSV exports from Kiwibank or ASB credit cards. Transactions already imported are skipped, and accounts are created for new account numbers.",
         ),
@@ -277,9 +277,9 @@ fn dialog(
             attribute.multiple(True),
             attribute.disabled(busy),
             attribute.class(
-              "block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 "
-              <> "file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 "
-              <> "hover:file:bg-indigo-100",
+              "block w-full text-sm text-fg-muted file:mr-3 file:rounded-md file:border file:border-border-input "
+              <> "file:bg-surface file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg "
+              <> "hover:file:bg-surface-hover",
             ),
             event.on(
               "change",

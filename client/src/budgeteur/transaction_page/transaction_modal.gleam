@@ -539,7 +539,7 @@ fn view_form(
     || field.has_error(date)
 
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(title),
     ]),
     case api_error {
@@ -596,7 +596,7 @@ fn view_form(
             attribute.disabled(submitting),
             event.on_check(IsTransferChanged),
           ]),
-          html.span([attribute.class("text-sm font-medium text-gray-700")], [
+          html.span([attribute.class("text-sm font-medium text-fg-muted")], [
             html.text("Transfer between my own accounts"),
           ]),
         ]),
@@ -644,7 +644,7 @@ fn view_form(
           html.span(
             [
               attribute.class(
-                "mb-1 flex items-center gap-2 text-sm font-medium text-gray-700",
+                "mb-1 flex items-center gap-2 text-sm font-medium text-fg-muted",
               ),
             ],
             [
@@ -685,7 +685,7 @@ fn view_form(
                     "data-testid",
                     "transaction-transfer-tag-hint",
                   ),
-                  attribute.class("mt-1 text-xs text-gray-500"),
+                  attribute.class("mt-1 text-xs text-fg-muted"),
                 ],
                 [
                   html.text(
@@ -694,13 +694,13 @@ fn view_form(
                 ],
               )
             False, [] ->
-              html.p([attribute.class("mt-1 text-xs text-gray-500")], [
+              html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
                 html.text("No tags yet. "),
                 html.a(
                   [
                     attribute.href(route.to_string(route.Tagging)),
                     attribute.class(
-                      "font-medium text-indigo-600 hover:text-indigo-500",
+                      "font-medium text-primary hover:text-primary-hover",
                     ),
                   ],
                   [html.text("Create one on the Tagging page")],
@@ -718,7 +718,7 @@ fn view_form(
                     "transaction-rule-tag-hint",
                   ),
                   attribute.class(
-                    "mt-2 rounded-md bg-indigo-50 px-3 py-2 text-xs text-indigo-700",
+                    "mt-2 rounded-md bg-primary-tint px-3 py-2 text-xs text-fg",
                   ),
                 ],
                 [

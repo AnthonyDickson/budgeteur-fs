@@ -31,7 +31,7 @@
          replace the copied input classes (decision 11).
   5. [x] Add `ui/card` (panel, empty state) and `ui/banner` (error, warning) and
          use them; toasts use the status tints (decisions 7 and 11).
-  6. [ ] Move the remaining colours to roles in the shell, header, and
+  6. [x] Move the remaining colours to roles in the shell, header, and
          transactions page with its modals (decision 4).
   7. [ ] Move the remaining colours to roles in the tagging page with its modals
          (decision 4).

@@ -796,7 +796,7 @@ pub fn view(model: Model) -> Element(Msg) {
 
   html.div([attribute.class("mx-auto max-w-4xl px-4 py-8 sm:px-6")], [
     html.div([attribute.class("flex items-center justify-between gap-4 mb-6")], [
-      html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+      html.h1([attribute.class("text-2xl font-semibold text-fg")], [
         html.text("Transactions"),
       ]),
       // Offered only once the list has loaded, so a new transaction always
@@ -1088,7 +1088,7 @@ fn field_error(testid: String, error: Option(String)) -> Element(Msg) {
     Some(error) ->
       html.p(
         [
-          attribute.class("text-sm text-red-600"),
+          attribute.class("text-sm text-danger"),
           attribute.attribute("data-testid", testid),
         ],
         [html.text(error)],
@@ -1196,7 +1196,7 @@ fn resolved_days(preset: DatePreset, results: Results) -> Element(Msg) {
     True, Some(from), Some(to) ->
       html.p(
         [
-          attribute.class("text-sm text-gray-500"),
+          attribute.class("text-sm text-fg-muted"),
           attribute.attribute("data-testid", "dates-range"),
         ],
         [html.text(date.format(from) <> " to " <> date.format(to))],
@@ -1210,7 +1210,7 @@ fn resolved_days(preset: DatePreset, results: Results) -> Element(Msg) {
 fn searching_note(searching: Bool) -> Element(Msg) {
   html.p(
     [
-      attribute.class("mb-2 h-5 text-sm text-gray-500"),
+      attribute.class("mb-2 h-5 text-sm text-fg-muted"),
       attribute.attribute("data-testid", "searching-note"),
       attribute.aria_live("polite"),
     ],
@@ -1228,18 +1228,18 @@ fn transactions_table(
   html.div(
     [
       attribute.class(
-        "overflow-hidden rounded-lg border border-gray-200 shadow-sm",
+        "overflow-hidden rounded-lg border border-border shadow-sm",
       ),
     ],
     [
-      html.table([attribute.class("min-w-full divide-y divide-gray-200")], [
+      html.table([attribute.class("min-w-full divide-y divide-border")], [
         html.caption([attribute.class("sr-only")], [
           html.text("All transactions"),
         ]),
         html.thead(
           [
             attribute.class(
-              "bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500",
+              "bg-surface-hover text-left text-xs font-medium uppercase tracking-wide text-fg-muted",
             ),
           ],
           [
@@ -1265,18 +1265,18 @@ fn transactions_table(
           ],
         ),
         html.tbody(
-          [attribute.class("divide-y divide-gray-200 bg-white")],
+          [attribute.class("divide-y divide-border bg-surface")],
           list.map(transactions, fn(transaction) {
             html.tr(
               [
-                attribute.class("group relative hover:bg-gray-50"),
+                attribute.class("group relative hover:bg-surface-hover"),
                 attribute.attribute("data-testid", "transaction-row"),
               ],
               [
                 html.td(
                   [
                     attribute.class(
-                      "whitespace-nowrap px-4 py-3 text-sm text-gray-700",
+                      "whitespace-nowrap px-4 py-3 text-sm text-fg-muted",
                     ),
                   ],
                   [html.text(transaction.date |> date.format)],
@@ -1284,7 +1284,7 @@ fn transactions_table(
                 html.td(
                   [
                     attribute.class(
-                      "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-gray-900 text-right",
+                      "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-fg text-right",
                     ),
                     attribute.attribute(
                       "data-amount",
@@ -1302,10 +1302,10 @@ fn transactions_table(
                     children: [html.text(transaction.description)],
                   ),
                 ]),
-                html.td([attribute.class("px-4 py-3 text-sm text-gray-700")], [
+                html.td([attribute.class("px-4 py-3 text-sm text-fg-muted")], [
                   html.text(transaction.account_name |> option.unwrap("-")),
                 ]),
-                html.td([attribute.class("px-4 py-3 text-sm text-gray-700")], [
+                html.td([attribute.class("px-4 py-3 text-sm text-fg-muted")], [
                   html.text(case transaction.is_transfer {
                     // A transfer has no tag: it is neither income nor
                     // an expense.
@@ -1361,10 +1361,10 @@ fn no_transactions_empty_state() -> Element(Msg) {
       attribute.attribute("data-testid", "no-transactions-empty-state"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("No transactions yet"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Use \"Record Transaction\" to add your first one."),
       ]),
     ],
@@ -1378,7 +1378,7 @@ fn no_matches_empty_state() -> Element(Msg) {
       attribute.attribute("data-testid", "no-matches-empty-state"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("No transactions match your search"),
       ]),
       button.view(
@@ -1401,7 +1401,7 @@ fn loading_state() -> Element(Msg) {
       attribute.attribute("data-testid", "transactions-loading-state"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Loading transactions..."),
       ]),
     ],
@@ -1416,10 +1416,10 @@ fn failed_state() -> Element(Msg) {
       attribute.attribute("data-testid", "transactions-load-error"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("Could not load transactions"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Check your connection and try again."),
       ]),
       button.view(

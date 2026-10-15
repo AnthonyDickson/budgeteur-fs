@@ -6,7 +6,7 @@ import lustre/element/html
 /// The app-wide header: brand link plus nav links to each page. The active
 /// item is highlighted based on the current route.
 pub fn view(current_route: route.Route) -> Element(msg) {
-  html.header([attribute.class("border-b border-gray-200 bg-white")], [
+  html.header([attribute.class("border-b border-border bg-surface")], [
     html.div(
       [
         attribute.class(
@@ -17,7 +17,7 @@ pub fn view(current_route: route.Route) -> Element(msg) {
         html.a(
           [
             attribute.href(route.to_string(route.Dashboard)),
-            attribute.class("text-base font-semibold text-gray-900"),
+            attribute.class("text-base font-semibold text-fg"),
           ],
           [html.text("Budgeteur")],
         ),
@@ -71,8 +71,8 @@ fn nav_link(
       attribute.class(
         "rounded-md px-3 py-1.5 text-sm font-medium "
         <> case is_active {
-          True -> "bg-indigo-50 text-indigo-700"
-          False -> "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          True -> "bg-primary-tint text-fg"
+          False -> "text-fg-muted hover:bg-surface-hover hover:text-fg"
         },
       ),
     ],

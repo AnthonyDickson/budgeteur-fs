@@ -128,7 +128,7 @@ fn dialog_content(
   on_confirm on_confirm: msg,
 ) -> List(Element(msg)) {
   [
-    html.h2([attribute.class("mb-4 text-lg font-semibold text-gray-900")], [
+    html.h2([attribute.class("mb-4 text-lg font-semibold text-fg")], [
       html.text(options.title),
     ]),
     options.body(target, context),

@@ -34,7 +34,7 @@ pub fn view(
       body: fn(transaction: Transaction, _context: Nil) {
         let formatted_amount = transaction.amount |> money.format
 
-        html.p([attribute.class("mb-4 text-sm text-gray-700")], [
+        html.p([attribute.class("mb-4 text-sm text-fg-muted")], [
           html.text(
             "Are you sure you want to delete "
             <> transaction.description
