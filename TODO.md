@@ -19,7 +19,7 @@
 ## Current Tasks
 
 - Styling ([design brief](docs/styling.md)), one commit each:
-  1. [ ] Add the Catppuccin palette layer (Latte only) and the role layer to the
+  1. [x] Add the Catppuccin palette layer (Latte only) and the role layer to the
          stylesheet, declare the light colour scheme, and give the page its
          background and text roles. Check the mixed roles' contrast against
          decision 6 (decisions 1, 3, 4, 6).

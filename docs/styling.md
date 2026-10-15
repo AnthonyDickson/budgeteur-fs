@@ -91,7 +91,7 @@ mode.
   | ------------- | ------------------------------------------------------ | -------------------------------- |
   | page          | Page background                                        | mantle                           |
   | surface       | Header, cards, modals, inputs                          | base                             |
-  | surface-hover | Hovered rows and buttons; disabled fills               | surface with 5% of text mixed in |
+  | surface-hover | Hovered rows and buttons, table heads, disabled fills  | surface with 3% of text mixed in |
   | backdrop      | Behind modal dialogs, at 50% opacity                   | crust                            |
   | fg            | Body text and headings                                 | text                             |
   | fg-muted      | Secondary text: labels, dates, counts, help            | subtext1                         |
@@ -115,9 +115,10 @@ mode.
 - **Why**:
   - **Surfaces**: a mantle page with base cards keeps today's raised cards on a
     tinted page, and Catppuccin uses mantle and crust for background panes.
-  - **Hover**: mixing 5% of the text colour into the surface darkens it in Latte
-    and lightens it in Mocha, as subtle as today's gray-50. Stock surface0 is
-    too heavy in Latte: muted text on it is 4.1:1 and primary text 3.5:1.
+  - **Hover**: mixing 3% of the text colour into the surface darkens it in Latte
+    and lightens it in Mocha, a little stronger than today's gray-50. At 5%,
+    primary text on it falls to 4.4:1 in Latte. Stock surface0 is too heavy in
+    Latte: muted text on it is 4.1:1 and primary text 3.5:1.
   - **Fill hovers**: mixing toward the text colour raises the contrast of the
     text on the fill in both flavours.
 - **Rejected**: a base page with surface0 cards (muted text on cards fails AA in
@@ -144,23 +145,28 @@ mode.
     2.3:1).
   - danger text is allowed (Latte red 4.8:1).
   - Text on primary and danger fills is base.
+  - Primary text sits on surfaces, not on the page background, where it is
+    4.45:1 in Latte.
+  - Text on a tint is fg or fg-muted. Primary and danger text on their own tints
+    is 3.9:1 in Latte.
 
   | Pair                        | Latte | Mocha |
   | --------------------------- | ----- | ----- |
   | fg on surface               | 7.1   | 11.3  |
   | fg-muted on surface         | 5.5   | 9.3   |
   | fg-muted on page            | 5.1   | 9.9   |
-  | fg-muted on surface-hover   | 5.1   | 8.3   |
+  | fg-muted on surface-hover   | 5.3   | 8.8   |
   | primary on surface          | 4.8   | 8.1   |
-  | primary on surface-hover    | 4.5   | 7.2   |
+  | primary on surface-hover    | 4.6   | 7.6   |
   | danger on surface           | 4.8   | 7.1   |
   | on-primary on primary       | 4.8   | 8.1   |
-  | on-primary on primary-hover | 5.1   | 8.4   |
-  | fg on any tint              | ≥ 5.5 | ≥ 7.6 |
+  | on-primary on primary-hover | 5.0   | 8.4   |
+  | fg on any tint              | ≥ 5.8 | ≥ 8.0 |
+  | fg-muted on any tint        | ≥ 4.5 | ≥ 6.6 |
   | fg-subtle on surface        | 3.5   | 5.8   |
 
-  Ratios for mixed roles were estimated by mixing in sRGB; check them once the
-  stylesheet exists.
+  Ratios for mixed roles are computed by mixing in oklab, as the stylesheet
+  does.
 - **Why**: Latte's accents are pastels, too light for text on a light
   background. Choosing roles keeps Catppuccin's values unedited.
 - **Cost**: secondary text loses a level of hierarchy. Today's gray-700 and
