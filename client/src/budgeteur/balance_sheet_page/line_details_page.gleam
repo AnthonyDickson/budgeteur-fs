@@ -31,7 +31,9 @@ import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/side.{Asset, Liability}
 import budgeteur/shared/term.{Current, NonCurrent}
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -940,11 +942,10 @@ fn header(line: Line) -> Element(Msg) {
         },
         case after_close {
           Some(after_close) ->
-            html.p(
+            banner.view(
+              banner.Warning,
               [
-                attribute.class(
-                  "mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800",
-                ),
+                attribute.class("mt-2"),
                 attribute.attribute(
                   "data-testid",
                   "line-details-transactions-after-close",
@@ -1182,11 +1183,9 @@ fn loading_state() -> Element(Msg) {
 }
 
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "mt-6 rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
+      attribute.class("mt-6"),
       attribute.attribute("data-testid", "line-details-load-error"),
     ],
     [

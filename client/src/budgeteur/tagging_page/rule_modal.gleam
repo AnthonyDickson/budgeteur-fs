@@ -3,6 +3,7 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/number
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
 import budgeteur/tagging_page/rule.{type Rule, Rule}
@@ -409,10 +410,10 @@ fn view_form(
     ]),
     case api_error {
       Some(message) ->
-        dialog.error_banner(
-          testid: "rule-api-error",
-          message: "Could not save rule: " <> message,
-          extra_class: "",
+        banner.view(
+          banner.Error,
+          [attribute.attribute("data-testid", "rule-api-error")],
+          [html.text("Could not save rule: " <> message)],
         )
       None -> element.none()
     },

@@ -6,11 +6,11 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 
-/// Stateless Tailwind chrome shared by the feature modal dialogs. Scoped to
-/// what a modal dialog needs: the `<dialog>` element, its buttons, and its
-/// message banners. Field widgets stay per-feature.
+/// Stateless chrome shared by the feature modal dialogs: the `<dialog>`
+/// element, its footer, and its standard buttons. Fields and banners come from
+/// the `input` and `banner` modules.
 /// Classes for the `<dialog>` element of `dialog`.
-const dialog_class = "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50"
+const dialog_class = "mx-auto my-auto w-full max-w-md rounded-lg border border-border bg-surface p-6 text-fg shadow-xl backdrop:bg-backdrop/50"
 
 /// Define the `<modal-dialog>` custom element that `dialog` renders. Call once
 /// before the app starts.
@@ -179,25 +179,5 @@ pub fn text_button(
       event.on_click(on_click),
     ],
     [html.text(label)],
-  )
-}
-
-/// A red banner reporting an API-level failure. `extra_class` carries any
-/// spacing the surrounding flow needs (e.g. "mb-4" after paragraphs).
-pub fn error_banner(
-  testid testid: String,
-  message message: String,
-  extra_class extra_class: String,
-) -> Element(msg) {
-  html.p(
-    [
-      attribute.attribute("role", "alert"),
-      attribute.attribute("data-testid", testid),
-      attribute.class(
-        extra_class
-        <> " rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700",
-      ),
-    ],
-    [html.text(message)],
   )
 }

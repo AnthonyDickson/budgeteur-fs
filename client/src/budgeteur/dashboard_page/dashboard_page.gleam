@@ -17,6 +17,7 @@ import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
 import gleam/float
@@ -28,8 +29,6 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-
-const card_class = "rounded-lg border border-gray-200 bg-white shadow-sm"
 
 const link_class = "font-medium text-indigo-600 hover:text-indigo-500"
 
@@ -452,7 +451,7 @@ fn lines_table(
   let header_class =
     "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500"
 
-  html.div([attribute.class("overflow-hidden " <> card_class)], [
+  card.panel([attribute.class("overflow-hidden")], [
     html.h3(
       [
         attribute.class(
@@ -855,7 +854,7 @@ fn history_table(
   history history: List(HistoryMonth),
   cells cells: fn(HistoryMonth) -> List(Option(Float)),
 ) -> Element(Msg) {
-  html.div([attribute.class("overflow-hidden " <> card_class)], [
+  card.panel([attribute.class("overflow-hidden")], [
     html.h3(
       [
         attribute.class(
@@ -959,9 +958,9 @@ fn card(
   testid: String,
   children: List(Element(Msg)),
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(card_class <> " px-4 py-3"),
+      attribute.class("px-4 py-3"),
       attribute.attribute("data-testid", testid),
     ],
     [
@@ -995,9 +994,9 @@ fn message_card(
   heading heading: String,
   body body: List(Element(Msg)),
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(card_class <> " px-6 py-8 text-center"),
+      attribute.class("px-6 py-8 text-center"),
       attribute.attribute("data-testid", testid),
     ],
     [
@@ -1014,9 +1013,9 @@ fn retry_card(
   heading heading: String,
   on_retry on_retry: Msg,
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(card_class <> " px-6 py-8 text-center"),
+      attribute.class("px-6 py-8 text-center"),
       attribute.attribute("data-testid", testid),
     ],
     [

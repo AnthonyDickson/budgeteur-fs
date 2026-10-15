@@ -11,6 +11,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
 import gleam/option.{type Option, None, Some}
@@ -201,10 +202,10 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            dialog.error_banner(
-              testid: "close-api-error",
-              message: "Could not close: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [attribute.attribute("data-testid", "close-api-error")],
+              [html.text("Could not close: " <> message)],
             )
           None -> element.none()
         },

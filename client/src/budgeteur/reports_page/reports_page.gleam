@@ -16,7 +16,9 @@ import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/side
 import budgeteur/shared/term
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
 import gleam/float
@@ -32,8 +34,6 @@ import lustre/event
 
 /// localStorage key for the page's saved preferences.
 pub const storage_key = "budgeteur.reports"
-
-const card_class = "rounded-lg border border-gray-200 bg-white shadow-sm"
 
 // Types
 // -----
@@ -481,9 +481,9 @@ fn percent_card(
 }
 
 fn card(label: String, testid: String, value: Element(Msg)) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(card_class <> " px-4 py-3"),
+      attribute.class("px-4 py-3"),
       attribute.attribute("data-testid", testid),
     ],
     [
@@ -498,7 +498,7 @@ fn lines_table(
   testid: String,
   lines: List(Line),
 ) -> Element(Msg) {
-  html.div([attribute.class("overflow-hidden " <> card_class)], [
+  card.panel([attribute.class("overflow-hidden")], [
     html.h3(
       [
         attribute.class(
@@ -574,7 +574,7 @@ fn sheet_table(sheet: Sheet) -> Element(Msg) {
   let #(assets, liabilities) =
     list.partition(sheet.lines, fn(line) { line.side == side.Asset })
 
-  html.div([attribute.class("overflow-hidden " <> card_class)], [
+  card.panel([attribute.class("overflow-hidden")], [
     case sheet.lines {
       [] ->
         html.p([attribute.class("px-4 py-3 text-sm text-gray-400")], [
@@ -718,9 +718,8 @@ fn total_row(label: String, amount: Float) -> Element(Msg) {
 }
 
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(card_class <> " px-6 py-12 text-center"),
       attribute.attribute("data-testid", "report-load-error"),
     ],
     [
@@ -748,11 +747,9 @@ fn transactions_after_close_note(names: List(String)) -> Element(Msg) {
   case names {
     [] -> element.none()
     names ->
-      html.p(
+      banner.view(
+        banner.Warning,
         [
-          attribute.class(
-            "rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800",
-          ),
           attribute.attribute("data-testid", "report-transactions-after-close"),
         ],
         [

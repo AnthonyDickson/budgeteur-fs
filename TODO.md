@@ -29,7 +29,7 @@
          buttons and every page button (decision 11).
   4. [x] Add `ui/input` (text input, select, checkbox, invalid state) and
          replace the copied input classes (decision 11).
-  5. [ ] Add `ui/card` (panel, empty state) and `ui/banner` (error, warning) and
+  5. [x] Add `ui/card` (panel, empty state) and `ui/banner` (error, warning) and
          use them; toasts use the status tints (decisions 7 and 11).
   6. [ ] Move the remaining colours to roles in the shell, header, and
          transactions page with its modals (decision 4).

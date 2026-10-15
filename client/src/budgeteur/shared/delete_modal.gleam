@@ -10,6 +10,7 @@
 //// race a newer modal session.
 
 import budgeteur/shared/api_error.{type ApiError}
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import gleam/option.{type Option, None, Some}
 import lustre/attribute
@@ -133,10 +134,13 @@ fn dialog_content(
     options.body(target, context),
     case error {
       Some(message) ->
-        dialog.error_banner(
-          testid: options.error_testid,
-          message: options.error_prefix <> ": " <> message,
-          extra_class: "mb-4",
+        banner.view(
+          banner.Error,
+          [
+            attribute.class("mb-4"),
+            attribute.attribute("data-testid", options.error_testid),
+          ],
+          [html.text(options.error_prefix <> ": " <> message)],
         )
       None -> element.none()
     },

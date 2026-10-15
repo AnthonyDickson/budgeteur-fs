@@ -1,5 +1,6 @@
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/icon
 import gleam/list
@@ -134,11 +135,9 @@ pub fn panel(
 /// Shown in place of the whole page content when there are no tags yet,
 /// prompting the user to create the first one.
 pub fn no_tags_empty_state(on_create on_create: msg) -> Element(msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "mx-auto max-w-md rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
+      attribute.class("mx-auto max-w-md"),
       attribute.attribute("data-testid", "no-tags-empty-state"),
     ],
     [

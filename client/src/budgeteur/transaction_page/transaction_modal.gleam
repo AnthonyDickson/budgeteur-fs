@@ -5,6 +5,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
 import budgeteur/shared/ui/swatch
@@ -543,10 +544,10 @@ fn view_form(
     ]),
     case api_error {
       Some(message) ->
-        dialog.error_banner(
-          testid: "transaction-api-error",
-          message: "Could not save transaction: " <> message,
-          extra_class: "",
+        banner.view(
+          banner.Error,
+          [attribute.attribute("data-testid", "transaction-api-error")],
+          [html.text("Could not save transaction: " <> message)],
         )
       None -> element.none()
     },

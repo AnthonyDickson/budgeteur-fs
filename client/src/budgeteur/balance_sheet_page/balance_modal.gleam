@@ -15,6 +15,7 @@ import budgeteur/shared/date
 import budgeteur/shared/form_modal
 import budgeteur/shared/money
 import budgeteur/shared/side.{type Side}
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
@@ -167,10 +168,10 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            dialog.error_banner(
-              testid: "balance-api-error",
-              message: "Could not record balance: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [attribute.attribute("data-testid", "balance-api-error")],
+              [html.text("Could not record balance: " <> message)],
             )
           None -> element.none()
         },

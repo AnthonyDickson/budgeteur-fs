@@ -15,6 +15,7 @@ import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag, Expense, Income}
 import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import budgeteur/shared/ui/row
 import budgeteur/shared/ui/swatch
 import gleam/dict.{type Dict}
@@ -30,8 +31,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
-
-const card_class = "rounded-lg border border-gray-200 bg-white shadow-sm"
 
 const choice_button_class = "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium "
   <> "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait"
@@ -544,9 +543,8 @@ fn choice_button(
 }
 
 fn empty_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(card_class <> " px-6 py-12 text-center"),
       attribute.attribute("data-testid", "quick-tag-empty-state"),
     ],
     [
@@ -569,9 +567,8 @@ fn empty_state() -> Element(Msg) {
 }
 
 fn loading_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(card_class <> " px-6 py-12 text-center"),
       attribute.attribute("data-testid", "quick-tag-loading-state"),
     ],
     [
@@ -583,9 +580,8 @@ fn loading_state() -> Element(Msg) {
 }
 
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(card_class <> " px-6 py-12 text-center"),
       attribute.attribute("data-testid", "quick-tag-load-error"),
     ],
     [

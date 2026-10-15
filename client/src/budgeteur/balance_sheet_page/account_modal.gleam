@@ -11,6 +11,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
 import gleam/int
@@ -278,10 +279,10 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            dialog.error_banner(
-              testid: "account-api-error",
-              message: "Could not save account: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [attribute.attribute("data-testid", "account-api-error")],
+              [html.text("Could not save account: " <> message)],
             )
           None -> element.none()
         },

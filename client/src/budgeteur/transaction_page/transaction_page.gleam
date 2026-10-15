@@ -11,6 +11,7 @@ import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import budgeteur/shared/ui/input
 import budgeteur/shared/ui/row
 import budgeteur/transaction_page/account.{type Account}
@@ -940,12 +941,10 @@ fn filters_panel(model: Model, results: Results) -> Element(Msg) {
       transaction_search.Invalid(dates: None, minimum: None, maximum: None)
     Error(invalid) -> invalid
   }
-  html.div(
+  card.panel(
     [
       attribute.id(filters_panel_id),
-      attribute.class(
-        "mb-4 grid gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-2",
-      ),
+      attribute.class("mb-4 grid gap-4 p-4 sm:grid-cols-2"),
       attribute.attribute("data-testid", "filters-panel"),
     ],
     [
@@ -1357,11 +1356,8 @@ fn load_more(results: Results, loading_more: Bool) -> Element(Msg) {
 /// "Record Transaction" button in the page header stays visible, so no extra
 /// call to action is needed here.
 fn no_transactions_empty_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "no-transactions-empty-state"),
     ],
     [
@@ -1377,11 +1373,8 @@ fn no_transactions_empty_state() -> Element(Msg) {
 
 /// Shown in place of the table when the search matches nothing.
 fn no_matches_empty_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "no-matches-empty-state"),
     ],
     [
@@ -1403,11 +1396,8 @@ fn no_matches_empty_state() -> Element(Msg) {
 }
 
 fn loading_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "transactions-loading-state"),
     ],
     [
@@ -1421,11 +1411,8 @@ fn loading_state() -> Element(Msg) {
 /// The first load failed; the page offers a retry rather than an indefinite
 /// loading state.
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "transactions-load-error"),
     ],
     [

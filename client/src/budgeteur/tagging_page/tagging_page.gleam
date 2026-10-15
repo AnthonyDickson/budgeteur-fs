@@ -8,6 +8,7 @@ import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import budgeteur/tagging_page/auto_tag
 import budgeteur/tagging_page/rule.{type Rule}
 import budgeteur/tagging_page/rule_delete_modal
@@ -878,11 +879,9 @@ fn master_detail(
   rules: List(Rule),
   selected_tag: Option(Uuid),
 ) -> Element(Msg) {
-  html.div(
+  card.panel(
     [
-      attribute.class(
-        "h-[30rem] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm",
-      ),
+      attribute.class("h-[30rem] overflow-hidden"),
     ],
     [
       html.div([attribute.class("flex h-full")], [
@@ -906,11 +905,8 @@ fn master_detail(
 }
 
 fn loading_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "tagging-loading-state"),
     ],
     [
@@ -924,11 +920,8 @@ fn loading_state() -> Element(Msg) {
 /// The first load failed; the page offers a retry rather than an indefinite
 /// loading state.
 fn failed_state() -> Element(Msg) {
-  html.div(
+  card.empty_state(
     [
-      attribute.class(
-        "rounded-lg border border-gray-200 bg-white px-6 py-12 text-center shadow-sm",
-      ),
       attribute.attribute("data-testid", "tagging-load-error"),
     ],
     [

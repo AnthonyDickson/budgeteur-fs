@@ -12,6 +12,7 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/side.{type Side, Asset, Liability}
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
 import gleam/int
@@ -338,10 +339,15 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            dialog.error_banner(
-              testid: "balance-sheet-item-api-error",
-              message: "Could not save item: " <> message,
-              extra_class: "",
+            banner.view(
+              banner.Error,
+              [
+                attribute.attribute(
+                  "data-testid",
+                  "balance-sheet-item-api-error",
+                ),
+              ],
+              [html.text("Could not save item: " <> message)],
             )
           None -> element.none()
         },

@@ -3,6 +3,7 @@
 //// effects. See decisions 10 and 13 in docs/csv-import.md.
 
 import budgeteur/shared/api_error.{type ApiError}
+import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import gleam/dynamic/decode
 import gleam/int
@@ -245,22 +246,19 @@ fn dialog(
           case errors {
             [] -> element.none()
             _ ->
-              html.div(
+              banner.view(
+                banner.Error,
                 [
-                  attribute.class(
-                    "max-h-64 overflow-y-auto rounded-md border border-red-200 bg-red-50 px-3 py-2",
-                  ),
+                  attribute.class("max-h-64 overflow-y-auto"),
                   attribute.attribute("data-testid", "import-errors"),
                 ],
                 [
-                  html.p([attribute.class("text-sm font-medium text-red-800")], [
+                  html.p([attribute.class("font-medium")], [
                     html.text("Nothing was imported. Fix these and try again:"),
                   ]),
                   html.ul(
                     [
-                      attribute.class(
-                        "mt-1 list-disc space-y-1 pl-5 text-sm text-red-700",
-                      ),
+                      attribute.class("mt-1 list-disc space-y-1 pl-5"),
                     ],
                     list.map(errors, fn(error) {
                       html.li([attribute.class("whitespace-pre-wrap")], [
