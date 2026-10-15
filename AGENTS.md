@@ -41,6 +41,7 @@ implementations of the patterns in [docs/architecture.md](docs/architecture.md).
 | [csv-import.md](docs/csv-import.md)                 | CSV import and accounts design brief: formats, hashes, flow    |
 | [quick-tagging.md](docs/quick-tagging.md)           | Quick tagging design brief: queue, dismissals, one click       |
 | [transaction-search.md](docs/transaction-search.md) | Transaction search design brief: criteria, matching, paging    |
+| [styling.md](docs/styling.md)                       | Styling design brief: Catppuccin roles, modes, components      |
 | [fp-showcase.md](docs/fp-showcase.md)               | Tour of the codebase's functional programming ideas (tutorial) |
 
 Docs record requirements, design decisions and their rationale, and conventions
