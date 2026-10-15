@@ -62,8 +62,12 @@ module TestAppConfig =
         CleanTables = tables @ config.CleanTables
     }
 
+    /// Includes the development-only list, which the tests use to observe
+    /// transactions.
     let withTransactions =
-        withEndpoints [ "Transactions" ] TransactionEndpoints.all
+        withEndpoints [ "Transactions" ] (fun queryContext ->
+            TransactionEndpoints.all queryContext
+            @ TransactionEndpoints.developmentOnly queryContext)
 
     let withTags = withEndpoints [ "Tags" ] TagEndpoints.all
 

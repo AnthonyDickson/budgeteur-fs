@@ -27,6 +27,7 @@
     <Compile Include="Domain/IncomeStatementTests.fs" />
     <Compile Include="Domain/ReportingPeriodTests.fs" />
     <Compile Include="Data/BalanceSheetItemCodecTests.fs" />
+    <Compile Include="Data/PatternMatchTests.fs" />
     <Compile Include="Account/EndpointTests.fs" />
     <Compile Include="BalanceSheet/EndpointTests.fs" />
     <Compile Include="BalanceSheet/ClosingTests.fs" />
@@ -47,7 +48,9 @@
     <Compile Include="Import/EndpointTests.fs" />
     <Compile Include="Rule/EndpointTests.fs" />
     <Compile Include="Tag/EndpointTests.fs" />
+    <Compile Include="Transaction/SearchTests.fs" />
     <Compile Include="Transaction/EndpointTests.fs" />
+    <Compile Include="Transaction/SearchEndpointTests.fs" />
     <Compile Include="TestSupport/ResetUserDataTests.fs" />
     <None Include="Import/Fixtures/*.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

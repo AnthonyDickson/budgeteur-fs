@@ -147,6 +147,7 @@ let private buildEndpoints
             Seq.concat [
                 [ DELETE [ ResetUserData.endpoint queryContext ] ]
                 BalanceSheetEndpoints.developmentOnly queryContext
+                TransactionEndpoints.developmentOnly queryContext
             ]
             |> withAuth
         else

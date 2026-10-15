@@ -12,18 +12,13 @@
 - [x] Quick-tagging
 - [x] Reports: balance sheets and income statements per period
 - [x] Full dashboard w/ charts
-- [ ] Transaction search
+- [x] Transaction search
 - [ ] Mobile support and UI cleanup
 - [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
 
 ## Current Tasks
 
-- Plan out transaction search
-  - Page transactions in table view
-    - Next page should append to list, search should replace paging many times.
-    - Response could include path with query params to get next page or none if at
-      last page.
-    - Paging is expected to used infrequently
+None
 
 ## Backlog
 
@@ -31,7 +26,8 @@
   styling.
   - Consider Catppuccin Latte and Mocha
     - Migrate tag colour swatch
-- Except for transaction table and data entry, consider rounding to the nearest dollar
+- Except for transaction table and data entry, consider rounding to the nearest
+  dollar
 - For modals, ensure that focus is returned to the element focused before
   opening the modal. This is needed due to the custom dialog wrapped deleting
   the wrapping DOM element instead of calling `.close()` on the native dialog.

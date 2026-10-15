@@ -9,11 +9,18 @@ module TransactionEndpoints =
     open Budgeteur.Data.Db
 
     let all (queryContext : QueryContextFactory) = [
-        POST [ CreateTransaction.endpoint queryContext ]
-        GET [
-            ReadTransaction.endpoint queryContext
-            ReadAllTransactions.endpoint queryContext
+        POST [
+            CreateTransaction.endpoint queryContext
+            SearchTransactions.endpoint queryContext
         ]
+        GET [ ReadTransaction.endpoint queryContext ]
         PUT [ UpdateTransaction.endpoint queryContext ]
         DELETE [ DeleteTransaction.endpoint queryContext ]
+    ]
+
+    /// <summary>The full list, for manual testing and inspection. Development
+    /// only: the page reads through search. See decision 7 in
+    /// docs/transaction-search.md.</summary>
+    let developmentOnly (queryContext : QueryContextFactory) = [
+        GET [ ReadAllTransactions.endpoint queryContext ]
     ]

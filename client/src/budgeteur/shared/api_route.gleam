@@ -5,7 +5,7 @@ import gleam/uri
 import youid/uuid.{type Uuid}
 
 pub type ApiRoute {
-  GetAllTransactions
+  SearchTransactions
   GetTransaction(id: Uuid)
   CreateTransaction
   UpdateTransaction(id: Uuid)
@@ -57,7 +57,8 @@ const api_prefix = "/api"
 
 pub fn to_string(route: ApiRoute) -> String {
   case route {
-    GetAllTransactions | CreateTransaction -> api_prefix <> "/transactions"
+    CreateTransaction -> api_prefix <> "/transactions"
+    SearchTransactions -> api_prefix <> "/transactions/search"
     GetTransaction(id:) | UpdateTransaction(id:) | DeleteTransaction(id:) ->
       api_prefix <> "/transactions/" <> uuid.to_string(id)
     CreateTag | GetAllTags -> api_prefix <> "/tags"

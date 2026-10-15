@@ -60,6 +60,7 @@
     <Compile Include="Data/IncomeStatementQuery.fs" />
     <Compile Include="Data/BalanceSheetHistoryQuery.fs" />
     <Compile Include="Data/TransactionsAfterCloseQuery.fs" />
+    <Compile Include="Data/PatternMatch.fs" />
 
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
@@ -113,10 +114,12 @@
     <Compile Include="Feature/Rule/RuleEndpoints.fs" />
 
     <Compile Include="Feature/Transaction/TransactionResponse.fs" />
+    <Compile Include="Feature/Transaction/TransactionSearch.fs" />
     <Compile Include="Feature/Transaction/TransactionQuery.fs" />
     <Compile Include="Feature/Transaction/CreateTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadAllTransactions.fs" />
+    <Compile Include="Feature/Transaction/SearchTransactions.fs" />
     <Compile Include="Feature/Transaction/UpdateTransaction.fs" />
     <Compile Include="Feature/Transaction/DeleteTransaction.fs" />
     <Compile Include="Feature/Transaction/TransactionEndpoints.fs" />
