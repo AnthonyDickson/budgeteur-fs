@@ -23,24 +23,25 @@ implementations of the patterns in [docs/architecture.md](docs/architecture.md).
 
 ## Documentation
 
-| Doc                                             | Covers                                                         |
-| ----------------------------------------------- | -------------------------------------------------------------- |
-| [architecture.md](docs/architecture.md)         | Requirements, server and client design, cross-cutting rules    |
-| [database.md](docs/database.md)                 | Migrations, generated code, schema conventions, workflows      |
-| [dates.md](docs/dates.md)                       | Calendar dates vs instants                                     |
-| [openapi.md](docs/openapi.md)                   | How the OpenAPI document describes F# types                    |
-| [testing-strategy.md](docs/testing-strategy.md) | What to test, at which layer, and how much                     |
-| [server-tests.md](docs/server-tests.md)         | Server test host design                                        |
-| [e2e-tests.md](docs/e2e-tests.md)               | E2E isolation and conventions                                  |
-| [deployment.md](docs/deployment.md)             | Publishing, Docker, production database, static assets         |
-| [prod-oidc-setup.md](docs/prod-oidc-setup.md)   | Configuring an OIDC provider for production                    |
-| [balance-sheet.md](docs/balance-sheet.md)       | Balance sheet design brief: decisions, rationale, glossary     |
-| [dashboard.md](docs/dashboard.md)               | Dashboard and income statement design brief                    |
-| [reports.md](docs/reports.md)                   | Reports design brief: periods, balance history, closing lines  |
-| [auto-tagging.md](docs/auto-tagging.md)         | Auto-tagging design brief: matching, categorisations, actions  |
-| [csv-import.md](docs/csv-import.md)             | CSV import and accounts design brief: formats, hashes, flow    |
-| [quick-tagging.md](docs/quick-tagging.md)       | Quick tagging design brief: queue, dismissals, one click       |
-| [fp-showcase.md](docs/fp-showcase.md)           | Tour of the codebase's functional programming ideas (tutorial) |
+| Doc                                                 | Covers                                                         |
+| --------------------------------------------------- | -------------------------------------------------------------- |
+| [architecture.md](docs/architecture.md)             | Requirements, server and client design, cross-cutting rules    |
+| [database.md](docs/database.md)                     | Migrations, generated code, schema conventions, workflows      |
+| [dates.md](docs/dates.md)                           | Calendar dates vs instants                                     |
+| [openapi.md](docs/openapi.md)                       | How the OpenAPI document describes F# types                    |
+| [testing-strategy.md](docs/testing-strategy.md)     | What to test, at which layer, and how much                     |
+| [server-tests.md](docs/server-tests.md)             | Server test host design                                        |
+| [e2e-tests.md](docs/e2e-tests.md)                   | E2E isolation and conventions                                  |
+| [deployment.md](docs/deployment.md)                 | Publishing, Docker, production database, static assets         |
+| [prod-oidc-setup.md](docs/prod-oidc-setup.md)       | Configuring an OIDC provider for production                    |
+| [balance-sheet.md](docs/balance-sheet.md)           | Balance sheet design brief: decisions, rationale, glossary     |
+| [dashboard.md](docs/dashboard.md)                   | Dashboard and income statement design brief                    |
+| [reports.md](docs/reports.md)                       | Reports design brief: periods, balance history, closing lines  |
+| [auto-tagging.md](docs/auto-tagging.md)             | Auto-tagging design brief: matching, categorisations, actions  |
+| [csv-import.md](docs/csv-import.md)                 | CSV import and accounts design brief: formats, hashes, flow    |
+| [quick-tagging.md](docs/quick-tagging.md)           | Quick tagging design brief: queue, dismissals, one click       |
+| [transaction-search.md](docs/transaction-search.md) | Transaction search design brief: criteria, matching, paging    |
+| [fp-showcase.md](docs/fp-showcase.md)               | Tour of the codebase's functional programming ideas (tutorial) |
 
 Docs record requirements, design decisions and their rationale, and conventions
 that the code cannot express. Keep them at a level that survives refactoring:
