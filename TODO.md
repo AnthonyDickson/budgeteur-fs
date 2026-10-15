@@ -46,7 +46,7 @@
           enum hint, and tests; client colour type, 14-colour picker, and swatch
           from the palette variable; E2E test ids by name; reset the development
           database (decision 9).
-  12. [ ] Clear Tailwind's default palette and replace the remaining white and
+  12. [x] Clear Tailwind's default palette and replace the remaining white and
           black (decision 8).
   13. [ ] Add Mocha for the dark colour scheme, with an E2E test for each
           scheme; check every page in both modes by hand (decisions 2 and 6).

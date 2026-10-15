@@ -39,6 +39,10 @@
 /* Role layer. `static` keeps every role a CSS variable, so the charts and
    swatches can refer to roles that no utility uses. */
 @theme static {
+  /* Only the roles below are colours; Tailwind's palette is cleared so a
+     view cannot use it (decision 8 in docs/styling.md). */
+  --color-*: initial;
+
   --color-page: var(--ctp-mantle);
   --color-surface: var(--ctp-base);
   --color-surface-hover: color-mix(in oklab, var(--ctp-text) 3%, var(--ctp-base));
