@@ -43,9 +43,15 @@ test.describe('import', () => {
         '12-3456-0789012-001',
       );
 
-      // Every row is listed with its account; transfers are marked.
-      await expect(page.locator('[data-testid="transaction-row"]'))
-        .toHaveCount(218);
+      // Every row is listed with its account, a page of 100 at a time;
+      // transfers are marked.
+      const rows = page.locator('[data-testid="transaction-row"]');
+      await expect(rows).toHaveCount(100);
+      await page.getByTestId('load-more-button').click();
+      await expect(rows).toHaveCount(200);
+      await page.getByTestId('load-more-button').click();
+      await expect(rows).toHaveCount(218);
+      await expect(page.getByTestId('load-more-button')).toBeHidden();
       const transfer = transactionRows(page, 'TRANSFER TO A N OTHER - 00')
         .first();
       await expect(transfer).toContainText('12-3456-0789012-001');

@@ -42,7 +42,7 @@
          4).
   8. [x] Client: add the direction, minimum, and maximum fields with field
          validation (decisions 5 and 9).
-  9. [ ] E2E: search by text, narrow by tag, edit a match so it no longer
+  9. [x] E2E: search by text, narrow by tag, edit a match so it no longer
          matches and check it stays listed, clear.
   10. [ ] Register `GET /api/transactions` in development only (decision 7).
 
