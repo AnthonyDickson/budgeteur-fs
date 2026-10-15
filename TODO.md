@@ -26,7 +26,7 @@
   2. [x] Add the pure search module in the Transaction slice: request types,
          criteria validation, preset resolution through the reporting periods,
          and the cursor (decisions 3-6).
-  3. [ ] Add `POST /api/transactions/search` returning a page and the next
+  3. [x] Add `POST /api/transactions/search` returning a page and the next
          cursor, with endpoint tests for each criterion, user scoping, and
          paging (decisions 6 and 7).
   4. [ ] Client: fetch the page through search with no criteria and add "Load

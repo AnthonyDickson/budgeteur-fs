@@ -114,11 +114,12 @@
     <Compile Include="Feature/Rule/RuleEndpoints.fs" />
 
     <Compile Include="Feature/Transaction/TransactionResponse.fs" />
-    <Compile Include="Feature/Transaction/TransactionQuery.fs" />
     <Compile Include="Feature/Transaction/TransactionSearch.fs" />
+    <Compile Include="Feature/Transaction/TransactionQuery.fs" />
     <Compile Include="Feature/Transaction/CreateTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadTransaction.fs" />
     <Compile Include="Feature/Transaction/ReadAllTransactions.fs" />
+    <Compile Include="Feature/Transaction/SearchTransactions.fs" />
     <Compile Include="Feature/Transaction/UpdateTransaction.fs" />
     <Compile Include="Feature/Transaction/DeleteTransaction.fs" />
     <Compile Include="Feature/Transaction/TransactionEndpoints.fs" />

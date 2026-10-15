@@ -9,7 +9,10 @@ module TransactionEndpoints =
     open Budgeteur.Data.Db
 
     let all (queryContext : QueryContextFactory) = [
-        POST [ CreateTransaction.endpoint queryContext ]
+        POST [
+            CreateTransaction.endpoint queryContext
+            SearchTransactions.endpoint queryContext
+        ]
         GET [
             ReadTransaction.endpoint queryContext
             ReadAllTransactions.endpoint queryContext
