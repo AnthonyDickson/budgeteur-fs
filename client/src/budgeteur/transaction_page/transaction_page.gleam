@@ -10,6 +10,7 @@ import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/button
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/row
 import budgeteur/transaction_page/account.{type Account}
@@ -802,25 +803,28 @@ pub fn view(model: Model) -> Element(Msg) {
       case model.results {
         Loaded(_) ->
           html.div([attribute.class("flex items-center gap-2")], [
-            html.a(
+            button.link(
+              button.Secondary,
+              button.Regular,
               [
                 attribute.href(route.to_string(route.QuickTagging)),
-                attribute.class(secondary_button_class),
                 attribute.attribute("data-testid", "quick-tag-link"),
               ],
               [html.text("Quick tag")],
             ),
-            html.button(
+            button.view(
+              button.Secondary,
+              button.Regular,
               [
-                attribute.class(secondary_button_class),
                 attribute.attribute("data-testid", "import-button"),
                 event.on_click(ImportModalMsg(import_modal.OpenRequested)),
               ],
               [html.text("Import")],
             ),
-            html.button(
+            button.view(
+              button.Primary,
+              button.Regular,
               [
-                attribute.class(primary_button_class),
                 attribute.attribute("data-testid", "record-transaction-button"),
                 event.on_click(UserRequestedCreationForm),
               ],
@@ -896,9 +900,10 @@ fn search_bar(search: Search, filters_open: Bool) -> Element(Msg) {
         ]),
       ],
     ),
-    html.button(
+    button.view(
+      button.Secondary,
+      button.Regular,
       [
-        attribute.class(secondary_button_class),
         attribute.attribute("data-testid", "filters-button"),
         attribute.aria_expanded(filters_open),
         attribute.aria_controls(filters_panel_id),
@@ -913,9 +918,10 @@ fn search_bar(search: Search, filters_open: Bool) -> Element(Msg) {
     ),
     case transaction_search.is_set(search) {
       True ->
-        html.button(
+        button.view(
+          button.Secondary,
+          button.Regular,
           [
-            attribute.class(secondary_button_class),
             attribute.attribute("data-testid", "clear-search-button"),
             event.on_click(UserClearedSearch),
           ],
@@ -1337,9 +1343,10 @@ fn load_more(results: Results, loading_more: Bool) -> Element(Msg) {
     None -> element.none()
     Some(_) ->
       html.div([attribute.class("mt-4 flex justify-center")], [
-        html.button(
+        button.view(
+          button.Secondary,
+          button.Regular,
           [
-            attribute.class(secondary_button_class),
             attribute.attribute("data-testid", "load-more-button"),
             attribute.disabled(loading_more),
             event.on_click(UserRequestedMore),
@@ -1390,9 +1397,11 @@ fn no_matches_empty_state() -> Element(Msg) {
       html.h2([attribute.class("text-base font-semibold text-gray-900")], [
         html.text("No transactions match your search"),
       ]),
-      html.button(
+      button.view(
+        button.Secondary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> secondary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "clear-search-empty-button"),
           event.on_click(UserClearedSearch),
         ],
@@ -1409,14 +1418,6 @@ const select_class = "block w-full rounded-md border border-gray-300 bg-white px
 
 const text_input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
   <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-
-const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 "
-  <> "focus:ring-indigo-500 focus:ring-offset-2"
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
-  <> "focus:ring-indigo-500 focus:ring-offset-2"
 
 fn loading_state() -> Element(Msg) {
   html.div(
@@ -1451,9 +1452,11 @@ fn failed_state() -> Element(Msg) {
       html.p([attribute.class("mt-1 text-sm text-gray-500")], [
         html.text("Check your connection and try again."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "transactions-retry"),
           event.on_click(UserRequestedReload),
         ],

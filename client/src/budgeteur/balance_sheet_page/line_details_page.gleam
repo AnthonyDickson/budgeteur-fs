@@ -31,6 +31,7 @@ import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/side.{Asset, Liability}
 import budgeteur/shared/term.{Current, NonCurrent}
+import budgeteur/shared/ui/button
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -43,12 +44,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-
-const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 
 const link_class = "text-sm font-medium text-indigo-600 hover:text-indigo-500"
 
@@ -974,9 +969,10 @@ fn header(line: Line) -> Element(Msg) {
       // The actions sit on their own row, so the details and any warning
       // above them take the page's width.
       html.div([attribute.class("flex flex-wrap gap-2")], [
-        html.button(
+        button.view(
+          button.Secondary,
+          button.Regular,
           [
-            attribute.class(secondary_button_class),
             attribute.attribute("data-testid", "edit-line-button"),
             event.on_click(UserRequestedEdit),
           ],
@@ -984,9 +980,10 @@ fn header(line: Line) -> Element(Msg) {
         ),
         // Closing is apart from editing, since it is an event rather than a
         // detail. A closed line can have its close date changed, or reopen.
-        html.button(
+        button.view(
+          button.Secondary,
+          button.Regular,
           [
-            attribute.class(secondary_button_class),
             attribute.attribute("data-testid", "close-line-button"),
             event.on_click(UserRequestedClose),
           ],
@@ -1000,18 +997,20 @@ fn header(line: Line) -> Element(Msg) {
         case closed_on {
           None -> element.none()
           Some(_) ->
-            html.button(
+            button.view(
+              button.Secondary,
+              button.Regular,
               [
-                attribute.class(secondary_button_class),
                 attribute.attribute("data-testid", "reopen-line-button"),
                 event.on_click(UserRequestedReopen),
               ],
               [html.text("Reopen")],
             )
         },
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class(primary_button_class),
             attribute.attribute("data-testid", "record-observation-button"),
             event.on_click(UserRequestedRecord),
           ],
@@ -1194,9 +1193,11 @@ fn failed_state() -> Element(Msg) {
       html.p([attribute.class("text-sm text-gray-700")], [
         html.text("Could not load the line."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "line-details-retry"),
           event.on_click(UserRetried),
         ],

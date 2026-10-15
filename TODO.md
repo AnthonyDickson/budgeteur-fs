@@ -25,7 +25,7 @@
          decision 6 (decisions 1, 3, 4, 6).
   2. [x] Move `modal_ui`, `row_ui`, and `tag_ui` into `shared/ui/` as `dialog`,
          `row`, and `swatch`, with no visual change (decision 11).
-  3. [ ] Add `ui/button` with its variants on roles, and use it for the modal
+  3. [x] Add `ui/button` with its variants on roles, and use it for the modal
          buttons and every page button (decision 11).
   4. [ ] Add `ui/input` (text input, select, checkbox, invalid state) and
          replace the copied input classes (decision 11).

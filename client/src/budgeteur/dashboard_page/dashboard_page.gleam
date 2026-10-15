@@ -16,6 +16,7 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
+import budgeteur/shared/ui/button
 import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
 import gleam/float
@@ -27,9 +28,6 @@ import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 
 const card_class = "rounded-lg border border-gray-200 bg-white shadow-sm"
 
@@ -1028,9 +1026,11 @@ fn retry_card(
       html.p([attribute.class("mt-1 text-sm text-gray-500")], [
         html.text("Check your connection and try again."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           event.on_click(on_retry),
         ],
         [html.text("Retry")],

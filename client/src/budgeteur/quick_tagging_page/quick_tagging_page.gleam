@@ -14,6 +14,7 @@ import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag, Expense, Income}
+import budgeteur/shared/ui/button
 import budgeteur/shared/ui/row
 import budgeteur/shared/ui/swatch
 import gleam/dict.{type Dict}
@@ -31,14 +32,6 @@ import lustre/event
 import youid/uuid.{type Uuid}
 
 const card_class = "rounded-lg border border-gray-200 bg-white shadow-sm"
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
-  <> "focus:ring-indigo-500 focus:ring-offset-2"
-
-const secondary_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 "
-  <> "focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 
 const choice_button_class = "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium "
   <> "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait"
@@ -388,10 +381,10 @@ fn batch(
           }),
         ),
         html.div([attribute.class("flex justify-end")], [
-          html.button(
+          button.view(
+            button.Secondary,
+            button.Regular,
             [
-              attribute.type_("button"),
-              attribute.class(secondary_button_class),
               attribute.disabled(is_saving),
               attribute.attribute("data-testid", "quick-tag-next-batch"),
               event.on_click(UserRequestedNextBatch),
@@ -602,10 +595,11 @@ fn failed_state() -> Element(Msg) {
       html.p([attribute.class("mt-1 text-sm text-gray-500")], [
         html.text("Check your connection and try again."),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.type_("button"),
-          attribute.class("mt-4 " <> primary_button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "quick-tag-retry"),
           event.on_click(UserRetried),
         ],

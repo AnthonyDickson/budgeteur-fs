@@ -19,6 +19,7 @@ import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/side.{type Side, Asset, Liability}
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
+import budgeteur/shared/ui/button
 import budgeteur/shared/ui/row
 import gleam/float
 import gleam/int
@@ -32,9 +33,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import youid/uuid
-
-const primary_button_class = "rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-  <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
 
 /// Horizontal padding for subtotal and total rows. The right side matches a
 /// line's padding plus its chevron and gap (4 + 4 + 3), so every amount on the
@@ -525,9 +523,11 @@ fn failed_state() -> Element(Msg) {
         html.p([attribute.class("mt-1 text-sm text-gray-500")], [
           html.text("Check your connection and try again."),
         ]),
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class("mt-4 " <> primary_button_class),
+            attribute.class("mt-4"),
             attribute.attribute("data-testid", "balance-sheet-retry"),
             event.on_click(UserRequestedSheetReload),
           ],
@@ -567,25 +567,28 @@ fn page_header(subtitle: String) -> Element(Msg) {
         ]),
       ]),
       html.div([attribute.class("flex flex-wrap items-center gap-2")], [
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class(primary_button_class),
             attribute.attribute("data-testid", "add-asset-button"),
             event.on_click(UserRequestedItemCreation(Asset)),
           ],
           [html.text("Add asset")],
         ),
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class(primary_button_class),
             attribute.attribute("data-testid", "add-liability-button"),
             event.on_click(UserRequestedItemCreation(Liability)),
           ],
           [html.text("Add liability")],
         ),
-        html.button(
+        button.view(
+          button.Primary,
+          button.Regular,
           [
-            attribute.class(primary_button_class),
             attribute.attribute("data-testid", "add-account-button"),
             event.on_click(UserRequestedAccountCreation),
           ],

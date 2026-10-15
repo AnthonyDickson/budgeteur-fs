@@ -1,3 +1,4 @@
+import budgeteur/shared/ui/button
 import gleam/dynamic/decode
 import gleam/list
 import gleam/option.{type Option}
@@ -11,33 +12,6 @@ import lustre/event
 /// message banners. Field widgets stay per-feature.
 /// Classes for the `<dialog>` element of `dialog`.
 const dialog_class = "mx-auto my-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl backdrop:bg-gray-900/50"
-
-/// Classes for a modal dialog's secondary (cancel) button.
-const cancel_button_class = "rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 "
-  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-gray-100"
-
-/// Classes for a dialog's primary submit button.
-const submit_button_class = "inline-flex items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium "
-  <> "text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400"
-
-/// Classes for a dialog's destructive confirm (delete) button.
-const delete_button_class = "inline-flex items-center justify-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium "
-  <> "text-white hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 "
-  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:hover:bg-gray-400"
-
-/// Classes for an edit dialog's delete button, which opens the delete
-/// confirmation rather than deleting.
-const delete_request_button_class = "rounded-md px-3 py-2 text-sm font-medium text-red-600 "
-  <> "hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 "
-  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
-
-/// Classes for a dialog's secondary text button, e.g. one that switches to
-/// another form.
-const text_button_class = "rounded-md px-3 py-2 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-  <> "focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
 
 /// Define the `<modal-dialog>` custom element that `dialog` renders. Call once
 /// before the app starts.
@@ -79,30 +53,17 @@ pub fn dialog(
   )
 }
 
-/// The inline spinner shown inside a busy button.
-pub fn spinner() -> Element(msg) {
-  html.span(
-    [
-      attribute.attribute("aria-hidden", "true"),
-      attribute.class(
-        "h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white",
-      ),
-    ],
-    [],
-  )
-}
-
 /// A secondary button that closes the dialog.
 pub fn cancel_button(
   testid testid: String,
   disabled disabled: Bool,
   on_click on_click: msg,
 ) -> Element(msg) {
-  html.button(
+  button.view(
+    button.Secondary,
+    button.Regular,
     [
-      attribute.type_("button"),
       attribute.attribute("data-testid", testid),
-      attribute.class(cancel_button_class),
       attribute.disabled(disabled),
       event.on_click(on_click),
     ],
@@ -119,15 +80,15 @@ pub fn submit_button(
   busy busy: Bool,
   disabled disabled: Bool,
 ) -> Element(msg) {
-  html.button(
+  button.submit(
+    button.Primary,
+    button.Regular,
     [
-      attribute.type_("submit"),
       attribute.attribute("data-testid", testid),
-      attribute.class(submit_button_class),
       attribute.disabled(disabled || busy),
     ],
     case busy {
-      True -> [spinner(), html.text(busy_label)]
+      True -> [button.spinner(), html.text(busy_label)]
       False -> [html.text(idle_label)]
     },
   )
@@ -139,13 +100,10 @@ pub fn confirm_button(
   label label: String,
   on_click on_click: msg,
 ) -> Element(msg) {
-  html.button(
-    [
-      attribute.type_("button"),
-      attribute.attribute("data-testid", testid),
-      attribute.class(submit_button_class),
-      event.on_click(on_click),
-    ],
+  button.view(
+    button.Primary,
+    button.Regular,
+    [attribute.attribute("data-testid", testid), event.on_click(on_click)],
     [html.text(label)],
   )
 }
@@ -157,16 +115,16 @@ pub fn delete_button(
   busy busy: Bool,
   on_click on_click: msg,
 ) -> Element(msg) {
-  html.button(
+  button.view(
+    button.Danger,
+    button.Regular,
     [
-      attribute.type_("button"),
       attribute.attribute("data-testid", testid),
-      attribute.class(delete_button_class),
       attribute.disabled(busy),
       event.on_click(on_click),
     ],
     case busy {
-      True -> [spinner(), html.text("Deleting...")]
+      True -> [button.spinner(), html.text("Deleting...")]
       False -> [html.text("Delete")]
     },
   )
@@ -193,11 +151,11 @@ pub fn delete_request_button(
   disabled disabled: Bool,
   on_click on_click: msg,
 ) -> Element(msg) {
-  html.button(
+  button.view(
+    button.DangerText,
+    button.Regular,
     [
-      attribute.type_("button"),
       attribute.attribute("data-testid", testid),
-      attribute.class(delete_request_button_class),
       attribute.disabled(disabled),
       event.on_click(on_click),
     ],
@@ -213,11 +171,11 @@ pub fn text_button(
   disabled disabled: Bool,
   on_click on_click: msg,
 ) -> Element(msg) {
-  html.button(
+  button.view(
+    button.Text,
+    button.Regular,
     [
-      attribute.type_("button"),
       attribute.attribute("data-testid", testid),
-      attribute.class(text_button_class),
       attribute.disabled(disabled),
       event.on_click(on_click),
     ],

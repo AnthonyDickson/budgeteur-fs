@@ -16,6 +16,7 @@ import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/side
 import budgeteur/shared/term
+import budgeteur/shared/ui/button
 import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
 import gleam/float
@@ -33,10 +34,6 @@ import lustre/event
 pub const storage_key = "budgeteur.reports"
 
 const card_class = "rounded-lg border border-gray-200 bg-white shadow-sm"
-
-const button_class = "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 "
-  <> "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 "
-  <> "disabled:cursor-not-allowed disabled:opacity-50"
 
 // Types
 // -----
@@ -295,9 +292,10 @@ fn period_bar(shown: Option(Report)) -> Element(Msg) {
   }
 
   html.div([attribute.class("flex items-center justify-between gap-4")], [
-    html.button(
+    button.view(
+      button.Secondary,
+      button.Small,
       [
-        attribute.class("inline-flex items-center gap-1 " <> button_class),
         attribute.disabled(!has_previous),
         attribute.attribute("data-testid", "report-previous"),
         event.on_click(UserSteppedBack),
@@ -326,9 +324,10 @@ fn period_bar(shown: Option(Report)) -> Element(Msg) {
       ]
       None -> []
     }),
-    html.button(
+    button.view(
+      button.Secondary,
+      button.Small,
       [
-        attribute.class("inline-flex items-center gap-1 " <> button_class),
         attribute.disabled(!has_next),
         attribute.attribute("data-testid", "report-next"),
         event.on_click(UserSteppedForward),
@@ -728,9 +727,11 @@ fn failed_state() -> Element(Msg) {
       html.p([attribute.class("text-sm text-gray-700")], [
         html.text("Could not load the report."),
       ]),
-      html.button(
+      button.view(
+        button.Secondary,
+        button.Small,
         [
-          attribute.class("mt-4 " <> button_class),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "report-retry"),
           event.on_click(UserRetried),
         ],

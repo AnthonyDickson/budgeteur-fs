@@ -1,5 +1,6 @@
 import budgeteur/shared/guard
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/button
 import budgeteur/shared/ui/row
 import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/rule.{type Rule}
@@ -57,13 +58,10 @@ pub fn panel(
               html.text(selected_tag.name),
             ]),
           ]),
-          html.button(
+          button.view(
+            button.Primary,
+            button.Small,
             [
-              attribute.class(
-                "rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium "
-                <> "text-white hover:bg-indigo-500 focus:outline-none "
-                <> "focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2",
-              ),
               attribute.attribute("data-testid", "new-rule-button"),
               event.on_click(on_create_rule),
             ],

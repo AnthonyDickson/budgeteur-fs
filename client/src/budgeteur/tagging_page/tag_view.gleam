@@ -1,4 +1,5 @@
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/button
 import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/icon
 import gleam/list
@@ -149,13 +150,11 @@ pub fn no_tags_empty_state(on_create on_create: msg) -> Element(msg) {
           "Tags help you categorise transactions and power auto-tagging rules.",
         ),
       ]),
-      html.button(
+      button.view(
+        button.Primary,
+        button.Regular,
         [
-          attribute.class(
-            "mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white "
-            <> "hover:bg-indigo-500 focus:outline-none focus:ring-2 "
-            <> "focus:ring-indigo-500 focus:ring-offset-2",
-          ),
+          attribute.class("mt-4"),
           attribute.attribute("data-testid", "create-first-tag-button"),
           event.on_click(on_create),
         ],
