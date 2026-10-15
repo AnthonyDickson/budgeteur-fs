@@ -4,14 +4,14 @@ import budgeteur/shared/date
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
-import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/row
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/import_modal
 import budgeteur/transaction_page/transaction.{type Transaction}
@@ -1165,7 +1165,7 @@ fn size_input(
         attribute.value(value),
         attribute.class(text_input_class),
         attribute.classes([
-          #(modal_ui.error_border_style, option.is_some(error)),
+          #(dialog.error_border_style, option.is_some(error)),
         ]),
         event.on_input(on_input),
         event.on_change(fn(_) { UserCommittedSize }),
@@ -1298,7 +1298,7 @@ fn transactions_table(
                   [html.text(transaction.amount |> money.format)],
                 ),
                 html.td([attribute.class("px-4 py-3")], [
-                  row_ui.open_button(
+                  row.open_button(
                     testid: "edit-transaction-"
                       <> uuid.to_string(transaction.id),
                     on_click: UserRequestedEditForm(transaction.id),
@@ -1320,7 +1320,7 @@ fn transactions_table(
                   }),
                 ]),
                 html.td([attribute.class("py-3 pr-4")], [
-                  row_ui.chevron(class: "block"),
+                  row.chevron(class: "block"),
                 ]),
               ],
             )

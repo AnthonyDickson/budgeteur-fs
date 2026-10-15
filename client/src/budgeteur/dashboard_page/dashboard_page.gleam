@@ -16,7 +16,7 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
-import budgeteur/shared/tag_ui
+import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
 import gleam/float
 import gleam/int
@@ -532,7 +532,7 @@ fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
     html.td([attribute.class("px-4 py-2")], [
       html.span([attribute.class("flex items-center gap-2 text-gray-700")], [
         case line.color {
-          Some(color) -> tag_ui.color_swatch(color)
+          Some(color) -> swatch.view(color)
           None ->
             html.span(
               [

@@ -11,7 +11,7 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
+import budgeteur/shared/ui/dialog
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -153,7 +153,7 @@ fn parse(input: String) -> Result(Date, CloseDateError) {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "close-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -204,7 +204,7 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
+            dialog.error_banner(
               testid: "close-api-error",
               message: "Could not close: " <> message,
               extra_class: "",
@@ -221,30 +221,29 @@ fn view_form(
             attribute.attribute("data-testid", "close-date-input"),
             attribute.class(input_class),
             attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(form.closed_on)),
+              #(dialog.error_border_style, field.has_error(form.closed_on)),
             ]),
             attribute.value(field.input(form.closed_on)),
             attribute.disabled(submitting),
             event.on_input(ClosedOnChanged),
           ]),
           case field.error(form.closed_on) {
-            Some(Required) ->
-              modal_ui.form_error_message("Date cannot be empty")
-            Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
+            Some(Required) -> dialog.form_error_message("Date cannot be empty")
+            Some(NotADate) -> dialog.form_error_message("Not a valid date")
             None -> element.none()
           },
           html.p([attribute.class("mt-1 text-xs text-gray-500")], [
             html.text(help),
           ]),
         ]),
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: None,
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "close-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "close-submit-button",
             idle_label: case form.changing {
               True -> "Save"

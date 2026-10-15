@@ -10,8 +10,8 @@ import budgeteur/balance_sheet_page/balance_form
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
+import budgeteur/shared/ui/dialog
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import gleam/string
@@ -227,7 +227,7 @@ fn validate_name(name: String) -> Result(String, NameError) {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "account-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -281,7 +281,7 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
+            dialog.error_banner(
               testid: "account-api-error",
               message: "Could not save account: " <> message,
               extra_class: "",
@@ -299,7 +299,7 @@ fn view_form(
             attribute.placeholder("e.g. Everyday"),
             attribute.class(input_class),
             attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(name)),
+              #(dialog.error_border_style, field.has_error(name)),
             ]),
             attribute.autofocus(True),
             attribute.value(field.input(name)),
@@ -308,9 +308,9 @@ fn view_form(
           ]),
           case field.error(name) {
             Some(NameRequired) ->
-              modal_ui.form_error_message("Name cannot be empty")
+              dialog.form_error_message("Name cannot be empty")
             Some(TooLong) ->
-              modal_ui.form_error_message(
+              dialog.form_error_message(
                 "Name cannot be longer than "
                 <> int.to_string(max_name_length)
                 <> " characters",
@@ -338,7 +338,7 @@ fn view_form(
             ),
           ]),
         ]),
-        modal_ui.radio_group(
+        dialog.radio_group(
           legend: "Term",
           testid: "account-term",
           disabled: submitting,
@@ -367,22 +367,22 @@ fn view_form(
             |> element.map(BalanceMsg)
           None -> element.none()
         },
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: case mode {
             form_modal.Create -> None
             form_modal.Edit(_) ->
-              Some(modal_ui.delete_request_button(
+              Some(dialog.delete_request_button(
                 testid: "account-delete-button",
                 disabled: submitting,
                 on_click: DeleteRequested,
               ))
           },
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "account-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "account-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,

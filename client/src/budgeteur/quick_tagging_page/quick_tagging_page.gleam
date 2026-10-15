@@ -13,9 +13,9 @@ import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
 import budgeteur/shared/response
 import budgeteur/shared/route
-import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag, Expense, Income}
-import budgeteur/shared/tag_ui
+import budgeteur/shared/ui/row
+import budgeteur/shared/ui/swatch
 import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/int
@@ -424,14 +424,14 @@ fn no_tags_note() -> Element(Msg) {
 fn transaction_row(
   transaction: QueuedTransaction,
   tags: List(Tag),
-  row: Option(Row),
+  state: Option(Row),
 ) -> Element(Msg) {
   let details = case transaction.account_name {
     Some(account_name) -> date.format(transaction.date) <> " · " <> account_name
     None -> date.format(transaction.date)
   }
 
-  let #(row_class, text_class) = case row {
+  let #(row_class, text_class) = case state {
     Some(Saved(_)) -> #("bg-gray-50", "text-gray-500")
     Some(Saving(..)) | None -> #("bg-white", "text-gray-900")
   }
@@ -450,7 +450,7 @@ fn transaction_row(
           html.p(
             [
               attribute.class(
-                row_ui.selectable_class
+                row.selectable_class
                 <> " break-words text-sm font-medium "
                 <> text_class,
               ),
@@ -476,23 +476,23 @@ fn transaction_row(
           list.map(tags, fn(tag) {
             choice_button(
               transaction.id,
-              row,
+              state,
               TagWith(tag.id),
               testid: "quick-tag-button",
-              children: [tag_ui.color_swatch(tag.color), html.text(tag.name)],
+              children: [swatch.view(tag.color), html.text(tag.name)],
             )
           }),
           [
             choice_button(
               transaction.id,
-              row,
+              state,
               Transfer,
               testid: "quick-tag-transfer",
               children: [html.text("Transfer")],
             ),
             choice_button(
               transaction.id,
-              row,
+              state,
               Dismiss,
               testid: "quick-tag-dismiss",
               children: [html.text("Dismiss")],

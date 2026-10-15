@@ -10,9 +10,9 @@ import budgeteur/balance_sheet_page/value_form
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/side.{type Side, Asset, Liability}
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
+import budgeteur/shared/ui/dialog
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -281,7 +281,7 @@ fn is_name_required(error: NameError) -> Bool {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "balance-sheet-item-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -341,7 +341,7 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
+            dialog.error_banner(
               testid: "balance-sheet-item-api-error",
               message: "Could not save item: " <> message,
               extra_class: "",
@@ -359,7 +359,7 @@ fn view_form(
             attribute.placeholder("e.g. House"),
             attribute.class(input_class),
             attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(name)),
+              #(dialog.error_border_style, field.has_error(name)),
             ]),
             attribute.autofocus(True),
             attribute.value(field.input(name)),
@@ -383,22 +383,22 @@ fn view_form(
             |> element.map(ValueMsg)
           None -> element.none()
         },
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: case mode {
             form_modal.Create -> None
             form_modal.Edit(_) ->
-              Some(modal_ui.delete_request_button(
+              Some(dialog.delete_request_button(
                 testid: "item-delete-button",
                 disabled: submitting,
                 on_click: DeleteRequested,
               ))
           },
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "item-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "item-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,
@@ -415,7 +415,7 @@ fn term_field(side: Side, term: Term, submitting: Bool) -> Element(Msg) {
   let current_label = term.label(Current, side)
   let non_current_label = term.label(NonCurrent, side)
 
-  modal_ui.radio_group(
+  dialog.radio_group(
     legend: "Term",
     testid: "item-term",
     disabled: submitting,
@@ -442,15 +442,15 @@ fn term_help(side: Side) -> String {
 
 fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
   case name_error {
-    Some(NameRequired) -> modal_ui.form_error_message("Name cannot be empty")
+    Some(NameRequired) -> dialog.form_error_message("Name cannot be empty")
     Some(TooLong) ->
-      modal_ui.form_error_message(
+      dialog.form_error_message(
         "Name cannot be longer than "
         <> int.to_string(max_name_length)
         <> " characters",
       )
     Some(Duplicate) ->
-      modal_ui.form_error_message(
+      dialog.form_error_message(
         "An identical item already exists for this side and term",
       )
     None -> element.none()

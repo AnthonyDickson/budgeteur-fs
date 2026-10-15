@@ -2,11 +2,11 @@ import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag}
-import budgeteur/shared/tag_ui
+import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/swatch
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/transaction.{
   type Transaction, Manual, Rule, Transaction, TransactionTag,
@@ -453,7 +453,7 @@ pub fn view(
   accounts: List(Account),
 ) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "transaction-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -542,7 +542,7 @@ fn view_form(
     ]),
     case api_error {
       Some(message) ->
-        modal_ui.error_banner(
+        dialog.error_banner(
           testid: "transaction-api-error",
           message: "Could not save transaction: " <> message,
           extra_class: "",
@@ -574,18 +574,17 @@ fn view_form(
               <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
             ),
             attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(amount)),
+              #(dialog.error_border_style, field.has_error(amount)),
             ]),
             attribute.disabled(submitting),
             event.on_input(AmountChanged),
           ]),
           case amount_error {
-            Some(NotANumber) ->
-              modal_ui.form_error_message("Not a valid number")
+            Some(NotANumber) -> dialog.form_error_message("Not a valid number")
             Some(NotPositive) ->
-              modal_ui.form_error_message("Amount must be positive")
+              dialog.form_error_message("Amount must be positive")
             Some(AmountRequired) ->
-              modal_ui.form_error_message("Amount cannot be empty")
+              dialog.form_error_message("Amount cannot be empty")
             None -> element.none()
           },
         ]),
@@ -674,7 +673,7 @@ fn view_form(
               <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
             ),
             attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(description)),
+              #(dialog.error_border_style, field.has_error(description)),
             ]),
             attribute.minlength(1),
             attribute.value(field.input(description)),
@@ -683,9 +682,9 @@ fn view_form(
           ]),
           case description_error {
             Some(DescriptionRequired) ->
-              modal_ui.form_error_message("Description cannot be empty")
+              dialog.form_error_message("Description cannot be empty")
             Some(TooLong) ->
-              modal_ui.form_error_message(
+              dialog.form_error_message(
                 "Description cannot be longer than "
                 <> int.to_string(max_description_length)
                 <> " characters",
@@ -707,16 +706,16 @@ fn view_form(
               <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
             ),
             attribute.classes([
-              #(modal_ui.error_border_style, field.has_error(date)),
+              #(dialog.error_border_style, field.has_error(date)),
             ]),
             attribute.value(field.input(date)),
             attribute.disabled(submitting),
             event.on_input(DateChanged),
           ]),
           case date_error {
-            Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
+            Some(NotADate) -> dialog.form_error_message("Not a valid date")
             Some(DateRequired) ->
-              modal_ui.form_error_message("Date cannot be empty")
+              dialog.form_error_message("Date cannot be empty")
             None -> element.none()
           },
         ]),
@@ -730,7 +729,7 @@ fn view_form(
             [
               html.text("Tag"),
               case selected_tag(tags, tag_id) {
-                Some(tag) -> tag_ui.color_swatch(tag.color)
+                Some(tag) -> swatch.view(tag.color)
                 None -> element.none()
               },
             ],
@@ -848,22 +847,22 @@ fn view_form(
             ],
           ),
         ]),
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: case mode {
             form_modal.Create -> None
             form_modal.Edit(_) ->
-              Some(modal_ui.delete_request_button(
+              Some(dialog.delete_request_button(
                 testid: "transaction-delete-button",
                 disabled: submitting,
                 on_click: DeleteRequested,
               ))
           },
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "transaction-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "transaction-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,

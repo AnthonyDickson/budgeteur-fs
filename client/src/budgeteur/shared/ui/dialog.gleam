@@ -254,7 +254,7 @@ pub fn form_error_message(text: String) -> Element(msg) {
 /// Extra classes applied to a text input or select that currently holds an
 /// error, turning its border red. Combined with the field's base classes via
 /// `attribute.classes`, e.g.
-/// `[attribute.classes([#(modal_ui.error_border_style, field.has_error(f))])]`.
+/// `[attribute.classes([#(dialog.error_border_style, field.has_error(f))])]`.
 pub const error_border_style = "border-red-400 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
 
 /// A radio group for a closed set of options, e.g. an item's term or a tag's kind.

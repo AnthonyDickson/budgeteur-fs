@@ -1,8 +1,8 @@
 //// Auto-tagging runs from the tagging page: the two actions, the run's
 //// progress, the result counts, and the re-tag confirmation dialog.
 
-import budgeteur/shared/modal_ui
 import budgeteur/shared/number
+import budgeteur/shared/ui/dialog
 import gleam/dynamic/decode
 import gleam/json
 import lustre/attribute
@@ -91,7 +91,7 @@ pub fn view_retag_confirmation(
 ) -> Element(msg) {
   case run {
     ConfirmingRetag ->
-      modal_ui.dialog(
+      dialog.dialog(
         testid: "retag-modal",
         busy: False,
         on_dismiss: on_cancel,
@@ -109,12 +109,12 @@ pub fn view_retag_confirmation(
             ),
           ]),
           html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-            modal_ui.cancel_button(
+            dialog.cancel_button(
               testid: "retag-cancel-button",
               disabled: False,
               on_click: on_cancel,
             ),
-            modal_ui.confirm_button(
+            dialog.confirm_button(
               testid: "retag-confirm-button",
               label: "Re-tag",
               on_click: on_confirm,

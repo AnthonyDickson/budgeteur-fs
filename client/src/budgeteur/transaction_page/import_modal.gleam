@@ -3,7 +3,7 @@
 //// effects. See decisions 10 and 13 in docs/csv-import.md.
 
 import budgeteur/shared/api_error.{type ApiError}
-import budgeteur/shared/modal_ui
+import budgeteur/shared/ui/dialog
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
@@ -223,7 +223,7 @@ fn dialog(
   errors errors: List(String),
   busy busy: Bool,
 ) -> Element(Msg) {
-  modal_ui.dialog(
+  dialog.dialog(
     testid: "import-modal",
     busy:,
     on_dismiss: CancelRequested,
@@ -290,12 +290,12 @@ fn dialog(
             ),
           ]),
           html.div([attribute.class("flex justify-end gap-3 pt-2")], [
-            modal_ui.cancel_button(
+            dialog.cancel_button(
               testid: "import-cancel-button",
               disabled: busy,
               on_click: CancelRequested,
             ),
-            modal_ui.submit_button(
+            dialog.submit_button(
               testid: "import-submit-button",
               idle_label: "Import",
               busy_label: "Importing...",

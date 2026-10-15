@@ -1,5 +1,5 @@
 import budgeteur/shared/tag.{type Tag}
-import budgeteur/shared/tag_ui
+import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/icon
 import gleam/list
 import gleam/option.{type Option, Some}
@@ -60,7 +60,7 @@ pub fn panel(
                 event.on_click(on_select(tag.id)),
               ],
               [
-                tag_ui.color_swatch(tag.color),
+                swatch.view(tag.color),
                 html.span(
                   [
                     attribute.class(

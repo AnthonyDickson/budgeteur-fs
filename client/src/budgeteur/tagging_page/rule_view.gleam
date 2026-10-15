@@ -1,7 +1,7 @@
 import budgeteur/shared/guard
-import budgeteur/shared/row_ui
 import budgeteur/shared/tag.{type Tag}
-import budgeteur/shared/tag_ui
+import budgeteur/shared/ui/row
+import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/rule.{type Rule}
 import gleam/list
 import gleam/option.{type Option}
@@ -52,7 +52,7 @@ pub fn panel(
               ],
               [html.text("Rules")],
             ),
-            tag_ui.color_swatch(selected_tag.color),
+            swatch.view(selected_tag.color),
             html.h2([attribute.class("text-sm font-semibold text-gray-900")], [
               html.text(selected_tag.name),
             ]),
@@ -123,7 +123,7 @@ fn rules_list(
         ],
         [
           html.div([attribute.class("min-w-0 flex-1")], [
-            row_ui.open_button(
+            row.open_button(
               testid: "edit-rule-" <> uuid.to_string(rule.id),
               on_click: on_edit(rule.id),
               class: "block max-w-full truncate",
@@ -139,7 +139,7 @@ fn rules_list(
               ],
             ),
           ]),
-          row_ui.chevron(class: ""),
+          row.chevron(class: ""),
         ],
       )
     }),

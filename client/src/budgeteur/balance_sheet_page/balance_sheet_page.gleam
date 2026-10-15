@@ -17,9 +17,9 @@ import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/response
 import budgeteur/shared/route
-import budgeteur/shared/row_ui
 import budgeteur/shared/side.{type Side, Asset, Liability}
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
+import budgeteur/shared/ui/row
 import gleam/float
 import gleam/int
 import gleam/json
@@ -452,14 +452,14 @@ fn closed_row(
     ],
     [
       html.div([attribute.class("min-w-0 flex-1")], [
-        row_ui.open_link(
+        row.open_link(
           testid: "open-" <> testid,
           href: route.to_string(page),
           class: "block max-w-full truncate",
           children: [html.text(name)],
         ),
         html.p(
-          [attribute.class(row_ui.selectable_class <> " text-xs text-gray-500")],
+          [attribute.class(row.selectable_class <> " text-xs text-gray-500")],
           [
             html.text(case closed_on {
               Some(closed_on) -> "Closed on " <> date.format(closed_on)
@@ -472,7 +472,7 @@ fn closed_row(
             html.p(
               [
                 attribute.class(
-                  row_ui.selectable_class <> " text-xs text-amber-700",
+                  row.selectable_class <> " text-xs text-amber-700",
                 ),
                 attribute.attribute("data-testid", "transactions-after-close"),
               ],
@@ -492,7 +492,7 @@ fn closed_row(
           None -> element.none()
         },
       ]),
-      row_ui.chevron(class: ""),
+      row.chevron(class: ""),
     ],
   )
 }
@@ -843,21 +843,21 @@ fn line_row(
       html.div([attribute.class("min-w-0 flex-1")], [
         name,
         html.p(
-          [attribute.class(row_ui.selectable_class <> " text-xs text-gray-400")],
+          [attribute.class(row.selectable_class <> " text-xs text-gray-400")],
           [html.text(string.join(details, " · "))],
         ),
       ]),
       html.span(
         [
           attribute.class(
-            row_ui.selectable_class
+            row.selectable_class
             <> " text-right text-sm tabular-nums text-gray-900",
           ),
           attribute.attribute("data-amount", float.to_string(amount)),
         ],
         [html.text(money.format(amount))],
       ),
-      row_ui.chevron(class: "mt-0.5"),
+      row.chevron(class: "mt-0.5"),
     ],
   )
 }
@@ -868,7 +868,7 @@ fn line_link(
   page page: route.Route,
   name name: String,
 ) -> Element(Msg) {
-  row_ui.open_link(
+  row.open_link(
     testid:,
     href: route.to_string(page),
     class: "block max-w-full truncate",
@@ -934,8 +934,7 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
                         html.p(
                           [
                             attribute.class(
-                              row_ui.selectable_class
-                              <> " text-xs text-amber-700",
+                              row.selectable_class <> " text-xs text-amber-700",
                             ),
                           ],
                           [
@@ -945,7 +944,7 @@ fn unknown_balances_callout(accounts: List(Account)) -> Element(Msg) {
                       None -> element.none()
                     },
                   ]),
-                  row_ui.chevron(class: "mt-0.5"),
+                  row.chevron(class: "mt-0.5"),
                 ],
               )
             }),

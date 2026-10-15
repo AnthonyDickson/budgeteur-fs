@@ -253,8 +253,8 @@ mode.
   - **input**: text input, select, and checkbox, each with an invalid state.
   - **card**: a panel and an empty state.
   - **banner**: error and warning.
-  - **modal**, **row**, and **swatch**: today's modal dialog, clickable row, and
-    tag swatch, moved from `shared/`.
+  - **dialog**, **row**, and **swatch**: today's modal dialog, clickable row,
+    and tag swatch, moved from `shared/`.
 
   A component takes a variant, attributes for behaviour (event handlers, test
   ids, disabled), and children, and owns its classes. Where a caller needs
@@ -281,7 +281,7 @@ mode.
   palette, and both colour schemes.
 - **Client views**: every colour utility becomes a role, shared elements become
   components, and success and warning text becomes a tint with fg text.
-- **Client `shared/ui/`**: a new folder holding the components. The modal, row,
+- **Client `shared/ui/`**: a new folder holding the components. The dialog, row,
   and swatch modules move there.
 - **Tags**: `TagColor` in `Domain/` becomes a union. Create and update return
   `400` for any other value. Tag, dashboard, and report responses carry names.

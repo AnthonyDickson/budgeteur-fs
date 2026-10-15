@@ -8,9 +8,9 @@ import budgeteur/balance_sheet_page/account_write_request.{
 }
 import budgeteur/shared/date
 import budgeteur/shared/field
-import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/side.{type Side, Asset, Liability}
+import budgeteur/shared/ui/dialog
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -172,7 +172,7 @@ pub fn view(
 
   html.div([attribute.class("space-y-4")], [
     html.div([attribute.class("space-y-2")], [
-      modal_ui.radio_group(
+      dialog.radio_group(
         legend: "Balance",
         testid: "balance-side",
         disabled: submitting,
@@ -196,7 +196,7 @@ pub fn view(
         attribute.placeholder("0.00"),
         attribute.class(input_class),
         attribute.classes([
-          #(modal_ui.error_border_style, field.has_error(amount)),
+          #(dialog.error_border_style, field.has_error(amount)),
         ]),
         attribute.value(field.input(amount)),
         attribute.disabled(submitting),
@@ -204,10 +204,10 @@ pub fn view(
       ]),
       case field.error(amount) {
         Some(AmountRequired) ->
-          modal_ui.form_error_message("Amount cannot be empty")
-        Some(NotANumber) -> modal_ui.form_error_message("Not a valid number")
+          dialog.form_error_message("Amount cannot be empty")
+        Some(NotANumber) -> dialog.form_error_message("Not a valid number")
         Some(Negative) ->
-          modal_ui.form_error_message(
+          dialog.form_error_message(
             "Enter the amount without a sign. Choose asset or liability instead.",
           )
         None -> element.none()
@@ -224,16 +224,15 @@ pub fn view(
         attribute.attribute("data-testid", "balance-as-of-input"),
         attribute.class(input_class),
         attribute.classes([
-          #(modal_ui.error_border_style, field.has_error(as_of)),
+          #(dialog.error_border_style, field.has_error(as_of)),
         ]),
         attribute.value(field.input(as_of)),
         attribute.disabled(submitting),
         event.on_input(AsOfChanged),
       ]),
       case field.error(as_of) {
-        Some(AsOfRequired) ->
-          modal_ui.form_error_message("Date cannot be empty")
-        Some(NotADate) -> modal_ui.form_error_message("Not a valid date")
+        Some(AsOfRequired) -> dialog.form_error_message("Date cannot be empty")
+        Some(NotADate) -> dialog.form_error_message("Not a valid date")
         None -> element.none()
       },
     ]),

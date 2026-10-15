@@ -1,8 +1,8 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/tag.{type Tag, type TagKind, Expense, Income, Tag}
+import budgeteur/shared/ui/dialog
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
 }
@@ -247,7 +247,7 @@ fn is_required(error: NameError) -> Bool {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "tag-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -297,7 +297,7 @@ fn view_form(
       [
         case api_error {
           Some(message) ->
-            modal_ui.error_banner(
+            dialog.error_banner(
               testid: "tag-api-error",
               message: "Could not save tag: " <> message,
               extra_class: "",
@@ -319,7 +319,7 @@ fn view_form(
               <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
             ),
             attribute.classes([
-              #(modal_ui.error_border_style, has_error),
+              #(dialog.error_border_style, has_error),
             ]),
             attribute.autofocus(True),
             attribute.value(field.input(name)),
@@ -331,7 +331,7 @@ fn view_form(
             html.text("Prefer broad categories, e.g. Food & Drink over Coffee."),
           ]),
         ]),
-        modal_ui.radio_group(
+        dialog.radio_group(
           legend: "Kind",
           testid: "tag-kind",
           disabled: submitting,
@@ -390,22 +390,22 @@ fn view_form(
             }),
           ),
         ]),
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: case mode {
             form_modal.Create -> None
             form_modal.Edit(_) ->
-              Some(modal_ui.delete_request_button(
+              Some(dialog.delete_request_button(
                 testid: "tag-delete-button",
                 disabled: submitting,
                 on_click: DeleteRequested,
               ))
           },
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "tag-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "tag-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,
@@ -420,15 +420,15 @@ fn view_form(
 
 fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
   case name_error {
-    Some(NameRequired) -> modal_ui.form_error_message("Name cannot be empty")
+    Some(NameRequired) -> dialog.form_error_message("Name cannot be empty")
     Some(TooLong) ->
-      modal_ui.form_error_message(
+      dialog.form_error_message(
         "Name cannot be longer than "
         <> int.to_string(max_name_length)
         <> " characters",
       )
     Some(Duplicate) ->
-      modal_ui.form_error_message("A tag with this name already exists")
+      dialog.form_error_message("A tag with this name already exists")
     None -> element.none()
   }
 }

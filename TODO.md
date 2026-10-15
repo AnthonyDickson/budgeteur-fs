@@ -23,7 +23,7 @@
          stylesheet, declare the light colour scheme, and give the page its
          background and text roles. Check the mixed roles' contrast against
          decision 6 (decisions 1, 3, 4, 6).
-  2. [ ] Move `modal_ui`, `row_ui`, and `tag_ui` into `shared/ui/` as `modal`,
+  2. [x] Move `modal_ui`, `row_ui`, and `tag_ui` into `shared/ui/` as `dialog`,
          `row`, and `swatch`, with no visual change (decision 11).
   3. [ ] Add `ui/button` with its variants on roles, and use it for the modal
          buttons and every page button (decision 11).

@@ -1,9 +1,9 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/modal_ui
 import budgeteur/shared/number
 import budgeteur/shared/tag.{type Tag}
+import budgeteur/shared/ui/dialog
 import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
 import budgeteur/tagging_page/rule_write_request.{
@@ -359,7 +359,7 @@ fn is_required(error: PatternError) -> Bool {
 /// locked while a request is in flight so it cannot be dismissed mid-request.
 pub fn view(state: Modal, tags: List(Tag)) -> Element(Msg) {
   let open = fn(children, submitting) {
-    modal_ui.dialog(
+    dialog.dialog(
       testid: "rule-modal",
       busy: submitting,
       on_dismiss: CancelRequested,
@@ -408,7 +408,7 @@ fn view_form(
     ]),
     case api_error {
       Some(message) ->
-        modal_ui.error_banner(
+        dialog.error_banner(
           testid: "rule-api-error",
           message: "Could not save rule: " <> message,
           extra_class: "",
@@ -453,7 +453,7 @@ fn view_form(
                   <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
                 ),
                 attribute.classes([
-                  #(modal_ui.error_border_style, field.has_error(pattern)),
+                  #(dialog.error_border_style, field.has_error(pattern)),
                 ]),
                 attribute.autofocus(True),
                 attribute.value(field.input(pattern)),
@@ -462,15 +462,15 @@ fn view_form(
               ]),
               case pattern_error {
                 Some(PatternRequired) ->
-                  modal_ui.form_error_message("Pattern cannot be empty")
+                  dialog.form_error_message("Pattern cannot be empty")
                 Some(TooLong) ->
-                  modal_ui.form_error_message(
+                  dialog.form_error_message(
                     "Pattern cannot be longer than "
                     <> int.to_string(max_pattern_length)
                     <> " characters",
                   )
                 Some(Duplicate) ->
-                  modal_ui.form_error_message(
+                  dialog.form_error_message(
                     "A rule with this pattern already exists",
                   )
                 None -> element.none()
@@ -502,7 +502,7 @@ fn view_form(
                 <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
               ),
               attribute.classes([
-                #(modal_ui.error_border_style, tag_error),
+                #(dialog.error_border_style, tag_error),
               ]),
               attribute.disabled(submitting),
               event.on_change(TagChanged),
@@ -521,29 +521,29 @@ fn view_form(
             }),
           ),
           case tag_error {
-            True -> modal_ui.form_error_message("Select a tag")
+            True -> dialog.form_error_message("Select a tag")
             False -> element.none()
           },
           html.p([attribute.class("mt-1 text-xs text-gray-500")], [
             html.text("Changing the tag moves this rule to that tag."),
           ]),
         ]),
-        modal_ui.form_footer(
+        dialog.form_footer(
           leading: case mode {
             form_modal.Create -> None
             form_modal.Edit(_) ->
-              Some(modal_ui.delete_request_button(
+              Some(dialog.delete_request_button(
                 testid: "rule-delete-button",
                 disabled: submitting,
                 on_click: DeleteRequested,
               ))
           },
-          cancel: modal_ui.cancel_button(
+          cancel: dialog.cancel_button(
             testid: "rule-cancel-button",
             disabled: submitting,
             on_click: CancelRequested,
           ),
-          submit: modal_ui.submit_button(
+          submit: dialog.submit_button(
             testid: "rule-submit-button",
             idle_label: submit_label,
             busy_label: submitting_label,
