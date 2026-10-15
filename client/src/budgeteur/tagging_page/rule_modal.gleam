@@ -4,6 +4,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/number
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
 import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
 import budgeteur/tagging_page/rule_write_request.{
@@ -442,37 +443,28 @@ fn view_form(
                 ],
                 [html.text("Pattern")],
               ),
-              html.input([
+              input.text([
                 attribute.type_("text"),
                 attribute.attribute("data-testid", "rule-pattern-input"),
                 attribute.placeholder("e.g. STARBUCKS"),
                 attribute.aria_describedby(pattern_hint_id),
-                attribute.class(
-                  "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-                  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-                  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-                ),
-                attribute.classes([
-                  #(dialog.error_border_style, field.has_error(pattern)),
-                ]),
                 attribute.autofocus(True),
                 attribute.value(field.input(pattern)),
                 attribute.disabled(submitting),
                 event.on_input(PatternChanged),
+                input.invalid(field.has_error(pattern)),
               ]),
               case pattern_error {
                 Some(PatternRequired) ->
-                  dialog.form_error_message("Pattern cannot be empty")
+                  input.error_message("Pattern cannot be empty")
                 Some(TooLong) ->
-                  dialog.form_error_message(
+                  input.error_message(
                     "Pattern cannot be longer than "
                     <> int.to_string(max_pattern_length)
                     <> " characters",
                   )
                 Some(Duplicate) ->
-                  dialog.form_error_message(
-                    "A rule with this pattern already exists",
-                  )
+                  input.error_message("A rule with this pattern already exists")
                 None -> element.none()
               },
             ],
@@ -489,23 +481,13 @@ fn view_form(
           view_match_count(pattern, match_count),
         ]),
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Tag")],
-          ),
-          html.select(
+          input.label("Tag"),
+          input.select(
             [
               attribute.attribute("data-testid", "rule-tag-select"),
-              attribute.class(
-                "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
-                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-              ),
-              attribute.classes([
-                #(dialog.error_border_style, tag_error),
-              ]),
               attribute.disabled(submitting),
               event.on_change(TagChanged),
+              input.invalid(tag_error),
             ],
             // The options carry the selection: a `value` on the select is
             // applied before its options exist, so the browser would show the
@@ -521,7 +503,7 @@ fn view_form(
             }),
           ),
           case tag_error {
-            True -> dialog.form_error_message("Select a tag")
+            True -> input.error_message("Select a tag")
             False -> element.none()
           },
           html.p([attribute.class("mt-1 text-xs text-gray-500")], [

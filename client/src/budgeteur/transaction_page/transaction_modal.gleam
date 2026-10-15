@@ -6,6 +6,7 @@ import budgeteur/shared/money
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
 import budgeteur/shared/ui/swatch
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/transaction.{
@@ -556,11 +557,8 @@ fn view_form(
       ],
       [
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Amount")],
-          ),
-          html.input([
+          input.label("Amount"),
+          input.text([
             attribute.type_("text"),
             attribute.attribute("data-testid", "transaction-amount-input"),
             attribute.inputmode("decimal"),
@@ -568,89 +566,32 @@ fn view_form(
             attribute.placeholder("0.00"),
             attribute.min("0"),
             attribute.value(field.input(amount)),
-            attribute.class(
-              "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-              <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-              <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-            ),
-            attribute.classes([
-              #(dialog.error_border_style, field.has_error(amount)),
-            ]),
             attribute.disabled(submitting),
             event.on_input(AmountChanged),
+            input.invalid(field.has_error(amount)),
           ]),
           case amount_error {
-            Some(NotANumber) -> dialog.form_error_message("Not a valid number")
-            Some(NotPositive) ->
-              dialog.form_error_message("Amount must be positive")
+            Some(NotANumber) -> input.error_message("Not a valid number")
+            Some(NotPositive) -> input.error_message("Amount must be positive")
             Some(AmountRequired) ->
-              dialog.form_error_message("Amount cannot be empty")
+              input.error_message("Amount cannot be empty")
             None -> element.none()
           },
         ]),
-        html.fieldset([attribute.class("block")], [
-          html.legend(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Type")],
-          ),
-          html.div([attribute.class("grid grid-cols-2 gap-3")], [
-            html.label(
-              [
-                attribute.class(
-                  "flex cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white "
-                  <> "px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 "
-                  <> "has-checked:border-indigo-600 has-checked:bg-indigo-50 has-checked:text-indigo-700",
-                ),
-              ],
-              [
-                html.input([
-                  attribute.type_("radio"),
-                  attribute.attribute("data-testid", "transaction-type-debit"),
-                  attribute.name("transaction_type"),
-                  attribute.checked(type_ == Debit),
-                  attribute.class(
-                    "h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500",
-                  ),
-                  attribute.disabled(submitting),
-                  event.on_click(TypeChanged(Debit)),
-                ]),
-                html.text("Debit"),
-              ],
-            ),
-            html.label(
-              [
-                attribute.class(
-                  "flex cursor-pointer items-center justify-center gap-2 rounded-md border border-gray-300 bg-white "
-                  <> "px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 "
-                  <> "has-checked:border-indigo-600 has-checked:bg-indigo-50 has-checked:text-indigo-700",
-                ),
-              ],
-              [
-                html.input([
-                  attribute.type_("radio"),
-                  attribute.attribute("data-testid", "transaction-type-credit"),
-                  attribute.name("transaction_type"),
-                  attribute.checked(type_ == Credit),
-                  attribute.class(
-                    "h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500",
-                  ),
-                  attribute.disabled(submitting),
-                  event.on_click(TypeChanged(Credit)),
-                ]),
-                html.text("Credit"),
-              ],
-            ),
-          ]),
-        ]),
+        input.radio_group(
+          legend: "Type",
+          testid: "transaction-type",
+          disabled: submitting,
+          options: [
+            #("debit", "Debit", type_ == Debit, fn(_) { TypeChanged(Debit) }),
+            #("credit", "Credit", type_ == Credit, fn(_) { TypeChanged(Credit) }),
+          ],
+        ),
         html.label([attribute.class("flex items-center gap-2")], [
-          html.input([
-            attribute.type_("checkbox"),
+          input.checkbox([
             attribute.attribute("data-testid", "transaction-is-transfer-input"),
             attribute.name("is_transfer"),
             attribute.checked(is_transfer),
-            attribute.class(
-              "h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500",
-            ),
             attribute.disabled(submitting),
             event.on_check(IsTransferChanged),
           ]),
@@ -659,32 +600,22 @@ fn view_form(
           ]),
         ]),
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Description")],
-          ),
-          html.input([
+          input.label("Description"),
+          input.text([
             attribute.type_("text"),
             attribute.attribute("data-testid", "transaction-description-input"),
             attribute.placeholder("What was this for?"),
-            attribute.class(
-              "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-              <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-              <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-            ),
-            attribute.classes([
-              #(dialog.error_border_style, field.has_error(description)),
-            ]),
             attribute.minlength(1),
             attribute.value(field.input(description)),
             attribute.disabled(submitting),
             event.on_input(DescriptionChanged),
+            input.invalid(field.has_error(description)),
           ]),
           case description_error {
             Some(DescriptionRequired) ->
-              dialog.form_error_message("Description cannot be empty")
+              input.error_message("Description cannot be empty")
             Some(TooLong) ->
-              dialog.form_error_message(
+              input.error_message(
                 "Description cannot be longer than "
                 <> int.to_string(max_description_length)
                 <> " characters",
@@ -693,29 +624,18 @@ fn view_form(
           },
         ]),
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Date")],
-          ),
-          html.input([
+          input.label("Date"),
+          input.text([
             attribute.type_("date"),
             attribute.attribute("data-testid", "transaction-date-input"),
-            attribute.class(
-              "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-              <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-              <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-            ),
-            attribute.classes([
-              #(dialog.error_border_style, field.has_error(date)),
-            ]),
             attribute.value(field.input(date)),
             attribute.disabled(submitting),
             event.on_input(DateChanged),
+            input.invalid(field.has_error(date)),
           ]),
           case date_error {
-            Some(NotADate) -> dialog.form_error_message("Not a valid date")
-            Some(DateRequired) ->
-              dialog.form_error_message("Date cannot be empty")
+            Some(NotADate) -> input.error_message("Not a valid date")
+            Some(DateRequired) -> input.error_message("Date cannot be empty")
             None -> element.none()
           },
         ]),
@@ -734,14 +654,9 @@ fn view_form(
               },
             ],
           ),
-          html.select(
+          input.select(
             [
               attribute.attribute("data-testid", "transaction-tag-select"),
-              attribute.class(
-                "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
-                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-              ),
               attribute.disabled(submitting || is_transfer),
               event.on_change(TagChanged),
             ],
@@ -815,18 +730,10 @@ fn view_form(
           },
         ]),
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Account")],
-          ),
-          html.select(
+          input.label("Account"),
+          input.select(
             [
               attribute.attribute("data-testid", "transaction-account-select"),
-              attribute.class(
-                "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
-                <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-                <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-              ),
               attribute.disabled(submitting),
               event.on_change(AccountChanged),
             ],

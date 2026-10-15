@@ -12,6 +12,7 @@ import budgeteur/shared/date
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -20,10 +21,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
-
-const input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
 
 /// What is being closed, which words the form.
 pub type Kind {
@@ -212,24 +209,18 @@ fn view_form(
           None -> element.none()
         },
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text(label)],
-          ),
-          html.input([
+          input.label(label),
+          input.text([
             attribute.type_("date"),
             attribute.attribute("data-testid", "close-date-input"),
-            attribute.class(input_class),
-            attribute.classes([
-              #(dialog.error_border_style, field.has_error(form.closed_on)),
-            ]),
             attribute.value(field.input(form.closed_on)),
             attribute.disabled(submitting),
             event.on_input(ClosedOnChanged),
+            input.invalid(field.has_error(form.closed_on)),
           ]),
           case field.error(form.closed_on) {
-            Some(Required) -> dialog.form_error_message("Date cannot be empty")
-            Some(NotADate) -> dialog.form_error_message("Not a valid date")
+            Some(Required) -> input.error_message("Date cannot be empty")
+            Some(NotADate) -> input.error_message("Not a valid date")
             None -> element.none()
           },
           html.p([attribute.class("mt-1 text-xs text-gray-500")], [

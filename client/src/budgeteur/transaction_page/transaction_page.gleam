@@ -11,7 +11,7 @@ import budgeteur/shared/response
 import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/button
-import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
 import budgeteur/shared/ui/row
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/import_modal
@@ -889,13 +889,12 @@ fn search_bar(search: Search, filters_open: Bool) -> Element(Msg) {
         html.span([attribute.class("sr-only")], [
           html.text("Search descriptions"),
         ]),
-        html.input([
+        input.text([
           attribute.type_("search"),
           attribute.attribute("data-testid", "search-input"),
           attribute.placeholder("Search descriptions"),
           attribute.maxlength(transaction_search.max_text_length),
           attribute.value(search.text),
-          attribute.class(text_input_class),
           event.on_input(UserChangedText),
         ]),
       ],
@@ -972,10 +971,9 @@ fn account_filter(
     )
   }
   html.label([attribute.class("block")], [
-    html.span([attribute.class(label_class)], [html.text("Account")]),
-    html.select(
+    input.label("Account"),
+    input.select(
       [
-        attribute.class(select_class),
         attribute.attribute("data-testid", "account-select"),
         event.on_change(fn(value) {
           UserChangedAccount(transaction_search.parse_account(value))
@@ -1017,10 +1015,9 @@ fn tag_filter(selected: TagFilter, tags: List(Tag)) -> Element(Msg) {
     )
   }
   html.label([attribute.class("block")], [
-    html.span([attribute.class(label_class)], [html.text("Tag")]),
-    html.select(
+    input.label("Tag"),
+    input.select(
       [
-        attribute.class(select_class),
         attribute.attribute("data-testid", "tag-select"),
         event.on_change(fn(value) {
           UserChangedTag(transaction_search.parse_tag(value))
@@ -1048,10 +1045,9 @@ fn dates_filter(
 ) -> Element(Msg) {
   html.div([attribute.class("space-y-2")], [
     html.label([attribute.class("block")], [
-      html.span([attribute.class(label_class)], [html.text("Dates")]),
-      html.select(
+      input.label("Dates"),
+      input.select(
         [
-          attribute.class(select_class),
           attribute.attribute("data-testid", "dates-select"),
           event.on_change(fn(value) {
             transaction_search.parse_preset(value)
@@ -1110,10 +1106,9 @@ fn amount_filter(
 ) -> Element(Msg) {
   html.div([attribute.class("space-y-2")], [
     html.label([attribute.class("block")], [
-      html.span([attribute.class(label_class)], [html.text("Direction")]),
-      html.select(
+      input.label("Direction"),
+      input.select(
         [
-          attribute.class(select_class),
           attribute.attribute("data-testid", "direction-select"),
           event.on_change(fn(value) {
             UserChangedDirection(transaction_search.parse_direction(value))
@@ -1162,19 +1157,16 @@ fn size_input(
 ) -> Element(Msg) {
   html.div([], [
     html.label([attribute.class("block")], [
-      html.span([attribute.class(label_class)], [html.text(label)]),
-      html.input([
+      input.label(label),
+      input.text([
         attribute.type_("text"),
         attribute.attribute("data-testid", testid),
         attribute.inputmode("decimal"),
         attribute.placeholder("0.00"),
         attribute.value(value),
-        attribute.class(text_input_class),
-        attribute.classes([
-          #(dialog.error_border_style, option.is_some(error)),
-        ]),
         event.on_input(on_input),
         event.on_change(fn(_) { UserCommittedSize }),
+        input.invalid(option.is_some(error)),
       ]),
     ]),
     field_error(testid <> "-error", error),
@@ -1188,12 +1180,11 @@ fn date_input(
   on_input: fn(String) -> Msg,
 ) -> Element(Msg) {
   html.label([attribute.class("block")], [
-    html.span([attribute.class(label_class)], [html.text(label)]),
-    html.input([
+    input.label(label),
+    input.text([
       attribute.type_("date"),
       attribute.attribute("data-testid", testid),
       attribute.value(value),
-      attribute.class(text_input_class),
       event.on_input(on_input),
     ]),
   ])
@@ -1410,14 +1401,6 @@ fn no_matches_empty_state() -> Element(Msg) {
     ],
   )
 }
-
-const label_class = "mb-1 block text-sm font-medium text-gray-700"
-
-const select_class = "block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-
-const text_input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
 
 fn loading_state() -> Element(Msg) {
   html.div(

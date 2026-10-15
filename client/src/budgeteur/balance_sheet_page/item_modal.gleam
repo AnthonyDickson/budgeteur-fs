@@ -13,6 +13,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/side.{type Side, Asset, Liability}
 import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -25,10 +26,6 @@ import lustre/event
 
 /// Max length of an item name. Mirrors the server's `ItemName.MaxLength`.
 pub const max_name_length = 128
-
-const input_class = "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-  <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-  <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
 
 pub type NameError {
   NameRequired
@@ -349,22 +346,16 @@ fn view_form(
           None -> element.none()
         },
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Name")],
-          ),
-          html.input([
+          input.label("Name"),
+          input.text([
             attribute.type_("text"),
             attribute.attribute("data-testid", "item-name-input"),
             attribute.placeholder("e.g. House"),
-            attribute.class(input_class),
-            attribute.classes([
-              #(dialog.error_border_style, field.has_error(name)),
-            ]),
             attribute.autofocus(True),
             attribute.value(field.input(name)),
             attribute.disabled(submitting),
             event.on_input(NameChanged),
+            input.invalid(field.has_error(name)),
           ]),
           view_name_error(field.error(name)),
         ]),
@@ -415,7 +406,7 @@ fn term_field(side: Side, term: Term, submitting: Bool) -> Element(Msg) {
   let current_label = term.label(Current, side)
   let non_current_label = term.label(NonCurrent, side)
 
-  dialog.radio_group(
+  input.radio_group(
     legend: "Term",
     testid: "item-term",
     disabled: submitting,
@@ -442,15 +433,15 @@ fn term_help(side: Side) -> String {
 
 fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
   case name_error {
-    Some(NameRequired) -> dialog.form_error_message("Name cannot be empty")
+    Some(NameRequired) -> input.error_message("Name cannot be empty")
     Some(TooLong) ->
-      dialog.form_error_message(
+      input.error_message(
         "Name cannot be longer than "
         <> int.to_string(max_name_length)
         <> " characters",
       )
     Some(Duplicate) ->
-      dialog.form_error_message(
+      input.error_message(
         "An identical item already exists for this side and term",
       )
     None -> element.none()

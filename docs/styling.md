@@ -250,7 +250,9 @@ mode.
   element:
   - **button**: primary, secondary, danger, danger text (opens a delete
     confirmation), and text variants.
-  - **input**: text input, select, and checkbox, each with an invalid state.
+  - **input**: text input, select, checkbox, and radio group, with field labels
+    and error messages. A field holding an error is marked with `aria-invalid`,
+    which also styles it, so screen readers and the eye see the same state.
   - **card**: a panel and an empty state.
   - **banner**: error and warning.
   - **dialog**, **row**, and **swatch**: today's modal dialog, clickable row,

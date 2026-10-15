@@ -3,6 +3,7 @@ import budgeteur/shared/field
 import budgeteur/shared/form_modal
 import budgeteur/shared/tag.{type Tag, type TagKind, Expense, Income, Tag}
 import budgeteur/shared/ui/dialog
+import budgeteur/shared/ui/input
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
 }
@@ -305,33 +306,23 @@ fn view_form(
           None -> element.none()
         },
         html.label([attribute.class("block")], [
-          html.span(
-            [attribute.class("mb-1 block text-sm font-medium text-gray-700")],
-            [html.text("Name")],
-          ),
-          html.input([
+          input.label("Name"),
+          input.text([
             attribute.type_("text"),
             attribute.attribute("data-testid", "tag-name-input"),
             attribute.placeholder("e.g. Food & Drink"),
-            attribute.class(
-              "block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm "
-              <> "focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 "
-              <> "disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400",
-            ),
-            attribute.classes([
-              #(dialog.error_border_style, has_error),
-            ]),
             attribute.autofocus(True),
             attribute.value(field.input(name)),
             attribute.disabled(submitting),
             event.on_input(NameChanged),
+            input.invalid(has_error),
           ]),
           view_name_error(name_error),
           html.p([attribute.class("mt-1 text-xs text-gray-500")], [
             html.text("Prefer broad categories, e.g. Food & Drink over Coffee."),
           ]),
         ]),
-        dialog.radio_group(
+        input.radio_group(
           legend: "Kind",
           testid: "tag-kind",
           disabled: submitting,
@@ -420,15 +411,15 @@ fn view_form(
 
 fn view_name_error(name_error: Option(NameError)) -> Element(Msg) {
   case name_error {
-    Some(NameRequired) -> dialog.form_error_message("Name cannot be empty")
+    Some(NameRequired) -> input.error_message("Name cannot be empty")
     Some(TooLong) ->
-      dialog.form_error_message(
+      input.error_message(
         "Name cannot be longer than "
         <> int.to_string(max_name_length)
         <> " characters",
       )
     Some(Duplicate) ->
-      dialog.form_error_message("A tag with this name already exists")
+      input.error_message("A tag with this name already exists")
     None -> element.none()
   }
 }
