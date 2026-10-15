@@ -50,7 +50,10 @@ module ReadAllTransactions =
     let private configureOperation (op : OpenApiOperation) _ _ =
         op.Summary <- "List all transactions"
 
-        op.Description <- "Returns every transaction in the store."
+        op.Description <-
+            "Returns every one of the user's transactions. Development only, \
+            for manual testing and inspection; the transactions page uses \
+            search."
 
         op.Tags <- HashSet [ OpenApiTagReference "Transactions" ]
 
