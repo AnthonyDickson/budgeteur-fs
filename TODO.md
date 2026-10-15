@@ -48,7 +48,7 @@
           database (decision 9).
   12. [x] Clear Tailwind's default palette and replace the remaining white and
           black (decision 8).
-  13. [ ] Add Mocha for the dark colour scheme, with an E2E test for each
+  13. [x] Add Mocha for the dark colour scheme, with an E2E test for each
           scheme; check every page in both modes by hand (decisions 2 and 6).
   14. [ ] Docs: AGENTS.md role rule, a styling section in the architecture doc's
           client section, dashboard decision 15, and remove the styling backlog
