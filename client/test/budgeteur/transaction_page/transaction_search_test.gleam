@@ -1,5 +1,6 @@
 import budgeteur/transaction_page/transaction_search.{Search}
 import gleam/list
+import gleam/option.{Some}
 import gleeunit/should
 import youid/uuid
 
@@ -73,4 +74,29 @@ pub fn select_values_round_trip_test() {
     |> transaction_search.parse_tag
     |> should.equal(filter)
   })
+}
+
+pub fn a_direction_or_size_counts_as_one_filter_test() {
+  Search(
+    ..transaction_search.new(),
+    direction: transaction_search.Credit,
+    minimum: "10",
+    maximum: "20",
+  )
+  |> transaction_search.filter_count
+  |> should.equal(1)
+}
+
+pub fn sizes_are_zero_or_more_test() {
+  let assert Error(transaction_search.Invalid(minimum: Some(_), ..)) =
+    Search(..transaction_search.new(), minimum: "-1")
+    |> transaction_search.validate
+
+  let assert Error(transaction_search.Invalid(maximum: Some(_), ..)) =
+    Search(..transaction_search.new(), maximum: "abc")
+    |> transaction_search.validate
+
+  let assert Ok(_) =
+    Search(..transaction_search.new(), minimum: "0", maximum: "0")
+    |> transaction_search.validate
 }

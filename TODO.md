@@ -40,7 +40,7 @@
          dates, and the resolved range (decisions 3 and 11).
   7. [x] Client: add the account and tag selects to the filters panel (decision
          4).
-  8. [ ] Client: add the direction, minimum, and maximum fields with field
+  8. [x] Client: add the direction, minimum, and maximum fields with field
          validation (decisions 5 and 9).
   9. [ ] E2E: search by text, narrow by tag, edit a match so it no longer
          matches and check it stays listed, clear.

@@ -4,6 +4,7 @@ import budgeteur/shared/date
 import budgeteur/shared/delete_modal
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
+import budgeteur/shared/modal_ui
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
@@ -19,8 +20,8 @@ import budgeteur/transaction_page/transaction_delete_modal.{
 }
 import budgeteur/transaction_page/transaction_modal
 import budgeteur/transaction_page/transaction_search.{
-  type AccountFilter, type Criteria, type DatePreset, type Page, type Search,
-  type TagFilter,
+  type AccountFilter, type Criteria, type DatePreset, type Direction, type Page,
+  type Search, type TagFilter,
 }
 import budgeteur/transaction_page/transaction_write_request
 import gleam/dict
@@ -99,6 +100,13 @@ pub type Msg {
   UserChangedToDate(String)
   UserChangedAccount(AccountFilter)
   UserChangedTag(TagFilter)
+  UserChangedDirection(Direction)
+  /// The minimum's input changed; the search runs when it is committed.
+  UserChangedMinimum(String)
+  UserChangedMaximum(String)
+  /// The minimum or maximum was committed: the field lost focus or the user
+  /// pressed Enter.
+  UserCommittedSize
   /// The first page of a search's matches.
   ClientSearched(search: Search, result: Result(Page, ApiError))
   UserRequestedMore
@@ -331,6 +339,38 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
     UserChangedTag(tag) ->
       change_search(model, transaction_search.Search(..model.search, tag:))
+
+    UserChangedDirection(direction) ->
+      change_search(
+        model,
+        transaction_search.Search(..model.search, direction:),
+      )
+
+    UserChangedMinimum(minimum) -> #(
+      Model(
+        ..model,
+        search: transaction_search.Search(
+          ..model.search,
+          minimum: money.clip_to_two_dp(minimum),
+        ),
+      ),
+      effect.none(),
+      None,
+    )
+
+    UserChangedMaximum(maximum) -> #(
+      Model(
+        ..model,
+        search: transaction_search.Search(
+          ..model.search,
+          maximum: money.clip_to_two_dp(maximum),
+        ),
+      ),
+      effect.none(),
+      None,
+    )
+
+    UserCommittedSize -> change_search(model, model.search)
 
     // A response for criteria other than the current ones is ignored, so a
     // slow response never replaces a newer one.
@@ -890,6 +930,11 @@ const filters_panel_id = "transaction-filters"
 
 /// The criteria other than text. The fields stack on narrow screens.
 fn filters_panel(model: Model, results: Results) -> Element(Msg) {
+  let invalid = case transaction_search.validate(model.search) {
+    Ok(_) ->
+      transaction_search.Invalid(dates: None, minimum: None, maximum: None)
+    Error(invalid) -> invalid
+  }
   html.div(
     [
       attribute.id(filters_panel_id),
@@ -899,9 +944,10 @@ fn filters_panel(model: Model, results: Results) -> Element(Msg) {
       attribute.attribute("data-testid", "filters-panel"),
     ],
     [
-      dates_filter(model.search, results),
+      dates_filter(model.search, invalid.dates, results),
       account_filter(model.search.account, model.accounts),
       tag_filter(model.search.tag, model.tags),
+      amount_filter(model.search, invalid),
     ],
   )
 }
@@ -989,11 +1035,11 @@ fn tag_filter(selected: TagFilter, tags: List(Tag)) -> Element(Msg) {
 
 /// The dates select, with the first and last day inputs for custom dates and
 /// the resolved days for a preset.
-fn dates_filter(search: Search, results: Results) -> Element(Msg) {
-  let error = case transaction_search.validate(search) {
-    Error(transaction_search.Invalid(dates: error)) -> error
-    Ok(_) -> None
-  }
+fn dates_filter(
+  search: Search,
+  error: Option(String),
+  results: Results,
+) -> Element(Msg) {
   html.div([attribute.class("space-y-2")], [
     html.label([attribute.class("block")], [
       html.span([attribute.class(label_class)], [html.text("Dates")]),
@@ -1032,17 +1078,100 @@ fn dates_filter(search: Search, results: Results) -> Element(Msg) {
       transaction_search.AnyTime -> element.none()
       preset -> resolved_days(preset, results)
     },
-    case error {
-      Some(error) ->
-        html.p(
-          [
-            attribute.class("text-sm text-red-600"),
-            attribute.attribute("data-testid", "dates-error"),
-          ],
-          [html.text(error)],
-        )
-      None -> element.none()
-    },
+    field_error("dates-error", error),
+  ])
+}
+
+fn field_error(testid: String, error: Option(String)) -> Element(Msg) {
+  case error {
+    Some(error) ->
+      html.p(
+        [
+          attribute.class("text-sm text-red-600"),
+          attribute.attribute("data-testid", testid),
+        ],
+        [html.text(error)],
+      )
+    None -> element.none()
+  }
+}
+
+/// The direction select and the range of sizes: absolute amounts, so "a
+/// debit of 50 to 200" reads as typed.
+fn amount_filter(
+  search: Search,
+  invalid: transaction_search.Invalid,
+) -> Element(Msg) {
+  html.div([attribute.class("space-y-2")], [
+    html.label([attribute.class("block")], [
+      html.span([attribute.class(label_class)], [html.text("Direction")]),
+      html.select(
+        [
+          attribute.class(select_class),
+          attribute.attribute("data-testid", "direction-select"),
+          event.on_change(fn(value) {
+            UserChangedDirection(transaction_search.parse_direction(value))
+          }),
+        ],
+        list.map(transaction_search.directions, fn(direction) {
+          html.option(
+            [
+              attribute.value(transaction_search.direction_to_string(direction)),
+              attribute.selected(direction == search.direction),
+            ],
+            case direction {
+              transaction_search.AnyDirection -> "Credits and debits"
+              transaction_search.Credit -> "Credits"
+              transaction_search.Debit -> "Debits"
+            },
+          )
+        }),
+      ),
+    ]),
+    html.div([attribute.class("grid grid-cols-2 gap-2")], [
+      size_input(
+        "Minimum",
+        "minimum-input",
+        search.minimum,
+        invalid.minimum,
+        UserChangedMinimum,
+      ),
+      size_input(
+        "Maximum",
+        "maximum-input",
+        search.maximum,
+        invalid.maximum,
+        UserChangedMaximum,
+      ),
+    ]),
+  ])
+}
+
+fn size_input(
+  label: String,
+  testid: String,
+  value: String,
+  error: Option(String),
+  on_input: fn(String) -> Msg,
+) -> Element(Msg) {
+  html.div([], [
+    html.label([attribute.class("block")], [
+      html.span([attribute.class(label_class)], [html.text(label)]),
+      html.input([
+        attribute.type_("text"),
+        attribute.attribute("data-testid", testid),
+        attribute.inputmode("decimal"),
+        attribute.placeholder("0.00"),
+        attribute.value(value),
+        attribute.class(text_input_class),
+        attribute.classes([
+          #(modal_ui.error_border_style, option.is_some(error)),
+        ]),
+        event.on_input(on_input),
+        event.on_change(fn(_) { UserCommittedSize }),
+      ]),
+    ]),
+    field_error(testid <> "-error", error),
   ])
 }
 

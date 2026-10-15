@@ -3,6 +3,7 @@
 //// matches the server returns. See docs/transaction-search.md.
 
 import budgeteur/shared/date
+import budgeteur/shared/money
 import budgeteur/transaction_page/transaction.{type Transaction}
 import gleam/dynamic/decode
 import gleam/json
@@ -58,6 +59,16 @@ pub type TagFilter {
   OneTag(Uuid)
 }
 
+/// The sign of a match's amount: a credit is positive and a debit negative,
+/// so a zero amount matches only `AnyDirection`.
+pub type Direction {
+  AnyDirection
+  Credit
+  Debit
+}
+
+pub const directions = [AnyDirection, Credit, Debit]
+
 /// The criteria of a search as the page's controls hold them. A search
 /// matches the transactions meeting all of them; with none set, every
 /// transaction.
@@ -72,6 +83,11 @@ pub type Search {
     to: String,
     account: AccountFilter,
     tag: TagFilter,
+    direction: Direction,
+    /// The smallest absolute amount's input, inclusive. Blank for none.
+    minimum: String,
+    /// The largest absolute amount's input, inclusive. Blank for none.
+    maximum: String,
   )
 }
 
@@ -84,6 +100,9 @@ pub type Criteria {
     to: Option(Date),
     account: AccountFilter,
     tag: TagFilter,
+    direction: Direction,
+    minimum: Option(Float),
+    maximum: Option(Float),
   )
 }
 
@@ -92,6 +111,8 @@ pub type Invalid {
   Invalid(
     /// The custom dates' error.
     dates: Option(String),
+    minimum: Option(String),
+    maximum: Option(String),
   )
 }
 
@@ -118,6 +139,9 @@ pub fn new() -> Search {
     to: "",
     account: AnyAccount,
     tag: AnyTag,
+    direction: AnyDirection,
+    minimum: "",
+    maximum: "",
   )
 }
 
@@ -176,7 +200,27 @@ pub fn filter_count(search: Search) -> Int {
     AnyTag -> 0
     WithoutTag | Untagged | Dismissed | Transfer | OneTag(_) -> 1
   }
-  dates + account + tag
+  let amount = case search.direction, search.minimum, search.maximum {
+    AnyDirection, "", "" -> 0
+    _, _, _ -> 1
+  }
+  dates + account + tag + amount
+}
+
+pub fn direction_to_string(direction: Direction) -> String {
+  case direction {
+    AnyDirection -> "Any"
+    Credit -> "Credit"
+    Debit -> "Debit"
+  }
+}
+
+pub fn parse_direction(value: String) -> Direction {
+  case value {
+    "Credit" -> Credit
+    "Debit" -> Debit
+    _ -> AnyDirection
+  }
 }
 
 /// The account select's value for the filter.
@@ -254,10 +298,45 @@ fn dates(search: Search) -> Result(#(Option(Date), Option(Date)), String) {
   }
 }
 
+/// A size is the absolute amount: zero or more. The inputs keep at most two
+/// decimal places.
+fn size(input: String) -> Result(Option(Float), String) {
+  case string.trim(input) {
+    "" -> Ok(None)
+    input ->
+      case money.parse_decimal(input) {
+        Ok(amount) if amount >=. 0.0 -> Ok(Some(amount))
+        Ok(_) -> Error("Enter zero or more")
+        Error(Nil) -> Error("Enter an amount, e.g. 12.50")
+      }
+  }
+}
+
+fn sizes(
+  search: Search,
+) -> #(Result(Option(Float), String), Result(Option(Float), String)) {
+  case size(search.minimum), size(search.maximum) {
+    Ok(Some(minimum)), Ok(Some(maximum)) if minimum >. maximum -> #(
+      Error("The minimum cannot be more than the maximum"),
+      Ok(Some(maximum)),
+    )
+    minimum, maximum -> #(minimum, maximum)
+  }
+}
+
+fn error_of(result: Result(a, String)) -> Option(String) {
+  case result {
+    Ok(_) -> None
+    Error(error) -> Some(error)
+  }
+}
+
 /// Check the search's inputs. Invalid input runs no search.
 pub fn validate(search: Search) -> Result(Criteria, Invalid) {
-  case dates(search) {
-    Ok(#(from, to)) ->
+  let dates = dates(search)
+  let #(minimum, maximum) = sizes(search)
+  case dates, minimum, maximum {
+    Ok(#(from, to)), Ok(minimum), Ok(maximum) ->
       Ok(Criteria(
         text: search.text,
         preset: search.preset,
@@ -265,8 +344,16 @@ pub fn validate(search: Search) -> Result(Criteria, Invalid) {
         to:,
         account: search.account,
         tag: search.tag,
+        direction: search.direction,
+        minimum:,
+        maximum:,
       ))
-    Error(error) -> Error(Invalid(dates: Some(error)))
+    _, _, _ ->
+      Error(Invalid(
+        dates: error_of(dates),
+        minimum: error_of(minimum),
+        maximum: error_of(maximum),
+      ))
   }
 }
 
@@ -314,9 +401,9 @@ pub fn request_json(
         #(
           "amount",
           json.object([
-            #("direction", json.string("Any")),
-            #("minimum", json.null()),
-            #("maximum", json.null()),
+            #("direction", json.string(direction_to_string(criteria.direction))),
+            #("minimum", json.nullable(criteria.minimum, money.encode_decimal)),
+            #("maximum", json.nullable(criteria.maximum, money.encode_decimal)),
           ]),
         ),
       ]),

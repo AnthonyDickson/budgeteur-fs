@@ -1029,7 +1029,7 @@ pub fn a_first_day_after_the_last_day_sends_nothing_test() {
 
   effect |> should.equal(effect.none())
   invalid.searching |> should.be_false
-  let assert Error(transaction_search.Invalid(dates: Some(_))) =
+  let assert Error(transaction_search.Invalid(dates: Some(_), ..)) =
     transaction_search.validate(invalid.search)
 }
 
@@ -1065,4 +1065,47 @@ pub fn choosing_an_account_or_tag_searches_with_its_state_and_id_test() {
   body
   |> string.contains("\"tag\":{\"state\":\"WithoutTag\",\"id\":null}")
   |> should.be_true
+}
+
+pub fn sizes_search_once_committed_test() {
+  let #(typed, effect, _) =
+    transaction_page.update(
+      empty_model(),
+      transaction_page.UserChangedMinimum("50.129"),
+    )
+
+  // The input keeps cents, like the transaction form.
+  typed.search.minimum |> should.equal("50.12")
+  effect |> should.equal(effect.none())
+
+  let model =
+    typed
+    |> run(transaction_page.UserChangedDirection(transaction_search.Debit))
+
+  let #(_, effect, _) =
+    transaction_page.update(model, transaction_page.UserCommittedSize)
+  let assert effect.HttpRequest(body:, ..) = effect
+  body
+  |> string.contains(
+    "\"amount\":{\"direction\":\"Debit\",\"minimum\":\"50.12\",\"maximum\":null}",
+  )
+  |> should.be_true
+}
+
+pub fn a_minimum_above_the_maximum_sends_nothing_test() {
+  let model =
+    empty_model()
+    |> run(transaction_page.UserChangedMinimum("200"))
+    |> run(transaction_page.UserChangedMaximum("50"))
+
+  let #(invalid, effect, _) =
+    transaction_page.update(model, transaction_page.UserCommittedSize)
+
+  effect |> should.equal(effect.none())
+  invalid.searching |> should.be_false
+  let assert Error(transaction_search.Invalid(
+    minimum: Some(_),
+    maximum: None,
+    ..,
+  )) = transaction_search.validate(invalid.search)
 }
