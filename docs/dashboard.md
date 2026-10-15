@@ -387,9 +387,10 @@ date, reporting periods, savings rate, and the shared statement code in
   them.
 - **Why**: Plot is a function from data to SVG, so a chart holds no state for
   the model to keep in step, which suits MVU. Its SVG follows `currentColor` and
-  the page font, so dark mode works through Tailwind. It has sound default
-  scales and ticks, and tooltips. Sizes measured in October 2026 for a bar and
-  line chart (minified, gzipped; the whole client was 44K):
+  the page font, and it takes CSS variables as colours, so the charts follow
+  dark mode ([styling](styling.md) decision 10). It has sound default scales and
+  ticks, and tooltips. Sizes measured in October 2026 for a bar and line chart
+  (minified, gzipped; the whole client was 44K):
 
   | Library                     | Size | Rejected because                                                            |
   | --------------------------- | ---- | --------------------------------------------------------------------------- |

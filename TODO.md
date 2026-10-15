@@ -50,16 +50,12 @@
           black (decision 8).
   13. [x] Add Mocha for the dark colour scheme, with an E2E test for each
           scheme; check every page in both modes by hand (decisions 2 and 6).
-  14. [ ] Docs: AGENTS.md role rule, a styling section in the architecture doc's
+  14. [x] Docs: AGENTS.md role rule, a styling section in the architecture doc's
           client section, dashboard decision 15, and remove the styling backlog
           item.
 
 ## Backlog
 
-- Consider how to manage styling across pages/source code files for consistent
-  styling.
-  - Consider Catppuccin Latte and Mocha
-    - Migrate tag colour swatch
 - Except for transaction table and data entry, consider rounding to the nearest
   dollar
 - For modals, ensure that focus is returned to the element focused before

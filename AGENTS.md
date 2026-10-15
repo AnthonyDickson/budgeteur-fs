@@ -135,6 +135,10 @@ Each rule is explained in the linked doc.
   committed, and never hand-edited. See [docs/database.md](docs/database.md).
 - **No cached server data on the client** — localStorage holds user preferences
   only.
+- **Colours** — views use colour roles (`bg-surface`, `text-fg-muted`,
+  `bg-primary`), never palette colours, and shared elements come from the
+  client's `shared/ui/`. Text meets WCAG AA in both modes. See
+  [styling](docs/styling.md).
 - **E2E selectors** — use `data-testid` attributes; add them when introducing
   interactive elements.
 - **Secrets** — never log secrets or tokens; source them from environment
