@@ -40,7 +40,7 @@
   9. [x] Move the remaining colours to roles in the dashboard, reports, and
          quick tagging pages; the improvement figure becomes a success pill
          (decisions 4 and 7).
-  10. [ ] Draw the charts with roles. Check first that Plot accepts CSS variable
+  10. [x] Draw the charts with roles. Check first that Plot accepts CSS variable
           references as colours (decision 10).
   11. [ ] Make tag colours accent names: `TagColor` union with parse, print, and
           enum hint, and tests; client colour type, 14-colour picker, and swatch
