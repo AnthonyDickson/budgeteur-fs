@@ -10,6 +10,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/order
 import gleam/string
 import gleam/time/calendar.{type Date}
+import youid/uuid.{type Uuid}
 
 /// The longest text the server accepts: a rule pattern's maximum length.
 pub const max_text_length = 128
@@ -39,6 +40,24 @@ pub const date_presets = [
   Custom,
 ]
 
+/// Which account a match has.
+pub type AccountFilter {
+  AnyAccount
+  NoAccount
+  OneAccount(Uuid)
+}
+
+/// How a match is categorised.
+pub type TagFilter {
+  AnyTag
+  /// Untagged or dismissed.
+  WithoutTag
+  Untagged
+  Dismissed
+  Transfer
+  OneTag(Uuid)
+}
+
 /// The criteria of a search as the page's controls hold them. A search
 /// matches the transactions meeting all of them; with none set, every
 /// transaction.
@@ -51,6 +70,8 @@ pub type Search {
     from: String,
     /// The custom last day's input, inclusive. Blank for none.
     to: String,
+    account: AccountFilter,
+    tag: TagFilter,
   )
 }
 
@@ -61,6 +82,8 @@ pub type Criteria {
     preset: DatePreset,
     from: Option(Date),
     to: Option(Date),
+    account: AccountFilter,
+    tag: TagFilter,
   )
 }
 
@@ -88,7 +111,14 @@ pub type Page {
 
 /// The search with no criteria set, which matches every transaction.
 pub fn new() -> Search {
-  Search(text: "", preset: AnyTime, from: "", to: "")
+  Search(
+    text: "",
+    preset: AnyTime,
+    from: "",
+    to: "",
+    account: AnyAccount,
+    tag: AnyTag,
+  )
 }
 
 pub fn preset_to_string(preset: DatePreset) -> String {
@@ -134,9 +164,60 @@ pub fn preset_label(preset: DatePreset) -> String {
 /// How many criteria other than text are set, which the "Filters" button
 /// shows.
 pub fn filter_count(search: Search) -> Int {
-  case search.preset, search.from, search.to {
+  let dates = case search.preset, search.from, search.to {
     AnyTime, _, _ | Custom, "", "" -> 0
     _, _, _ -> 1
+  }
+  let account = case search.account {
+    AnyAccount -> 0
+    NoAccount | OneAccount(_) -> 1
+  }
+  let tag = case search.tag {
+    AnyTag -> 0
+    WithoutTag | Untagged | Dismissed | Transfer | OneTag(_) -> 1
+  }
+  dates + account + tag
+}
+
+/// The account select's value for the filter.
+pub fn account_to_value(filter: AccountFilter) -> String {
+  case filter {
+    AnyAccount -> "Any"
+    NoAccount -> "NoAccount"
+    OneAccount(id) -> uuid.to_string(id)
+  }
+}
+
+/// The filter for the account select's value.
+pub fn parse_account(value: String) -> AccountFilter {
+  case value, uuid.from_string(value) {
+    "NoAccount", _ -> NoAccount
+    _, Ok(id) -> OneAccount(id)
+    _, Error(Nil) -> AnyAccount
+  }
+}
+
+/// The tag select's value for the filter.
+pub fn tag_to_value(filter: TagFilter) -> String {
+  case filter {
+    AnyTag -> "Any"
+    WithoutTag -> "WithoutTag"
+    Untagged -> "Untagged"
+    Dismissed -> "Dismissed"
+    Transfer -> "Transfer"
+    OneTag(id) -> uuid.to_string(id)
+  }
+}
+
+/// The filter for the tag select's value.
+pub fn parse_tag(value: String) -> TagFilter {
+  case value, uuid.from_string(value) {
+    "WithoutTag", _ -> WithoutTag
+    "Untagged", _ -> Untagged
+    "Dismissed", _ -> Dismissed
+    "Transfer", _ -> Transfer
+    _, Ok(id) -> OneTag(id)
+    _, Error(Nil) -> AnyTag
   }
 }
 
@@ -177,7 +258,14 @@ fn dates(search: Search) -> Result(#(Option(Date), Option(Date)), String) {
 pub fn validate(search: Search) -> Result(Criteria, Invalid) {
   case dates(search) {
     Ok(#(from, to)) ->
-      Ok(Criteria(text: search.text, preset: search.preset, from:, to:))
+      Ok(Criteria(
+        text: search.text,
+        preset: search.preset,
+        from:,
+        to:,
+        account: search.account,
+        tag: search.tag,
+      ))
     Error(error) -> Error(Invalid(dates: Some(error)))
   }
 }
@@ -189,8 +277,24 @@ pub fn request_json(
   today: Date,
   cursor: Option(String),
 ) -> json.Json {
-  let any_id = fn(state) {
-    json.object([#("state", json.string(state)), #("id", json.null())])
+  let state = fn(state, id) {
+    json.object([
+      #("state", json.string(state)),
+      #("id", json.nullable(id, fn(id) { json.string(uuid.to_string(id)) })),
+    ])
+  }
+  let account = case criteria.account {
+    AnyAccount -> state("Any", None)
+    NoAccount -> state("NoAccount", None)
+    OneAccount(id) -> state("Account", Some(id))
+  }
+  let tag = case criteria.tag {
+    AnyTag -> state("Any", None)
+    WithoutTag -> state("WithoutTag", None)
+    Untagged -> state("Untagged", None)
+    Dismissed -> state("Dismissed", None)
+    Transfer -> state("Transfer", None)
+    OneTag(id) -> state("Tag", Some(id))
   }
   json.object([
     #(
@@ -205,8 +309,8 @@ pub fn request_json(
             #("to", json.nullable(criteria.to, date.encode)),
           ]),
         ),
-        #("account", any_id("Any")),
-        #("tag", any_id("Any")),
+        #("account", account),
+        #("tag", tag),
         #(
           "amount",
           json.object([

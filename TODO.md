@@ -38,7 +38,7 @@
          (decisions 9 and 11).
   6. [x] Client: add the filters panel and the dates select with presets, custom
          dates, and the resolved range (decisions 3 and 11).
-  7. [ ] Client: add the account and tag selects to the filters panel (decision
+  7. [x] Client: add the account and tag selects to the filters panel (decision
          4).
   8. [ ] Client: add the direction, minimum, and maximum fields with field
          validation (decisions 5 and 9).

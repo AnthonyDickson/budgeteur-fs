@@ -19,7 +19,8 @@ import budgeteur/transaction_page/transaction_delete_modal.{
 }
 import budgeteur/transaction_page/transaction_modal
 import budgeteur/transaction_page/transaction_search.{
-  type Criteria, type DatePreset, type Page, type Search,
+  type AccountFilter, type Criteria, type DatePreset, type Page, type Search,
+  type TagFilter,
 }
 import budgeteur/transaction_page/transaction_write_request
 import gleam/dict
@@ -96,6 +97,8 @@ pub type Msg {
   UserChangedDatePreset(DatePreset)
   UserChangedFromDate(String)
   UserChangedToDate(String)
+  UserChangedAccount(AccountFilter)
+  UserChangedTag(TagFilter)
   /// The first page of a search's matches.
   ClientSearched(search: Search, result: Result(Page, ApiError))
   UserRequestedMore
@@ -322,6 +325,12 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
 
     UserChangedToDate(to) ->
       change_search(model, transaction_search.Search(..model.search, to:))
+
+    UserChangedAccount(account) ->
+      change_search(model, transaction_search.Search(..model.search, account:))
+
+    UserChangedTag(tag) ->
+      change_search(model, transaction_search.Search(..model.search, tag:))
 
     // A response for criteria other than the current ones is ignored, so a
     // slow response never replaces a newer one.
@@ -788,7 +797,7 @@ pub fn view(model: Model) -> Element(Msg) {
         html.div([], [
           search_bar(model.search, model.filters_open),
           case model.filters_open {
-            True -> filters_panel(model.search, results)
+            True -> filters_panel(model, results)
             False -> element.none()
           },
           searching_note(model.searching),
@@ -880,7 +889,7 @@ fn search_bar(search: Search, filters_open: Bool) -> Element(Msg) {
 const filters_panel_id = "transaction-filters"
 
 /// The criteria other than text. The fields stack on narrow screens.
-fn filters_panel(search: Search, results: Results) -> Element(Msg) {
+fn filters_panel(model: Model, results: Results) -> Element(Msg) {
   html.div(
     [
       attribute.id(filters_panel_id),
@@ -889,8 +898,93 @@ fn filters_panel(search: Search, results: Results) -> Element(Msg) {
       ),
       attribute.attribute("data-testid", "filters-panel"),
     ],
-    [dates_filter(search, results)],
+    [
+      dates_filter(model.search, results),
+      account_filter(model.search.account, model.accounts),
+      tag_filter(model.search.tag, model.tags),
+    ],
   )
+}
+
+fn account_filter(
+  selected: AccountFilter,
+  accounts: List(Account),
+) -> Element(Msg) {
+  let option = fn(filter, label) {
+    html.option(
+      [
+        attribute.value(transaction_search.account_to_value(filter)),
+        attribute.selected(filter == selected),
+      ],
+      label,
+    )
+  }
+  html.label([attribute.class("block")], [
+    html.span([attribute.class(label_class)], [html.text("Account")]),
+    html.select(
+      [
+        attribute.class(select_class),
+        attribute.attribute("data-testid", "account-select"),
+        event.on_change(fn(value) {
+          UserChangedAccount(transaction_search.parse_account(value))
+        }),
+      ],
+      [
+        option(transaction_search.AnyAccount, "Any account"),
+        option(transaction_search.NoAccount, "No account"),
+        ..accounts
+        |> list.sort(fn(a, b) { string.compare(a.name, b.name) })
+        |> list.map(fn(account) {
+          option(transaction_search.OneAccount(account.id), account.name)
+        })
+      ],
+    ),
+  ])
+}
+
+/// The categorisation states, then the tags grouped into expense and income
+/// tags, each by name.
+fn tag_filter(selected: TagFilter, tags: List(Tag)) -> Element(Msg) {
+  let option = fn(filter, label) {
+    html.option(
+      [
+        attribute.value(transaction_search.tag_to_value(filter)),
+        attribute.selected(filter == selected),
+      ],
+      label,
+    )
+  }
+  let group = fn(label, kind) {
+    html.optgroup(
+      [attribute.attribute("label", label)],
+      tags
+        |> list.filter(fn(tag) { tag.kind == kind })
+        |> list.map(fn(tag) {
+          option(transaction_search.OneTag(tag.id), tag.name)
+        }),
+    )
+  }
+  html.label([attribute.class("block")], [
+    html.span([attribute.class(label_class)], [html.text("Tag")]),
+    html.select(
+      [
+        attribute.class(select_class),
+        attribute.attribute("data-testid", "tag-select"),
+        event.on_change(fn(value) {
+          UserChangedTag(transaction_search.parse_tag(value))
+        }),
+      ],
+      [
+        option(transaction_search.AnyTag, "Any tag"),
+        option(transaction_search.WithoutTag, "Without a tag"),
+        option(transaction_search.Untagged, "Untagged"),
+        option(transaction_search.Dismissed, "Dismissed"),
+        option(transaction_search.Transfer, "Transfer"),
+        group("Expense tags", tag.Expense),
+        group("Income tags", tag.Income),
+      ],
+    ),
+  ])
 }
 
 /// The dates select, with the first and last day inputs for custom dates and

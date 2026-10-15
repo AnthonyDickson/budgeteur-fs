@@ -1040,3 +1040,29 @@ pub fn the_filters_button_toggles_the_panel_test() {
   let closed = run(opened, transaction_page.UserToggledFilters)
   closed.filters_open |> should.be_false
 }
+
+pub fn choosing_an_account_or_tag_searches_with_its_state_and_id_test() {
+  let assert Ok(id) = uuid.from_string("00000000-0000-0000-0000-0000000000aa")
+
+  let #(_, effect, _) =
+    transaction_page.update(
+      empty_model(),
+      transaction_page.UserChangedAccount(transaction_search.OneAccount(id)),
+    )
+  let assert effect.HttpRequest(body:, ..) = effect
+  body
+  |> string.contains(
+    "\"account\":{\"state\":\"Account\",\"id\":\"00000000-0000-0000-0000-0000000000aa\"}",
+  )
+  |> should.be_true
+
+  let #(_, effect, _) =
+    transaction_page.update(
+      empty_model(),
+      transaction_page.UserChangedTag(transaction_search.WithoutTag),
+    )
+  let assert effect.HttpRequest(body:, ..) = effect
+  body
+  |> string.contains("\"tag\":{\"state\":\"WithoutTag\",\"id\":null}")
+  |> should.be_true
+}
