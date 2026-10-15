@@ -98,7 +98,7 @@ mode.
   | fg-subtle     | Icons, placeholders, disabled text                     | overlay2                         |
   | border        | Card borders and dividers                              | surface0                         |
   | border-input  | Input and secondary button borders                     | surface1                         |
-  | primary       | Primary buttons, links, focus rings, selection markers | mauve                            |
+  | primary       | Primary buttons, link underlines, focus rings, markers | mauve                            |
   | primary-hover | Hovered primary fills                                  | primary with 10% of fg mixed in  |
   | primary-tint  | Selected items                                         | primary 15% into surface         |
   | on-primary    | Text on primary and danger fills                       | base                             |
@@ -146,7 +146,8 @@ mode.
   - danger text is allowed (Latte red 4.8:1).
   - Text on primary and danger fills is base.
   - Primary text sits on surfaces, not on the page background, where it is
-    4.45:1 in Latte.
+    4.45:1 in Latte. Links within text are fg with a primary underline, so they
+    read on any background; the underline needs only 3:1.
   - Text on a tint is fg or fg-muted. Primary and danger text on their own tints
     is 3.9:1 in Latte.
 
@@ -255,6 +256,7 @@ mode.
     which also styles it, so screen readers and the eye see the same state.
   - **card**: a panel and an empty state.
   - **banner**: error and warning.
+  - **link**: a link within text (decision 6).
   - **dialog**, **row**, and **swatch**: today's modal dialog, clickable row,
     and tag swatch, moved from `shared/`.
 

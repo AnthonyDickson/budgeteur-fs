@@ -37,7 +37,7 @@
          (decision 4).
   8. [x] Move the remaining colours to roles in the balance sheet and line
          details pages with their modals (decision 4).
-  9. [ ] Move the remaining colours to roles in the dashboard, reports, and
+  9. [x] Move the remaining colours to roles in the dashboard, reports, and
          quick tagging pages; the improvement figure becomes a success pill
          (decisions 4 and 7).
   10. [ ] Draw the charts with roles. Check first that Plot accepts CSS variable

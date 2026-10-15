@@ -16,6 +16,7 @@ import budgeteur/shared/route
 import budgeteur/shared/tag.{type Tag, Expense, Income}
 import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
+import budgeteur/shared/ui/link
 import budgeteur/shared/ui/row
 import budgeteur/shared/ui/swatch
 import gleam/dict.{type Dict}
@@ -33,9 +34,7 @@ import lustre/event
 import youid/uuid.{type Uuid}
 
 const choice_button_class = "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium "
-  <> "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-wait"
-
-const link_class = "font-medium text-indigo-600 hover:text-indigo-500"
+  <> "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-wait"
 
 // Types
 // -----
@@ -318,14 +317,14 @@ pub fn view(model: Model) -> Element(Msg) {
     ],
     [
       html.div([], [
-        html.h1([attribute.class("text-2xl font-semibold text-gray-900")], [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
           html.text("Quick tagging"),
         ]),
         case waiting(model) {
           Some(count) ->
             html.p(
               [
-                attribute.class("mt-1 text-sm text-gray-500"),
+                attribute.class("mt-1 text-sm text-fg-muted"),
                 attribute.attribute("data-testid", "quick-tag-waiting"),
               ],
               [html.text(waiting_text(count))],
@@ -396,12 +395,11 @@ fn batch(
 }
 
 fn no_tags_note() -> Element(Msg) {
-  html.p([attribute.class("text-sm text-gray-500")], [
+  html.p([attribute.class("text-sm text-fg-muted")], [
     html.text("You have no tags yet. Create them on the "),
-    html.a(
+    link.view(
       [
         attribute.href(route.to_string(route.Tagging)),
-        attribute.class(link_class),
       ],
       [html.text("Tags & Rules page")],
     ),
@@ -424,14 +422,14 @@ fn transaction_row(
   }
 
   let #(row_class, text_class) = case state {
-    Some(Saved(_)) -> #("bg-gray-50", "text-gray-500")
-    Some(Saving(..)) | None -> #("bg-white", "text-gray-900")
+    Some(Saved(_)) -> #("bg-surface-hover", "text-fg-muted")
+    Some(Saving(..)) | None -> #("bg-surface", "text-fg")
   }
 
   html.li(
     [
       attribute.class(
-        "rounded-lg border border-gray-200 px-4 py-3 shadow-sm space-y-3 "
+        "rounded-lg border border-border px-4 py-3 shadow-sm space-y-3 "
         <> row_class,
       ),
       attribute.attribute("data-testid", "quick-tag-row"),
@@ -449,7 +447,7 @@ fn transaction_row(
             ],
             [html.text(transaction.description)],
           ),
-          html.p([attribute.class("mt-0.5 text-sm text-gray-500")], [
+          html.p([attribute.class("mt-0.5 text-sm text-fg-muted")], [
             html.text(details),
           ]),
         ]),
@@ -516,14 +514,15 @@ fn choice_button(
   }
 
   let style = case choice, is_pressed {
-    TagWith(_), True -> "border-indigo-600 bg-indigo-50 text-indigo-700"
+    TagWith(_), True -> "border-primary bg-primary-tint text-fg"
     TagWith(_), False ->
-      "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-    Transfer, True -> "border-gray-600 bg-gray-100 text-gray-800"
-    Transfer, False -> "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-    Dismiss, True -> "border-dashed border-gray-500 bg-gray-100 text-gray-700"
+      "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
+    Transfer, True -> "border-fg-muted bg-surface-hover text-fg"
+    Transfer, False ->
+      "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
+    Dismiss, True -> "border-dashed border-fg-muted bg-surface-hover text-fg"
     Dismiss, False ->
-      "border-dashed border-gray-300 bg-white text-gray-500 hover:bg-gray-50"
+      "border-dashed border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
   }
 
   html.button(
@@ -548,15 +547,14 @@ fn empty_state() -> Element(Msg) {
       attribute.attribute("data-testid", "quick-tag-empty-state"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("No transactions are waiting for a tag"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Import or record transactions on the "),
-        html.a(
+        link.view(
           [
             attribute.href(route.to_string(route.Transactions)),
-            attribute.class(link_class),
           ],
           [html.text("Transactions page")],
         ),
@@ -572,7 +570,7 @@ fn loading_state() -> Element(Msg) {
       attribute.attribute("data-testid", "quick-tag-loading-state"),
     ],
     [
-      html.p([attribute.class("text-sm text-gray-500")], [
+      html.p([attribute.class("text-sm text-fg-muted")], [
         html.text("Loading transactions..."),
       ]),
     ],
@@ -585,10 +583,10 @@ fn failed_state() -> Element(Msg) {
       attribute.attribute("data-testid", "quick-tag-load-error"),
     ],
     [
-      html.h2([attribute.class("text-base font-semibold text-gray-900")], [
+      html.h2([attribute.class("text-base font-semibold text-fg")], [
         html.text("Could not load the transactions waiting for a tag"),
       ]),
-      html.p([attribute.class("mt-1 text-sm text-gray-500")], [
+      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
         html.text("Check your connection and try again."),
       ]),
       button.view(
