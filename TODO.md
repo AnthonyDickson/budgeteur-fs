@@ -42,7 +42,7 @@
          (decisions 4 and 7).
   10. [x] Draw the charts with roles. Check first that Plot accepts CSS variable
           references as colours (decision 10).
-  11. [ ] Make tag colours accent names: `TagColor` union with parse, print, and
+  11. [x] Make tag colours accent names: `TagColor` union with parse, print, and
           enum hint, and tests; client colour type, 14-colour picker, and swatch
           from the palette variable; E2E test ids by name; reset the development
           database (decision 9).

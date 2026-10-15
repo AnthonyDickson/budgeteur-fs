@@ -66,7 +66,7 @@ module HistoryTests =
     let private salary : Tag = {
         Id = Guid.NewGuid ()
         Name = TagName.unsafeFromString "Salary"
-        Color = TagColor.unsafeFromString "#16A34A"
+        Color = Green
         Kind = Income
     }
 

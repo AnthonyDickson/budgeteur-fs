@@ -38,28 +38,70 @@ module TagName =
     /// from the database.
     let internal unsafeFromString name = TagName name
 
-type TagColor = private TagColor of string
+/// <summary>A tag's colour: one of Catppuccin's accent colours, by name. The
+/// client draws it in the active flavour's value, so a tag keeps its colour in
+/// light and dark mode. See decision 9 in docs/styling.md.</summary>
+type TagColor =
+    | Rosewater
+    | Flamingo
+    | Pink
+    | Mauve
+    | Red
+    | Maroon
+    | Peach
+    | Yellow
+    | Green
+    | Teal
+    | Sky
+    | Sapphire
+    | Blue
+    | Lavender
 
 module TagColor =
-    open System.Text.RegularExpressions
+    let toString color =
+        match color with
+        | Rosewater -> "Rosewater"
+        | Flamingo -> "Flamingo"
+        | Pink -> "Pink"
+        | Mauve -> "Mauve"
+        | Red -> "Red"
+        | Maroon -> "Maroon"
+        | Peach -> "Peach"
+        | Yellow -> "Yellow"
+        | Green -> "Green"
+        | Teal -> "Teal"
+        | Sky -> "Sky"
+        | Sapphire -> "Sapphire"
+        | Blue -> "Blue"
+        | Lavender -> "Lavender"
 
-    let private regexPattern = "^#[A-Fa-f0-9]{6}$"
+    /// <summary>Every colour, in Catppuccin's order.</summary>
+    let all = [
+        Rosewater
+        Flamingo
+        Pink
+        Mauve
+        Red
+        Maroon
+        Peach
+        Yellow
+        Green
+        Teal
+        Sky
+        Sapphire
+        Blue
+        Lavender
+    ]
 
-    let create (color : string) : Result<TagColor, DomainError> =
-        if Regex.IsMatch (color, regexPattern) then
-            Ok (TagColor color)
-        else
-            Error (
-                ValidationFailed
-                    $"Tag color should be hex color string matching \
-                    '{regexPattern}', e.g. #00AAFF"
-            )
+    let parse string =
+        match all |> List.tryFind (fun color -> toString color = string) with
+        | Some color -> Ok color
+        | None ->
+            let expected = all |> List.map toString |> String.concat ", "
 
-    let value (TagColor color) = color
-
-    /// An escape hatch for the smart constructor for reading trusted values
-    /// from the database.
-    let internal unsafeFromString color = TagColor color
+            Error
+                $"\"{string}\" is not a valid value for TagColor, expecting \
+                one of {expected}."
 
 /// <summary>Which side of the income statement a tag's transactions are on. The
 /// user states it, so a tag stays on the same side in every period, whatever

@@ -1,10 +1,13 @@
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/field
 import budgeteur/shared/form_modal
-import budgeteur/shared/tag.{type Tag, type TagKind, Expense, Income, Tag}
+import budgeteur/shared/tag.{
+  type Tag, type TagColor, type TagKind, Expense, Income, Tag,
+}
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
 }
@@ -22,21 +25,9 @@ pub const max_name_length = 64
 /// Default kind selected in the create form. Most tags are expenses.
 pub const default_kind = Expense
 
-/// Default color selected in the create form.
-pub const default_color = "#6366F1"
-
-pub const color_palette = [
-  "#64748B",
-  "#EF4444",
-  "#F97316",
-  "#F59E0B",
-  "#22C55E",
-  "#14B8A6",
-  "#0EA5E9",
-  "#6366F1",
-  "#8B5CF6",
-  "#EC4899",
-]
+/// Default colour selected in the create form: the primary, so a new tag
+/// matches the app until the user picks another.
+pub const default_color = tag.Mauve
 
 pub type NameError {
   NameRequired
@@ -48,7 +39,7 @@ pub type NameField =
   field.Field(String, NameError)
 
 pub type Form {
-  Form(name: NameField, color: String, kind: TagKind)
+  Form(name: NameField, color: TagColor, kind: TagKind)
 }
 
 pub type Modal =
@@ -70,7 +61,7 @@ pub type Msg {
   CreateRequested
   EditRequested(tag: Tag)
   NameChanged(value: String)
-  ColorChosen(value: String)
+  ColorChosen(value: TagColor)
   KindChosen(value: String)
   SaveRequested
   // Response to the in-flight create or update; the `Created`/`Updated`
@@ -151,7 +142,7 @@ fn set_name(state: Modal, name: String) -> Modal {
 }
 
 /// Validate and set the color field. No op for Hidden and Submitting states.
-fn set_color(state: Modal, color: String) -> Modal {
+fn set_color(state: Modal, color: TagColor) -> Modal {
   form_modal.set_form(state, fn(form) { Form(..form, color:) })
 }
 
@@ -349,14 +340,15 @@ fn view_form(
           ),
           html.div(
             [attribute.class("flex flex-wrap gap-3")],
-            list.map(color_palette, fn(palette_color) {
+            list.map(tag.colors, fn(palette_color) {
               let is_selected = palette_color == color
+              let color_name = tag.color_to_string(palette_color)
               html.button(
                 [
                   attribute.type_("button"),
                   attribute.attribute(
                     "data-testid",
-                    "tag-color-" <> string.replace(palette_color, "#", "hex"),
+                    "tag-color-" <> string.lowercase(color_name),
                   ),
                   attribute.class(
                     "flex h-8 w-8 items-center justify-center rounded-full "
@@ -369,8 +361,8 @@ fn view_form(
                       False -> "hover:scale-105"
                     },
                   ),
-                  attribute.style("background-color", palette_color),
-                  attribute.aria_label("Use color " <> palette_color),
+                  swatch.background(palette_color),
+                  attribute.aria_label("Use color " <> color_name),
                   attribute.disabled(submitting),
                   event.on_click(ColorChosen(palette_color)),
                 ],

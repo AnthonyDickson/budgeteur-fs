@@ -289,8 +289,9 @@ mode.
   and swatch modules move there.
 - **Tags**: `TagColor` in `Domain/` becomes a union. Create and update return
   `400` for any other value. Tag, dashboard, and report responses carry names.
-  Server tests with hex fixtures change. The development database is reset with
-  `just db-reset`.
+  Server tests with hex fixtures change. A development database is reset with
+  `just db-reset`, or its hex colours are rewritten to names by hand; a tag with
+  a hex colour fails to load.
 - **Client tags**: a colour type mirroring the server's, the picker with 14
   swatches, and E2E test ids by name.
 - **Charts**: colours come from roles. First check that Plot accepts CSS

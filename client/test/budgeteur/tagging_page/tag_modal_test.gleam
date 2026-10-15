@@ -167,13 +167,13 @@ pub fn create_tag_workflow_test() {
   let assert #(named, _, NoChange) =
     tag_modal.update(modal, NameChanged("Coffee"), [])
   let assert #(colored, _, NoChange) =
-    tag_modal.update(named, ColorChosen("#EF4444"), [])
+    tag_modal.update(named, ColorChosen(tag.Red), [])
 
   let assert #(submitting, Some(request), NoChange) =
     tag_modal.update(colored, SaveRequested, [])
   let assert Submitting(mode: Create, ..) = submitting
   request
-  |> should.equal(Post(TagWriteRequest("Coffee", "#EF4444", tag.Expense)))
+  |> should.equal(Post(TagWriteRequest("Coffee", tag.Red, tag.Expense)))
 
   let new_tag = tag_named(id, "Coffee")
   let #(final_state, request, outcome) =
@@ -195,7 +195,10 @@ pub fn edit_tag_workflow_keeps_own_name_test() {
   let assert Submitting(mode: Edit(id), ..) = submitting
   id |> should.equal(existing.id)
   request
-  |> should.equal(Put(id, TagWriteRequest("Coffee", "#6366F1", tag.Expense)))
+  |> should.equal(Put(
+    id,
+    TagWriteRequest("Coffee", tag_modal.default_color, tag.Expense),
+  ))
 
   let saved = tag_named(make_id(), "Coffee & Drink")
   let #(final_state, request, outcome) =

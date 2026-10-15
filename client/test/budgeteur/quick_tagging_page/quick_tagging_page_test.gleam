@@ -33,7 +33,7 @@ fn queue() -> queue.Queue {
 }
 
 fn tag(name: String, kind: tag.TagKind) -> tag.Tag {
-  Tag(id: uuid.v7(), name:, color: "#22C55E", kind:)
+  Tag(id: uuid.v7(), name:, color: tag.Green, kind:)
 }
 
 fn api_error() -> ApiError {

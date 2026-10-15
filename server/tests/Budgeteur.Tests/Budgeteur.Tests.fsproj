@@ -17,6 +17,7 @@
     <Compile Include="TestApp.fs" />
     <Compile Include="TestHttp.fs" />
     <Compile Include="Domain/MoneyTests.fs" />
+    <Compile Include="Domain/TagTests.fs" />
     <Compile Include="Domain/AsOfDateTests.fs" />
     <Compile Include="Domain/TransactionTests.fs" />
     <Compile Include="Domain/BalanceSheetItemTests.fs" />
