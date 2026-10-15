@@ -1098,12 +1098,10 @@ fn entry_row(entry: Entry, deletable: Bool) -> Element(Msg) {
       [html.text(money.format(entry.amount))],
     ),
     html.td([attribute.class("px-4 py-2 text-right")], [
-      html.button(
+      button.view(
+        button.DangerText,
+        button.Small,
         [
-          attribute.class(
-            "text-sm font-medium text-danger hover:text-danger "
-            <> "disabled:cursor-not-allowed disabled:text-fg-subtle",
-          ),
           attribute.attribute("data-testid", "delete-observation-" <> as_of),
           attribute.disabled(!deletable),
           case deletable {

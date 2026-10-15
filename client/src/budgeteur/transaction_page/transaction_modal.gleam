@@ -8,6 +8,7 @@ import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/link
 import budgeteur/shared/ui/swatch
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/transaction.{
@@ -696,15 +697,9 @@ fn view_form(
             False, [] ->
               html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
                 html.text("No tags yet. "),
-                html.a(
-                  [
-                    attribute.href(route.to_string(route.Tagging)),
-                    attribute.class(
-                      "font-medium text-primary hover:text-primary-hover",
-                    ),
-                  ],
-                  [html.text("Create one on the Tagging page")],
-                ),
+                link.view([attribute.href(route.to_string(route.Tagging))], [
+                  html.text("Create one on the Tagging page"),
+                ]),
                 html.text("."),
               ])
             False, _ -> element.none()

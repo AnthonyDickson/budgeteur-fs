@@ -1,3 +1,7 @@
+//// Stateless chrome shared by the feature modal dialogs: the `<dialog>`
+//// element, its footer, and its standard buttons. Fields and banners come from
+//// the `input` and `banner` modules.
+
 import budgeteur/shared/ui/button
 import gleam/dynamic/decode
 import gleam/option.{type Option}
@@ -6,9 +10,6 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 
-/// Stateless chrome shared by the feature modal dialogs: the `<dialog>`
-/// element, its footer, and its standard buttons. Fields and banners come from
-/// the `input` and `banner` modules.
 /// Classes for the `<dialog>` element of `dialog`.
 const dialog_class = "mx-auto my-auto w-full max-w-md rounded-lg border border-border bg-surface p-6 text-fg shadow-xl backdrop:bg-backdrop/50"
 

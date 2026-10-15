@@ -236,10 +236,11 @@ mode.
 ### 10. Charts read roles from CSS
 
 - **Decision**: the dashboard charts draw bars, lines, and dots in the primary
-  role. Hollow "to date" dots are filled with the surface, and tooltips use the
-  surface and fg. The charts refer to the roles' CSS variables, which inherit
-  into the chart element's shadow root, so a mode change restyles a drawn chart
-  without a redraw. Axes and grid lines keep following the current text colour.
+  role. Hollow "to date" dots and tooltips are filled with the surface. The
+  charts refer to the roles' CSS variables, which inherit into the chart
+  element's shadow root, so a mode change restyles a drawn chart without a
+  redraw. Axes, grid lines, and tooltip text follow the current text colour,
+  fg-muted.
 - **Why**: today's hard-coded indigo and white would be wrong in dark mode.
 - **Rejected**: colouring cash flow bars by sign. That is a feature, not a
   change of styling.

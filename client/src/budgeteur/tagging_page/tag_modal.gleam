@@ -363,6 +363,10 @@ fn view_form(
                   ),
                   swatch.background(palette_color),
                   attribute.aria_label("Use color " <> color_name),
+                  attribute.attribute("aria-pressed", case is_selected {
+                    True -> "true"
+                    False -> "false"
+                  }),
                   attribute.disabled(submitting),
                   event.on_click(ColorChosen(palette_color)),
                 ],
