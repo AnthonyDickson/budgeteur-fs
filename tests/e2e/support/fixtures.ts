@@ -43,15 +43,6 @@ async function logIn(
     await passwordInput.pressSequentially('dev-password', { delay: 50 });
     await page.click('#sign-in-button');
 
-    // Consent screen appears on a user's first login only
-    const consentAccept = page.locator('#openid-consent-accept');
-    const hasConsent = await consentAccept
-      .waitFor({ state: 'visible', timeout: 8000 })
-      .then(() => true)
-      .catch(() => false);
-    if (hasConsent) {
-      await consentAccept.click();
-    }
     await page.waitForURL(`${baseURL}/**`, { timeout: 15000 });
 
     await context.storageState({ path: storagePath });

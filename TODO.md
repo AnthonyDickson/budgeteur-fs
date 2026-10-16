@@ -28,5 +28,4 @@ None
 - For modals, ensure that focus is returned to the element focused before
   opening the modal. This is needed due to the custom dialog wrapped deleting
   the wrapping DOM element instead of calling `.close()` on the native dialog.
-- Authelia: Check why Authelia keeps showing consents screen
 - Scalar docs: refresh tokens for Authelia
