@@ -19,7 +19,6 @@
 
 ## Current Tasks
 
-- Highlight pills for improved values in dashboard make the numbers misaligned.
 - Pages are quite flat, esp. dashboard
 - Lots of little notes that clutter the screen may be better as popovers (use native popover API)
 - Pages are different widths, e.g. transactions vs dashboard

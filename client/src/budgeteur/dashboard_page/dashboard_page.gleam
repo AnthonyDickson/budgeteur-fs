@@ -619,10 +619,11 @@ fn change_cells(
   let improved = is_improvement(change, better)
 
   // An empty cell, e.g. a percentage of a zero typical figure, stays plain
-  // rather than showing an empty tint.
+  // rather than showing an empty tint. The tint's negative margin cancels its
+  // padding so tinted figures line up with plain ones.
   let cell = fn(text, testid) {
     let class = case improved && text != "" {
-      True -> "rounded bg-success-tint px-1 font-medium text-fg"
+      True -> "-mx-1 rounded bg-success-tint px-1 font-medium text-fg"
       False -> "text-fg-muted"
     }
     html.span(
