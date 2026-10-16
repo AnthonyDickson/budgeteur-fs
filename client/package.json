@@ -1,5 +1,10 @@
 {
   "type": "module",
+  "overrides": {
+    "vite-gleam": {
+      "toml": "^4.2.0"
+    }
+  },
   "dependencies": {
     "@observablehq/plot": "^0.6.17"
   },

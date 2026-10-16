@@ -166,6 +166,7 @@
     <PackageReference Include="FsToolkit.ErrorHandling" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Oxpecker" />
     <PackageReference Include="Oxpecker.OpenApi" />
