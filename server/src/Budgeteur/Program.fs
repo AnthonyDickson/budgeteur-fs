@@ -11,6 +11,7 @@ open Microsoft.AspNetCore.DataProtection
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.HttpOverrides
+open Microsoft.AspNetCore.Routing
 open Microsoft.Data.Sqlite
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
@@ -87,6 +88,18 @@ let private handleException
                         StatusCode = Some 500
                         RequestId = ctx.TraceIdentifier
                     }
+        }
+        :> Task)
+
+let private apiNotFound : RequestDelegate =
+    RequestDelegate (fun (ctx : HttpContext) ->
+        ctx.Response.StatusCode <- 404
+
+        Json.write ctx {
+            Error = "Not Found"
+            Details = $"No API endpoint matches {ctx.Request.Path}"
+            StatusCode = Some 404
+            RequestId = ctx.TraceIdentifier
         }
         :> Task)
 
@@ -234,6 +247,16 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     app.UseOxpecker (
         buildEndpoints config.ConnectionString config.Login.ReturnUrl app
     )
+    |> ignore
+
+    // Unknown API paths get a JSON 404 rather than the SPA's index.html. The
+    // literal /api segment outranks the SPA fallback's catch-all. Like that
+    // fallback it answers GET and HEAD only, so other methods keep their 405.
+    app
+        .MapFallback("/api/{**path}", apiNotFound)
+        .WithMetadata(
+            HttpMethodMetadata [| HttpMethods.Get; HttpMethods.Head |]
+        )
     |> ignore
 
     // Run the vite dev server for accessing the SPA bundle in the dev
