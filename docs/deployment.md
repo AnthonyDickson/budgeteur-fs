@@ -38,6 +38,16 @@ globalization assemblies. It runs as a non-root `appuser`.
 > Building and pushing the image from a GitHub Workflow will automatically
 > associate the package with the source repo.
 
+### Releasing
+
+The `Build and Push Docker Image` workflow (`docker-publish.yml`) is run
+manually with a semver tag. It builds the image, runs it with a named volume
+over `/data` in the production environment, and requires `/api/status` to report
+a healthy database and the requested version before it pushes the version and
+`latest` tags to GHCR and pushes the git tag. E2E tests run against the
+development server, not this image, so this smoke test is the only check of the
+production image.
+
 ### Deploying
 
 ```bash
