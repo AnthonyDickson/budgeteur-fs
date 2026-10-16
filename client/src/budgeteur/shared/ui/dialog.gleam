@@ -89,10 +89,7 @@ pub fn submit_button(
       attribute.attribute("data-testid", testid),
       attribute.disabled(disabled || busy),
     ],
-    case busy {
-      True -> [button.spinner(), html.text(busy_label)]
-      False -> [html.text(idle_label)]
-    },
+    [button.busy_label(label: idle_label, busy_label:, busy:)],
   )
 }
 
@@ -125,10 +122,7 @@ pub fn delete_button(
       attribute.disabled(busy),
       event.on_click(on_click),
     ],
-    case busy {
-      True -> [button.spinner(), html.text("Deleting...")]
-      False -> [html.text("Delete")]
-    },
+    [button.busy_label(label: "Delete", busy_label: "Deleting...", busy:)],
   )
 }
 

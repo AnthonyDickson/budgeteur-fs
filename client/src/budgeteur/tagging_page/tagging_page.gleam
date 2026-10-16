@@ -848,10 +848,11 @@ fn auto_tag_buttons(run: auto_tag.Run) -> Element(Msg) {
         event.on_click(on_click),
       ],
       [
-        html.text(case run == auto_tag.Running(action) {
-          True -> busy_label
-          False -> label
-        }),
+        button.busy_label(
+          label:,
+          busy_label:,
+          busy: run == auto_tag.Running(action),
+        ),
       ],
     )
   }
