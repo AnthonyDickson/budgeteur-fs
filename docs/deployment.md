@@ -43,10 +43,15 @@ globalization assemblies. It runs as a non-root `appuser`.
 The `Build and Push Docker Image` workflow (`docker-publish.yml`) is run
 manually with a semver tag. It builds the image, runs it with a named volume
 over `/data` in the production environment, and requires `/api/status` to report
-a healthy database and the requested version before it pushes the version and
-`latest` tags to GHCR and pushes the git tag. E2E tests run against the
-development server, not this image, so this smoke test is the only check of the
-production image.
+a healthy database and the requested version before it pushes the image to GHCR
+and pushes the git tag. E2E tests run against the development server, not this
+image, so this smoke test is the only check of the production image.
+
+The image is tagged with the version and, unless the version is a pre-release
+such as `1.0.0-beta1`, with `latest`, so deployments that pull `latest` never
+pick up a pre-release. A leading `v` is dropped, so `v1.2.3` becomes `1.2.3` in
+the image tag, the git tag, and the version `/api/status` reports. Input that is
+not valid semver fails the workflow before anything is built.
 
 ### Deploying
 
