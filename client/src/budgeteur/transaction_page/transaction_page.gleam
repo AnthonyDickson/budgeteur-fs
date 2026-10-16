@@ -796,46 +796,57 @@ pub fn view(model: Model) -> Element(Msg) {
     model.tags |> list.map(fn(tag) { #(tag.id, tag) }) |> dict.from_list
 
   html.div([attribute.class("mx-auto max-w-6xl px-4 py-8 sm:px-6")], [
-    html.div([attribute.class("flex items-center justify-between gap-4 mb-6")], [
-      html.h1([attribute.class("text-2xl font-semibold text-fg")], [
-        html.text("Transactions"),
-      ]),
-      // Offered only once the list has loaded, so a new transaction always
-      // has a list to join.
-      case model.results {
-        Loaded(_) ->
-          html.div([attribute.class("flex items-center gap-2")], [
-            button.link(
-              button.Secondary,
-              button.Regular,
-              [
-                attribute.href(route.to_string(route.QuickTagging)),
-                attribute.attribute("data-testid", "quick-tag-link"),
-              ],
-              [html.text("Quick tag")],
-            ),
-            button.view(
-              button.Secondary,
-              button.Regular,
-              [
-                attribute.attribute("data-testid", "import-button"),
-                event.on_click(ImportModalMsg(import_modal.OpenRequested)),
-              ],
-              [html.text("Import")],
-            ),
-            button.view(
-              button.Primary,
-              button.Regular,
-              [
-                attribute.attribute("data-testid", "record-transaction-button"),
-                event.on_click(UserRequestedCreationForm),
-              ],
-              [html.text("Record Transaction")],
-            ),
-          ])
-        Loading | Failed -> element.none()
-      },
-    ]),
+    // Wraps so the buttons go below the title on a narrow screen.
+    html.div(
+      [
+        attribute.class(
+          "flex flex-wrap items-center justify-between gap-4 mb-6",
+        ),
+      ],
+      [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
+          html.text("Transactions"),
+        ]),
+        // Offered only once the list has loaded, so a new transaction always
+        // has a list to join.
+        case model.results {
+          Loaded(_) ->
+            html.div([attribute.class("flex items-center gap-2")], [
+              button.link(
+                button.Secondary,
+                button.Regular,
+                [
+                  attribute.href(route.to_string(route.QuickTagging)),
+                  attribute.attribute("data-testid", "quick-tag-link"),
+                ],
+                [html.text("Quick tag")],
+              ),
+              button.view(
+                button.Secondary,
+                button.Regular,
+                [
+                  attribute.attribute("data-testid", "import-button"),
+                  event.on_click(ImportModalMsg(import_modal.OpenRequested)),
+                ],
+                [html.text("Import")],
+              ),
+              button.view(
+                button.Primary,
+                button.Regular,
+                [
+                  attribute.attribute(
+                    "data-testid",
+                    "record-transaction-button",
+                  ),
+                  event.on_click(UserRequestedCreationForm),
+                ],
+                [html.text("Record Transaction")],
+              ),
+            ])
+          Loading | Failed -> element.none()
+        },
+      ],
+    ),
     case model.results {
       Loading -> loading_state()
       Failed -> failed_state()
