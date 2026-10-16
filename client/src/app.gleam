@@ -380,11 +380,12 @@ pub fn view(model: Model) -> Element(Msg) {
   let toasts = toast.view_with_container(model.toasts, ToastDismissed)
   let route = current_route(model.page)
 
+  // The header and the page are keyed by route so a page change replaces their
+  // DOM rather than patching the previous page's elements in place. Otherwise
+  // browser-held state leaks between pages, e.g. an open modal `<dialog>` or
+  // the header's open menu stays open.
   html.div([], [
-    header.view(route),
-    // Keyed by route so a page change replaces the page's DOM rather than
-    // patching the previous page's elements in place. Otherwise browser-held
-    // state leaks between pages, e.g. an open modal `<dialog>` stays open.
+    keyed.fragment([#(route.to_string(route), header.view(route))]),
     keyed.fragment([#(route.to_string(route), page)]),
     toasts,
   ])

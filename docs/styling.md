@@ -312,6 +312,26 @@ mode.
 - **Goal**: forms and summary rows show what the user acts on, with the
   explanation on hand.
 
+### 13. Every page fits a phone 390px wide
+
+- **Decision**: the narrowest supported screen is a 6.1" iPhone, 390 CSS pixels
+  wide. No page scrolls sideways at that width; content that does not fit stacks
+  or wraps at Tailwind's breakpoints. Below `md` the header's nav is hidden and
+  the same links open from a menu button, in a native popover like the help
+  (decision 12). The header is keyed by route, like the page, so going to
+  another page replaces it and closes the menu.
+- **Why**: the nav alone needs about 700px, and once anything is wider than the
+  screen the whole page scrolls sideways and modal dialogs are sized to the
+  wider page. The popover keeps the menu's state in the browser. A link in a
+  popover does not close it, and keying the header closes it without a message.
+- **Rejected**:
+  - A bottom tab bar. Five labels fit at 390px, but it takes screen height on
+    every page for links used once per visit.
+  - A nav that scrolls sideways. Links past the edge are hidden with no sign
+    that they are there.
+- **Cost**: on a phone, changing page takes two taps.
+- **Goal**: the app is usable on a phone without zooming or panning.
+
 ## Consequences
 
 - **Stylesheet**: gains the palette layer, the role layer, the cleared default
