@@ -130,7 +130,9 @@ mode.
 - **Decision**: the primary role maps to mauve, replacing indigo.
 - **Why**: of the 14 accents, only mauve and red reach 4.5:1 on Latte's base,
   and red is danger. Mauve is also Catppuccin's signature accent and the hue
-  closest to indigo. In Mocha every accent passes.
+  closest to indigo. In Mocha every accent passes. The site icon (favicon and
+  header logo) is a fixed image in Latte mauve with a Latte base letter; it does
+  not follow the colour mode.
 - **Rejected**: blue (4.3:1 in Latte, which needs a darkened Latte value or no
   use as text) and lavender (2.8:1).
 - **Goal**: a primary that passes AA as text and as a fill in both flavours.

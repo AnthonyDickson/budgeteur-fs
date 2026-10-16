@@ -17,9 +17,18 @@ pub fn view(current_route: route.Route) -> Element(msg) {
         html.a(
           [
             attribute.href(route.to_string(route.Dashboard)),
-            attribute.class("text-base font-semibold text-fg"),
+            attribute.class(
+              "flex items-center gap-2 text-base font-semibold text-fg",
+            ),
           ],
-          [html.text("Budgeteur")],
+          [
+            html.img([
+              attribute.src("/favicon-128x128.png"),
+              attribute.alt(""),
+              attribute.class("size-7"),
+            ]),
+            html.text("Budgeteur"),
+          ],
         ),
         html.nav([attribute.class("flex items-center gap-1")], [
           nav_link(

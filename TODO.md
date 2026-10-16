@@ -14,11 +14,23 @@
 - [x] Full dashboard w/ charts
 - [x] Transaction search
 - [ ] Mobile support and UI cleanup
+- [ ] Release
 - [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
 
 ## Current Tasks
 
-None
+- Highlight pills for improved values in dashboard make the numbers misaligned.
+- Pages are quite flat, esp. dashboard
+- Lots of little notes that clutter the screen may be better as popovers (use native popover API)
+- Pages are different widths, e.g. transactions vs dashboard
+- Quick-tagging page:
+  - It is difficult tell whether a transactions has been tagged or not.
+  - No obvious feedback that the transaction was tagged
+- Transactions page:
+  - Add tag colour dot to make tags stick out more and easier to scan?
+  - Difficult to distinguish credits from debits without colour.
+- Reports page:
+  - No clear visual differentiation between line items and totals.
 
 ## Backlog
 
