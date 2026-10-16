@@ -49,12 +49,44 @@ function localToday(): string {
   }`;
 }
 
-/// The open dialog fits within the screen's width.
+/// Every visible text field is at least 16px, so Safari on iOS does not zoom
+/// the page when one is focused. Chromium does not zoom, so the size is checked
+/// rather than the zoom.
+async function expectFieldsAvoidZoom(page: Page) {
+  const small = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('input, select, textarea'))
+      .filter((field) => {
+        const type = field.getAttribute('type');
+        return !['checkbox', 'radio', 'file', 'hidden'].includes(type ?? '')
+          && field.getClientRects().length > 0;
+      })
+      .filter((field) => parseFloat(getComputedStyle(field).fontSize) < 16)
+      .map((field) => field.getAttribute('data-testid') ?? field.outerHTML)
+  );
+  expect(small, 'fields smaller than 16px').toEqual([]);
+}
+
+/// The open dialog fits within the screen's width, leaving a margin at each
+/// side.
 async function expectDialogFits(page: Page, testId: string) {
-  const box = await page.getByTestId(testId).boundingBox();
+  const box = (await page.getByTestId(testId).boundingBox())!;
   const width = page.viewportSize()!.width;
-  expect(box!.x).toBeGreaterThanOrEqual(0);
-  expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+  expect(box.x).toBeGreaterThanOrEqual(8);
+  expect(box.x + box.width).toBeLessThanOrEqual(width - 8);
+}
+
+/// Each help button within `container` is a target of at least 24px square.
+async function expectHelpTargets(container: Locator) {
+  const buttons = container.locator('[popovertarget]');
+  expect(await buttons.count()).toBeGreaterThan(0);
+  for (
+    const box of await buttons.evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect())
+    )
+  ) {
+    expect(box.width).toBeGreaterThanOrEqual(24);
+    expect(box.height).toBeGreaterThanOrEqual(24);
+  }
 }
 
 test.describe('mobile', () => {
@@ -75,6 +107,7 @@ test.describe('mobile', () => {
       await tagModal.getByTestId('tag-name-input').fill('Subscriptions');
       await tagModal.getByTestId('tag-submit-button').click();
       await expect(tagModal).toBeHidden();
+      await expectFullyOnScreen(page.getByTestId('toast').first());
 
       // The rules panel sits under the tags, not clipped beside them.
       const newRule = page.getByTestId('new-rule-button');
@@ -83,6 +116,7 @@ test.describe('mobile', () => {
       const ruleModal = page.getByTestId('rule-modal');
       await expect(ruleModal).toBeVisible();
       await expectDialogFits(page, 'rule-modal');
+      await expectHelpTargets(ruleModal);
       await ruleModal.getByTestId('rule-pattern-input').fill('CLOUDSTORE');
       await ruleModal.getByTestId('rule-submit-button').click();
       await expect(ruleModal).toBeHidden();
@@ -95,6 +129,7 @@ test.describe('mobile', () => {
       const transactionModal = page.getByTestId('transaction-modal');
       await expect(transactionModal).toBeVisible();
       await expectDialogFits(page, 'transaction-modal');
+      await expectFieldsAvoidZoom(page);
       await page.screenshot({
         path: screenshotPath(testInfo, 'transaction-modal'),
       });
@@ -123,6 +158,9 @@ test.describe('mobile', () => {
         path: screenshotPath(testInfo, 'transactions'),
         fullPage: true,
       });
+      await page.getByTestId('filters-button').click();
+      await expect(page.getByTestId('dates-select')).toBeVisible();
+      await expectFieldsAvoidZoom(page);
 
       // The dashboard's tag table and monthly figures fit their cards.
       await openFromMenu(page, 'Dashboard', /\/$/);
@@ -149,6 +187,7 @@ test.describe('mobile', () => {
       ) {
         await openFromMenu(page, name, url);
         await expectNoSidewaysScroll(page);
+        await expectFieldsAvoidZoom(page);
         await page.screenshot({
           path: screenshotPath(testInfo, shot),
           fullPage: true,

@@ -321,14 +321,20 @@ mode.
   (decision 12). The header is keyed by route, like the page, so going to
   another page replaces it and closes the menu. A table too wide for the screen
   hides its other columns and header below `md`, and its main cell repeats their
-  figures in a second line, so each row reads as a card.
+  figures in a second line, so each row reads as a card. Text fields are 16px
+  unless the screen is at least `sm` wide and has a mouse, so phones in either
+  orientation and tablets get them. Below `sm`, dialogs leave a margin at each
+  side, and toasts span the screen less its margins. Help buttons are 24px
+  targets at every width.
 - **Why**: the nav alone needs about 700px, and once anything is wider than the
   screen the whole page scrolls sideways and modal dialogs are sized to the
   wider page. The popover keeps the menu's state in the browser. A link in a
   popover does not close it, and keying the header closes it without a message.
   The transaction table needs about 900px; one DOM for both layouts keeps the
   table semantics on wide screens and gives the E2E tests one row per
-  transaction.
+  transaction. Safari on iOS zooms the page to a focused field smaller than
+  16px. 24px is the minimum target size in WCAG 2.5.8; a padded button with a
+  negative margin reaches it without moving the icon.
 - **Rejected**:
   - A bottom tab bar. Five labels fit at 390px, but it takes screen height on
     every page for links used once per visit.

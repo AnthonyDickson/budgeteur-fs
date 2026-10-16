@@ -263,7 +263,9 @@ fn frequency_picker(selected: Frequency) -> Element(Msg) {
     html.select(
       [
         attribute.class(
-          "rounded-md border border-border-input bg-surface px-3 py-1.5 text-sm text-fg",
+          // 16px but with a mouse on a wide screen, so Safari on iOS does not
+          // zoom on focus; see `input.text`.
+          "rounded-md border border-border-input bg-surface px-3 py-1.5 text-base text-fg sm:pointer-fine:text-sm",
         ),
         attribute.attribute("data-testid", "report-frequency"),
         event.on_change(fn(value) {

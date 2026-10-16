@@ -10,8 +10,10 @@ import lustre/element/html
 import lustre/event
 
 /// An invalid field is styled from its `aria-invalid` attribute, so the state
-/// screen readers announce is the state the field shows.
-const field_class = "block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-sm text-fg shadow-sm "
+/// screen readers announce is the state the field shows. The text is 16px, the
+/// smallest that Safari on iOS and iPadOS does not zoom the page to on focus,
+/// except on a screen at least sm wide with a mouse.
+const field_class = "block w-full rounded-md border border-border-input bg-surface px-3 py-2 text-base text-fg shadow-sm sm:pointer-fine:text-sm "
   <> "placeholder:text-fg-subtle focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary "
   <> "aria-[invalid=true]:border-danger aria-[invalid=true]:focus:ring-danger "
   <> "disabled:cursor-not-allowed disabled:bg-surface-hover disabled:text-fg-subtle"
