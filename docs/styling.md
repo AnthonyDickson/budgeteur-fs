@@ -319,17 +319,27 @@ mode.
   or wraps at Tailwind's breakpoints. Below `md` the header's nav is hidden and
   the same links open from a menu button, in a native popover like the help
   (decision 12). The header is keyed by route, like the page, so going to
-  another page replaces it and closes the menu.
+  another page replaces it and closes the menu. A table too wide for the screen
+  hides its other columns and header below `md`, and its main cell repeats their
+  figures in a second line, so each row reads as a card.
 - **Why**: the nav alone needs about 700px, and once anything is wider than the
   screen the whole page scrolls sideways and modal dialogs are sized to the
   wider page. The popover keeps the menu's state in the browser. A link in a
   popover does not close it, and keying the header closes it without a message.
+  The transaction table needs about 900px; one DOM for both layouts keeps the
+  table semantics on wide screens and gives the E2E tests one row per
+  transaction.
 - **Rejected**:
   - A bottom tab bar. Five labels fit at 390px, but it takes screen height on
     every page for links used once per visit.
   - A nav that scrolls sideways. Links past the edge are hidden with no sign
     that they are there.
-- **Cost**: on a phone, changing page takes two taps.
+  - A table that scrolls sideways. The figures past the edge are as hidden as
+    the nav links would be.
+  - A separate list for small screens. Two views of each row to keep in step,
+    and hidden copies of every row.
+- **Cost**: on a phone, changing page takes two taps. A row repeats some of its
+  figures in markup hidden at one width or the other.
 - **Goal**: the app is usable on a phone without zooming or panning.
 
 ## Consequences

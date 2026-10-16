@@ -82,8 +82,14 @@ test.describe('mobile', () => {
         .selectOption({ label: 'Subscriptions' });
       await transactionModal.getByTestId('transaction-submit-button').click();
       await expect(transactionModal).toBeHidden();
-      await expect(page.getByTestId('transaction-row')).toHaveCount(1);
+      const row = page.getByTestId('transaction-row');
+      await expect(row).toHaveCount(1);
       await expectNoSidewaysScroll(page);
+      // The row's figures are on screen, not clipped by the list's card.
+      for (const text of ['-$23.50', '2026-10-01', 'Subscriptions']) {
+        await expect(row.getByText(text).filter({ visible: true }))
+          .toBeInViewport({ ratio: 1 });
+      }
       await page.screenshot({
         path: screenshotPath(testInfo, 'transactions'),
         fullPage: true,
