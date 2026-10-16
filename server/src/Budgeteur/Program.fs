@@ -1,11 +1,13 @@
 module Budgeteur.Program
 
 open System.Diagnostics
+open System.IO
 open System.Reflection
 open System.Threading.Tasks
 
 open DbUp
 open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.DataProtection
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.HttpOverrides
@@ -168,6 +170,18 @@ let private configureBuilder
     let isDevelopment = builder.Environment.IsDevelopment ()
 
     Auth.configureServices builder.Services isDevelopment config.Oidc
+
+    match config.DataProtection with
+    | Some dataProtection ->
+        // A fixed application name keeps the keys valid if the binary moves;
+        // the default derives it from the content root path.
+        builder.Services
+            .AddDataProtection()
+            .SetApplicationName("Budgeteur")
+            .PersistKeysToFileSystem(DirectoryInfo dataProtection.KeysPath)
+        |> ignore
+    | None -> ()
+
     builder.Services.AddRouting().AddOxpecker() |> ignore
 
     builder.Services.Configure<ForwardedHeadersOptions>

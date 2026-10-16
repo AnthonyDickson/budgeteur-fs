@@ -21,6 +21,7 @@ services:
       Oidc__CallbackPath: "/signin-oidc"
       ConnectionStrings__Default: "Data Source=/data/app.sqlite3"
       Logging__FilePath: "/logs/app.log"
+      DataProtection__KeysPath: "/data/keys"
     volumes:
       - budgeteur-data:/data
       - budgeteur-logs:/logs
