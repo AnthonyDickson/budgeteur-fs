@@ -76,8 +76,10 @@ Use an absolute path — relative paths resolve to the container's working
 directory, which is ephemeral.
 
 > [!WARNING]
-> The container runs as a non-root `appuser` (UID 1000). Named Docker volumes
-> are auto-created with correct permissions, but **bind mounts** (`driver_opts`
+> The container runs as a non-root `appuser` (UID 1000). The image creates
+> `/data` and `/logs` owned by `appuser`, so named Docker volumes mounted there
+> inherit the right permissions; named volumes mounted at other paths are owned
+> by root and the server cannot write to them. **Bind mounts** (`driver_opts`
 > with `o = "bind"`) require the host directory to already exist and be writable
 > by UID 1000:
 >
