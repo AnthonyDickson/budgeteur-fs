@@ -179,7 +179,9 @@ rather than failing on first use.
    log, emitted as one JSON array when the response completes, so entries for a
    request stay together instead of interleaving with concurrent requests.
 2. **Global Serilog pipeline.** Startup and unhandled exceptions, as compact
-   JSON on the console; file output is opt-in.
+   JSON on the console; file output is opt-in and rolls over at a size limit.
+   Framework logs below warning are dropped, since the request log already
+   records every request.
 
 ### Status endpoint
 

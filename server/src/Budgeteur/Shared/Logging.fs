@@ -27,7 +27,14 @@ module Logging =
             |> Option.ofObj
             |> Option.filter (not << String.IsNullOrWhiteSpace)
 
-        config.MinimumLevel.Information () |> ignore
+        // The app's request log records every request, so the framework's own
+        // per-request logs (routing, static files, hosting diagnostics) only
+        // duplicate it. Warnings and errors still come through.
+        config.MinimumLevel
+            .Information()
+            .MinimumLevel
+            .Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+        |> ignore
 
         // Filter out healthcheck noise for the status endpoint. Framework
         // per-request logs (Microsoft.AspNetCore.Hosting.Diagnostics) carry no
@@ -64,6 +71,15 @@ module Logging =
 
         match filePath with
         | Some path ->
-            config.WriteTo.File (RenderedCompactJsonFormatter (), path)
+            // Roll at 10 MB and keep 10 files, bounding the log at about
+            // 100 MB. Without rolling, the sink stops writing once the file
+            // reaches its 1 GB default limit.
+            config.WriteTo.File (
+                RenderedCompactJsonFormatter (),
+                path,
+                fileSizeLimitBytes = 10L * 1024L * 1024L,
+                rollOnFileSizeLimit = true,
+                retainedFileCountLimit = 10
+            )
             |> ignore
         | None -> ()
