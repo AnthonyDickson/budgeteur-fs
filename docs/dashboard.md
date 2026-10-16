@@ -435,7 +435,9 @@ date, reporting periods, savings rate, and the shared statement code in
   - Each expense line's share bar is a thin strip below the line, so the amount,
     baseline, and change columns have the width and the table stays about as
     tall as one row per line.
-  - The layout targets desktop; small screens wait for the mobile roadmap item.
+  - On a phone (below `sm`) the line tables drop the baseline and percentage
+    columns, keeping the amount and the change in amount, so the tag's name has
+    room. The total cards above keep all three figures.
 - **Why**: showing every percentage is the simplest rule, and a large percentage
   on a small baseline is visibly small in its amount column. Highlighting only
   improvements keeps the side's direction out of the colour rule's way: one

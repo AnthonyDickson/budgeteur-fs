@@ -312,6 +312,42 @@ mode.
 - **Goal**: forms and summary rows show what the user acts on, with the
   explanation on hand.
 
+### 13. Every page fits a phone 390px wide
+
+- **Decision**: the narrowest supported screen is a 6.1" iPhone, 390 CSS pixels
+  wide. No page scrolls sideways at that width; content that does not fit stacks
+  or wraps at Tailwind's breakpoints. Below `md` the header's nav is hidden and
+  the same links open from a menu button, in a native popover like the help
+  (decision 12). The header is keyed by route, like the page, so going to
+  another page replaces it and closes the menu. A table too wide for the screen
+  hides its secondary columns below the breakpoint where it stops fitting, and
+  its main cell repeats their figures in a second line, so each row reads as a
+  card. Text fields are 16px unless the screen is at least `sm` wide and has a
+  mouse, so phones in either orientation and tablets get them. Below `sm`,
+  dialogs leave a margin at each side, and toasts span the screen less its
+  margins. Help buttons are 24px targets at every width.
+- **Why**: the nav alone needs about 700px, and once anything is wider than the
+  screen the whole page scrolls sideways and modal dialogs are sized to the
+  wider page. The popover keeps the menu's state in the browser. A link in a
+  popover does not close it, and keying the header closes it without a message.
+  The transaction table needs about 900px; one DOM for both layouts keeps the
+  table semantics on wide screens and gives the E2E tests one row per
+  transaction. Safari on iOS zooms the page to a focused field smaller than
+  16px. 24px is the minimum target size in WCAG 2.5.8; a padded button with a
+  negative margin reaches it without moving the icon.
+- **Rejected**:
+  - A bottom tab bar. Five labels fit at 390px, but it takes screen height on
+    every page for links used once per visit.
+  - A nav that scrolls sideways. Links past the edge are hidden with no sign
+    that they are there.
+  - A table that scrolls sideways. The figures past the edge are as hidden as
+    the nav links would be.
+  - A separate list for small screens. Two views of each row to keep in step,
+    and hidden copies of every row.
+- **Cost**: on a phone, changing page takes two taps. A row repeats some of its
+  figures in markup hidden at one width or the other.
+- **Goal**: the app is usable on a phone without zooming or panning.
+
 ## Consequences
 
 - **Stylesheet**: gains the palette layer, the role layer, the cleared default

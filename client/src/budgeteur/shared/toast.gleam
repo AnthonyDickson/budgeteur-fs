@@ -40,7 +40,7 @@ pub fn view(toast: Toast, on_dismiss: fn(Uuid) -> msg) -> Element(msg) {
       attribute.class(
         "pointer-events-auto rounded-lg border border-border border-l-4 "
         <> level_to_class(toast.level)
-        <> " shadow-xl p-4 max-w-sm animate-[toast-in_0.3s_ease-out]",
+        <> " shadow-xl p-4 sm:max-w-sm animate-[toast-in_0.3s_ease-out]",
       ),
       attribute.role(level_to_role(toast.level)),
       attribute.attribute("data-testid", "toast"),
@@ -72,7 +72,9 @@ pub fn view(toast: Toast, on_dismiss: fn(Uuid) -> msg) -> Element(msg) {
 
 /// Render many toasts wrapped in a container with a fixed position in the bottom
 /// right of the page, clear of the page header's actions. The newest toast,
-/// first in the list, sits nearest the corner.
+/// first in the list, sits nearest the corner. Below sm the container and its
+/// toasts span the screen less its margins, so a toast is never wider than the
+/// screen.
 pub fn view_with_container(
   toasts: List(Toast),
   on_dismissed: fn(uuid.Uuid) -> msg,
@@ -80,7 +82,7 @@ pub fn view_with_container(
   html.div(
     [
       attribute.class(
-        "fixed bottom-4 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none",
+        "fixed bottom-4 left-4 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none sm:left-auto",
       ),
     ],
     list.map(toasts, view(_, on_dismissed)),

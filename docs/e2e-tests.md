@@ -46,3 +46,7 @@ docker compose -f docker/docker-compose.e2e.yml run --rm e2e \
   serves both.
 - Selectors use `data-testid` attributes. Add them to page views when
   introducing interactive elements.
+- The other specs run at the default desktop viewport. The mobile spec runs at
+  390 by 664, the narrowest supported phone (decision 13 in
+  [styling](styling.md)), and checks that pages fit the screen, nothing is
+  clipped, and fields will not make Safari zoom. A new page or dialog joins it.

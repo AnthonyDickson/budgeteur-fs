@@ -31,8 +31,11 @@ pub fn help(
         attribute.aria_label("About " <> about),
         attribute.attribute("data-testid", id <> "-button"),
         attribute.style("anchor-name", anchor),
+        // The padding makes a 24px target around the 16px icon, the minimum
+        // in WCAG 2.5.8, and the negative margin keeps the layout of a bare
+        // icon.
         attribute.class(
-          "cursor-pointer rounded-full text-fg-subtle hover:text-fg-muted "
+          "-m-1 cursor-pointer rounded-full p-1 text-fg-subtle hover:text-fg-muted "
           <> "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         ),
       ],

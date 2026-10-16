@@ -67,11 +67,26 @@ function plotBackground() {
   return style;
 }
 
+// The plot's side margins; the left one fits the y axis's labels.
+const marginLeft = 64;
+const marginRight = 20;
+// The width a month needs for its short name with space either side.
+const labelWidth = 32;
+
 /// Months in the order the server sent them, labelled by their short name.
-function monthAxis(months) {
+/// Where the months are too narrow for every name, as on a phone, every second
+/// or third month is named, counting back from the latest, and every month
+/// keeps its tick.
+function monthAxis(months, width) {
+  const labels = months.map((month) => month.label);
+  const band = (width - marginLeft - marginRight) / labels.length;
+  const step = Math.ceil(labelWidth / band);
   return {
-    domain: months.map((month) => month.label),
-    tickFormat: (label) => label.slice(0, 3),
+    domain: labels,
+    tickFormat: (label) =>
+      (labels.length - 1 - labels.indexOf(label)) % step === 0
+        ? label.slice(0, 3)
+        : '',
     label: null,
   };
 }
@@ -86,9 +101,10 @@ function cashFlow(Plot, months, width) {
   return Plot.plot({
     width,
     height: 260,
-    marginLeft: 64,
+    marginLeft,
+    marginRight,
     style: { fontSize },
-    x: monthAxis(months),
+    x: monthAxis(months, width),
     y: { grid: true, label: null, tickFormat: '$,~s' },
     marks: [
       Plot.barY(months, {
@@ -116,9 +132,10 @@ function netWorth(Plot, months, width) {
   return Plot.plot({
     width,
     height: 260,
-    marginLeft: 64,
+    marginLeft,
+    marginRight,
     style: { fontSize },
-    x: monthAxis(months),
+    x: monthAxis(months, width),
     // Unlike the bars, the line does not start at zero, so its lowest and
     // highest points would sit on the axis and the top edge without an inset.
     y: { grid: true, label: null, tickFormat: '$,~s', inset: 12 },

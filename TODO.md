@@ -13,7 +13,7 @@
 - [x] Reports: balance sheets and income statements per period
 - [x] Full dashboard w/ charts
 - [x] Transaction search
-- [ ] Mobile support
+- [x] Mobile support
 - [ ] Release
 - [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
 

@@ -10,8 +10,10 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 
-/// Classes for the `<dialog>` element of `dialog`.
-const dialog_class = "mx-auto my-auto w-full max-w-md rounded-lg border border-border bg-surface p-6 text-fg shadow-xl backdrop:bg-backdrop/50"
+/// Classes for the `<dialog>` element of `dialog`. On a phone the dialog
+/// leaves a margin at each side, so it reads as a dialog over the page, and
+/// pads less, so its fields keep their width.
+const dialog_class = "mx-auto my-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-border bg-surface p-4 text-fg shadow-xl backdrop:bg-backdrop/50 sm:p-6"
 
 /// Define the `<modal-dialog>` custom element that `dialog` renders. Call once
 /// before the app starts.
@@ -87,10 +89,7 @@ pub fn submit_button(
       attribute.attribute("data-testid", testid),
       attribute.disabled(disabled || busy),
     ],
-    case busy {
-      True -> [button.spinner(), html.text(busy_label)]
-      False -> [html.text(idle_label)]
-    },
+    [button.busy_label(label: idle_label, busy_label:, busy:)],
   )
 }
 
@@ -123,22 +122,20 @@ pub fn delete_button(
       attribute.disabled(busy),
       event.on_click(on_click),
     ],
-    case busy {
-      True -> [button.spinner(), html.text("Deleting...")]
-      False -> [html.text("Delete")]
-    },
+    [button.busy_label(label: "Delete", busy_label: "Deleting...", busy:)],
   )
 }
 
 /// The footer of a form dialog: an optional button on the left, such as a
 /// delete or a switch to another form, and the cancel and submit buttons on the
-/// right.
+/// right. On a narrow screen the cancel and submit buttons wrap onto their own
+/// line rather than squeezing their labels.
 pub fn form_footer(
   leading leading: Option(Element(msg)),
   cancel cancel: Element(msg),
   submit submit: Element(msg),
 ) -> Element(msg) {
-  html.div([attribute.class("flex items-center gap-3 pt-2")], [
+  html.div([attribute.class("flex flex-wrap items-center gap-3 pt-2")], [
     option.unwrap(leading, element.none()),
     html.div([attribute.class("ml-auto flex gap-3")], [cancel, submit]),
   ])

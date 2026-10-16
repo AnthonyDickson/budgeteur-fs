@@ -71,8 +71,34 @@ pub fn link(
   html.a([attribute.class(class(variant, size)), ..attributes], children)
 }
 
+/// The label of a button that starts a request: `label`, or a spinner and
+/// `busy_label` while the request is in flight. Both share one grid cell and
+/// the one not shown is invisible, so the button keeps the width of the wider
+/// and the layout around it does not shift, e.g. a row of buttons wrapping onto
+/// another line. Invisible text is left out of the button's accessible name.
+pub fn busy_label(
+  label label: String,
+  busy_label busy_label: String,
+  busy busy: Bool,
+) -> Element(msg) {
+  let shown = fn(visible) {
+    case visible {
+      True -> "[grid-area:1/1]"
+      False -> "[grid-area:1/1] invisible"
+    }
+  }
+
+  html.span([attribute.class("grid place-items-center")], [
+    html.span([attribute.class(shown(!busy))], [html.text(label)]),
+    html.span([attribute.class("flex items-center gap-2 " <> shown(busy))], [
+      spinner(),
+      html.text(busy_label),
+    ]),
+  ])
+}
+
 /// The inline spinner shown inside a busy button, in the button's text colour.
-pub fn spinner() -> Element(msg) {
+fn spinner() -> Element(msg) {
   html.span(
     [
       attribute.attribute("aria-hidden", "true"),

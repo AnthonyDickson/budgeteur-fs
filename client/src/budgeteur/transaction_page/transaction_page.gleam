@@ -796,46 +796,57 @@ pub fn view(model: Model) -> Element(Msg) {
     model.tags |> list.map(fn(tag) { #(tag.id, tag) }) |> dict.from_list
 
   html.div([attribute.class("mx-auto max-w-6xl px-4 py-8 sm:px-6")], [
-    html.div([attribute.class("flex items-center justify-between gap-4 mb-6")], [
-      html.h1([attribute.class("text-2xl font-semibold text-fg")], [
-        html.text("Transactions"),
-      ]),
-      // Offered only once the list has loaded, so a new transaction always
-      // has a list to join.
-      case model.results {
-        Loaded(_) ->
-          html.div([attribute.class("flex items-center gap-2")], [
-            button.link(
-              button.Secondary,
-              button.Regular,
-              [
-                attribute.href(route.to_string(route.QuickTagging)),
-                attribute.attribute("data-testid", "quick-tag-link"),
-              ],
-              [html.text("Quick tag")],
-            ),
-            button.view(
-              button.Secondary,
-              button.Regular,
-              [
-                attribute.attribute("data-testid", "import-button"),
-                event.on_click(ImportModalMsg(import_modal.OpenRequested)),
-              ],
-              [html.text("Import")],
-            ),
-            button.view(
-              button.Primary,
-              button.Regular,
-              [
-                attribute.attribute("data-testid", "record-transaction-button"),
-                event.on_click(UserRequestedCreationForm),
-              ],
-              [html.text("Record Transaction")],
-            ),
-          ])
-        Loading | Failed -> element.none()
-      },
-    ]),
+    // Wraps so the buttons go below the title on a narrow screen.
+    html.div(
+      [
+        attribute.class(
+          "flex flex-wrap items-center justify-between gap-4 mb-6",
+        ),
+      ],
+      [
+        html.h1([attribute.class("text-2xl font-semibold text-fg")], [
+          html.text("Transactions"),
+        ]),
+        // Offered only once the list has loaded, so a new transaction always
+        // has a list to join.
+        case model.results {
+          Loaded(_) ->
+            html.div([attribute.class("flex items-center gap-2")], [
+              button.link(
+                button.Secondary,
+                button.Regular,
+                [
+                  attribute.href(route.to_string(route.QuickTagging)),
+                  attribute.attribute("data-testid", "quick-tag-link"),
+                ],
+                [html.text("Quick tag")],
+              ),
+              button.view(
+                button.Secondary,
+                button.Regular,
+                [
+                  attribute.attribute("data-testid", "import-button"),
+                  event.on_click(ImportModalMsg(import_modal.OpenRequested)),
+                ],
+                [html.text("Import")],
+              ),
+              button.view(
+                button.Primary,
+                button.Regular,
+                [
+                  attribute.attribute(
+                    "data-testid",
+                    "record-transaction-button",
+                  ),
+                  event.on_click(UserRequestedCreationForm),
+                ],
+                [html.text("Record Transaction")],
+              ),
+            ])
+          Loading | Failed -> element.none()
+        },
+      ],
+    ),
     case model.results {
       Loading -> loading_state()
       Failed -> failed_state()
@@ -1237,10 +1248,12 @@ fn transactions_table(
         html.caption([attribute.class("sr-only")], [
           html.text("All transactions"),
         ]),
+        // Below md the columns do not fit, so a row shows only its description
+        // cell, which repeats the other columns' figures under the description.
         html.thead(
           [
             attribute.class(
-              "bg-surface-hover text-left text-xs font-medium uppercase tracking-wide text-fg-muted",
+              "hidden bg-surface-hover text-left text-xs font-medium uppercase tracking-wide text-fg-muted md:table-header-group",
             ),
           ],
           [
@@ -1277,7 +1290,7 @@ fn transactions_table(
                 html.td(
                   [
                     attribute.class(
-                      "whitespace-nowrap px-4 py-3 text-sm text-fg-muted",
+                      "hidden whitespace-nowrap px-4 py-3 text-sm text-fg-muted md:table-cell",
                     ),
                   ],
                   [html.text(transaction.date |> date.format)],
@@ -1285,7 +1298,7 @@ fn transactions_table(
                 html.td(
                   [
                     attribute.class(
-                      "whitespace-nowrap px-4 py-3 text-sm tabular-nums text-fg text-right",
+                      "hidden whitespace-nowrap px-4 py-3 text-sm tabular-nums text-fg text-right md:table-cell",
                     ),
                     attribute.attribute(
                       "data-amount",
@@ -1295,18 +1308,57 @@ fn transactions_table(
                   [amount_text(transaction.amount)],
                 ),
                 html.td([attribute.class("px-4 py-3")], [
-                  row.open_button(
-                    testid: "edit-transaction-"
-                      <> uuid.to_string(transaction.id),
-                    on_click: UserRequestedEditForm(transaction.id),
-                    class: "",
-                    children: [html.text(transaction.description)],
+                  html.div([attribute.class("flex items-start gap-3")], [
+                    row.open_button(
+                      testid: "edit-transaction-"
+                        <> uuid.to_string(transaction.id),
+                      on_click: UserRequestedEditForm(transaction.id),
+                      class: "min-w-0 flex-1 wrap-anywhere",
+                      children: [html.text(transaction.description)],
+                    ),
+                    html.span(
+                      [
+                        attribute.class(
+                          "whitespace-nowrap text-sm tabular-nums text-fg md:hidden",
+                        ),
+                      ],
+                      [amount_text(transaction.amount)],
+                    ),
+                  ]),
+                  html.p(
+                    [
+                      attribute.class(
+                        "mt-1 flex flex-wrap items-center gap-x-2 text-sm text-fg-muted md:hidden",
+                      ),
+                    ],
+                    [
+                      // Each part is an element: adjacent text would join
+                      // into one flex item, with no gap around the dots.
+                      html.span([], [html.text(transaction.date |> date.format)]),
+                      ..list.flat_map(
+                        option.values([
+                          transaction.account_name
+                            |> option.map(fn(name) {
+                              html.span([], [html.text(name)])
+                            }),
+                          tag_label(transaction, tags_by_id),
+                        ]),
+                        fn(part) {
+                          [
+                            html.span([attribute.aria_hidden(True)], [
+                              html.text("·"),
+                            ]),
+                            part,
+                          ]
+                        },
+                      )
+                    ],
                   ),
                 ]),
                 html.td(
                   [
                     attribute.class(
-                      "whitespace-nowrap px-4 py-3 text-sm text-fg-muted",
+                      "hidden whitespace-nowrap px-4 py-3 text-sm text-fg-muted md:table-cell",
                     ),
                   ],
                   [html.text(transaction.account_name |> option.unwrap("-"))],
@@ -1314,28 +1366,13 @@ fn transactions_table(
                 html.td(
                   [
                     attribute.class(
-                      "whitespace-nowrap px-4 py-3 text-sm text-fg-muted",
+                      "hidden whitespace-nowrap px-4 py-3 text-sm text-fg-muted md:table-cell",
                     ),
                   ],
-                  case
-                    transaction.is_transfer,
-                    transaction_tag(transaction, tags_by_id)
-                  {
-                    // A transfer has no tag: it is neither income nor
-                    // an expense.
-                    True, _ -> [html.text("Transfer")]
-                    False, Some(tag) -> [
-                      html.span(
-                        [
-                          attribute.class(
-                            "inline-flex items-center gap-2 text-fg",
-                          ),
-                        ],
-                        [swatch.view(tag.color), html.text(tag.name)],
-                      ),
-                    ]
-                    False, None -> [html.text("-")]
-                  },
+                  [
+                    tag_label(transaction, tags_by_id)
+                    |> option.unwrap(html.text("-")),
+                  ],
                 ),
                 html.td([attribute.class("py-3 pr-4")], [
                   row.chevron(class: "block"),
@@ -1347,6 +1384,26 @@ fn transactions_table(
       ]),
     ],
   )
+}
+
+/// A transaction's tag with its colour, "Transfer" for a transfer, or nothing
+/// when it is untagged.
+fn tag_label(
+  transaction: Transaction,
+  tags_by_id: dict.Dict(Uuid, Tag),
+) -> Option(Element(Msg)) {
+  case transaction.is_transfer, transaction_tag(transaction, tags_by_id) {
+    // A transfer has no tag: it is neither income nor an expense.
+    True, _ -> Some(html.text("Transfer"))
+    False, Some(tag) ->
+      Some(
+        html.span([attribute.class("inline-flex items-center gap-2 text-fg")], [
+          swatch.view(tag.color),
+          html.text(tag.name),
+        ]),
+      )
+    False, None -> None
+  }
 }
 
 /// Shown below the table while the search has another page.

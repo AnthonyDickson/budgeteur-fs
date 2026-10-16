@@ -457,6 +457,9 @@ fn lines_table(
 ) -> Element(Msg) {
   let header_class =
     "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-fg-muted"
+  // Below sm the table drops Typical and %, and its figures take fixed widths
+  // so the tag's name keeps the rest of the row.
+  let figure_class = header_class <> " w-28 sm:w-auto"
 
   card.panel([attribute.class("overflow-hidden")], [
     html.h3(
@@ -491,7 +494,7 @@ fn lines_table(
                   [html.text("Tag")],
                 ),
                 html.th(
-                  [attribute.scope("col"), attribute.class(header_class)],
+                  [attribute.scope("col"), attribute.class(figure_class)],
                   [
                     html.text("This month"),
                   ],
@@ -499,17 +502,22 @@ fn lines_table(
                 ..case compared {
                   True -> [
                     html.th(
-                      [attribute.scope("col"), attribute.class(header_class)],
+                      [
+                        attribute.scope("col"),
+                        attribute.class(header_class <> " hidden sm:table-cell"),
+                      ],
                       [html.text("Typical")],
                     ),
                     html.th(
-                      [attribute.scope("col"), attribute.class(header_class)],
+                      [attribute.scope("col"), attribute.class(figure_class)],
                       [html.text("Change")],
                     ),
                     html.th(
                       [
                         attribute.scope("col"),
-                        attribute.class(header_class <> " w-24"),
+                        attribute.class(
+                          header_class <> " hidden w-24 sm:table-cell",
+                        ),
                       ],
                       [html.text("%")],
                     ),
@@ -531,6 +539,9 @@ fn lines_table(
 fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
   let figure = line.figure
   let number_class = "px-4 py-2 text-right tabular-nums"
+  // Typical and % are hidden below sm; see `lines_table`.
+  let narrow_hidden = " hidden sm:table-cell"
+  let change_classes = [number_class, number_class <> narrow_hidden]
 
   html.tr([attribute.attribute("data-testid", "dashboard-line")], [
     html.td([attribute.class("px-4 py-2")], [
@@ -547,7 +558,11 @@ fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
               [],
             )
         },
-        html.span([attribute.class("truncate")], [html.text(line.name)]),
+        // Wraps below sm, where the column is narrow, rather than cutting
+        // the name short.
+        html.span([attribute.class("min-w-0 wrap-break-word sm:truncate")], [
+          html.text(line.name),
+        ]),
       ]),
       share_bar(line.share),
     ]),
@@ -560,24 +575,31 @@ fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
     ),
     ..case compared {
       True -> [
-        html.td([attribute.class(number_class <> " text-fg-muted")], [
-          html.text(case figure.baseline {
-            Some(baseline) -> money.format(baseline)
-            None -> ""
-          }),
-        ]),
+        html.td(
+          [attribute.class(number_class <> " text-fg-muted" <> narrow_hidden)],
+          [
+            html.text(case figure.baseline {
+              Some(baseline) -> money.format(baseline)
+              None -> ""
+            }),
+          ],
+        ),
         ..case figure.change {
           Some(change) ->
-            change_cells(
-              signed_money(change),
-              signed_percent(figure.change_percent),
-              change,
-              better,
+            list.map2(
+              change_cells(
+                signed_money(change),
+                signed_percent(figure.change_percent),
+                change,
+                better,
+              ),
+              change_classes,
+              fn(cell, class) { html.td([attribute.class(class)], [cell]) },
             )
-            |> list.map(fn(cell) {
-              html.td([attribute.class(number_class)], [cell])
+          None ->
+            list.map(change_classes, fn(class) {
+              html.td([attribute.class(class)], [])
             })
-          None -> [html.td([], []), html.td([], [])]
         }
       ]
       False -> []
@@ -891,9 +913,13 @@ fn history_figures(
   history: List(HistoryMonth),
   cells: fn(HistoryMonth) -> List(Option(Float)),
 ) -> Element(Msg) {
+  // Below sm the columns pad less between them so four fit on a phone; the
+  // outer cells keep the card's padding.
+  let cell_class = "px-2 py-2 first:pl-4 last:pr-4 sm:px-4"
   let header_class =
-    "px-4 py-2 text-right text-xs font-medium uppercase tracking-wide text-fg-muted"
-  let number_class = "px-4 py-2 text-right tabular-nums text-fg"
+    cell_class
+    <> " text-right text-xs font-medium uppercase tracking-wide text-fg-muted"
+  let number_class = cell_class <> " text-right tabular-nums text-fg"
 
   html.table(
     [
@@ -907,7 +933,8 @@ fn history_figures(
             [
               attribute.scope("col"),
               attribute.class(
-                "px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-fg-muted",
+                cell_class
+                <> " text-left text-xs font-medium uppercase tracking-wide text-fg-muted",
               ),
             ],
             [html.text("Month")],
@@ -923,7 +950,7 @@ fn history_figures(
         [attribute.class("divide-y divide-border")],
         list.map(history, fn(month) {
           html.tr([attribute.attribute("data-testid", "dashboard-month-row")], [
-            html.td([attribute.class("px-4 py-2 text-fg-muted")], [
+            html.td([attribute.class(cell_class <> " text-fg-muted")], [
               html.text(case month.complete {
                 True -> month.label
                 False -> month.label <> " to date"

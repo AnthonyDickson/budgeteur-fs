@@ -21,6 +21,11 @@ pub fn check(class class: String) -> Element(msg) {
   stroked(class, "m4.5 12.75 6 6 9-13.5")
 }
 
+/// Three horizontal bars, for a button that opens a menu.
+pub fn bars(class class: String) -> Element(msg) {
+  stroked(class, "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5")
+}
+
 /// A circled "i", for a button that shows help.
 pub fn info(class class: String) -> Element(msg) {
   stroked(

@@ -23,7 +23,9 @@ pub fn panel(
 ) -> Element(msg) {
   html.div(
     [
-      attribute.class("flex w-72 shrink-0 flex-col border-r border-border"),
+      attribute.class(
+        "flex shrink-0 flex-col border-b border-border md:w-72 md:border-r md:border-b-0",
+      ),
       attribute.attribute("data-testid", "tags-panel"),
     ],
     [
