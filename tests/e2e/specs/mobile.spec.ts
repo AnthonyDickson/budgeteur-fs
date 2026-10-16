@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 
 import { expect, test } from '../support/fixtures';
 import { screenshotPath } from '../support/screenshot';
@@ -32,6 +32,23 @@ async function expectNoSidewaysScroll(page: Page) {
   expect(scrollWidth, 'the page is wider than the screen').toBe(clientWidth);
 }
 
+/// The element is wholly on screen once scrolled to, not clipped by a card
+/// with overflow hidden.
+async function expectFullyOnScreen(locator: Locator) {
+  await locator.scrollIntoViewIfNeeded();
+  await expect(locator).toBeInViewport({ ratio: 1 });
+}
+
+/// Today in the browser's timezone as YYYY-MM-DD, so the transaction falls in
+/// the dashboard's month to date.
+function localToday(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${
+    pad(now.getDate())
+  }`;
+}
+
 /// The open dialog fits within the screen's width.
 async function expectDialogFits(page: Page, testId: string) {
   const box = await page.getByTestId(testId).boundingBox();
@@ -61,8 +78,7 @@ test.describe('mobile', () => {
 
       // The rules panel sits under the tags, not clipped beside them.
       const newRule = page.getByTestId('new-rule-button');
-      await newRule.scrollIntoViewIfNeeded();
-      await expect(newRule).toBeInViewport({ ratio: 1 });
+      await expectFullyOnScreen(newRule);
       await newRule.click();
       const ruleModal = page.getByTestId('rule-modal');
       await expect(ruleModal).toBeVisible();
@@ -70,9 +86,7 @@ test.describe('mobile', () => {
       await ruleModal.getByTestId('rule-pattern-input').fill('CLOUDSTORE');
       await ruleModal.getByTestId('rule-submit-button').click();
       await expect(ruleModal).toBeHidden();
-      const rule = page.getByTestId('rule-row');
-      await rule.scrollIntoViewIfNeeded();
-      await expect(rule).toBeInViewport({ ratio: 1 });
+      await expectFullyOnScreen(page.getByTestId('rule-row'));
       await expectNoSidewaysScroll(page);
       await page.screenshot({ path: screenshotPath(testInfo, 'tagging') });
 
@@ -90,9 +104,8 @@ test.describe('mobile', () => {
       await transactionModal.getByTestId('transaction-description-input').fill(
         'POS W/D CLOUDSTORE.COM/BILL SYDNEY AU (INC. $0.31 INTERNATIONAL TRANSACTION FEE)',
       );
-      await transactionModal.getByTestId('transaction-date-input').fill(
-        '2026-10-01',
-      );
+      const today = localToday();
+      await transactionModal.getByTestId('transaction-date-input').fill(today);
       await transactionModal.getByTestId('transaction-tag-select')
         .selectOption({ label: 'Subscriptions' });
       await transactionModal.getByTestId('transaction-submit-button').click();
@@ -101,18 +114,35 @@ test.describe('mobile', () => {
       await expect(row).toHaveCount(1);
       await expectNoSidewaysScroll(page);
       // The row's figures are on screen, not clipped by the list's card.
-      for (const text of ['-$23.50', '2026-10-01', 'Subscriptions']) {
-        await expect(row.getByText(text).filter({ visible: true }))
-          .toBeInViewport({ ratio: 1 });
+      for (const text of ['-$23.50', today, 'Subscriptions']) {
+        await expectFullyOnScreen(
+          row.getByText(text).filter({ visible: true }),
+        );
       }
       await page.screenshot({
         path: screenshotPath(testInfo, 'transactions'),
         fullPage: true,
       });
 
+      // The dashboard's tag table and monthly figures fit their cards.
+      await openFromMenu(page, 'Dashboard', /\/$/);
+      await expectNoSidewaysScroll(page);
+      const line = page.getByTestId('dashboard-line').filter({
+        hasText: 'Subscriptions',
+      });
+      await expectFullyOnScreen(line.getByText('Subscriptions'));
+      await expectFullyOnScreen(line.locator('[data-amount]'));
+      await page.getByTestId('dashboard-cash-flow-toggle').click();
+      await expectFullyOnScreen(
+        page.getByTestId('dashboard-cash-flow').locator('th').last(),
+      );
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'dashboard'),
+        fullPage: true,
+      });
+
       for (
         const [name, url, shot] of [
-          ['Dashboard', /\/$/, 'dashboard'],
           ['Reports', /\/reports$/, 'reports'],
           ['Balance Sheet', /\/balance-sheet$/, 'balance-sheet'],
         ] as const
