@@ -881,10 +881,12 @@ fn master_detail(
 ) -> Element(Msg) {
   card.panel(
     [
-      attribute.class("h-[30rem] overflow-hidden"),
+      attribute.class("overflow-hidden md:h-[30rem]"),
     ],
     [
-      html.div([attribute.class("flex h-full")], [
+      // Side by side from md, each list scrolling within the panel's height.
+      // Below md the rules sit under the tags and the page scrolls instead.
+      html.div([attribute.class("flex flex-col md:h-full md:flex-row")], [
         tag_view.panel(
           tags,
           selected_tag,

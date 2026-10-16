@@ -58,6 +58,21 @@ test.describe('mobile', () => {
       await tagModal.getByTestId('tag-name-input').fill('Subscriptions');
       await tagModal.getByTestId('tag-submit-button').click();
       await expect(tagModal).toBeHidden();
+
+      // The rules panel sits under the tags, not clipped beside them.
+      const newRule = page.getByTestId('new-rule-button');
+      await newRule.scrollIntoViewIfNeeded();
+      await expect(newRule).toBeInViewport({ ratio: 1 });
+      await newRule.click();
+      const ruleModal = page.getByTestId('rule-modal');
+      await expect(ruleModal).toBeVisible();
+      await expectDialogFits(page, 'rule-modal');
+      await ruleModal.getByTestId('rule-pattern-input').fill('CLOUDSTORE');
+      await ruleModal.getByTestId('rule-submit-button').click();
+      await expect(ruleModal).toBeHidden();
+      const rule = page.getByTestId('rule-row');
+      await rule.scrollIntoViewIfNeeded();
+      await expect(rule).toBeInViewport({ ratio: 1 });
       await expectNoSidewaysScroll(page);
       await page.screenshot({ path: screenshotPath(testInfo, 'tagging') });
 
