@@ -12,6 +12,7 @@ import budgeteur/shared/field
 import budgeteur/shared/money
 import budgeteur/shared/side.{type Side, Asset, Liability}
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/popover
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -141,11 +142,20 @@ pub fn view(
   let Form(value:, as_of:) = form
 
   html.div([attribute.class("space-y-4")], [
-    html.label([attribute.class("block")], [
-      input.label("Value"),
+    html.div([], [
+      input.label_with_help(
+        "Value",
+        for: "value-amount-input",
+        help: popover.help(id: "value-help", about: "Value", paragraphs: [
+          value_help(side),
+          note,
+        ]),
+      ),
       input.text([
+        attribute.id("value-amount-input"),
         attribute.type_("text"),
         attribute.attribute("data-testid", "value-amount-input"),
+        attribute.aria_describedby("value-help"),
         attribute.inputmode("decimal"),
         attribute.placeholder("0.00"),
         attribute.value(field.input(value)),
@@ -162,9 +172,6 @@ pub fn view(
           )
         None -> element.none()
       },
-      html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
-        html.text(value_help(side) <> " " <> note),
-      ]),
     ]),
     html.label([attribute.class("block")], [
       input.label("Value as of"),

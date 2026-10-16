@@ -11,6 +11,7 @@ import budgeteur/shared/field
 import budgeteur/shared/money
 import budgeteur/shared/side.{type Side, Asset, Liability}
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/popover
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -157,8 +158,8 @@ fn validate_as_of(as_of: String) -> Result(Date, AsOfError) {
 
 // View
 
-/// The balance fields, with `note` under the amount for what the parent form
-/// does with them.
+/// The balance fields, with `note` in their help for what the parent form does
+/// with them.
 pub fn view(
   form: Form,
   submitting submitting: Bool,
@@ -170,6 +171,10 @@ pub fn view(
     html.div([attribute.class("space-y-2")], [
       input.radio_group(
         legend: "Balance",
+        help: popover.help(id: "balance-help", about: "Balance", paragraphs: [
+          "Liability when the account is overdrawn or a card balance is owing. The line moves sides when the balance changes sign.",
+          note,
+        ]),
         testid: "balance-side",
         disabled: submitting,
         options: [
@@ -179,15 +184,11 @@ pub fn view(
           }),
         ],
       ),
-      html.p([attribute.class("text-xs text-fg-muted")], [
-        html.text(
-          "Liability when the account is overdrawn or a card balance is owing. The line moves sides when the balance changes sign.",
-        ),
-      ]),
       input.text([
         attribute.type_("text"),
         attribute.attribute("data-testid", "balance-amount-input"),
         attribute.attribute("aria-label", "Amount"),
+        attribute.aria_describedby("balance-help"),
         attribute.inputmode("decimal"),
         attribute.placeholder("0.00"),
         attribute.value(field.input(amount)),
@@ -204,7 +205,6 @@ pub fn view(
           )
         None -> element.none()
       },
-      html.p([attribute.class("text-xs text-fg-muted")], [html.text(note)]),
     ]),
     html.label([attribute.class("block")], [
       input.label("Balance as of"),

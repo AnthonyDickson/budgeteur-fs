@@ -12,6 +12,17 @@ pub fn card(
   attributes: List(Attribute(msg)),
   children: List(Element(msg)),
 ) -> Element(msg) {
+  card_with_help(label, element.none(), attributes, children)
+}
+
+/// A card whose label has `help`, a `popover.help`, beside it, e.g. to define
+/// the figure.
+pub fn card_with_help(
+  label: String,
+  help: Element(msg),
+  attributes: List(Attribute(msg)),
+  children: List(Element(msg)),
+) -> Element(msg) {
   html.div(
     [
       attribute.class(
@@ -20,9 +31,14 @@ pub fn card(
       ..attributes
     ],
     [
-      html.p([attribute.class("text-sm font-medium text-fg-muted")], [
-        html.text(label),
-      ]),
+      html.p(
+        [
+          attribute.class(
+            "flex items-center gap-1 text-sm font-medium text-fg-muted",
+          ),
+        ],
+        [html.text(label), help],
+      ),
       ..children
     ],
   )

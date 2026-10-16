@@ -6,6 +6,7 @@ import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/popover
 import budgeteur/tagging_page/rule.{type Rule, Rule}
 import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
 import budgeteur/tagging_page/rule_write_request.{
@@ -27,8 +28,6 @@ pub const max_pattern_length = 128
 /// How long the pattern field must go without input before the modal counts
 /// what the pattern matches.
 const match_count_delay_ms = 300
-
-const pattern_hint_id = "rule-pattern-hint"
 
 pub type PatternError {
   PatternRequired
@@ -423,69 +422,64 @@ fn view_form(
         attribute.class("space-y-4"),
       ],
       [
+        html.div(
+          [
+            // The input's own handler stays immediate, so validation and save
+            // always see the current value. Input events bubble to this div,
+            // which counts matches once typing pauses.
+            event.debounce(event.on_input(PatternSettled), match_count_delay_ms),
+          ],
+          [
+            input.label_with_help(
+              "Pattern",
+              for: "rule-pattern-input",
+              help: popover.help(
+                id: "rule-pattern-help",
+                about: "Pattern",
+                paragraphs: ["Prefer longer, more specific patterns."],
+              ),
+            ),
+            input.text([
+              attribute.id("rule-pattern-input"),
+              attribute.type_("text"),
+              attribute.attribute("data-testid", "rule-pattern-input"),
+              attribute.placeholder("e.g. STARBUCKS"),
+              attribute.aria_describedby("rule-pattern-help"),
+              attribute.autofocus(True),
+              attribute.value(field.input(pattern)),
+              attribute.disabled(submitting),
+              event.on_input(PatternChanged),
+              input.invalid(field.has_error(pattern)),
+            ]),
+            case pattern_error {
+              Some(PatternRequired) ->
+                input.error_message("Pattern cannot be empty")
+              Some(TooLong) ->
+                input.error_message(
+                  "Pattern cannot be longer than "
+                  <> int.to_string(max_pattern_length)
+                  <> " characters",
+                )
+              Some(Duplicate) ->
+                input.error_message("A rule with this pattern already exists")
+              None -> element.none()
+            },
+            view_match_count(pattern, match_count),
+          ],
+        ),
         html.div([], [
-          html.label(
-            [
-              attribute.class("block"),
-              // The input's own handler stays immediate, so validation and save
-              // always see the current value. Input events bubble to this label,
-              // which counts matches once typing pauses.
-              event.debounce(
-                event.on_input(PatternSettled),
-                match_count_delay_ms,
-              ),
-            ],
-            [
-              html.span(
-                [
-                  attribute.class(
-                    "mb-1 block text-sm font-medium text-fg-muted",
-                  ),
-                ],
-                [html.text("Pattern")],
-              ),
-              input.text([
-                attribute.type_("text"),
-                attribute.attribute("data-testid", "rule-pattern-input"),
-                attribute.placeholder("e.g. STARBUCKS"),
-                attribute.aria_describedby(pattern_hint_id),
-                attribute.autofocus(True),
-                attribute.value(field.input(pattern)),
-                attribute.disabled(submitting),
-                event.on_input(PatternChanged),
-                input.invalid(field.has_error(pattern)),
-              ]),
-              case pattern_error {
-                Some(PatternRequired) ->
-                  input.error_message("Pattern cannot be empty")
-                Some(TooLong) ->
-                  input.error_message(
-                    "Pattern cannot be longer than "
-                    <> int.to_string(max_pattern_length)
-                    <> " characters",
-                  )
-                Some(Duplicate) ->
-                  input.error_message("A rule with this pattern already exists")
-                None -> element.none()
-              },
-            ],
+          input.label_with_help(
+            "Tag",
+            for: "rule-tag-select",
+            help: popover.help(id: "rule-tag-help", about: "Tag", paragraphs: [
+              "Changing the tag moves this rule to that tag.",
+            ]),
           ),
-          html.p(
-            [
-              attribute.id(pattern_hint_id),
-              attribute.class("mt-1 text-xs text-fg-muted"),
-            ],
-            [
-              html.text("Prefer longer, more specific patterns."),
-            ],
-          ),
-          view_match_count(pattern, match_count),
-        ]),
-        html.label([attribute.class("block")], [
-          input.label("Tag"),
           input.select(
             [
+              attribute.id("rule-tag-select"),
               attribute.attribute("data-testid", "rule-tag-select"),
+              attribute.aria_describedby("rule-tag-help"),
               attribute.disabled(submitting),
               event.on_change(TagChanged),
               input.invalid(tag_error),
@@ -507,9 +501,6 @@ fn view_form(
             True -> input.error_message("Select a tag")
             False -> element.none()
           },
-          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
-            html.text("Changing the tag moves this rule to that tag."),
-          ]),
         ]),
         dialog.form_footer(
           leading: case mode {

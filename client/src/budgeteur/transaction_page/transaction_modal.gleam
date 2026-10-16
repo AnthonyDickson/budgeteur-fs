@@ -582,6 +582,7 @@ fn view_form(
         ]),
         input.radio_group(
           legend: "Type",
+          help: element.none(),
           testid: "transaction-type",
           disabled: submitting,
           options: [

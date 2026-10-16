@@ -15,6 +15,7 @@ import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/popover
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -366,9 +367,6 @@ fn view_form(
           view_name_error(field.error(name)),
         ]),
         term_field(side, term, submitting),
-        html.p([attribute.class("text-xs text-fg-muted")], [
-          html.text(term_help(side)),
-        ]),
         case opening_value {
           Some(value) ->
             value_form.view(
@@ -414,6 +412,9 @@ fn term_field(side: Side, term: Term, submitting: Bool) -> Element(Msg) {
 
   input.radio_group(
     legend: "Term",
+    help: popover.help(id: "item-term-help", about: "Term", paragraphs: [
+      term_help(side),
+    ]),
     testid: "item-term",
     disabled: submitting,
     options: [

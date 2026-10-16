@@ -19,6 +19,7 @@ import budgeteur/shared/route
 import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
 import budgeteur/shared/ui/link
+import budgeteur/shared/ui/popover
 import budgeteur/shared/ui/stat
 import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
@@ -242,16 +243,24 @@ fn position_section(position: Position) -> Element(Msg) {
           position.working_capital,
           "dashboard-working-capital",
         ),
-        card("Runway", "dashboard-runway", [
-          case position.runway {
-            Some(runway) ->
-              stat.figure([], float.to_string(runway) <> " months")
-            None -> stat.no_figure("Not available")
-          },
-          html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
-            html.text("Working capital over average monthly expenses"),
-          ]),
-        ]),
+        stat.card_with_help(
+          "Runway",
+          popover.help(
+            id: "dashboard-runway-help",
+            about: "Runway",
+            paragraphs: [
+              "Working capital over average monthly expenses.",
+            ],
+          ),
+          [attribute.attribute("data-testid", "dashboard-runway")],
+          [
+            case position.runway {
+              Some(runway) ->
+                stat.figure([], float.to_string(runway) <> " months")
+              None -> stat.no_figure("Not available")
+            },
+          ],
+        ),
       ]),
     ]
   })
@@ -309,11 +318,6 @@ fn month_section(month: Month, waiting: Remote(Int)) -> Element(Msg) {
           "dashboard-net-income",
         ),
         savings_rate_card(month),
-      ]),
-      html.p([attribute.class("text-sm text-fg-muted")], [
-        html.text(
-          "The savings rate is on take-home pay: contributions taken out of pay, such as KiwiSaver, are not in it.",
-        ),
       ]),
       case month.income_lines, month.expense_lines {
         [], [] ->
@@ -379,21 +383,32 @@ fn figure_card(
 }
 
 fn savings_rate_card(month: Month) -> Element(Msg) {
-  card("Savings rate", "dashboard-savings-rate", [
-    case month.savings_rate {
-      Some(rate) -> stat.figure([], percent(rate))
-      None -> stat.no_figure("No income")
-    },
-    case month.savings_rate_baseline {
-      Some(baseline) ->
-        comparison_grid(percent(baseline), case month.savings_rate_change {
-          Some(change) ->
-            change_cells(signed_points(change), "", change, Higher)
-          None -> []
-        })
-      None -> element.none()
-    },
-  ])
+  stat.card_with_help(
+    "Savings rate",
+    popover.help(
+      id: "dashboard-savings-rate-help",
+      about: "Savings rate",
+      paragraphs: [
+        "The savings rate is on take-home pay: contributions taken out of pay, such as KiwiSaver, are not in it.",
+      ],
+    ),
+    [attribute.attribute("data-testid", "dashboard-savings-rate")],
+    [
+      case month.savings_rate {
+        Some(rate) -> stat.figure([], percent(rate))
+        None -> stat.no_figure("No income")
+      },
+      case month.savings_rate_baseline {
+        Some(baseline) ->
+          comparison_grid(percent(baseline), case month.savings_rate_change {
+            Some(change) ->
+              change_cells(signed_points(change), "", change, Higher)
+            None -> []
+          })
+        None -> element.none()
+      },
+    ],
+  )
 }
 
 /// A card's typical figure and its change, in fixed columns so the change's

@@ -19,6 +19,7 @@ import budgeteur/shared/term
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
+import budgeteur/shared/ui/popover
 import budgeteur/shared/ui/stat
 import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
@@ -370,10 +371,17 @@ fn loaded_report(shown: Report) -> Element(Msg) {
           shown.change_in_net_worth,
           "report-change-in-net-worth",
         ),
-        figure_card(
+        card(
           "Other changes",
-          shown.other_changes,
+          popover.help(
+            id: "report-other-changes-help",
+            about: "Other changes",
+            paragraphs: [
+              "Other changes are what net income does not explain: revaluations, money that never passes through a tracked account (such as employer KiwiSaver contributions), and missing transactions.",
+            ],
+          ),
           "report-other-changes",
+          money_figure(shown.other_changes),
         ),
       ]),
       card_row([
@@ -393,11 +401,6 @@ fn loaded_report(shown: Report) -> Element(Msg) {
           "report-change-in-working-capital",
         ),
       ]),
-      html.p([attribute.class("text-sm text-fg-muted")], [
-        html.text(
-          "Other changes are what net income does not explain: revaluations, money that never passes through a tracked account (such as employer KiwiSaver contributions), and missing transactions.",
-        ),
-      ]),
       transactions_after_close_note(shown.closed_accounts_with_transactions),
       sheet_table(shown.closing),
     ]),
@@ -407,10 +410,18 @@ fn loaded_report(shown: Report) -> Element(Msg) {
         figure_card("Income", Some(shown.income), "report-income"),
         figure_card("Expenses", Some(shown.expenses), "report-expenses"),
         figure_card("Net income", Some(shown.net_income), "report-net-income"),
-        percent_card("Savings rate", shown.savings_rate, "report-savings-rate"),
-      ]),
-      html.p([attribute.class("text-sm text-fg-muted")], [
-        html.text("The savings rate is on take-home pay."),
+        card(
+          "Savings rate",
+          popover.help(
+            id: "report-savings-rate-help",
+            about: "Savings rate",
+            paragraphs: [
+              "The savings rate is on take-home pay: contributions taken out of pay, such as KiwiSaver, are not in it.",
+            ],
+          ),
+          "report-savings-rate",
+          percent_figure(shown.savings_rate),
+        ),
       ]),
       html.div([attribute.class("grid grid-cols-1 gap-6 lg:grid-cols-2")], [
         lines_table("Income", "report-income-lines", shown.income_lines),
@@ -435,38 +446,48 @@ fn section_heading(title: String) -> Element(Msg) {
   ])
 }
 
-/// A money figure, or "Not meaningful" when the server sends none.
 fn figure_card(
   label: String,
   amount: Option(Float),
   testid: String,
 ) -> Element(Msg) {
-  card(label, testid, case amount {
+  card(label, element.none(), testid, money_figure(amount))
+}
+
+/// A money figure, or "Not meaningful" when the server sends none.
+fn money_figure(amount: Option(Float)) -> Element(Msg) {
+  case amount {
     Some(amount) ->
       stat.figure(
         [attribute.attribute("data-amount", float.to_string(amount))],
         money.format(amount),
       )
     None -> stat.no_figure("Not meaningful")
-  })
+  }
 }
 
-fn percent_card(
-  label: String,
-  percent: Option(Float),
-  testid: String,
-) -> Element(Msg) {
-  card(label, testid, case percent {
+fn percent_figure(percent: Option(Float)) -> Element(Msg) {
+  case percent {
     Some(percent) ->
       stat.figure([], float.to_string(float.to_precision(percent, 1)) <> "%")
     None -> stat.no_figure("No income")
-  })
+  }
 }
 
-fn card(label: String, testid: String, value: Element(Msg)) -> Element(Msg) {
-  stat.card(label, [attribute.attribute("data-testid", testid)], [
-    value,
-  ])
+fn card(
+  label: String,
+  help: Element(Msg),
+  testid: String,
+  value: Element(Msg),
+) -> Element(Msg) {
+  stat.card_with_help(
+    label,
+    help,
+    [attribute.attribute("data-testid", testid)],
+    [
+      value,
+    ],
+  )
 }
 
 fn lines_table(

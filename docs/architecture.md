@@ -261,9 +261,10 @@ production the server serves the SPA. No CORS is configured.
 Views name colours by purpose, through roles such as surface, muted text, and
 primary, which the stylesheet maps to Catppuccin Latte or Mocha as the OS
 chooses. Tailwind's own palette is cleared, so roles are the only colours a view
-can use. Shared elements (buttons, inputs, cards, banners, the modal dialog) are
-stateless view functions in the client's `shared/ui/`, which own their classes;
-layout and one-off elements stay inline. See [styling](styling.md).
+can use. Shared elements (buttons, inputs, cards, banners, help popovers, the
+modal dialog) are stateless view functions in the client's `shared/ui/`, which
+own their classes; layout and one-off elements stay inline. See
+[styling](styling.md).
 
 ## Money
 

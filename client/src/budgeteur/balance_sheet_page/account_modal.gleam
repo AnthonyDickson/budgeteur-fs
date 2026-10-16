@@ -14,6 +14,7 @@ import budgeteur/shared/term.{type Term, Current, NonCurrent}
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/popover
 import gleam/int
 import gleam/option.{type Option, None, Some}
 import gleam/string
@@ -309,24 +310,38 @@ fn view_form(
             None -> element.none()
           },
         ]),
-        html.label([attribute.class("block")], [
-          input.label("Account number (optional)"),
+        html.div([], [
+          input.label_with_help(
+            "Account number (optional)",
+            for: "account-number-input",
+            help: popover.help(
+              id: "account-number-help",
+              about: "Account number",
+              paragraphs: [
+                "Imports find the account by its number. Set it before the first import so the statement does not create a second account.",
+              ],
+            ),
+          ),
           input.text([
+            attribute.id("account-number-input"),
             attribute.type_("text"),
             attribute.attribute("data-testid", "account-number-input"),
+            attribute.aria_describedby("account-number-help"),
             attribute.placeholder("e.g. 12-3456-0789012-00"),
             attribute.value(number),
             attribute.disabled(submitting),
             event.on_input(NumberChanged),
           ]),
-          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
-            html.text(
-              "Imports find the account by its number. Set it before the first import so the statement does not create a second account.",
-            ),
-          ]),
         ]),
         input.radio_group(
           legend: "Term",
+          help: popover.help(
+            id: "account-term-help",
+            about: "Term",
+            paragraphs: [
+              "Current for everyday, savings, and credit card accounts. The side of the balance sheet follows the balance.",
+            ],
+          ),
           testid: "account-term",
           disabled: submitting,
           options: [
@@ -339,11 +354,6 @@ fn view_form(
             ),
           ],
         ),
-        html.p([attribute.class("text-xs text-fg-muted")], [
-          html.text(
-            "Current for everyday, savings, and credit card accounts. The side of the balance sheet follows the balance.",
-          ),
-        ]),
         case opening_balance {
           Some(balance) ->
             balance_form.view(

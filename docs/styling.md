@@ -262,6 +262,7 @@ mode.
     rows of the dashboard, balance sheet, and reports.
   - **banner**: error and warning.
   - **link**: a link within text (decision 6).
+  - **popover**: help behind an info button (decision 12).
   - **dialog**, **row**, and **swatch**: today's modal dialog, clickable row,
     and tag swatch, moved from `shared/`.
 
@@ -283,6 +284,33 @@ mode.
   - A full design system with tables, typography, and spacing tokens. More churn
     than the goals need.
 - **Goal**: a shared element is defined once and is easy to use correctly.
+
+### 12. Explanatory notes are help popovers
+
+- **Decision**: a note that explains a field or a figure, the same every time it
+  is shown, sits behind an info button beside the field's label, the group's
+  legend, or the figure card's label. The button opens the note in a native
+  popover anchored below it; a second click, Escape, or a click elsewhere closes
+  it. The field points `aria-describedby` at the note, and the button sits
+  outside the label, or the fieldset is named by the legend's text alone, so the
+  button does not join the field's name. Text that stays inline: errors and
+  warnings, empty and loading states, confirmation text, and notes that depend
+  on state, such as the dates a figure covers, why a control is disabled, or a
+  count with a link.
+- **Why**: the forms and summary rows carried a line of muted text under most
+  fields and figures. A returning user has read them, and they push the fields
+  apart. The popover API opens, closes, and dismisses in the browser, so the
+  model holds no state for it, as with the history tables' `<details>`. A
+  popover opens in the top layer, so help inside a modal dialog sits above it,
+  and Escape closes the help before the dialog. CSS anchor positioning places it
+  next to its button with no script.
+- **Rejected**:
+  - Hover tooltips (`title`, or a hint popover opened on hover). They do not
+    work on touch screens, and `title` cannot be styled.
+  - Popover state in the model. More code for state the browser already keeps.
+- **Cost**: help is one click away, and a first-time user may not open it.
+- **Goal**: forms and summary rows show what the user acts on, with the
+  explanation on hand.
 
 ## Consequences
 
@@ -336,5 +364,7 @@ mode.
 - No production database holds tags yet.
 - The browsers in use support `prefers-color-scheme` and CSS colour mixing.
   Tailwind v4 already requires both.
+- The browsers in use support the popover API and CSS anchor positioning.
+  Without anchor positioning, help still opens, but not next to its button.
 - Fourteen colours are enough for the user's tags. Tags that share a colour are
   told apart by name.

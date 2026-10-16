@@ -43,6 +43,34 @@ test.describe('dialogs', () => {
     },
   );
 
+  // Help opens as a popover above the dialog. Escape and outside clicks close
+  // the help first and leave the dialog open.
+  test(
+    'help in a dialog closes before the dialog',
+    async ({ page }, testInfo) => {
+      await page.goto('/tagging');
+      await page.getByTestId('create-first-tag-button').click();
+      const help = page.getByTestId('tag-name-help');
+
+      await tagModal(page).getByTestId('tag-name-help-button').click();
+      await expect(help).toBeVisible();
+      await expect(help).toContainText('Prefer broad categories');
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'dialog-help-open'),
+        fullPage: true,
+      });
+      await page.keyboard.press('Escape');
+      await expect(help).toBeHidden();
+      await expect(tagModal(page)).toBeVisible();
+
+      await tagModal(page).getByTestId('tag-name-help-button').click();
+      await expect(help).toBeVisible();
+      await tagModal(page).getByRole('heading').click();
+      await expect(help).toBeHidden();
+      await expect(tagModal(page)).toBeVisible();
+    },
+  );
+
   test(
     'a delete dialog closed by the browser opens again',
     async ({ page }, testInfo) => {

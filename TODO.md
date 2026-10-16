@@ -13,14 +13,13 @@
 - [x] Reports: balance sheets and income statements per period
 - [x] Full dashboard w/ charts
 - [x] Transaction search
-- [ ] Mobile support and UI cleanup
+- [ ] Mobile support
 - [ ] Release
 - [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
 
 ## Current Tasks
 
-- Lots of little notes that clutter the screen may be better as popovers (use
-  native popover API)
+None
 
 ## Backlog
 

@@ -21,6 +21,14 @@ pub fn check(class class: String) -> Element(msg) {
   stroked(class, "m4.5 12.75 6 6 9-13.5")
 }
 
+/// A circled "i", for a button that shows help.
+pub fn info(class class: String) -> Element(msg) {
+  stroked(
+    class,
+    "m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z",
+  )
+}
+
 fn stroked(class: String, path: String) -> Element(msg) {
   html.svg(
     [

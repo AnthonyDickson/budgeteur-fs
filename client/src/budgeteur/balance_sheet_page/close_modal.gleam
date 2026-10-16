@@ -14,6 +14,7 @@ import budgeteur/shared/form_modal
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/popover
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import gleam/time/calendar.{type Date}
@@ -209,11 +210,19 @@ fn view_form(
             )
           None -> element.none()
         },
-        html.label([attribute.class("block")], [
-          input.label(label),
+        html.div([], [
+          input.label_with_help(
+            label,
+            for: "close-date-input",
+            help: popover.help(id: "close-date-help", about: label, paragraphs: [
+              help,
+            ]),
+          ),
           input.text([
+            attribute.id("close-date-input"),
             attribute.type_("date"),
             attribute.attribute("data-testid", "close-date-input"),
+            attribute.aria_describedby("close-date-help"),
             attribute.value(field.input(form.closed_on)),
             attribute.disabled(submitting),
             event.on_input(ClosedOnChanged),
@@ -224,9 +233,6 @@ fn view_form(
             Some(NotADate) -> input.error_message("Not a valid date")
             None -> element.none()
           },
-          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
-            html.text(help),
-          ]),
         ]),
         dialog.form_footer(
           leading: None,

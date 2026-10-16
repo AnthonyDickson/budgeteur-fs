@@ -7,6 +7,7 @@ import budgeteur/shared/tag.{
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
+import budgeteur/shared/ui/popover
 import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/tag_write_request.{
   type TagWriteRequest, TagWriteRequest,
@@ -297,11 +298,19 @@ fn view_form(
             )
           None -> element.none()
         },
-        html.label([attribute.class("block")], [
-          input.label("Name"),
+        html.div([], [
+          input.label_with_help(
+            "Name",
+            for: "tag-name-input",
+            help: popover.help(id: "tag-name-help", about: "Name", paragraphs: [
+              "Prefer broad categories, e.g. Food & Drink over Coffee.",
+            ]),
+          ),
           input.text([
+            attribute.id("tag-name-input"),
             attribute.type_("text"),
             attribute.attribute("data-testid", "tag-name-input"),
+            attribute.aria_describedby("tag-name-help"),
             attribute.placeholder("e.g. Food & Drink"),
             attribute.autofocus(True),
             attribute.value(field.input(name)),
@@ -310,12 +319,12 @@ fn view_form(
             input.invalid(has_error),
           ]),
           view_name_error(name_error),
-          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
-            html.text("Prefer broad categories, e.g. Food & Drink over Coffee."),
-          ]),
         ]),
         input.radio_group(
           legend: "Kind",
+          help: popover.help(id: "tag-kind-help", about: "Kind", paragraphs: [
+            "Refunds stay on the tag's side: they reduce its expenses rather than count as income.",
+          ]),
           testid: "tag-kind",
           disabled: submitting,
           options: [
@@ -328,11 +337,6 @@ fn view_form(
             #(tag.kind_to_string(Income), "Income", kind == Income, KindChosen),
           ],
         ),
-        html.p([attribute.class("-mt-3 text-xs text-fg-muted")], [
-          html.text(
-            "Refunds stay on the tag's side: they reduce its expenses rather than count as income.",
-          ),
-        ]),
         html.fieldset([attribute.class("block")], [
           html.legend(
             [attribute.class("mb-1 block text-sm font-medium text-fg-muted")],
