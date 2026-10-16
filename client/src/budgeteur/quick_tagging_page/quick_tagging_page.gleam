@@ -8,6 +8,7 @@ import budgeteur/shared/api_route
 import budgeteur/shared/date
 import budgeteur/shared/effect.{type Effect}
 import budgeteur/shared/form_modal
+import budgeteur/shared/icon
 import budgeteur/shared/money
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/remote.{type Remote, Failed, Loaded, Loading}
@@ -312,7 +313,7 @@ pub fn ordered_tags(tags: List(Tag)) -> List(Tag) {
 pub fn view(model: Model) -> Element(Msg) {
   html.div(
     [
-      attribute.class("mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6"),
+      attribute.class("mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6"),
       attribute.attribute("data-testid", "quick-tagging-page"),
     ],
     [
@@ -422,15 +423,16 @@ fn transaction_row(
   }
 
   let #(row_class, text_class) = case state {
-    Some(Saved(_)) -> #("bg-surface-hover", "text-fg-muted")
-    Some(Saving(..)) | None -> #("bg-surface", "text-fg")
+    // A saved row sinks into the page, so the eye goes to the raised rows
+    // still waiting for a choice.
+    Some(Saved(_)) -> #("bg-transparent", "text-fg-muted")
+    Some(Saving(..)) | None -> #("bg-surface shadow-sm", "text-fg")
   }
 
   html.li(
     [
       attribute.class(
-        "rounded-lg border border-border px-4 py-3 shadow-sm space-y-3 "
-        <> row_class,
+        "rounded-lg border border-border px-4 py-3 space-y-3 " <> row_class,
       ),
       attribute.attribute("data-testid", "quick-tag-row"),
     ],
@@ -451,14 +453,17 @@ fn transaction_row(
             html.text(details),
           ]),
         ]),
-        html.p(
-          [
-            attribute.class(
-              "whitespace-nowrap text-sm tabular-nums " <> text_class,
-            ),
-          ],
-          [html.text(money.format(transaction.amount))],
-        ),
+        html.div([attribute.class("flex shrink-0 items-center gap-3")], [
+          row_status(state),
+          html.p(
+            [
+              attribute.class(
+                "whitespace-nowrap text-sm tabular-nums " <> text_class,
+              ),
+            ],
+            [html.text(money.format(transaction.amount))],
+          ),
+        ]),
       ]),
       html.div(
         [attribute.class("flex flex-wrap gap-2")],
@@ -494,6 +499,36 @@ fn transaction_row(
   )
 }
 
+/// What happened to the row's last choice, beside its amount, so a tagged row
+/// stands out from the untagged ones around it. The pressed button says which
+/// choice it was.
+fn row_status(state: Option(Row)) -> Element(Msg) {
+  case state {
+    None -> element.none()
+    Some(Saving(..)) ->
+      html.span([attribute.class("text-sm text-fg-muted")], [
+        html.text("Saving…"),
+      ])
+    Some(Saved(choice)) ->
+      html.span(
+        [
+          attribute.class(
+            "inline-flex items-center gap-1 text-sm text-fg-muted",
+          ),
+          attribute.attribute("data-testid", "quick-tag-status"),
+        ],
+        [
+          icon.check(class: ""),
+          html.text(case choice {
+            TagWith(_) -> "Tagged"
+            Transfer -> "Marked as transfer"
+            Dismiss -> "Dismissed"
+          }),
+        ],
+      )
+  }
+}
+
 /// A button for one choice. It shows as pressed while its choice is saving or
 /// saved, and every button in the row is disabled while a save is in flight.
 fn choice_button(
@@ -513,22 +548,36 @@ fn choice_button(
     Some(Saved(_)) | None -> False
   }
 
-  let style = case choice, is_pressed {
-    TagWith(_), True -> "border-primary bg-primary-tint text-fg"
-    TagWith(_), False ->
+  let is_saved = case row {
+    Some(Saved(_)) -> True
+    Some(Saving(..)) | None -> False
+  }
+
+  // A saved row's buttons sink into the page with the row: no fill, and the
+  // swatches (the only child elements) faded. The pressed one keeps a darker
+  // border and normal text, so the choice still reads.
+  let style = case is_saved, choice, is_pressed {
+    True, _, True -> "border-fg-muted bg-transparent text-fg"
+    True, _, False ->
+      "border-border bg-transparent text-fg-muted *:opacity-50 hover:bg-surface-hover"
+    False, TagWith(_), True -> "border-primary bg-primary-tint text-fg"
+    False, Transfer, True -> "border-fg-muted bg-surface-hover text-fg"
+    False, Dismiss, True -> "border-fg-muted bg-surface-hover text-fg"
+    False, _, False ->
       "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
-    Transfer, True -> "border-fg-muted bg-surface-hover text-fg"
-    Transfer, False ->
-      "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
-    Dismiss, True -> "border-dashed border-fg-muted bg-surface-hover text-fg"
-    Dismiss, False ->
-      "border-dashed border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
+  }
+
+  let border_style = case choice {
+    Dismiss -> "border-dashed"
+    TagWith(_) | Transfer -> ""
   }
 
   html.button(
     [
       attribute.type_("button"),
-      attribute.class(choice_button_class <> " " <> style),
+      attribute.class(
+        choice_button_class <> " " <> style <> " " <> border_style,
+      ),
       attribute.attribute("aria-pressed", case is_pressed {
         True -> "true"
         False -> "false"

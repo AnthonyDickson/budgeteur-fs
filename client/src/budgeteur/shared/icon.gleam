@@ -16,6 +16,11 @@ pub fn chevron_right(class class: String) -> Element(msg) {
   stroked(class, "m8.25 4.5 7.5 7.5-7.5 7.5")
 }
 
+/// A tick, for work that is done, e.g. a saved choice.
+pub fn check(class class: String) -> Element(msg) {
+  stroked(class, "m4.5 12.75 6 6 9-13.5")
+}
+
 fn stroked(class: String, path: String) -> Element(msg) {
   html.svg(
     [

@@ -70,7 +70,9 @@ pub fn view(toast: Toast, on_dismiss: fn(Uuid) -> msg) -> Element(msg) {
   )
 }
 
-/// Render many toasts wrapped in a container with a fixed position in the top right of the page.
+/// Render many toasts wrapped in a container with a fixed position in the bottom
+/// right of the page, clear of the page header's actions. The newest toast,
+/// first in the list, sits nearest the corner.
 pub fn view_with_container(
   toasts: List(Toast),
   on_dismissed: fn(uuid.Uuid) -> msg,
@@ -78,7 +80,7 @@ pub fn view_with_container(
   html.div(
     [
       attribute.class(
-        "fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none",
+        "fixed bottom-4 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none",
       ),
     ],
     list.map(toasts, view(_, on_dismissed)),

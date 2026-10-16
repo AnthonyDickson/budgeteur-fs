@@ -23,6 +23,7 @@ import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
 import budgeteur/shared/ui/row
+import budgeteur/shared/ui/stat
 import gleam/float
 import gleam/int
 import gleam/json
@@ -573,7 +574,7 @@ fn page_header(subtitle: String) -> Element(Msg) {
       ]),
       html.div([attribute.class("flex flex-wrap items-center gap-2")], [
         button.view(
-          button.Primary,
+          button.Secondary,
           button.Regular,
           [
             attribute.attribute("data-testid", "add-asset-button"),
@@ -582,7 +583,7 @@ fn page_header(subtitle: String) -> Element(Msg) {
           [html.text("Add asset")],
         ),
         button.view(
-          button.Primary,
+          button.Secondary,
           button.Regular,
           [
             attribute.attribute("data-testid", "add-liability-button"),
@@ -591,7 +592,7 @@ fn page_header(subtitle: String) -> Element(Msg) {
           [html.text("Add liability")],
         ),
         button.view(
-          button.Primary,
+          button.Secondary,
           button.Regular,
           [
             attribute.attribute("data-testid", "add-account-button"),
@@ -625,29 +626,12 @@ fn summary_cards(sheet: BalanceSheet) -> Element(Msg) {
 }
 
 fn summary_card(label: String, amount: Float, testid: String) -> Element(Msg) {
-  card.panel(
-    [
-      attribute.class("px-4 py-3"),
-      attribute.attribute("data-testid", testid),
-    ],
-    [
-      html.p(
-        [
-          attribute.class(
-            "text-xs font-medium uppercase tracking-wide text-fg-muted",
-          ),
-        ],
-        [html.text(label)],
-      ),
-      html.p(
-        [
-          attribute.class("mt-1 text-xl font-semibold tabular-nums text-fg"),
-          attribute.attribute("data-amount", float.to_string(amount)),
-        ],
-        [html.text(money.format(amount))],
-      ),
-    ],
-  )
+  stat.card(label, [attribute.attribute("data-testid", testid)], [
+    stat.figure(
+      [attribute.attribute("data-amount", float.to_string(amount))],
+      money.format(amount),
+    ),
+  ])
 }
 
 fn sheet_columns(sheet: BalanceSheet) -> Element(Msg) {

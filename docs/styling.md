@@ -258,6 +258,8 @@ mode.
     and error messages. A field holding an error is marked with `aria-invalid`,
     which also styles it, so screen readers and the eye see the same state.
   - **card**: a panel and an empty state.
+  - **stat**: a figure card, a label over one headline figure, for the summary
+    rows of the dashboard, balance sheet, and reports.
   - **banner**: error and warning.
   - **link**: a link within text (decision 6).
   - **dialog**, **row**, and **swatch**: today's modal dialog, clickable row,

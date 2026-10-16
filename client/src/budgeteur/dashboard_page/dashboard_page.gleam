@@ -19,6 +19,7 @@ import budgeteur/shared/route
 import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
 import budgeteur/shared/ui/link
+import budgeteur/shared/ui/stat
 import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
 import gleam/float
@@ -242,13 +243,12 @@ fn position_section(position: Position) -> Element(Msg) {
           "dashboard-working-capital",
         ),
         card("Runway", "dashboard-runway", [
-          html.p([attribute.class(big_figure_class)], [
-            html.text(case position.runway {
-              Some(runway) -> float.to_string(runway) <> " months"
-              None -> "Not available"
-            }),
-          ]),
-          html.p([attribute.class("mt-1 text-xs text-fg-muted")], [
+          case position.runway {
+            Some(runway) ->
+              stat.figure([], float.to_string(runway) <> " months")
+            None -> stat.no_figure("Not available")
+          },
+          html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
             html.text("Working capital over average monthly expenses"),
           ]),
         ]),
@@ -349,8 +349,6 @@ fn month_section(month: Month, waiting: Remote(Int)) -> Element(Msg) {
   )
 }
 
-const big_figure_class = "mt-1 text-xl font-semibold tabular-nums text-fg"
-
 /// A total with its typical amount and change below it, once there is a
 /// baseline.
 fn figure_card(
@@ -360,12 +358,9 @@ fn figure_card(
   testid: String,
 ) -> Element(Msg) {
   card(label, testid, [
-    html.p(
-      [
-        attribute.class(big_figure_class),
-        attribute.attribute("data-amount", float.to_string(figure.amount)),
-      ],
-      [html.text(money.format(figure.amount))],
+    stat.figure(
+      [attribute.attribute("data-amount", float.to_string(figure.amount))],
+      money.format(figure.amount),
     ),
     case figure.baseline, figure.change {
       Some(baseline), Some(change) ->
@@ -385,12 +380,10 @@ fn figure_card(
 
 fn savings_rate_card(month: Month) -> Element(Msg) {
   card("Savings rate", "dashboard-savings-rate", [
-    html.p([attribute.class(big_figure_class)], [
-      html.text(case month.savings_rate {
-        Some(rate) -> percent(rate)
-        None -> "No income"
-      }),
-    ]),
+    case month.savings_rate {
+      Some(rate) -> stat.figure([], percent(rate))
+      None -> stat.no_figure("No income")
+    },
     case month.savings_rate_baseline {
       Some(baseline) ->
         comparison_grid(percent(baseline), case month.savings_rate_change {
@@ -811,12 +804,10 @@ fn totals_cards(totals: Option(Totals)) -> Element(Msg) {
             "dashboard-total-net-income",
           ),
           card("Savings rate", "dashboard-total-savings-rate", [
-            html.p([attribute.class(big_figure_class)], [
-              html.text(case totals.savings_rate {
-                Some(rate) -> percent(rate)
-                None -> "No income"
-              }),
-            ]),
+            case totals.savings_rate {
+              Some(rate) -> stat.figure([], percent(rate))
+              None -> stat.no_figure("No income")
+            },
           ]),
         ]),
       ])
@@ -831,12 +822,9 @@ fn total_card(
   testid: String,
 ) -> Element(Msg) {
   card(label, testid, [
-    html.p(
-      [
-        attribute.class(big_figure_class),
-        attribute.attribute("data-amount", float.to_string(total)),
-      ],
-      [html.text(money.format(total))],
+    stat.figure(
+      [attribute.attribute("data-amount", float.to_string(total))],
+      money.format(total),
     ),
     html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
       html.text(money.format(average) <> " a month"),
@@ -957,33 +945,14 @@ fn card(
   testid: String,
   children: List(Element(Msg)),
 ) -> Element(Msg) {
-  card.panel(
-    [
-      attribute.class("px-4 py-3"),
-      attribute.attribute("data-testid", testid),
-    ],
-    [
-      html.p(
-        [
-          attribute.class(
-            "text-xs font-medium uppercase tracking-wide text-fg-muted",
-          ),
-        ],
-        [html.text(label)],
-      ),
-      ..children
-    ],
-  )
+  stat.card(label, [attribute.attribute("data-testid", testid)], children)
 }
 
 fn money_card(label: String, amount: Float, testid: String) -> Element(Msg) {
-  card(label, testid, [
-    html.p(
-      [
-        attribute.class(big_figure_class),
-        attribute.attribute("data-amount", float.to_string(amount)),
-      ],
-      [html.text(money.format(amount))],
+  stat.card(label, [attribute.attribute("data-testid", testid)], [
+    stat.figure(
+      [attribute.attribute("data-amount", float.to_string(amount))],
+      money.format(amount),
     ),
   ])
 }

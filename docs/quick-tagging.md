@@ -144,10 +144,14 @@ Categorisation, tag source, manual tag, and rule tag are defined in
 ### 4. Rows stay in place after tagging
 
 - **Decision**: a quick tagged row stays where it is, with the chosen button
-  marked as pressed and the row muted. Clicking another choice in the row
-  changes it, again in one click. A row's buttons are disabled while its request
-  is in flight; on failure the row returns to its previous state and the error
-  toast is shown. "Next batch" at the bottom fetches the queue again.
+  marked as pressed and a status beside the amount: tagged, marked as transfer,
+  or dismissed. The row and its buttons lose their fill, the row its shadow, and
+  its text and swatches are muted, so it sinks into the page while the rows
+  still waiting stay raised. Colour would draw the eye to the finished rows
+  instead. Clicking another choice in the row changes it, again in one click. A
+  row's buttons are disabled while its request is in flight; on failure the row
+  returns to its previous state and the error toast is shown. "Next batch" at
+  the bottom fetches the queue again.
 - **Why**: removing a row moves the next one under the mouse pointer, so a fast
   second click tags the wrong transaction. It also reassigns Vimium's hints
   between clicks. Keeping the row makes a mistake visible and correctable. One

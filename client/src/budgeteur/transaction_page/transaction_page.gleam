@@ -14,6 +14,7 @@ import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
 import budgeteur/shared/ui/input
 import budgeteur/shared/ui/row
+import budgeteur/shared/ui/swatch
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/import_modal
 import budgeteur/transaction_page/transaction.{type Transaction}
@@ -791,10 +792,10 @@ fn on_delete_failed(
 }
 
 pub fn view(model: Model) -> Element(Msg) {
-  let tag_names_by_id =
-    model.tags |> list.map(fn(tag) { #(tag.id, tag.name) }) |> dict.from_list
+  let tags_by_id =
+    model.tags |> list.map(fn(tag) { #(tag.id, tag) }) |> dict.from_list
 
-  html.div([attribute.class("mx-auto max-w-4xl px-4 py-8 sm:px-6")], [
+  html.div([attribute.class("mx-auto max-w-6xl px-4 py-8 sm:px-6")], [
     html.div([attribute.class("flex items-center justify-between gap-4 mb-6")], [
       html.h1([attribute.class("text-2xl font-semibold text-fg")], [
         html.text("Transactions"),
@@ -849,7 +850,7 @@ pub fn view(model: Model) -> Element(Msg) {
           case results.transactions, transaction_search.is_set(results.search) {
             [], False -> no_transactions_empty_state()
             [], True -> no_matches_empty_state()
-            transactions, _ -> transactions_table(transactions, tag_names_by_id)
+            transactions, _ -> transactions_table(transactions, tags_by_id)
           },
           load_more(results, model.loading_more),
         ])
@@ -865,13 +866,13 @@ pub fn view(model: Model) -> Element(Msg) {
   ])
 }
 
-fn tag_name(
+fn transaction_tag(
   transaction: Transaction,
-  tag_names_by_id: dict.Dict(Uuid, String),
-) -> Option(String) {
+  tags_by_id: dict.Dict(Uuid, Tag),
+) -> Option(Tag) {
   transaction.tag
   |> option.to_result(Nil)
-  |> result.try(fn(tag) { dict.get(tag_names_by_id, tag.id) })
+  |> result.try(fn(tag) { dict.get(tags_by_id, tag.id) })
   |> option.from_result
 }
 
@@ -1223,7 +1224,7 @@ fn searching_note(searching: Bool) -> Element(Msg) {
 
 fn transactions_table(
   transactions: List(Transaction),
-  tag_names_by_id: dict.Dict(Uuid, String),
+  tags_by_id: dict.Dict(Uuid, Tag),
 ) -> Element(Msg) {
   html.div(
     [
@@ -1291,7 +1292,7 @@ fn transactions_table(
                       float.to_string(transaction.amount),
                     ),
                   ],
-                  [html.text(transaction.amount |> money.format)],
+                  [amount_text(transaction.amount)],
                 ),
                 html.td([attribute.class("px-4 py-3")], [
                   row.open_button(
@@ -1302,19 +1303,40 @@ fn transactions_table(
                     children: [html.text(transaction.description)],
                   ),
                 ]),
-                html.td([attribute.class("px-4 py-3 text-sm text-fg-muted")], [
-                  html.text(transaction.account_name |> option.unwrap("-")),
-                ]),
-                html.td([attribute.class("px-4 py-3 text-sm text-fg-muted")], [
-                  html.text(case transaction.is_transfer {
+                html.td(
+                  [
+                    attribute.class(
+                      "whitespace-nowrap px-4 py-3 text-sm text-fg-muted",
+                    ),
+                  ],
+                  [html.text(transaction.account_name |> option.unwrap("-"))],
+                ),
+                html.td(
+                  [
+                    attribute.class(
+                      "whitespace-nowrap px-4 py-3 text-sm text-fg-muted",
+                    ),
+                  ],
+                  case
+                    transaction.is_transfer,
+                    transaction_tag(transaction, tags_by_id)
+                  {
                     // A transfer has no tag: it is neither income nor
                     // an expense.
-                    True -> "Transfer"
-                    False ->
-                      tag_name(transaction, tag_names_by_id)
-                      |> option.unwrap("-")
-                  }),
-                ]),
+                    True, _ -> [html.text("Transfer")]
+                    False, Some(tag) -> [
+                      html.span(
+                        [
+                          attribute.class(
+                            "inline-flex items-center gap-2 text-fg",
+                          ),
+                        ],
+                        [swatch.view(tag.color), html.text(tag.name)],
+                      ),
+                    ]
+                    False, None -> [html.text("-")]
+                  },
+                ),
                 html.td([attribute.class("py-3 pr-4")], [
                   row.chevron(class: "block"),
                 ]),
@@ -1434,4 +1456,18 @@ fn failed_state() -> Element(Msg) {
       ),
     ],
   )
+}
+
+/// Credits sit on the success tint so money coming in stands out from the
+/// debits around it. Success is never a text colour (decision 6 in
+/// docs/styling.md), and the minus sign on debits still carries the direction.
+/// The tint's negative margin cancels its padding so the figures line up.
+fn amount_text(amount: Float) -> Element(Msg) {
+  case amount >. 0.0 {
+    True ->
+      html.span([attribute.class("-mx-1 rounded bg-success-tint px-1")], [
+        html.text(money.format(amount)),
+      ])
+    False -> html.text(money.format(amount))
+  }
 }

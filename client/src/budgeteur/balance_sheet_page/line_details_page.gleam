@@ -820,7 +820,7 @@ fn noun(line_ref: LineRef) -> String {
 pub fn view(model: Model) -> Element(Msg) {
   html.div(
     [
-      attribute.class("mx-auto max-w-3xl px-4 py-8 sm:px-6"),
+      attribute.class("mx-auto max-w-6xl px-4 py-8 sm:px-6"),
       attribute.attribute("data-testid", "line-details-page"),
     ],
     [
@@ -1034,27 +1034,26 @@ fn side_label(side: side.Side) -> String {
 fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
   case entries {
     [] ->
-      html.p(
+      card.empty_state(
         [
-          attribute.class(
-            "rounded-lg border border-border bg-surface px-4 py-8 text-center text-sm text-fg-muted",
-          ),
+          attribute.class("max-w-xl"),
           attribute.attribute("data-testid", "line-details-empty"),
         ],
-        [html.text("No balances recorded yet.")],
+        [
+          html.p([attribute.class("text-sm text-fg-muted")], [
+            html.text("No balances recorded yet."),
+          ]),
+        ],
       )
     _ -> {
       let deletable = case line_ref, entries {
         ItemRef(..), [_] -> False
         _, _ -> True
       }
-      html.table(
-        [
-          attribute.class(
-            "w-full overflow-hidden rounded-lg border border-border bg-surface text-sm",
-          ),
-        ],
-        [
+      // As wide as its three short columns need, not the page, so a value
+      // sits near its date.
+      card.panel([attribute.class("max-w-xl overflow-hidden")], [
+        html.table([attribute.class("w-full text-sm")], [
           html.thead(
             [attribute.class("bg-surface-hover text-left text-fg-muted")],
             [
@@ -1078,8 +1077,8 @@ fn entry_table(line_ref: LineRef, entries: List(Entry)) -> Element(Msg) {
             [attribute.class("divide-y divide-border")],
             list.map(entries, entry_row(_, deletable)),
           ),
-        ],
-      )
+        ]),
+      ])
     }
   }
 }

@@ -19,6 +19,7 @@ import budgeteur/shared/term
 import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
+import budgeteur/shared/ui/stat
 import budgeteur/shared/ui/swatch
 import gleam/dynamic/decode
 import gleam/float
@@ -442,17 +443,11 @@ fn figure_card(
 ) -> Element(Msg) {
   card(label, testid, case amount {
     Some(amount) ->
-      html.p(
-        [
-          attribute.class("mt-1 text-2xl font-semibold tabular-nums text-fg"),
-          attribute.attribute("data-amount", float.to_string(amount)),
-        ],
-        [html.text(money.format(amount))],
+      stat.figure(
+        [attribute.attribute("data-amount", float.to_string(amount))],
+        money.format(amount),
       )
-    None ->
-      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
-        html.text("Not meaningful"),
-      ])
+    None -> stat.no_figure("Not meaningful")
   })
 }
 
@@ -463,30 +458,15 @@ fn percent_card(
 ) -> Element(Msg) {
   card(label, testid, case percent {
     Some(percent) ->
-      html.p(
-        [
-          attribute.class("mt-1 text-2xl font-semibold tabular-nums text-fg"),
-        ],
-        [html.text(float.to_string(float.to_precision(percent, 1)) <> "%")],
-      )
-    None ->
-      html.p([attribute.class("mt-1 text-sm text-fg-muted")], [
-        html.text("No income"),
-      ])
+      stat.figure([], float.to_string(float.to_precision(percent, 1)) <> "%")
+    None -> stat.no_figure("No income")
   })
 }
 
 fn card(label: String, testid: String, value: Element(Msg)) -> Element(Msg) {
-  card.panel(
-    [
-      attribute.class("px-4 py-3"),
-      attribute.attribute("data-testid", testid),
-    ],
-    [
-      html.p([attribute.class("text-sm text-fg-muted")], [html.text(label)]),
-      value,
-    ],
-  )
+  stat.card(label, [attribute.attribute("data-testid", testid)], [
+    value,
+  ])
 }
 
 fn lines_table(
@@ -573,7 +553,7 @@ fn sheet_table(sheet: Sheet) -> Element(Msg) {
   card.panel([attribute.class("overflow-hidden")], [
     case sheet.lines {
       [] ->
-        html.p([attribute.class("px-4 py-3 text-sm text-fg-subtle")], [
+        html.p([attribute.class("px-4 py-3 text-sm text-fg-muted")], [
           html.text("Nothing on the balance sheet on this date."),
         ])
       _ ->
@@ -614,10 +594,17 @@ fn sheet_table(sheet: Sheet) -> Element(Msg) {
               liabilities,
               sheet.total_liabilities,
             ),
-            html.tfoot([attribute.class("border-t-2 border-border")], [
-              total_row("Net worth", sheet.net_worth),
-              total_row("Working capital", sheet.working_capital),
-            ]),
+            html.tfoot(
+              [
+                attribute.class(
+                  "divide-y divide-border border-t-2 border-border",
+                ),
+              ],
+              [
+                total_row("Net worth", sheet.net_worth),
+                total_row("Working capital", sheet.working_capital),
+              ],
+            ),
           ],
         )
     },
@@ -681,7 +668,7 @@ fn sheet_row(line: SheetLine) -> Element(Msg) {
   html.tr([], [
     html.td([attribute.class("px-4 py-2")], [
       html.p([attribute.class("text-fg")], [html.text(line.name)]),
-      html.p([attribute.class("text-xs text-fg-subtle")], [
+      html.p([attribute.class("text-xs text-fg-muted")], [
         html.text(term.label(line.term, line.side)),
       ]),
     ]),
@@ -698,18 +685,21 @@ fn sheet_row(line: SheetLine) -> Element(Msg) {
   ])
 }
 
+/// A total, shaded and bold so it stands apart from the lines it sums.
 fn total_row(label: String, amount: Float) -> Element(Msg) {
-  html.tr([], [
+  html.tr([attribute.class("bg-surface-hover")], [
     html.th(
       [
-        attribute.class("px-4 py-2 text-left font-medium text-fg-muted"),
+        attribute.class("px-4 py-2 text-left font-semibold text-fg"),
         attribute.attribute("colspan", "2"),
       ],
       [html.text(label)],
     ),
     html.td(
       [
-        attribute.class("px-4 py-2 text-right font-medium tabular-nums text-fg"),
+        attribute.class(
+          "px-4 py-2 text-right font-semibold tabular-nums text-fg",
+        ),
         attribute.attribute("data-amount", float.to_string(amount)),
       ],
       [html.text(money.format(amount))],
