@@ -66,6 +66,35 @@ async function expectFieldsAvoidZoom(page: Page) {
   expect(small, 'fields smaller than 16px').toEqual([]);
 }
 
+/// The first day of the month `monthsAgo` before the browser's current month,
+/// as YYYY-MM-DD.
+function monthStart(monthsAgo: number): string {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${start.getFullYear()}-${pad(start.getMonth() + 1)}-01`;
+}
+
+/// The chart's month labels, those it shows, do not overlap.
+async function expectMonthLabelsApart(chart: Locator) {
+  const labels = chart.locator('[aria-label="x-axis tick label"] text');
+  await expect(labels.first()).toBeAttached();
+  const spans = await labels.evaluateAll((elements) =>
+    elements
+      .filter((element) => element.textContent !== '')
+      .map((element) => {
+        const box = element.getBoundingClientRect();
+        return [box.left, box.right];
+      })
+  );
+  expect(spans.length).toBeGreaterThan(1);
+  for (let i = 1; i < spans.length; i++) {
+    expect(spans[i][0], 'month labels overlap').toBeGreaterThan(
+      spans[i - 1][1],
+    );
+  }
+}
+
 /// The open dialog fits within the screen's width, leaving a margin at each
 /// side.
 async function expectDialogFits(page: Page, testId: string) {
@@ -158,6 +187,22 @@ test.describe('mobile', () => {
         path: screenshotPath(testInfo, 'transactions'),
         fullPage: true,
       });
+
+      // A transaction 11 months ago fills the dashboard's year of history.
+      await page.getByTestId('record-transaction-button').click();
+      await expect(transactionModal).toBeVisible();
+      await transactionModal.getByTestId('transaction-amount-input').fill(
+        '40.00',
+      );
+      await transactionModal.getByTestId('transaction-description-input').fill(
+        'CLOUDSTORE.COM/BILL',
+      );
+      await transactionModal.getByTestId('transaction-date-input').fill(
+        monthStart(11),
+      );
+      await transactionModal.getByTestId('transaction-submit-button').click();
+      await expect(transactionModal).toBeHidden();
+      await expect(row).toHaveCount(2);
       await page.getByTestId('filters-button').click();
       await expect(page.getByTestId('dates-select')).toBeVisible();
       await expectFieldsAvoidZoom(page);
@@ -170,6 +215,9 @@ test.describe('mobile', () => {
       });
       await expectFullyOnScreen(line.getByText('Subscriptions'));
       await expectFullyOnScreen(line.locator('[data-amount]'));
+      await expectMonthLabelsApart(
+        page.getByTestId('dashboard-cash-flow-chart'),
+      );
       await page.getByTestId('dashboard-cash-flow-toggle').click();
       await expectFullyOnScreen(
         page.getByTestId('dashboard-cash-flow').locator('th').last(),
@@ -179,20 +227,37 @@ test.describe('mobile', () => {
         fullPage: true,
       });
 
-      for (
-        const [name, url, shot] of [
-          ['Reports', /\/reports$/, 'reports'],
-          ['Balance Sheet', /\/balance-sheet$/, 'balance-sheet'],
-        ] as const
-      ) {
-        await openFromMenu(page, name, url);
-        await expectNoSidewaysScroll(page);
-        await expectFieldsAvoidZoom(page);
-        await page.screenshot({
-          path: screenshotPath(testInfo, shot),
-          fullPage: true,
-        });
-      }
+      // An account named by its number, which cannot wrap, with a balance
+      // in the month the report shows.
+      await openFromMenu(page, 'Balance Sheet', /\/balance-sheet$/);
+      await page.getByTestId('add-account-button').click();
+      const accountModal = page.getByTestId('account-modal');
+      await expect(accountModal).toBeVisible();
+      await expectDialogFits(page, 'account-modal');
+      await accountModal.getByTestId('account-name-input').fill(
+        '38-9024-0573525-000',
+      );
+      await accountModal.getByTestId('balance-amount-input').fill('8056.89');
+      await accountModal.getByTestId('balance-as-of-input').fill(monthStart(1));
+      await accountModal.getByTestId('account-submit-button').click();
+      await expect(accountModal).toBeHidden();
+      await expectNoSidewaysScroll(page);
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'balance-sheet'),
+        fullPage: true,
+      });
+
+      // The report's balance sheet keeps its amounts inside the card.
+      await openFromMenu(page, 'Reports', /\/reports$/);
+      await expectNoSidewaysScroll(page);
+      await expectFieldsAvoidZoom(page);
+      const sheet = page.getByTestId('report-sheet-lines');
+      await expectFullyOnScreen(sheet.getByText('Amount'));
+      await expectFullyOnScreen(sheet.locator('[data-amount]').first());
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'reports'),
+        fullPage: true,
+      });
 
       await page.getByTestId('nav-menu-button').click();
       await expect(menu(page)).toBeVisible();

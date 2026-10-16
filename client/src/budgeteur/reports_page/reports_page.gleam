@@ -566,6 +566,10 @@ fn line_row(line: Line) -> Element(Msg) {
   ])
 }
 
+/// The sheet's "As of" column, hidden below sm, where account numbers leave no
+/// room for it and each line shows its date under its name instead.
+const as_of_column = " hidden sm:table-cell"
+
 /// The closing balance sheet: its assets, then its liabilities, each with its
 /// total, then net worth and working capital. Amounts are magnitudes, as on the
 /// balance sheet page: the group gives the direction.
@@ -593,9 +597,10 @@ fn sheet_table(sheet: Sheet) -> Element(Msg) {
                   html.th([attribute.class("px-4 py-2 font-medium")], [
                     html.text("Line"),
                   ]),
-                  html.th([attribute.class("px-4 py-2 font-medium")], [
-                    html.text("As of"),
-                  ]),
+                  html.th(
+                    [attribute.class("px-4 py-2 font-medium" <> as_of_column)],
+                    [html.text("As of")],
+                  ),
                   html.th(
                     [attribute.class("px-4 py-2 text-right font-medium")],
                     [
@@ -693,9 +698,12 @@ fn sheet_row(line: SheetLine) -> Element(Msg) {
       html.p([attribute.class("text-fg")], [html.text(line.name)]),
       html.p([attribute.class("text-xs text-fg-muted")], [
         html.text(term.label(line.term, line.side)),
+        html.span([attribute.class("sm:hidden")], [
+          html.text(" · as of " <> date.format(line.as_of)),
+        ]),
       ]),
     ]),
-    html.td([attribute.class("px-4 py-2 text-fg-muted")], [
+    html.td([attribute.class("px-4 py-2 text-fg-muted" <> as_of_column)], [
       html.text(date.format(line.as_of)),
     ]),
     html.td(
@@ -711,13 +719,12 @@ fn sheet_row(line: SheetLine) -> Element(Msg) {
 /// A total, shaded and bold so it stands apart from the lines it sums.
 fn total_row(label: String, amount: Float) -> Element(Msg) {
   html.tr([attribute.class("bg-surface-hover")], [
-    html.th(
-      [
-        attribute.class("px-4 py-2 text-left font-semibold text-fg"),
-        attribute.attribute("colspan", "2"),
-      ],
-      [html.text(label)],
-    ),
+    // An empty "As of" cell rather than a colspan, so the amount stays in its
+    // column when the "As of" column is hidden.
+    html.th([attribute.class("px-4 py-2 text-left font-semibold text-fg")], [
+      html.text(label),
+    ]),
+    html.td([attribute.class("px-4 py-2" <> as_of_column)], []),
     html.td(
       [
         attribute.class(

@@ -320,12 +320,12 @@ mode.
   the same links open from a menu button, in a native popover like the help
   (decision 12). The header is keyed by route, like the page, so going to
   another page replaces it and closes the menu. A table too wide for the screen
-  hides its other columns and header below `md`, and its main cell repeats their
-  figures in a second line, so each row reads as a card. Text fields are 16px
-  unless the screen is at least `sm` wide and has a mouse, so phones in either
-  orientation and tablets get them. Below `sm`, dialogs leave a margin at each
-  side, and toasts span the screen less its margins. Help buttons are 24px
-  targets at every width.
+  hides its secondary columns below the breakpoint where it stops fitting, and
+  its main cell repeats their figures in a second line, so each row reads as a
+  card. Text fields are 16px unless the screen is at least `sm` wide and has a
+  mouse, so phones in either orientation and tablets get them. Below `sm`,
+  dialogs leave a margin at each side, and toasts span the screen less its
+  margins. Help buttons are 24px targets at every width.
 - **Why**: the nav alone needs about 700px, and once anything is wider than the
   screen the whole page scrolls sideways and modal dialogs are sized to the
   wider page. The popover keeps the menu's state in the browser. A link in a
