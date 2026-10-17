@@ -1,3 +1,4 @@
+import budgeteur/shared/auth_route
 import budgeteur/shared/icon
 import budgeteur/shared/route
 import gleam/list
@@ -17,8 +18,8 @@ const pages = [
 /// The id of the menu popover, which narrow screens show in place of the nav.
 const menu_id = "nav-menu"
 
-/// The app-wide header: brand link plus nav links to each page. The active
-/// item is highlighted based on the current route.
+/// The app-wide header: brand link plus nav links to each page, and a log out
+/// button. The active item is highlighted based on the current route.
 ///
 /// Narrow screens have no room for the nav, so it is hidden there and the same
 /// links are in a menu behind a button. The browser's popover API opens and
@@ -56,6 +57,9 @@ pub fn view(current_route: route.Route) -> Element(msg) {
             nav_link(page, current_route, "px-3 py-1.5 text-sm")
           }),
         ),
+        html.div([attribute.class("ml-auto hidden md:block")], [
+          log_out_button(testid: "log-out-button", class: "px-3 py-1.5 text-sm"),
+        ]),
         menu(current_route),
       ],
     ),
@@ -94,9 +98,19 @@ fn menu(current_route: route.Route) -> Element(msg) {
           <> "[position-area:bottom_span-left] [position-try-fallbacks:flip-block]",
         ),
       ],
-      list.map(pages, fn(page) {
-        nav_link(page, current_route, "block px-3 py-2 text-base")
-      }),
+      list.append(
+        list.map(pages, fn(page) {
+          nav_link(page, current_route, "block px-3 py-2 text-base")
+        }),
+        [
+          html.div([attribute.class("border-t border-border pt-1")], [
+            log_out_button(
+              testid: "nav-menu-log-out-button",
+              class: "block w-full px-3 py-2 text-left text-base",
+            ),
+          ]),
+        ],
+      ),
     ),
   ])
 }
@@ -124,4 +138,24 @@ fn nav_link(
     ],
     [html.text(route.name(target))],
   )
+}
+
+/// A button that logs out, styled as a nav link. Logging out is a form post,
+/// so another site cannot log the user out with a link. `class` sizes and lays
+/// out the button for the nav or the menu.
+fn log_out_button(testid testid: String, class class: String) -> Element(msg) {
+  html.form([attribute.method("post"), attribute.action(auth_route.logout)], [
+    html.button(
+      [
+        attribute.type_("submit"),
+        attribute.attribute("data-testid", testid),
+        attribute.class(
+          "cursor-pointer whitespace-nowrap rounded-md font-medium text-fg-muted "
+          <> "hover:bg-surface-hover hover:text-fg "
+          <> class,
+        ),
+      ],
+      [html.text("Log out")],
+    ),
+  ])
 }

@@ -24,6 +24,7 @@ Oidc__ClientId               # Required. SPA client ID (confidential)
 Oidc__ClientSecret           # Required. SPA client secret
 Oidc__CallbackPath           # Required. Redirect URI path (e.g. /signin-oidc)
 Oidc__ValidAudiences         # Optional. Accepted JWT audiences; if unset, audience validation is disabled
+Oidc__LogoutUrl              # Optional. Provider logout page that /logout redirects to
 Login__ReturnUrl             # Required. Post-login redirect (e.g. https://app.example.com/)
 OAuth2__AuthorizationUrl     # Optional. Scalar OAuth2 flow (dev only)
 OAuth2__TokenUrl             # Optional. Scalar OAuth2 flow (dev only)
@@ -92,6 +93,7 @@ export Oidc__ClientId=budgeteur-fs
 export Oidc__ClientSecret=<your-production-secret>
 export Oidc__CallbackPath=/signin-oidc
 export Login__ReturnUrl=https://app.example.com/
+export Oidc__LogoutUrl=https://auth.example.com/logout?rd=https://app.example.com/signed-out
 # OAuth2__* is dev-only (Scalar docs) — omit in production
 ```
 
@@ -119,8 +121,14 @@ Other non-obvious auth behaviours:
 
 - Claims are taken from the ID token — the userinfo endpoint is not called by
   default. Enable `GetClaimsFromUserInfoEndpoint` to get `name`/`email` claims.
-- `/logout` only clears the local session cookie; Authelia does not yet support
-  RP-initiated logout, so the provider session persists.
+- `/logout` clears the local session cookie, then redirects to
+  `Oidc__LogoutUrl`. Authelia 4.39 does not support RP-initiated logout, so set
+  it to Authelia's logout page, which ends the provider session. Its `rd`
+  parameter names the page to return to; Authelia follows it only to an `https`
+  URL within one of its session cookie domains, otherwise the user stays on its
+  login page. Without `Oidc__LogoutUrl`, the user lands on the app's signed out
+  page while the provider session lives on, so signing in again skips the
+  provider's login form.
 
 ## Verify
 

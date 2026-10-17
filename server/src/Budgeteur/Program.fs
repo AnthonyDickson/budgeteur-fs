@@ -122,13 +122,19 @@ let private withAuth endpoints =
 let private buildEndpoints
     (connectionString : string)
     (loginReturnUrl : string)
+    (providerLogoutUrl : string option)
     (app : WebApplication)
     =
     let queryContext = QueryContextFactory.Create connectionString
     let startedAt = Process.GetCurrentProcess().StartTime.ToUniversalTime()
 
     let authEndpoints =
-        seq [ GET [ Login.endpoint loginReturnUrl; Logout.endpoint "/" ] ]
+        seq [
+            GET [ Login.endpoint loginReturnUrl ]
+            // POST, so another site cannot log the user out with a link: the
+            // SameSite=Lax cookie is not sent with its cross-site form posts.
+            POST [ Logout.endpoint providerLogoutUrl ]
+        ]
 
     let statusEndpoints = [
         GET [
@@ -244,7 +250,11 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
     app.UseAuthorization () |> ignore
 
     app.UseOxpecker (
-        buildEndpoints config.ConnectionString config.Login.ReturnUrl app
+        buildEndpoints
+            config.ConnectionString
+            config.Login.ReturnUrl
+            (Option.ofObj config.Oidc.LogoutUrl)
+            app
     )
     |> ignore
 

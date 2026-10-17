@@ -19,6 +19,8 @@ services:
       Oidc__ClientId: "budgeteur-fs"
       Oidc__ClientSecret: "elmish-todos-dev-secret"
       Oidc__CallbackPath: "/signin-oidc"
+      # Optional. The provider's logout page, so logging out ends its session too.
+      # Oidc__LogoutUrl: "https://auth.example.com/logout?rd=https://budget.example.com/signed-out"
       ConnectionStrings__Default: "Data Source=/data/app.sqlite3"
       Logging__FilePath: "/logs/app.log"
       DataProtection__KeysPath: "/data/keys"

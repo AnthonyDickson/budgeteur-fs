@@ -261,6 +261,9 @@ test.describe('mobile', () => {
 
       await page.getByTestId('nav-menu-button').click();
       await expect(menu(page)).toBeVisible();
+      await expectFullyOnScreen(
+        menu(page).getByTestId('nav-menu-log-out-button'),
+      );
       await page.screenshot({ path: screenshotPath(testInfo, 'menu') });
 
       await page.goto('/signed-out');

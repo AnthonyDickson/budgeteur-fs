@@ -153,16 +153,21 @@ by the presence of an `Authorization: Bearer` header:
 
 Either satisfies the single `authenticated` policy that protects every API
 endpoint. `/login` starts the challenge and redirects to the configured return
-URL; `/logout` clears the session cookie. Outside development, cookies are
-secure, `HttpOnly`, `SameSite=Lax`, with a one-hour sliding expiry.
+URL. `/logout` takes a POST, so another site cannot log the user out with a
+link, clears the session cookie, and redirects to the provider's logout page
+when one is configured, otherwise to the client's signed out page. That page
+makes no API request, so it does not send the user straight back to the
+provider; a `401` anywhere else does, so an expired session with a live provider
+session signs back in without a click. Outside development, cookies are secure,
+`HttpOnly`, `SameSite=Lax`, with a one-hour sliding expiry.
 
 Known limits:
 
 - Claims come from the ID token; the userinfo endpoint is not called.
 - Audience validation is off unless audiences are configured, because Authelia
   access tokens carry no `aud` claim.
-- `/logout` clears only the local cookie. The provider session persists, as
-  Authelia lacks RP-initiated logout.
+- Authelia 4.39 lacks RP-initiated logout, so the provider session is ended
+  through its logout page rather than the standard end session endpoint.
 
 Provider setup is in [prod-oidc-setup](prod-oidc-setup.md).
 
