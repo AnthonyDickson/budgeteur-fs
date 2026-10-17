@@ -132,11 +132,13 @@ fn validate_as_of(as_of: String) -> Result(Date, AsOfError) {
 // View
 
 /// The value fields for an item on `side`, with `note` under the value for
-/// what the parent form does with them.
+/// what the parent form does with them. `autofocus` focuses the value when the
+/// dialog opens, for a form with no field before it.
 pub fn view(
   form: Form,
   side side: Side,
   submitting submitting: Bool,
+  autofocus autofocus: Bool,
   note note: String,
 ) -> Element(Msg) {
   let Form(value:, as_of:) = form
@@ -155,6 +157,7 @@ pub fn view(
         attribute.id("value-amount-input"),
         attribute.type_("text"),
         attribute.attribute("data-testid", "value-amount-input"),
+        attribute.autofocus(autofocus),
         attribute.aria_describedby("value-help"),
         attribute.inputmode("decimal"),
         attribute.placeholder("0.00"),

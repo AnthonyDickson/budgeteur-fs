@@ -178,6 +178,7 @@ fn view_form(
         balance_form.view(
           form.balance,
           submitting:,
+          autofocus: True,
           note: "To correct the current balance, keep its date: a balance on a date that already has one replaces it.",
         )
           |> element.map(BalanceMsg),

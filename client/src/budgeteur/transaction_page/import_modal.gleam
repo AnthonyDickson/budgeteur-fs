@@ -273,6 +273,7 @@ fn dialog(
             attribute.type_("file"),
             attribute.id(file_input_id),
             attribute.attribute("data-testid", "import-file-input"),
+            attribute.autofocus(True),
             attribute.accept([".csv", "text/csv"]),
             attribute.multiple(True),
             attribute.disabled(busy),

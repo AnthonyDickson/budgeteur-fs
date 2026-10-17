@@ -159,10 +159,12 @@ fn validate_as_of(as_of: String) -> Result(Date, AsOfError) {
 // View
 
 /// The balance fields, with `note` in their help for what the parent form does
-/// with them.
+/// with them. `autofocus` focuses the amount when the dialog opens, for a form
+/// with no field before it.
 pub fn view(
   form: Form,
   submitting submitting: Bool,
+  autofocus autofocus: Bool,
   note note: String,
 ) -> Element(Msg) {
   let Form(side:, amount:, as_of:) = form
@@ -187,6 +189,7 @@ pub fn view(
       input.text([
         attribute.type_("text"),
         attribute.attribute("data-testid", "balance-amount-input"),
+        attribute.autofocus(autofocus),
         attribute.attribute("aria-label", "Amount"),
         attribute.aria_describedby("balance-help"),
         attribute.inputmode("decimal"),

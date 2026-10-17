@@ -359,6 +359,7 @@ fn view_form(
             balance_form.view(
               balance,
               submitting:,
+              autofocus: False,
               note: "Leave blank if you do not know it yet. The account is left out of the totals until it has a balance.",
             )
             |> element.map(BalanceMsg)

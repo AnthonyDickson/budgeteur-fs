@@ -563,6 +563,7 @@ fn view_form(
           input.text([
             attribute.type_("text"),
             attribute.attribute("data-testid", "transaction-amount-input"),
+            attribute.autofocus(True),
             attribute.inputmode("decimal"),
             attribute.step("0.01"),
             attribute.placeholder("0.00"),
