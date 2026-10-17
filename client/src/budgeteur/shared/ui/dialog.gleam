@@ -135,7 +135,7 @@ pub fn form_footer(
   cancel cancel: Element(msg),
   submit submit: Element(msg),
 ) -> Element(msg) {
-  html.div([attribute.class("flex flex-wrap items-center gap-3 pt-2")], [
+  html.div([attribute.class("flex items-center gap-3 pt-2")], [
     option.unwrap(leading, element.none()),
     html.div([attribute.class("ml-auto flex gap-3")], [cancel, submit]),
   ])
