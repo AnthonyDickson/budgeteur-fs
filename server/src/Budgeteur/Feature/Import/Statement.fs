@@ -407,9 +407,9 @@ module Statement =
 
                 Error [
                     Some line,
-                    $"""the {balance.DateColumn} {next.Date.ToString "O"} \
-                    is out of order after {previous.Date.ToString "O"}: \
-                    {format.Name} statements list rows {listed}"""
+                    $"the {balance.DateColumn} {next.Date:O} \
+                    is out of order after {previous.Date:O}: \
+                    {format.Name} statements list rows {listed}"
                 ]
 
     /// <summary>Read a file with the first format it matches. Fails with

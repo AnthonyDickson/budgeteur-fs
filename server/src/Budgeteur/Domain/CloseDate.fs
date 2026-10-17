@@ -22,9 +22,8 @@ module CloseDate =
         if closedOn > latest then
             Error (
                 ValidationFailed
-                    $"""The close date {closedOn.ToString "O"} is in the \
-                    future. The latest accepted date is \
-                    {latest.ToString "O"}."""
+                    $"The close date {closedOn:O} is in the future. \
+                    The latest accepted date is {latest:O}."
             )
         else
             Ok closedOn
