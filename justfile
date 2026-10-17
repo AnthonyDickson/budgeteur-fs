@@ -67,8 +67,26 @@ format:
 	cd server && dotnet fantomas .
 
 # Lint with fsharplint
-lint: check-architecture
+lint: check-architecture check-strings
 	cd server && dotnet fsharplint lint Budgeteur.slnx
+
+# Reject a `\` line continuation inside a triple-quoted F# string, which keeps the backslash and the next line's
+# indentation rather than joining the lines
+check-strings:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	find server/src server/tests server/scripts \( -name '*.fs' -o -name '*.fsx' \) -not -path '*/bin/*' -not -path '*/obj/*' -print0 \
+		| xargs -0 awk '
+			FNR == 1 { inside = 0 }
+			{
+				if (gsub(/"""/, "&") % 2 == 1) inside = !inside
+				if (inside && $0 ~ /\\[[:space:]]*$/) {
+					printf "%s:%d: \\ does not continue a line in a \"\"\" string\n", FILENAME, FNR
+					bad = 1
+				}
+			}
+			END { exit bad }
+		'
 
 # Enforce the architecture rules that no compiler or formatter can: slice and shared module boundaries
 check-architecture:
