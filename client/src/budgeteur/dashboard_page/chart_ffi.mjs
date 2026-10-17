@@ -139,6 +139,8 @@ function netWorth(Plot, months, width) {
     // Unlike the bars, the line does not start at zero, so its lowest and
     // highest points would sit on the axis and the top edge without an inset.
     y: { grid: true, label: null, tickFormat: '$,~s', inset: 12 },
+    // The dots' fill is a colour per month, used as is.
+    color: { type: 'identity' },
     marks: [
       Plot.lineY(months, { x: 'label', y: 'netWorth', stroke: accent }),
       ...dots(Plot, months, 'netWorth', accent, 'Net worth'),
@@ -147,21 +149,22 @@ function netWorth(Plot, months, width) {
 }
 
 /// A dot per month with its figure on hover: filled for complete months and
-/// hollow for the month to date.
+/// hollow for the month to date. One mark, so one tip: each mark's tip follows
+/// the pointer on its own, and a tap would show a tip per mark.
 function dots(Plot, months, field, color, name) {
-  const options = (complete) => ({
-    x: 'label',
-    y: field,
-    filter: (month) => month.complete === complete,
-    stroke: color,
-    fill: complete ? color : surface,
-    tip: true,
-    title: (month) =>
-      `${month.label}${complete ? '' : ' to date'}\n${name} ${
-        money(month[field])
-      }`,
-  });
-  return [Plot.dot(months, options(true)), Plot.dot(months, options(false))];
+  return [
+    Plot.dot(months, {
+      x: 'label',
+      y: field,
+      stroke: color,
+      fill: (month) => (month.complete ? color : surface),
+      tip: true,
+      title: (month) =>
+        `${month.label}${month.complete ? '' : ' to date'}\n${name} ${
+          money(month[field])
+        }`,
+    }),
+  ];
 }
 
 const currency = new Intl.NumberFormat('en-NZ', {
