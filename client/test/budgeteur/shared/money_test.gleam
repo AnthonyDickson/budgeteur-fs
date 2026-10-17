@@ -64,6 +64,30 @@ pub fn parse_decimal_rejects_non_numeric_input_test() {
   |> should.equal(Error(Nil))
 }
 
+pub fn parse_decimal_ignores_thousands_separators_test() {
+  money.parse_decimal("1,234,567.89")
+  |> should.equal(Ok(1_234_567.89))
+
+  money.parse_decimal("400,000")
+  |> should.equal(Ok(400_000.0))
+}
+
+pub fn parse_decimal_accepts_amounts_formatted_by_the_app_test() {
+  money.parse_decimal(money.format(1234.5))
+  |> should.equal(Ok(1234.5))
+
+  money.parse_decimal(money.format(-1234.5))
+  |> should.equal(Ok(-1234.5))
+}
+
+pub fn parse_decimal_rejects_separators_alone_test() {
+  money.parse_decimal(",")
+  |> should.equal(Error(Nil))
+
+  money.parse_decimal("$")
+  |> should.equal(Error(Nil))
+}
+
 pub fn parse_decimal_rejects_malformed_decimal_points_test() {
   money.parse_decimal("12..")
   |> should.equal(Error(Nil))
