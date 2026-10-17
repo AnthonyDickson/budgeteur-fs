@@ -14,6 +14,9 @@ pub type Route {
   /// An account's details page, with its observation history.
   AccountDetails(id: Uuid)
   Reports
+  /// Shown after logging out. It makes no API request, so it does not send the
+  /// user straight back to the provider.
+  SignedOut
   NotFound
 }
 
@@ -28,6 +31,7 @@ pub fn to_string(route: Route) -> String {
     ItemDetails(id:) -> "/balance-sheet/items/" <> uuid.to_string(id)
     AccountDetails(id:) -> "/balance-sheet/accounts/" <> uuid.to_string(id)
     Reports -> "/reports"
+    SignedOut -> "/signed-out"
     NotFound -> "/not_found"
   }
 }
@@ -42,6 +46,7 @@ pub fn name(route: Route) -> String {
     Tagging -> "Tags & Rules"
     BalanceSheet | ItemDetails(..) | AccountDetails(..) -> "Balance Sheet"
     Reports -> "Reports"
+    SignedOut -> "Signed out"
     NotFound -> "Page Not Found"
   }
 }
@@ -70,6 +75,7 @@ fn from_path_segments(path: List(String)) -> Route {
     ["balance-sheet", "items", id] -> with_id(id, ItemDetails)
     ["balance-sheet", "accounts", id] -> with_id(id, AccountDetails)
     ["reports"] -> Reports
+    ["signed-out"] -> SignedOut
     _ -> NotFound
   }
 }

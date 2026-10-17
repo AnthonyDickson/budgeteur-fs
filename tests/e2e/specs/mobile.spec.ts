@@ -262,6 +262,11 @@ test.describe('mobile', () => {
       await page.getByTestId('nav-menu-button').click();
       await expect(menu(page)).toBeVisible();
       await page.screenshot({ path: screenshotPath(testInfo, 'menu') });
+
+      await page.goto('/signed-out');
+      await expect(page.getByTestId('signed-out-page')).toBeVisible();
+      await expectNoSidewaysScroll(page);
+      await page.screenshot({ path: screenshotPath(testInfo, 'signed-out') });
     },
   );
 });
