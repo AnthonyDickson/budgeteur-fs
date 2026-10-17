@@ -538,7 +538,7 @@ fn lines_table(
 
 fn line_row(line: Line, better: Better, compared: Bool) -> Element(Msg) {
   let figure = line.figure
-  let number_class = "px-4 py-2 text-right tabular-nums"
+  let number_class = "whitespace-nowrap px-4 py-2 text-right tabular-nums"
   // Typical and % are hidden below sm; see `lines_table`.
   let narrow_hidden = " hidden sm:table-cell"
   let change_classes = [number_class, number_class <> narrow_hidden]
@@ -919,7 +919,8 @@ fn history_figures(
   let header_class =
     cell_class
     <> " text-right text-xs font-medium uppercase tracking-wide text-fg-muted"
-  let number_class = cell_class <> " text-right tabular-nums text-fg"
+  let number_class =
+    cell_class <> " whitespace-nowrap text-right tabular-nums text-fg"
 
   html.table(
     [

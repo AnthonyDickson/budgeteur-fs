@@ -49,7 +49,7 @@ pub fn figure(attributes: List(Attribute(msg)), text: String) -> Element(msg) {
   html.p(
     [
       attribute.class(
-        "mt-1 text-2xl font-semibold tracking-tight tabular-nums text-fg",
+        "mt-1 whitespace-nowrap text-2xl font-semibold tracking-tight tabular-nums text-fg",
       ),
       ..attributes
     ],
