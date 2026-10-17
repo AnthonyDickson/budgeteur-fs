@@ -65,6 +65,7 @@
     <Compile Include="Data/TransactionsAfterCloseQuery.fs" />
     <Compile Include="Data/PatternMatch.fs" />
 
+    <Compile Include="Feature/Auth/ReturnUrl.fs" />
     <Compile Include="Feature/Auth/Login.fs" />
     <Compile Include="Feature/Auth/Logout.fs" />
 

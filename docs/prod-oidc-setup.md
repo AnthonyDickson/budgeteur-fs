@@ -25,7 +25,7 @@ Oidc__ClientSecret           # Required. SPA client secret
 Oidc__CallbackPath           # Required. Redirect URI path (e.g. /signin-oidc)
 Oidc__ValidAudiences         # Optional. Accepted JWT audiences; if unset, audience validation is disabled
 Oidc__LogoutUrl              # Optional. Provider logout page that /logout redirects to
-Login__ReturnUrl             # Required. Post-login redirect (e.g. https://app.example.com/)
+Login__ReturnUrl             # Required. Client URL a login returns to; pages are resolved against it (e.g. https://app.example.com/)
 OAuth2__AuthorizationUrl     # Optional. Scalar OAuth2 flow (dev only)
 OAuth2__TokenUrl             # Optional. Scalar OAuth2 flow (dev only)
 ```

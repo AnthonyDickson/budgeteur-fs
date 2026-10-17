@@ -45,7 +45,13 @@ pub type Page {
 }
 
 pub type Model {
-  Model(page: Page, toasts: List(Toast))
+  Model(
+    page: Page,
+    toasts: List(Toast),
+    /// The current path, query, and fragment, so a login after the session
+    /// expires returns to them.
+    url: String,
+  )
 }
 
 pub type Msg {
@@ -66,7 +72,7 @@ pub type Msg {
 // ----
 
 pub fn init(_flags) -> #(Model, Effect(Msg)) {
-  let model = Model(page: NotFound, toasts: [])
+  let model = Model(page: NotFound, toasts: [], url: "/")
 
   #(model, effect.init_routing(UrlChanged))
 }
@@ -103,6 +109,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg, model {
     UrlChanged(url), _ -> {
       let route = route.from_string(url)
+      let model = Model(..model, url:)
       // Each route has two arms: one matches a URL change while already on
       // that page, the other matches a switch from a different page. Landing on
       // the page you are already on keeps its model (open modals and unsaved
@@ -286,7 +293,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
       #(Model(..model, toasts:), effect.none())
     }
-    SessionExpired, _ -> #(model, effect.Redirect(auth_route.login))
+    SessionExpired, _ -> #(
+      model,
+      effect.Redirect(auth_route.login_returning_to(model.url)),
+    )
     NoOp, _ -> #(model, effect.none())
     _, _ -> {
       io.println_error(

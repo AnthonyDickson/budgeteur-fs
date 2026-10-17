@@ -19,7 +19,7 @@ export function workerUser(parallelIndex: number): string {
 }
 
 /// Log in as `username` through the SPA's OIDC redirect to Authelia, ending
-/// back on the app.
+/// back on the transactions page that asked for it.
 export async function logIn(page: Page, baseURL: string, username: string) {
   // HACK: Use transactions page to trigger auth redirect
   await page.goto('/transactions');

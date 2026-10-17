@@ -6,7 +6,7 @@ const providerLogin = '#username-textfield';
 
 test.describe('auth', () => {
   test(
-    'logging out ends the provider session',
+    'a login returns to its page, and logging out ends the provider session',
     async ({ browser, baseURL }, testInfo) => {
       // A session of its own, since logging out ends the provider session the
       // worker's other tests share. A new context takes the worker's saved
@@ -20,6 +20,8 @@ test.describe('auth', () => {
 
       try {
         await logIn(page, baseURL!, workerUser(testInfo.parallelIndex));
+        // The login returns to the page that asked for it.
+        await expect(page).toHaveURL(/\/transactions$/);
         await page.goto('/');
         await page.getByTestId('log-out-button').click();
 
