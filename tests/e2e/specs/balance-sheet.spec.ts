@@ -205,6 +205,8 @@ test.describe('closing items', () => {
     await openDetails(page, itemRow(page, 'House'));
     await page.getByTestId('close-line-button').click();
     const closeModal = page.getByTestId('close-modal');
+    // The date has the focus, not the help button before it.
+    await expect(closeModal.getByTestId('close-date-input')).toBeFocused();
     await closeModal.getByTestId('close-date-input').fill('2026-01-15');
     await closeModal.getByTestId('close-submit-button').click();
     await expect(closeModal).toBeHidden();
@@ -253,6 +255,10 @@ test.describe('line details', () => {
     // An older value is recorded: it is listed below the current one.
     await page.getByTestId('record-observation-button').click();
     await expect(valueModal(page)).toBeVisible();
+    // The value has the focus, not the help button before it.
+    await expect(
+      valueModal(page).getByTestId('value-amount-input'),
+    ).toBeFocused();
     await valueModal(page).getByTestId('value-amount-input').fill('380000.00');
     await valueModal(page).getByTestId('value-as-of-input').fill('2026-01-01');
     await valueModal(page).getByTestId('value-submit-button').click();
@@ -366,6 +372,10 @@ test.describe('balance sheet accounts', () => {
 
       // A liability balance makes it a current liability.
       await openAccount(page, unknown);
+      // The amount has the focus, not the help button before it.
+      await expect(
+        balanceModal(page).getByTestId('balance-amount-input'),
+      ).toBeFocused();
       await recordBalance(page, { side: 'Liability', amount: '400.00' });
       await backToSheet(page);
       await expect(unknown).toBeHidden();

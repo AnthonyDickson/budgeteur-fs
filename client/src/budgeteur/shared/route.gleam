@@ -14,6 +14,9 @@ pub type Route {
   /// An account's details page, with its observation history.
   AccountDetails(id: Uuid)
   Reports
+  /// Shown after logging out. It makes no API request, so it does not send the
+  /// user straight back to the provider.
+  SignedOut
   NotFound
 }
 
@@ -28,8 +31,29 @@ pub fn to_string(route: Route) -> String {
     ItemDetails(id:) -> "/balance-sheet/items/" <> uuid.to_string(id)
     AccountDetails(id:) -> "/balance-sheet/accounts/" <> uuid.to_string(id)
     Reports -> "/reports"
+    SignedOut -> "/signed-out"
     NotFound -> "/not_found"
   }
+}
+
+/// The name of the page at a route, as the header nav and the browser title show
+/// it. A line's details page is part of the balance sheet.
+pub fn name(route: Route) -> String {
+  case route {
+    Dashboard -> "Dashboard"
+    Transactions -> "Transactions"
+    QuickTagging -> "Quick tagging"
+    Tagging -> "Tags & Rules"
+    BalanceSheet | ItemDetails(..) | AccountDetails(..) -> "Balance Sheet"
+    Reports -> "Reports"
+    SignedOut -> "Signed out"
+    NotFound -> "Page Not Found"
+  }
+}
+
+/// The browser title for a route: the page's name, then the app's.
+pub fn title(route: Route) -> String {
+  name(route) <> " | Budgeteur"
 }
 
 /// The header section a route belongs to: a line's details page is part of the
@@ -51,6 +75,7 @@ fn from_path_segments(path: List(String)) -> Route {
     ["balance-sheet", "items", id] -> with_id(id, ItemDetails)
     ["balance-sheet", "accounts", id] -> with_id(id, AccountDetails)
     ["reports"] -> Reports
+    ["signed-out"] -> SignedOut
     _ -> NotFound
   }
 }

@@ -25,8 +25,8 @@ module AsOfDate =
         if asOf > latest then
             Error (
                 ValidationFailed
-                    $"""The as-of date {asOf.ToString "O"} is in the future. \
-                    The latest accepted date is {latest.ToString "O"}."""
+                    $"The as-of date {asOf:O} is in the future. \
+                    The latest accepted date is {latest:O}."
             )
         else
             Ok asOf

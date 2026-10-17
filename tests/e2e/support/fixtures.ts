@@ -1,16 +1,51 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { type Browser, expect, test as base } from '@playwright/test';
+import {
+  type Browser,
+  expect,
+  type Page,
+  test as base,
+} from '@playwright/test';
 
 /// The number of Authelia users `e2e-0` … `e2e-<n-1>` in `authelia/users.yml`.
 /// Each parallel worker logs in as its own user, so this must be at least the
 /// `workers` setting in `playwright.config.ts`.
 const userCount = 4;
 
-/// Log in as `username` through the SPA's OIDC redirect to Authelia and save
-/// the resulting session to `storagePath`.
-async function logIn(
+/// The Authelia user the worker at `parallelIndex` logs in as.
+export function workerUser(parallelIndex: number): string {
+  return `e2e-${parallelIndex}`;
+}
+
+/// Log in as `username` through the SPA's OIDC redirect to Authelia, ending
+/// back on the transactions page that asked for it.
+export async function logIn(page: Page, baseURL: string, username: string) {
+  // HACK: Use transactions page to trigger auth redirect
+  await page.goto('/transactions');
+
+  // SPA detects 401, redirects to /login, OIDC challenge lands on Authelia
+  await page.waitForURL('**127.0.0.1:9091**');
+
+  // Wait for MUI login form to hydrate
+  await page.waitForSelector('#username-textfield', { state: 'visible' });
+  await page.waitForSelector('#password-textfield', { state: 'visible' });
+  await page.waitForTimeout(500);
+
+  // Use click + pressSequentially for MUI controlled inputs
+  const usernameInput = page.locator('#username-textfield');
+  await usernameInput.click();
+  await usernameInput.pressSequentially(username, { delay: 50 });
+  const passwordInput = page.locator('#password-textfield');
+  await passwordInput.click();
+  await passwordInput.pressSequentially('dev-password', { delay: 50 });
+  await page.click('#sign-in-button');
+
+  await page.waitForURL(`${baseURL}/**`, { timeout: 15000 });
+}
+
+/// Log in as `username` and save the resulting session to `storagePath`.
+async function saveLogIn(
   browser: Browser,
   baseURL: string,
   username: string,
@@ -23,28 +58,7 @@ async function logIn(
   const page = await context.newPage();
 
   try {
-    // HACK: Use transactions page to trigger auth redirect
-    await page.goto('/transactions');
-
-    // SPA detects 401, redirects to /login, OIDC challenge lands on Authelia
-    await page.waitForURL('**127.0.0.1:9091**');
-
-    // Wait for MUI login form to hydrate
-    await page.waitForSelector('#username-textfield', { state: 'visible' });
-    await page.waitForSelector('#password-textfield', { state: 'visible' });
-    await page.waitForTimeout(500);
-
-    // Use click + pressSequentially for MUI controlled inputs
-    const usernameInput = page.locator('#username-textfield');
-    await usernameInput.click();
-    await usernameInput.pressSequentially(username, { delay: 50 });
-    const passwordInput = page.locator('#password-textfield');
-    await passwordInput.click();
-    await passwordInput.pressSequentially('dev-password', { delay: 50 });
-    await page.click('#sign-in-button');
-
-    await page.waitForURL(`${baseURL}/**`, { timeout: 15000 });
-
+    await logIn(page, baseURL, username);
     await context.storageState({ path: storagePath });
   } catch (e) {
     await page.screenshot({
@@ -88,10 +102,10 @@ export const test = base.extend<
       );
       if (!fs.existsSync(storagePath)) {
         fs.mkdirSync(path.dirname(storagePath), { recursive: true });
-        await logIn(
+        await saveLogIn(
           browser,
           workerInfo.project.use.baseURL!,
-          `e2e-${index}`,
+          workerUser(index),
           storagePath,
         );
       }

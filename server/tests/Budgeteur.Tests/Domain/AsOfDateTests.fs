@@ -4,6 +4,7 @@ open System
 open Expecto
 
 open Budgeteur.Domain.AsOfDate
+open Budgeteur.Shared.DomainError
 
 module AsOfDateTests =
     [<Tests>]
@@ -21,8 +22,13 @@ module AsOfDateTests =
                     (Ok (DateOnly (2026, 3, 9)))
                     "the day after the UTC date is accepted"
 
-                Expect.isError
+                Expect.equal
                     (AsOfDate.validate now (DateOnly (2026, 3, 10)))
+                    (Error (
+                        ValidationFailed
+                            "The as-of date 2026-03-10 is in the future. \
+                            The latest accepted date is 2026-03-09."
+                    ))
                     "two days after the UTC date is rejected"
 
                 Expect.equal

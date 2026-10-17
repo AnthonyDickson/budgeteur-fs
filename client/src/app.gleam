@@ -12,6 +12,8 @@ import budgeteur/shared/http_effect
 import budgeteur/shared/out_msg.{type OutMsg}
 import budgeteur/shared/route
 import budgeteur/shared/toast.{type Toast}
+import budgeteur/shared/ui/button
+import budgeteur/shared/ui/card
 import budgeteur/shared/ui/dialog
 import budgeteur/tagging_page/tagging_page
 import budgeteur/transaction_page/transaction_page
@@ -38,11 +40,18 @@ pub type Page {
   BalanceSheetPage(balance_sheet_page.Model)
   LineDetailsPage(line_details_page.Model)
   ReportsPage(reports_page.Model)
+  SignedOut
   NotFound
 }
 
 pub type Model {
-  Model(page: Page, toasts: List(Toast))
+  Model(
+    page: Page,
+    toasts: List(Toast),
+    /// The current path, query, and fragment, so a login after the session
+    /// expires returns to them.
+    url: String,
+  )
 }
 
 pub type Msg {
@@ -63,15 +72,9 @@ pub type Msg {
 // ----
 
 pub fn init(_flags) -> #(Model, Effect(Msg)) {
-  let model = Model(page: NotFound, toasts: [])
+  let model = Model(page: NotFound, toasts: [], url: "/")
 
-  let effects =
-    effect.batch([
-      effect.init_routing(UrlChanged),
-      effect.set_title("Budgeteur"),
-    ])
-
-  #(model, effects)
+  #(model, effect.init_routing(UrlChanged))
 }
 
 // Update
@@ -105,12 +108,14 @@ fn with_out_msg(
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg, model {
     UrlChanged(url), _ -> {
+      let route = route.from_string(url)
+      let model = Model(..model, url:)
       // Each route has two arms: one matches a URL change while already on
       // that page, the other matches a switch from a different page. Landing on
       // the page you are already on keeps its model (open modals and unsaved
       // input survive) and only re-runs `init` for its side effects, such as
       // refetching; arriving from elsewhere installs a fresh page model.
-      case route.from_string(url), model.page {
+      let #(model, page_effect) = case route, model.page {
         route.Dashboard, DashboardPage(_) -> {
           let #(_, page_effect) = dashboard_page.init()
           #(model, effect.map(page_effect, DashboardPageMsg))
@@ -197,9 +202,15 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         }
         route.ItemDetails(id), _ -> open_line_details(model, ItemRef(id))
         route.AccountDetails(id), _ -> open_line_details(model, AccountRef(id))
+        route.SignedOut, SignedOut -> #(model, effect.none())
+        route.SignedOut, _ -> #(Model(..model, page: SignedOut), effect.none())
         route.NotFound, NotFound -> #(model, effect.none())
         route.NotFound, _ -> #(Model(..model, page: NotFound), effect.none())
       }
+      #(
+        model,
+        effect.batch([page_effect, effect.set_title(route.title(route))]),
+      )
     }
     DashboardPageMsg(inner_msg), Model(page: DashboardPage(inner_model), ..) -> {
       let #(inner_model, inner_effect, out_msg) =
@@ -282,7 +293,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       let toasts = list.filter(model.toasts, fn(toast) { toast.id != id })
       #(Model(..model, toasts:), effect.none())
     }
-    SessionExpired, _ -> #(model, effect.Redirect(auth_route.login))
+    SessionExpired, _ -> #(
+      model,
+      effect.Redirect(auth_route.login_returning_to(model.url)),
+    )
     NoOp, _ -> #(model, effect.none())
     _, _ -> {
       io.println_error(
@@ -374,18 +388,25 @@ pub fn view(model: Model) -> Element(Msg) {
       reports_page.view(inner_model)
       |> element.map(ReportsPageMsg)
 
+    SignedOut -> view_signed_out()
+
     NotFound -> view_not_found()
   }
 
   let toasts = toast.view_with_container(model.toasts, ToastDismissed)
   let route = current_route(model.page)
+  // Signed out, the nav would only lead back to the provider's login.
+  let header = case route {
+    route.SignedOut -> element.none()
+    _ -> header.view(route)
+  }
 
   // The header and the page are keyed by route so a page change replaces their
   // DOM rather than patching the previous page's elements in place. Otherwise
   // browser-held state leaks between pages, e.g. an open modal `<dialog>` or
   // the header's open menu stays open.
   html.div([], [
-    keyed.fragment([#(route.to_string(route), header.view(route))]),
+    keyed.fragment([#(route.to_string(route), header)]),
     keyed.fragment([#(route.to_string(route), page)]),
     toasts,
   ])
@@ -404,6 +425,7 @@ fn current_route(page: Page) -> route.Route {
         AccountRef(id) -> route.AccountDetails(id)
       }
     ReportsPage(_) -> route.Reports
+    SignedOut -> route.SignedOut
     NotFound -> route.NotFound
   }
 }
@@ -417,6 +439,40 @@ fn view_not_found() -> Element(Msg) {
         html.text("Take me home!"),
       ]),
     ]),
+  ])
+}
+
+/// The page logging out ends on. Signing in is a form rather than a link, since
+/// the router would handle a link to `/login` as a client route.
+fn view_signed_out() -> Element(Msg) {
+  html.main([attribute.class("mx-auto max-w-sm px-4 py-16 sm:px-6")], [
+    card.panel(
+      [
+        attribute.class("space-y-4 p-6 text-center"),
+        attribute.attribute("data-testid", "signed-out-page"),
+      ],
+      [
+        html.img([
+          attribute.src("/favicon-128x128.png"),
+          attribute.alt(""),
+          attribute.class("mx-auto size-12"),
+        ]),
+        html.h1([attribute.class("text-lg font-semibold text-fg")], [
+          html.text("You're signed out"),
+        ]),
+        html.form(
+          [attribute.method("get"), attribute.action(auth_route.login)],
+          [
+            button.submit(
+              button.Primary,
+              button.Regular,
+              [attribute.attribute("data-testid", "sign-in-button")],
+              [html.text("Sign in")],
+            ),
+          ],
+        ),
+      ],
+    ),
   ])
 }
 

@@ -222,6 +222,7 @@ fn view_form(
             attribute.id("close-date-input"),
             attribute.type_("date"),
             attribute.attribute("data-testid", "close-date-input"),
+            attribute.autofocus(True),
             attribute.aria_describedby("close-date-help"),
             attribute.value(field.input(form.closed_on)),
             attribute.disabled(submitting),

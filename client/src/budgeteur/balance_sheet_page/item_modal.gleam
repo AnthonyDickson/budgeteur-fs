@@ -373,6 +373,7 @@ fn view_form(
               value,
               side:,
               submitting:,
+              autofocus: False,
               note: "Later values are recorded from the item's line.",
             )
             |> element.map(ValueMsg)

@@ -173,6 +173,7 @@ fn view_form(
           form.value,
           side: item.side,
           submitting:,
+          autofocus: True,
           note: "To correct the current value, keep its date: a value on a date that already has one replaces it.",
         )
           |> element.map(ValueMsg),

@@ -47,17 +47,27 @@ pub fn encode_decimal(amount: Float) -> json.Json {
   amount |> to_string |> json.string
 }
 
-/// Parse a user-entered amount. `gleam/float.parse` requires a decimal point,
-/// so whole numbers such as "400000" fall back to `int.parse`. Mirrors
-/// `decode_decimal`, which accepts both shapes from the server.
+/// Parse a user-entered amount. Thousands separators and a leading dollar sign
+/// are ignored, so an amount copied from the app or a bank statement parses.
+/// Commas are dropped wherever they are, so "1,2,3" is 123: reading them
+/// strictly would reject input whose meaning is clear for little gain.
+/// `gleam/float.parse` requires a decimal point, so whole numbers such as
+/// "400000" fall back to `int.parse`. Mirrors `decode_decimal`, which accepts
+/// both shapes from the server.
 ///
 /// # Example
 /// ```gleam
 /// assert parse_decimal("400000") == Ok(400000.0)
 /// assert parse_decimal("12.50") == Ok(12.5)
+/// assert parse_decimal("$1,234.56") == Ok(1234.56)
 /// assert parse_decimal("abc") == Error(Nil)
 /// ```
 pub fn parse_decimal(input: String) -> Result(Float, Nil) {
+  let input = case string.replace(input, ",", "") {
+    "$" <> rest -> rest
+    "-$" <> rest -> "-" <> rest
+    other -> other
+  }
   case float.parse(input) {
     Ok(amount) -> Ok(amount)
     Error(Nil) ->

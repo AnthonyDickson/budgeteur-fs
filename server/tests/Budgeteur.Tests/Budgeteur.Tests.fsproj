@@ -52,6 +52,7 @@
     <Compile Include="Transaction/SearchTests.fs" />
     <Compile Include="Transaction/EndpointTests.fs" />
     <Compile Include="Transaction/SearchEndpointTests.fs" />
+    <Compile Include="Auth/ReturnUrlTests.fs" />
     <Compile Include="TestSupport/ResetUserDataTests.fs" />
     <None Include="Import/Fixtures/*.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
