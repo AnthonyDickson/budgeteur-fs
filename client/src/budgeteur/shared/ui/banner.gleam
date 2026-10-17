@@ -1,6 +1,7 @@
 //// Messages about the page or a form, in a status tint with normal text (see
 //// decision 7 in docs/styling.md). Callers add behaviour attributes and
-//// layout classes such as a margin.
+//// layout classes such as a margin. Line breaks in the text are kept, so a
+//// server error listing several problems shows one per line.
 
 import lustre/attribute.{type Attribute}
 import lustre/element.{type Element}
@@ -26,7 +27,8 @@ pub fn view(
   html.div(
     [
       attribute.class(
-        "rounded-md border px-4 py-3 text-sm text-fg " <> level_class,
+        "whitespace-pre-line rounded-md border px-4 py-3 text-sm text-fg "
+        <> level_class,
       ),
       role,
       ..attributes

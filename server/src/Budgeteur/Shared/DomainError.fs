@@ -22,7 +22,8 @@ module DomainError =
 
     /// <summary>Combine the failures of an applicative validation into one
     /// <c>ValidationFailed</c> error, so a client sees every failure in one
-    /// response. Validation only produces <c>ValidationFailed</c>.</summary>
+    /// response, one per line. Validation only produces
+    /// <c>ValidationFailed</c>.</summary>
     let joinValidationErrors
         (validationResult : Result<'Ok, DomainError list>)
         : Result<'Ok, DomainError> =
@@ -38,7 +39,6 @@ module DomainError =
                 // string)? It would be nice if this could have nice error
                 // messages like Thoth.
                 | other -> failwithf $"unexpected domain error: {other}")
-            |> fun errorStrings ->
-                "Validation failed:\n\t" + String.Join ("\n\t", errorStrings)
+            |> fun errorStrings -> String.Join ("\n", errorStrings)
             |> ValidationFailed
             |> Error
