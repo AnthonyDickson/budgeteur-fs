@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0-rc3] - 2026-10-18
+
+### Changed
+
+- Dashboard charts redraw when their width changes, e.g. when a phone turns.
+
+### Fixed
+
+- On iOS Safari, tapping anywhere in the first screen of the transactions page,
+  including the menu button, opened the last transaction.
+- The delete button in edit dialogs did not line up with the cancel and save
+  buttons when the buttons wrapped onto two rows.
+- Large negative amounts on the dashboard could wrap, leaving the minus sign on
+  its own line.
+- Tapping a point on the net worth chart could show more than one label.
+
 ## [1.0.0-rc2] - 2026-10-17
 
 ### Added
@@ -38,5 +54,6 @@ and this project adheres to
 
 The first release candidate.
 
+[1.0.0-rc3]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc2...1.0.0-rc3
 [1.0.0-rc2]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc1...1.0.0-rc2
 [1.0.0-rc1]: https://github.com/AnthonyDickson/budgeteur-fs/tree/1.0.0-rc1

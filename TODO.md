@@ -14,13 +14,12 @@
 - [x] Full dashboard w/ charts
 - [x] Transaction search
 - [x] Mobile support
-- [ ] Release
+- [ ] Release 1.0.0
 - [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
 
 ## Current Tasks
 
-- Release 1.0:
-  - Update changelog with date before release
+None
 
 ## Backlog
 
