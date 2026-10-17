@@ -171,3 +171,13 @@ db-update: db-migrate db-generate
 db-reset:
 	rm -f server/src/Budgeteur/app.sqlite3
 	just db-update
+
+# Capture the README's screenshots from mock data in the E2E stack, into docs/images
+readme-screenshots:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	trap 'docker compose -f docker/docker-compose.e2e.yml down' EXIT
+	docker compose -f docker/docker-compose.e2e.yml run --rm e2e \
+		sh -c "npm install && npx playwright test --config readme.config.ts --reporter=line"
+	mkdir -p docs/images
+	cp tests/e2e/test-results/readme/*.png docs/images/

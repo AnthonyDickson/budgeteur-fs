@@ -50,3 +50,12 @@ docker compose -f docker/docker-compose.e2e.yml run --rm e2e \
   390 by 664, the narrowest supported phone (decision 13 in
   [styling](styling.md)), and checks that pages fit the screen, nothing is
   clipped, and fields will not make Safari zoom. A new page or dialog joins it.
+
+## README Screenshots
+
+The README's screenshots come from `tests/e2e/readme/`, which seeds a fictional
+household through the API and captures pages at desktop and phone sizes. It has
+its own Playwright config, so the E2E suite does not run it, and runs in the E2E
+stack with `just readme-screenshots`, which copies the images to `docs/images/`.
+The seed uses mock data only, never the anonymised bank fixtures. Recapture the
+screenshots when a page they show changes.
