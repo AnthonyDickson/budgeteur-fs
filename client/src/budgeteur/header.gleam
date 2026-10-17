@@ -7,11 +7,11 @@ import lustre/element/html
 
 /// The pages the header links to, in order.
 const pages = [
-  #(route.Dashboard, "Dashboard"),
-  #(route.Reports, "Reports"),
-  #(route.Transactions, "Transactions"),
-  #(route.Tagging, "Tags & Rules"),
-  #(route.BalanceSheet, "Balance Sheet"),
+  route.Dashboard,
+  route.Reports,
+  route.Transactions,
+  route.Tagging,
+  route.BalanceSheet,
 ]
 
 /// The id of the menu popover, which narrow screens show in place of the nav.
@@ -101,14 +101,13 @@ fn menu(current_route: route.Route) -> Element(msg) {
   ])
 }
 
-/// A link to `page`, highlighted when it is the current section. `class` sizes
+/// A link to `target`, highlighted when it is the current section. `class` sizes
 /// and lays out the link for the nav or the menu.
 fn nav_link(
-  page: #(route.Route, String),
+  target: route.Route,
   current_route: route.Route,
   class: String,
 ) -> Element(msg) {
-  let #(target, label) = page
   let is_active = route.section(current_route) == target
   html.a(
     [
@@ -123,6 +122,6 @@ fn nav_link(
         },
       ),
     ],
-    [html.text(label)],
+    [html.text(route.name(target))],
   )
 }

@@ -50,8 +50,10 @@ test.describe('navigation', () => {
       page,
     }, testInfo) => {
       await page.goto('/tagging');
+      await expect(page).toHaveTitle('Tags & Rules | Budgeteur');
       await page.getByRole('link', { name: 'Transactions' }).click();
       await expect(page).toHaveURL(/\/transactions$/);
+      await expect(page).toHaveTitle('Transactions | Budgeteur');
       await openTransactionModal(page);
 
       await page.goBack();

@@ -32,6 +32,25 @@ pub fn to_string(route: Route) -> String {
   }
 }
 
+/// The name of the page at a route, as the header nav and the browser title show
+/// it. A line's details page is part of the balance sheet.
+pub fn name(route: Route) -> String {
+  case route {
+    Dashboard -> "Dashboard"
+    Transactions -> "Transactions"
+    QuickTagging -> "Quick tagging"
+    Tagging -> "Tags & Rules"
+    BalanceSheet | ItemDetails(..) | AccountDetails(..) -> "Balance Sheet"
+    Reports -> "Reports"
+    NotFound -> "Page Not Found"
+  }
+}
+
+/// The browser title for a route: the page's name, then the app's.
+pub fn title(route: Route) -> String {
+  name(route) <> " | Budgeteur"
+}
+
 /// The header section a route belongs to: a line's details page is part of the
 /// balance sheet.
 pub fn section(route: Route) -> Route {

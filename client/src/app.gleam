@@ -65,13 +65,7 @@ pub type Msg {
 pub fn init(_flags) -> #(Model, Effect(Msg)) {
   let model = Model(page: NotFound, toasts: [])
 
-  let effects =
-    effect.batch([
-      effect.init_routing(UrlChanged),
-      effect.set_title("Budgeteur"),
-    ])
-
-  #(model, effects)
+  #(model, effect.init_routing(UrlChanged))
 }
 
 // Update
@@ -105,12 +99,13 @@ fn with_out_msg(
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   case msg, model {
     UrlChanged(url), _ -> {
+      let route = route.from_string(url)
       // Each route has two arms: one matches a URL change while already on
       // that page, the other matches a switch from a different page. Landing on
       // the page you are already on keeps its model (open modals and unsaved
       // input survive) and only re-runs `init` for its side effects, such as
       // refetching; arriving from elsewhere installs a fresh page model.
-      case route.from_string(url), model.page {
+      let #(model, page_effect) = case route, model.page {
         route.Dashboard, DashboardPage(_) -> {
           let #(_, page_effect) = dashboard_page.init()
           #(model, effect.map(page_effect, DashboardPageMsg))
@@ -200,6 +195,10 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         route.NotFound, NotFound -> #(model, effect.none())
         route.NotFound, _ -> #(Model(..model, page: NotFound), effect.none())
       }
+      #(
+        model,
+        effect.batch([page_effect, effect.set_title(route.title(route))]),
+      )
     }
     DashboardPageMsg(inner_msg), Model(page: DashboardPage(inner_model), ..) -> {
       let #(inner_model, inner_effect, out_msg) =
