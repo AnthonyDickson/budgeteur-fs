@@ -1,8 +1,8 @@
 // The `<dashboard-chart>` custom element behind `chart.view`. The page sets
 // its `spec` property to the chart's kind and the server's monthly figures;
 // the element draws them with Observable Plot into its shadow root and redraws
-// whenever `spec` changes. Plot is imported on first draw, so its code loads
-// only when a chart is shown. The element only maps figures to marks: it never
+// whenever `spec` or its width changes. Plot is imported on first draw, so its
+// code loads only when a chart is shown. The element only maps figures to marks: it never
 // sums, stacks, or accumulates them. See decision 15 in docs/dashboard.md.
 export function registerChart() {
   if (customElements.get('dashboard-chart')) {
@@ -24,8 +24,25 @@ export function registerChart() {
         this.#draw();
       }
 
+      // Plot draws at a fixed width, so the chart redraws when its width
+      // changes, e.g. when a phone turns. The first observation, on connect,
+      // is the first draw.
+      #width = 0;
+      #resizes = new ResizeObserver(([entry]) => {
+        const width = Math.round(entry.contentRect.width);
+        if (width !== this.#width) {
+          this.#width = width;
+          this.#draw();
+        }
+      });
+
       connectedCallback() {
-        this.#draw();
+        this.#resizes.observe(this);
+      }
+
+      disconnectedCallback() {
+        this.#resizes.disconnect();
+        this.#width = 0;
       }
 
       async #draw() {

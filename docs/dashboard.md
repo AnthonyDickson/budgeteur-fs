@@ -381,10 +381,10 @@ date, reporting periods, savings rate, and the shared statement code in
 
 - **Decision**: charts are drawn by Observable Plot inside a custom element
   defined in client FFI, as the modal dialog is. The page passes the chart's
-  figures as a property; the element redraws when they change. Plot is loaded
-  when the element first draws, so only the dashboard fetches it. The client
-  only scales server figures to pixels; it never sums, stacks, or accumulates
-  them.
+  figures as a property; the element redraws when they or its width change. Plot
+  is loaded when the element first draws, so only the dashboard fetches it. The
+  client only scales server figures to pixels; it never sums, stacks, or
+  accumulates them.
 - **Why**: Plot is a function from data to SVG, so a chart holds no state for
   the model to keep in step, which suits MVU. Its SVG follows `currentColor` and
   the page font, and it takes CSS variables as colours, so the charts follow
