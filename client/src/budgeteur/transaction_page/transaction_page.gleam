@@ -1283,7 +1283,13 @@ fn transactions_table(
           list.map(transactions, fn(transaction) {
             html.tr(
               [
-                attribute.class("group relative hover:bg-surface-hover"),
+                // Below md the row is a flex box, not a table row: iOS Safari
+                // does not make a positioned table row the containing block
+                // of `open_button`'s overlay, so every row's overlay would
+                // cover the viewport and a tap would open the last row.
+                attribute.class(
+                  "group relative hover:bg-surface-hover max-md:flex",
+                ),
                 attribute.attribute("data-testid", "transaction-row"),
               ],
               [
@@ -1307,7 +1313,7 @@ fn transactions_table(
                   ],
                   [amount_text(transaction.amount)],
                 ),
-                html.td([attribute.class("px-4 py-3")], [
+                html.td([attribute.class("min-w-0 flex-1 px-4 py-3")], [
                   html.div([attribute.class("flex items-start gap-3")], [
                     row.open_button(
                       testid: "edit-transaction-"
