@@ -21,6 +21,9 @@
 
 ## Backlog
 
+- After 1.0.0 release, transfer any learnings and useful patterns over to the
+  template project. May want to analyse the codebase and development to see
+  what worked well and what didn't work well.
 - On report page: it would be nice to have the net income value next to the
   change in net worth and other changes. Consider a different format that better
   shows the relationship between all the numbers and how they're derived.

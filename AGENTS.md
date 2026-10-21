@@ -38,6 +38,7 @@ implementations of the patterns in [docs/architecture.md](docs/architecture.md).
 | [dashboard.md](docs/dashboard.md)                   | Dashboard and income statement design brief                    |
 | [reports.md](docs/reports.md)                       | Reports design brief: periods, balance history, closing lines  |
 | [auto-tagging.md](docs/auto-tagging.md)             | Auto-tagging design brief: matching, categorisations, actions  |
+| [transfer-rules.md](docs/transfer-rules.md)         | Transfer rules design brief: proposals, policy, approval       |
 | [csv-import.md](docs/csv-import.md)                 | CSV import and accounts design brief: formats, hashes, flow    |
 | [quick-tagging.md](docs/quick-tagging.md)           | Quick tagging design brief: queue, dismissals, one click       |
 | [transaction-search.md](docs/transaction-search.md) | Transaction search design brief: criteria, matching, paging    |
