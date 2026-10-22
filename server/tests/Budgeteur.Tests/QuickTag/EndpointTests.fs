@@ -108,6 +108,19 @@ module EndpointTests =
 
     let private markTransfer = markTransferWith false
 
+    let private approve
+        (client : HttpClient)
+        (target : string)
+        (tagId : Guid option)
+        (transactionIds : Guid list)
+        =
+        TestHttp.postJson client ApproveSuggestion.Path {
+            Target = target
+            TagId = tagId
+            TransactionIds = transactionIds
+        }
+        |> Async.AwaitTask
+
     /// <summary>The stored source of the transaction's categorisation. A
     /// transfer's source is not in any response.</summary>
     let private readSource (app : TestApp) (id : Guid) =
@@ -624,5 +637,99 @@ module EndpointTests =
 
                 expectStatus HttpStatusCode.BadRequest "no body is 400" response
                 Expect.isNone (readSource app id) "nothing should be written"
+            }
+
+            testCaseAsync
+                "approval accepts the listed transactions still queued"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+                let! first = create app.Client (untagged "To savings 1")
+                let! second = create app.Client (untagged "To savings 2")
+                let! tagged = create app.Client (untagged "To savings 3")
+                let! unlisted = create app.Client (untagged "To savings 4")
+                // Tagged in another tab since the queue was read.
+                let! _ = quickTag app.Client tagged groceries
+
+                let! response =
+                    approve app.Client "Transfer" None [ first; second; tagged ]
+
+                expectStatus HttpStatusCode.OK "approving is 200" response
+                let! approval = TestHttp.readJson<ApprovalResponse> response
+                Expect.equal approval.Changed 2 "only queued ones change"
+
+                for id in [ first; second ] do
+                    Expect.equal
+                        (readSource app id)
+                        (Some ("Transfer", "Accepted"))
+                        "an approved transfer is accepted"
+
+                Expect.equal
+                    (readSource app tagged)
+                    (Some ("Tagged", "Manual"))
+                    "a transaction no longer queued is skipped"
+
+                Expect.isNone (readSource app unlisted) "unlisted stays queued"
+
+                let! response =
+                    approve app.Client "Tag" (Some groceries) [ unlisted ]
+
+                let! approval = TestHttp.readJson<ApprovalResponse> response
+                Expect.equal approval.Changed 1 "a tag can be approved too"
+
+                Expect.equal
+                    (readSource app unlisted)
+                    (Some ("Tagged", "Accepted"))
+                    "an approved tag is accepted"
+
+                let! response = approve app.Client "Transfer" None []
+                let! approval = TestHttp.readJson<ApprovalResponse> response
+                Expect.equal approval.Changed 0 "an empty list changes nothing"
+            }
+
+            testCaseAsync "approval rejects ids and tags the user does not have"
+            <| async {
+                use app = newApp ()
+                let! id = create app.Client (untagged "To savings")
+                let other = app.ClientForUser "other-user"
+                let! otherId = create other (untagged "Another user's")
+                let! otherTag = Seed.tag other "Dining" "Expense"
+
+                let! response =
+                    approve app.Client "Transfer" None [ id; otherId ]
+
+                expectStatus
+                    HttpStatusCode.NotFound
+                    "another user's id is 404"
+                    response
+
+                Expect.isNone
+                    (readSource app id)
+                    "nothing should be written when one id is not found"
+
+                let! response = approve app.Client "Tag" (Some otherTag) [ id ]
+
+                expectStatus
+                    HttpStatusCode.BadRequest
+                    "another user's tag is 400"
+                    response
+
+                let! response = approve app.Client "Tag" None [ id ]
+
+                expectStatus
+                    HttpStatusCode.BadRequest
+                    "no tag id is 400"
+                    response
+
+                let tooMany =
+                    List.init (ReadQueue.BatchSize + 1) (fun _ ->
+                        Guid.CreateVersion7 ())
+
+                let! response = approve app.Client "Transfer" None tooMany
+
+                expectStatus
+                    HttpStatusCode.BadRequest
+                    "more than a batch is 400"
+                    response
             }
         ]

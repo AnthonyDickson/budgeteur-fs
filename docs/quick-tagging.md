@@ -193,7 +193,7 @@ Categorisation, source, manual tag, and rule tag are defined in
 
 ### 6. Quick tagging is its own slice
 
-- **Decision**: `Feature/QuickTag/` owns four endpoints, one file each:
+- **Decision**: `Feature/QuickTag/` owns five endpoints, one file each:
   - `GET /api/quick-tag` returning the batch, newest first, with the total in
     the queue. Each entry has the transaction's id, date, description, amount,
     account name, and optional suggestion. The response also carries the
@@ -207,14 +207,20 @@ Categorisation, source, manual tag, and rule tag are defined in
   - `PUT /api/quick-tag/{transactionId}/transfer` marking the transaction as a
     transfer, which removes it from the queue, returning `204`. Its body is the
     same suggestion flag.
-
-  A choice flagged as the suggestion records the `Accepted` source, otherwise
-  `Manual` ([transfer rules](transfer-rules.md) decision 6).
+  - `POST /api/quick-tag/approvals` with a target, an optional tag id, and at
+    most a batch of transaction ids, applying the tag or transfer to those still
+    in the queue and returning how many changed
+    ([transfer rules](transfer-rules.md) decision 7). An id the user does not
+    have fails the whole request with `404`; one categorised elsewhere is
+    skipped. A choice flagged as the suggestion, or approved, records the
+    `Accepted` source, otherwise `Manual` ([transfer rules](transfer-rules.md)
+    decision 6).
 
   For every write, an unknown transaction, or another user's, is `404`, checked
-  before the write. Each is idempotent and replaces any categorisation. They
-  write through the shared categorisation store with the quick tag transitions
-  from decision 1. The page reads tags from the existing tag endpoint.
+  before the write. Each is idempotent, and each single-row write replaces any
+  categorisation. They write through the shared categorisation store with the
+  quick tag transitions from decision 1. The page reads tags from the existing
+  tag endpoint.
 - **Why**: quick tagging is a categorisation workflow, like auto-tagging, and
   auto-tagging decision 8 placed such workflows in their own slices writing
   categorisations through `Data/`. An operation per choice keeps the request

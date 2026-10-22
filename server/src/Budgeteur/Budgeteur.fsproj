@@ -146,6 +146,7 @@
     <Compile Include="Feature/QuickTag/QuickTagTransaction.fs" />
     <Compile Include="Feature/QuickTag/DismissTransaction.fs" />
     <Compile Include="Feature/QuickTag/MarkTransfer.fs" />
+    <Compile Include="Feature/QuickTag/ApproveSuggestion.fs" />
     <Compile Include="Feature/QuickTag/QuickTagEndpoints.fs" />
 
     <Compile Include="Feature/Import/Csv.fs" />

@@ -175,6 +175,14 @@ module Categorisation =
     let onTransfer (suggested : bool) : Categorisation option =
         Some (Categorisation.Transfer (chosen suggested))
 
+    /// <summary>Approving a suggestion gives the transaction the suggested tag
+    /// or transfer, as the user's acceptance of it. See decision 7 in
+    /// docs/transfer-rules.md.</summary>
+    let onApprove (target : RuleTarget) : Categorisation option =
+        match target with
+        | RuleTarget.Tag tagId -> onQuickTag tagId true
+        | RuleTarget.Transfer -> onTransfer true
+
     /// <summary>Import's account-number detection marks a new transaction as
     /// a detected transfer. See decision 9 in docs/csv-import.md.</summary>
     let onDetectTransfer : Categorisation option =
