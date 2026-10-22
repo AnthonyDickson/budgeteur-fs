@@ -108,7 +108,7 @@ module Import =
             |> List.map (fun (statement, row) ->
                 let categorisation =
                     if isTransfer userNumbers row then
-                        Categorisation.onTransfer
+                        Categorisation.onDetectTransfer
                     else
                         Categorisation.tagUntagged
                             (winner row.Description |> Option.map _.TagId)
@@ -142,7 +142,7 @@ module Import =
                     match transaction.Categorisation with
                     | Some (Categorisation.Tagged _) -> true
                     | Some Categorisation.Dismissed
-                    | Some Categorisation.Transfer
+                    | Some (Categorisation.Transfer _)
                     | None -> false)
                 |> List.length
         }

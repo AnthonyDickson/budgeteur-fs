@@ -73,7 +73,7 @@ module main =
           UserId: string
           Kind: string
           TagId: Option<System.Guid>
-          Source: Option<string> }
+          Source: string }
 
         interface IWriteColumns with
             member this.WriteColumns =
@@ -404,7 +404,7 @@ module LeftViewExtensions =
             match this.TransactionId with
             | Some value ->
                 let record: main.Categorisations =
-                    { TransactionId = value; UserId = this.UserId.Value; Kind = this.Kind.Value; TagId = this.TagId; Source = this.Source }
+                    { TransactionId = value; UserId = this.UserId.Value; Kind = this.Kind.Value; TagId = this.TagId; Source = this.Source.Value }
 
                 Some record
             | None -> None

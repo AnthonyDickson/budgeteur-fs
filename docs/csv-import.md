@@ -309,9 +309,11 @@ line. Lessons from it are cited where they shaped a decision.
 - **Decision**: a row whose other party account number, in canonical form,
   equals one of the user's account numbers, including accounts the same request
   creates, is imported as a transfer: a categorisation with no tag
-  ([quick tagging](quick-tagging.md) decision 1). Only Kiwibank exports carry
-  the other party's account. Rows imported earlier are not revisited when a new
-  account is added.
+  ([quick tagging](quick-tagging.md) decision 1) and the `Detected` source
+  ([transfer rules](transfer-rules.md) decision 4), so smart tagging and a later
+  re-detection can tell it from the user's transfers. Only Kiwibank exports
+  carry the other party's account. Rows imported earlier are not revisited when
+  a new account is added.
 - **Why**: untagged transfers count as income and expenses on the dashboard. In
   the sample data, a transfer from chequing to savings would show as $3,865 of
   income. Importing related accounts in one request catches both sides.

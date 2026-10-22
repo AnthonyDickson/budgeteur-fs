@@ -31,7 +31,7 @@ module ChangesTests =
     }
 
     let private ruleTag tagId =
-        Categorisation.Tagged (tagId, TagSource.Rule)
+        Categorisation.Tagged (tagId, Source.Rule)
 
     let private untaggedMatch = candidate "PAY Countdown Ponsonby" None
     let private untaggedNoMatch = candidate "Rent" None
@@ -47,7 +47,7 @@ module ChangesTests =
     let private manualTag =
         candidate
             "Countdown Fuel"
-            (Some (Categorisation.Tagged (dining, TagSource.Manual)))
+            (Some (Categorisation.Tagged (dining, Source.Manual)))
 
     let private all = [
         untaggedMatch

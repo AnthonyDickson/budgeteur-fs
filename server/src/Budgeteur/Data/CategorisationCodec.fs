@@ -17,36 +17,37 @@ module CategorisationCodec =
     [<Literal>]
     let TransferKind = "Transfer"
 
-    /// <summary>Only a tagged row has a tag and a source; the schema checks
-    /// both.</summary>
+    /// <summary>Only a tagged row has a tag; every row has a source, which is
+    /// manual for a dismissal. The schema checks both.</summary>
     let toRow
         (transactionId : Guid)
         (userId : string)
         (categorisation : Categorisation)
         : main.Categorisations =
-        let kind, tagId, source =
+        let kind, tagId =
             match categorisation with
-            | Categorisation.Tagged (tagId, source) ->
-                TaggedKind, Some tagId, Some (TagSource.toString source)
-            | Categorisation.Dismissed -> DismissedKind, None, None
-            | Categorisation.Transfer -> TransferKind, None, None
+            | Categorisation.Tagged (tagId, _) -> TaggedKind, Some tagId
+            | Categorisation.Dismissed -> DismissedKind, None
+            | Categorisation.Transfer _ -> TransferKind, None
 
         {
             TransactionId = transactionId
             UserId = userId
             Kind = kind
             TagId = tagId
-            Source = source
+            Source = Source.toString (Categorisation.source categorisation)
         }
 
     let fromRow (row : main.Categorisations) : Categorisation =
         // The database checks these columns, so in practice the failing arms
         // are unreachable.
-        match row.Kind, row.TagId, row.Source with
-        | TaggedKind, Some tagId, Some source ->
-            match TagSource.parse source with
-            | Ok source -> Categorisation.Tagged (tagId, source)
+        let source () =
+            match Source.parse row.Source with
+            | Ok source -> source
             | Error error -> failwith error
-        | DismissedKind, _, _ -> Categorisation.Dismissed
-        | TransferKind, _, _ -> Categorisation.Transfer
-        | kind, _, _ -> failwith $"Invalid categorisation kind \"{kind}\""
+
+        match row.Kind, row.TagId with
+        | TaggedKind, Some tagId -> Categorisation.Tagged (tagId, source ())
+        | DismissedKind, _ -> Categorisation.Dismissed
+        | TransferKind, _ -> Categorisation.Transfer (source ())
+        | kind, _ -> failwith $"Invalid categorisation kind \"{kind}\""

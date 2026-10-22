@@ -10,14 +10,22 @@ module CategorisationTests =
     let private tagB = Guid.NewGuid ()
 
     let private manual tagId =
-        Some (Categorisation.Tagged (tagId, TagSource.Manual))
+        Some (Categorisation.Tagged (tagId, Source.Manual))
 
     let private byRule tagId =
-        Some (Categorisation.Tagged (tagId, TagSource.Rule))
+        Some (Categorisation.Tagged (tagId, Source.Rule))
 
     let private dismissed = Some Categorisation.Dismissed
 
-    let private transfer = Some Categorisation.Transfer
+    let private transfer = Some (Categorisation.Transfer Source.Manual)
+
+    let private accepted tagId =
+        Some (Categorisation.Tagged (tagId, Source.Accepted))
+
+    let private detected = Some (Categorisation.Transfer Source.Detected)
+
+    let private acceptedTransfer =
+        Some (Categorisation.Transfer Source.Accepted)
 
     [<Tests>]
     let tests =
@@ -65,6 +73,18 @@ module CategorisationTests =
                     (manual tagA)
                     "unmarked, tag"
 
+            testCase "onUpdate keeps a transfer's source while it stays one"
+            <| fun () ->
+                let markTransfer = Categorisation.onUpdate true None
+                let expect = Expect.equal
+
+                expect (markTransfer detected) detected "detected"
+
+                expect
+                    (markTransfer acceptedTransfer)
+                    acceptedTransfer
+                    "accepted"
+
             testCase "a transfer cannot have a tag"
             <| fun () ->
                 let require = Categorisation.requireNoTagOnTransfer
@@ -110,4 +130,18 @@ module CategorisationTests =
 
                 expect (retag (Some tagA) dismissed) dismissed "dismissed"
                 expect (retag (Some tagA) transfer) transfer "transfer"
+
+            testCase "retag changes nothing whose source is not a rule"
+            <| fun () ->
+                let retag = Categorisation.retag
+                let expect = Expect.equal
+
+                expect (retag (Some tagB) (accepted tagA)) (accepted tagA) "tag"
+                expect (retag None (accepted tagA)) (accepted tagA) "no winner"
+                expect (retag (Some tagA) detected) detected "detected"
+
+                expect
+                    (retag (Some tagA) acceptedTransfer)
+                    acceptedTransfer
+                    "approved transfer"
         ]

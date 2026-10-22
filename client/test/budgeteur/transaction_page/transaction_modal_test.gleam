@@ -414,6 +414,7 @@ pub fn edit_modal_remembers_only_a_rule_tag_test() {
 
   edit(transaction.Rule) |> should.equal(Some(tag_id))
   edit(transaction.Manual) |> should.equal(None)
+  edit(transaction.Accepted) |> should.equal(None)
 }
 
 pub fn editing_keeps_the_account_unless_another_is_chosen_test() {

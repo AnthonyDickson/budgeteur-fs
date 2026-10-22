@@ -33,29 +33,31 @@ it are cited where they shaped a decision.
 | Batch         | The first 50 transactions of the queue, as fetched by the quick tagging page.                                     |
 | Quick tag     | Choosing a tag for a queued transaction, marking it as a transfer, or dismissing it.                              |
 
-Categorisation, tag source, manual tag, and rule tag are defined in
+Categorisation, source, manual tag, and rule tag are defined in
 [auto-tagging](auto-tagging.md#ubiquitous-language).
 
 ## Decisions
 
 ### 1. Dismissals and transfers are categorisations
 
-- **Decision**: a categorisation is a tag with its source (`Manual` or `Rule`),
-  a dismissal, or a transfer. A rule never dismisses or marks a transfer, and
-  the domain type cannot express either with a rule source. Quick tagging's
-  "Dismiss" button records a dismissal. A transfer is marked by the user, in the
-  transaction form or with quick tagging's "Transfer" button, or detected on
-  import ([CSV import](csv-import.md) decision 9). Whether a transaction is a
+- **Decision**: a categorisation is a tag or a transfer with its source, or a
+  dismissal ([transfer rules](transfer-rules.md) decision 4). A dismissal has no
+  source in the domain type: no proposal ever dismisses, so it is always the
+  user's decision. Quick tagging's "Dismiss" button records a dismissal. A
+  transfer is marked by the user, in the transaction form or with quick
+  tagging's "Transfer" button, or detected on import
+  ([CSV import](csv-import.md) decision 9). A transfer rule only suggests one
+  ([transfer rules](transfer-rules.md) decision 3). Whether a transaction is a
   transfer is no longer a column of `Transactions`.
 - **Storage**: a kind column (`Tagged`, `Dismissed`, `Transfer`), with the tag
-  and source set only on a tagged row; checks tie both to the kind. One row per
-  transaction still holds, so a transaction cannot be both tagged and dismissed,
-  or both tagged and a transfer. The codec in `Data/` maps the kind and the
-  nullable columns to the domain union, so the nulls do not leave `Data/`.
-  Deleting a tag still deletes its categorisations, so its transactions become
-  untagged and return to the queue; dismissals and transfers reference no tag
-  and are unaffected. Migration `001` is unreleased (no version tag contains
-  it), so it is edited in place.
+  set only on a tagged row, and a source on every row, `Manual` for a dismissal;
+  checks tie both to the kind. One row per transaction still holds, so a
+  transaction cannot be both tagged and dismissed, or both tagged and a
+  transfer. The codec in `Data/` maps the kind and the nullable columns to the
+  domain union, so the nulls do not leave `Data/`. Deleting a tag still deletes
+  its categorisations, so its transactions become untagged and return to the
+  queue; dismissals and transfers reference no tag and are unaffected. Migration
+  `001` is unreleased (no version tag contains it), so it is edited in place.
 - **Transitions** (additions to [auto-tagging](auto-tagging.md) decision 4):
   - Quick tagging with a tag makes it manual; dismissing makes it dismissed.
     Either replaces whatever categorisation the transaction had, a transfer
@@ -68,10 +70,11 @@ Categorisation, tag source, manual tag, and rule tag are defined in
     tagged transaction makes it untagged, as before, so it returns to the queue:
     a transaction whose tag was just cleared probably needs another.
   - The transaction form's transfer box: checking it makes the transaction a
-    transfer, whatever it had; unchecking it makes the transaction untagged, or
-    manually tagged with the tag chosen.
+    manual transfer, and saving with it still checked keeps the transfer's
+    source; unchecking it makes the transaction untagged, or manually tagged
+    with the tag chosen.
   - Tag untagged and re-tag treat a dismissal or a transfer as a decision made
-    elsewhere and never change it.
+    elsewhere and never change it: re-tag recomputes only the `Rule` source.
 - **Why**: the queue needs to know which untagged transactions the user has
   already decided on, and rules need the same fact to avoid tagging them. One
   row per transaction answers both, so they cannot disagree, and replacing a

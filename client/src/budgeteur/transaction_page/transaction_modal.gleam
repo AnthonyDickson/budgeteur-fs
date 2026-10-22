@@ -12,7 +12,8 @@ import budgeteur/shared/ui/link
 import budgeteur/shared/ui/swatch
 import budgeteur/transaction_page/account.{type Account}
 import budgeteur/transaction_page/transaction.{
-  type Transaction, Manual, Rule, Transaction, TransactionTag,
+  type Transaction, Accepted, Detected, Manual, Rule, Transaction,
+  TransactionTag,
 }
 import budgeteur/transaction_page/transaction_write_request.{
   type TransactionWriteRequest,
@@ -229,7 +230,10 @@ fn from_transaction(transaction: Transaction) -> Form {
     tag_id: option.map(tag, fn(tag) { tag.id }),
     rule_tag_id: case tag {
       Some(TransactionTag(id:, source: Rule)) -> Some(id)
-      Some(TransactionTag(source: Manual, ..)) | None -> None
+      Some(TransactionTag(source: Manual, ..))
+      | Some(TransactionTag(source: Accepted, ..))
+      | Some(TransactionTag(source: Detected, ..))
+      | None -> None
     },
     account_id:,
   )

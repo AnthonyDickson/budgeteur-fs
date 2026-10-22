@@ -30,10 +30,18 @@ pub type TransactionTag {
   TransactionTag(id: Uuid, source: TagSource)
 }
 
-/// Whether the user set the tag or a rule did. Rules never change a manual tag.
+/// Who decided the tag. Re-tag recomputes only rule tags, so `Rule` is the only
+/// source the client treats differently. The server's sources are shared with
+/// transfers, so `Detected` is accepted though a tag never has it.
 pub type TagSource {
+  // The user chose the tag without a suggestion.
   Manual
+  // The user chose the suggested tag.
+  Accepted
+  // A rule applied the tag.
   Rule
+  // Import detected a transfer.
+  Detected
 }
 
 pub fn transaction_decoder() -> decode.Decoder(Transaction) {
@@ -79,7 +87,9 @@ fn tag_source_decoder() -> decode.Decoder(TagSource) {
   use source <- decode.then(decode.string)
   case source {
     "Manual" -> decode.success(Manual)
+    "Accepted" -> decode.success(Accepted)
     "Rule" -> decode.success(Rule)
+    "Detected" -> decode.success(Detected)
     _ -> decode.failure(Manual, "TagSource")
   }
 }
