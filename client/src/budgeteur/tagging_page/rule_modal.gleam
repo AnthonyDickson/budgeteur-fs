@@ -7,7 +7,7 @@ import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
 import budgeteur/shared/ui/popover
-import budgeteur/tagging_page/rule.{type Rule, Rule}
+import budgeteur/tagging_page/rule.{type Rule, Rule, TagTarget, TransferTarget}
 import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
@@ -38,11 +38,17 @@ pub type PatternError {
 pub type PatternField =
   field.Field(String, PatternError)
 
+/// The tag select, which ends with a "Transfer" option for a transfer rule.
 pub type TagField {
   NoTag
   ValidTag(id: Uuid)
+  TransferChosen
   InvalidTag
 }
+
+/// The tag select's value for the "Transfer" option. Tag options carry their
+/// uuid, so it cannot collide.
+const transfer_option = "transfer"
 
 /// What the pattern matches, shown below the pattern field. Not an input: it
 /// follows the pattern once typing pauses.
@@ -178,7 +184,10 @@ fn edit_modal(rule: Rule) -> Modal {
     id,
     Form(
       pattern: field.Valid(value: rule.pattern, input: rule.pattern),
-      tag_id: ValidTag(rule.tag_id),
+      tag_id: case rule.target {
+        TagTarget(tag_id:) -> ValidTag(tag_id)
+        TransferTarget -> TransferChosen
+      },
       match_count: Counting(rule.pattern),
     ),
   )
@@ -250,6 +259,7 @@ fn set_tag(state: Modal, tag_id: String) -> Modal {
 fn parse_tag_id(tag_id: String) -> TagField {
   case tag_id {
     "" -> NoTag
+    _ if tag_id == transfer_option -> TransferChosen
     _ ->
       case uuid.from_string(tag_id) {
         Ok(id) -> ValidTag(id)
@@ -295,13 +305,14 @@ fn validate_form(
 ) -> Result(#(RuleWriteRequest, Form), Form) {
   let form = finalize(form, other_patterns)
 
-  case form {
-    Form(pattern:, tag_id: ValidTag(id), ..) ->
-      case field.value(pattern) {
-        Some(value) -> Ok(#(RuleWriteRequest(value, id), form))
-        None -> Error(form)
-      }
-    _ -> Error(form)
+  let target = case form.tag_id {
+    ValidTag(id) -> Some(TagTarget(id))
+    TransferChosen -> Some(TransferTarget)
+    NoTag | InvalidTag -> None
+  }
+  case field.value(form.pattern), target {
+    Some(value), Some(target) -> Ok(#(RuleWriteRequest(value, target), form))
+    _, _ -> Error(form)
   }
 }
 
@@ -473,6 +484,7 @@ fn view_form(
             for: "rule-tag-select",
             help: popover.help(id: "rule-tag-help", about: "Tag", paragraphs: [
               "Changing the tag moves this rule to that tag.",
+              "A Transfer rule suggests matching transactions as transfers in quick tagging, rather than marking them.",
             ]),
           ),
           input.select(
@@ -487,15 +499,26 @@ fn view_form(
             // The options carry the selection: a `value` on the select is
             // applied before its options exist, so the browser would show the
             // first tag.
-            list.map(tags, fn(tag) {
-              html.option(
-                [
-                  attribute.value(uuid.to_string(tag.id)),
-                  attribute.selected(tag_id == ValidTag(tag.id)),
-                ],
-                tag.name,
-              )
-            }),
+            list.append(
+              list.map(tags, fn(tag) {
+                html.option(
+                  [
+                    attribute.value(uuid.to_string(tag.id)),
+                    attribute.selected(tag_id == ValidTag(tag.id)),
+                  ],
+                  tag.name,
+                )
+              }),
+              [
+                html.option(
+                  [
+                    attribute.value(transfer_option),
+                    attribute.selected(tag_id == TransferChosen),
+                  ],
+                  "Transfer",
+                ),
+              ],
+            ),
           ),
           case tag_error {
             True -> input.error_message("Select a tag")

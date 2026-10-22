@@ -7,6 +7,7 @@ module EndpointTests =
     open Expecto
 
     open Budgeteur.Feature.Rule
+    open Budgeteur.Feature.Tag
     open Budgeteur.Tests
 
     let private newApp () =
@@ -23,7 +24,8 @@ module EndpointTests =
         =
         let request : CreateRule.CreateRuleRequest = {
             Pattern = pattern
-            TagId = tagId
+            Target = "Tag"
+            TagId = Some tagId
         }
 
         TestHttp.postJson client CreateRule.Path request |> Async.AwaitTask
@@ -46,7 +48,8 @@ module EndpointTests =
 
                 let replacement : UpdateRule.UpdateRuleRequest = {
                     Pattern = "HIJACKED"
-                    TagId = otherTagId
+                    Target = "Tag"
+                    TagId = Some otherTagId
                 }
 
                 do!
@@ -101,7 +104,8 @@ module EndpointTests =
 
                 let update pattern : UpdateRule.UpdateRuleRequest = {
                     Pattern = pattern
-                    TagId = tagId
+                    Target = "Tag"
+                    TagId = Some tagId
                 }
 
                 let! kept =
@@ -135,5 +139,95 @@ module EndpointTests =
                     response.StatusCode
                     HttpStatusCode.BadRequest
                     "another user's tag should be rejected"
+            }
+
+            testCaseAsync
+                "a tag rule needs a tag id and a transfer rule rejects one"
+            <| async {
+                use app = newApp ()
+                let! tagId = Seed.tag app.Client "Coffee" "Expense"
+
+                let post target tagId =
+                    TestHttp.postJson
+                        app.Client
+                        CreateRule.Path
+                        ({
+                            Pattern = "STARBUCKS"
+                            Target = target
+                            TagId = tagId
+                        }
+                        : CreateRule.CreateRuleRequest)
+                    |> Async.AwaitTask
+
+                for target, tagId, label in
+                    [
+                        "Tag", None, "a tag rule without a tag"
+                        "Transfer", Some tagId, "a transfer rule with a tag"
+                        "Dismissed", None, "an unknown target"
+                    ] do
+                    let! response = post target tagId
+
+                    Expect.equal
+                        response.StatusCode
+                        HttpStatusCode.BadRequest
+                        $"{label} should be rejected"
+
+                let! created = post "Transfer" None
+
+                Expect.equal
+                    created.StatusCode
+                    HttpStatusCode.Created
+                    "a transfer rule without a tag should be created"
+
+                let! created = TestHttp.readJson<RuleResponse> created
+
+                let! read =
+                    app.Client.GetAsync (
+                        TestHttp.itemPath ReadRule.Path created.Id
+                    )
+                    |> Async.AwaitTask
+
+                let! read = TestHttp.readJson<RuleResponse> read
+
+                Expect.equal
+                    (read.Target, read.TagId)
+                    ("Transfer", None)
+                    "the rule should read back as a transfer rule"
+            }
+
+            testCaseAsync
+                "deleting a tag deletes its rules but not transfer rules"
+            <| async {
+                use app = newApp ()
+                let! tagId = Seed.tag app.Client "Coffee" "Expense"
+                let! _ = createRule app.Client "STARBUCKS" tagId
+
+                let! _ =
+                    TestHttp.postJson
+                        app.Client
+                        CreateRule.Path
+                        ({
+                            Pattern = "TO SAVINGS"
+                            Target = "Transfer"
+                            TagId = None
+                        }
+                        : CreateRule.CreateRuleRequest)
+                    |> Async.AwaitTask
+
+                let! _ =
+                    app.Client.DeleteAsync (
+                        TestHttp.itemPath DeleteTag.Path tagId
+                    )
+                    |> Async.AwaitTask
+
+                let! rules =
+                    app.Client.GetAsync ReadAllRules.Path |> Async.AwaitTask
+
+                let! rules = TestHttp.readJson<RuleResponse list> rules
+
+                Expect.equal
+                    (rules |> List.map _.Pattern)
+                    [ "TO SAVINGS" ]
+                    "only the transfer rule should remain"
             }
         ]

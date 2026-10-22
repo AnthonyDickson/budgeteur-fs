@@ -4,6 +4,7 @@ open System
 open Expecto
 
 open Budgeteur.Domain.Categorisation
+open Budgeteur.Domain.Rule
 
 module CategorisationTests =
     let private tagA = Guid.NewGuid ()
@@ -97,51 +98,119 @@ module CategorisationTests =
                 let tagUntagged = Categorisation.tagUntagged
                 let expect = Expect.equal
 
-                expect (tagUntagged (Some tagA) None) (byRule tagA) "untagged"
+                expect (tagUntagged (byRule tagA) None) (byRule tagA) "untagged"
                 expect (tagUntagged None None) None "no winner"
 
                 expect
-                    (tagUntagged (Some tagB) (byRule tagA))
+                    (tagUntagged (byRule tagB) (byRule tagA))
                     (byRule tagA)
                     "rule"
 
                 expect
-                    (tagUntagged (Some tagB) (manual tagA))
+                    (tagUntagged (byRule tagB) (manual tagA))
                     (manual tagA)
                     "manual"
 
-                expect (tagUntagged (Some tagA) dismissed) dismissed "dismissed"
-                expect (tagUntagged (Some tagA) transfer) transfer "transfer"
+                expect
+                    (tagUntagged (byRule tagA) dismissed)
+                    dismissed
+                    "dismissed"
+
+                expect (tagUntagged (byRule tagA) transfer) transfer "transfer"
 
             testCase "retag recomputes everything but manual decisions"
             <| fun () ->
                 let retag = Categorisation.retag
                 let expect = Expect.equal
 
-                expect (retag (Some tagA) None) (byRule tagA) "untagged"
-                expect (retag (Some tagB) (byRule tagA)) (byRule tagB) "changed"
+                expect (retag (byRule tagA) None) (byRule tagA) "untagged"
+
+                expect
+                    (retag (byRule tagB) (byRule tagA))
+                    (byRule tagB)
+                    "changed"
+
                 expect (retag None (byRule tagA)) None "cleared"
-                expect (retag (Some tagB) (manual tagA)) (manual tagA) "manual"
+
+                expect
+                    (retag (byRule tagB) (manual tagA))
+                    (manual tagA)
+                    "manual"
 
                 expect
                     (retag None (manual tagA))
                     (manual tagA)
                     "manual, no winner"
 
-                expect (retag (Some tagA) dismissed) dismissed "dismissed"
-                expect (retag (Some tagA) transfer) transfer "transfer"
+                expect (retag (byRule tagA) dismissed) dismissed "dismissed"
+                expect (retag (byRule tagA) transfer) transfer "transfer"
 
             testCase "retag changes nothing whose source is not a rule"
             <| fun () ->
                 let retag = Categorisation.retag
                 let expect = Expect.equal
 
-                expect (retag (Some tagB) (accepted tagA)) (accepted tagA) "tag"
+                expect
+                    (retag (byRule tagB) (accepted tagA))
+                    (accepted tagA)
+                    "tag"
+
                 expect (retag None (accepted tagA)) (accepted tagA) "no winner"
-                expect (retag (Some tagA) detected) detected "detected"
+                expect (retag (byRule tagA) detected) detected "detected"
 
                 expect
-                    (retag (Some tagA) acceptedTransfer)
+                    (retag (byRule tagA) acceptedTransfer)
                     acceptedTransfer
                     "approved transfer"
+
+            testCase "the policy applies a rule's tag but not its transfer"
+            <| fun () ->
+                Expect.equal
+                    (Policy.applyRule (RuleTarget.Tag tagA))
+                    (byRule tagA)
+                    "a rule's tag is applied with the rule source"
+
+                Expect.isNone
+                    (Policy.applyRule RuleTarget.Transfer)
+                    "a rule's transfer is only suggested"
+
+            testCase
+                "a transfer rule winner leaves untagged and clears rule tags"
+            <| fun () ->
+                let applied = Policy.applyRule RuleTarget.Transfer
+
+                Expect.isNone
+                    (Categorisation.tagUntagged applied None)
+                    "tag untagged leaves it untagged"
+
+                Expect.isNone
+                    (Categorisation.retag applied (byRule tagA))
+                    "re-tag clears the rule tag"
+
+            testCase "runs never produce a transfer with the rule source"
+            <| fun () ->
+                let ruleTransfer = Some (Categorisation.Transfer Source.Rule)
+
+                for target in [ RuleTarget.Tag tagA; RuleTarget.Transfer ] do
+                    for current in
+                        [
+                            None
+                            manual tagB
+                            byRule tagB
+                            dismissed
+                            transfer
+                            detected
+                        ] do
+                        let applied = Policy.applyRule target
+
+                        let transitions = [
+                            Categorisation.tagUntagged
+                            Categorisation.retag
+                        ]
+
+                        for transition in transitions do
+                            Expect.notEqual
+                                (transition applied current)
+                                ruleTransfer
+                                $"%A{target} on %A{current}"
         ]

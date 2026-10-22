@@ -422,21 +422,27 @@ fn open_tag_delete(model: Model) -> Model {
   }
 }
 
-/// As for tags, for the rule being edited, named with its tag.
+/// As for tags, for the rule being edited, named with its tag or "Transfer".
 fn open_rule_delete(model: Model) -> Model {
   let target = {
     use id <- result.try(editing_id(model.rule_modal))
     use rule <- result.try(
       list.find(loaded_rules(model), fn(rule) { rule.id == id }),
     )
-    use tag <- result.map(
-      list.find(loaded_tags(model), fn(tag) { tag.id == rule.tag_id }),
-    )
-    #(rule, tag.name)
+    use target_name <- result.map(case rule.target {
+      rule.TagTarget(tag_id:) ->
+        list.find(loaded_tags(model), fn(tag) { tag.id == tag_id })
+        |> result.map(fn(tag) { tag.name })
+      rule.TransferTarget -> Ok("Transfer")
+    })
+    #(rule, target_name)
   }
   case target {
-    Ok(#(rule, tag_name)) ->
-      Model(..model, rule_delete_modal: rule_delete_modal.open(rule, tag_name))
+    Ok(#(rule, target_name)) ->
+      Model(
+        ..model,
+        rule_delete_modal: rule_delete_modal.open(rule, target_name),
+      )
     Error(Nil) -> model
   }
 }
@@ -475,7 +481,7 @@ fn on_tag_delete_succeeded(
   let model =
     model
     |> map_tags(list.filter(_, fn(t) { t.id != tag.id }))
-    |> map_rules(list.filter(_, fn(r) { r.tag_id != tag.id }))
+    |> map_rules(list.filter(_, fn(r) { !rule.targets_tag(r, tag.id) }))
   let selected_tag = case model.selected_tag {
     Some(id) if id == tag.id -> first_tag_id(loaded_tags(model))
     other -> other

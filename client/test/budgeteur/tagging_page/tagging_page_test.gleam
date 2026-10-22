@@ -31,7 +31,11 @@ fn tag_named(id: uuid.Uuid, name: String) -> tag.Tag {
 }
 
 fn make_rule_for(for_tag: uuid.Uuid) -> rule.Rule {
-  rule.Rule(id: tag_id(9), pattern: "STARBUCKS", tag_id: for_tag)
+  rule.Rule(
+    id: tag_id(9),
+    pattern: "STARBUCKS",
+    target: rule.TagTarget(for_tag),
+  )
 }
 
 /// A loaded page with no tags or rules.
@@ -396,7 +400,11 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
   timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
   let created =
-    rule.Rule(id: tag_id(5), pattern: "STARBUCKS", tag_id: coffee.id)
+    rule.Rule(
+      id: tag_id(5),
+      pattern: "STARBUCKS",
+      target: rule.TagTarget(coffee.id),
+    )
   let #(new_model, _, out_msg) =
     tagging_page.update(
       submitting,
@@ -438,7 +446,7 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
   method |> should.equal(http_effect.Put)
   timeout |> should.equal(Some(form_modal.submit_timeout_ms))
 
-  let moved = rule.Rule(..starbucks, tag_id: rent.id)
+  let moved = rule.Rule(..starbucks, target: rule.TagTarget(rent.id))
   let #(new_model, _, out_msg) =
     tagging_page.update(
       submitting,

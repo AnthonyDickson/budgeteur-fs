@@ -22,7 +22,7 @@ module RuleTests =
     let private rule (value : string) : Rule = {
         Id = Guid.NewGuid ()
         Pattern = pattern value
-        TagId = Guid.NewGuid ()
+        Target = RuleTarget.Tag (Guid.NewGuid ())
     }
 
     /// The pattern of the winning rule, so failures name the pattern.
@@ -114,4 +114,25 @@ module RuleTests =
                         (winningPattern order "foo bar baz")
                         (Some "bar")
                         "the pattern first under the comparison should win"
+
+            testCase "the target does not change which rule wins"
+            <| fun () ->
+                let transferRule (value : string) = {
+                    rule value with
+                        Target = RuleTarget.Transfer
+                }
+
+                Expect.equal
+                    (winningPattern
+                        [ transferRule "TRANSFER TO"; rule "TRANSFER TO RENT" ]
+                        "TRANSFER TO RENT ACCOUNT")
+                    (Some "TRANSFER TO RENT")
+                    "a longer tag pattern beats a shorter transfer pattern"
+
+                Expect.equal
+                    (winningPattern
+                        [ rule "TRANSFER"; transferRule "TRANSFER TO SAVINGS" ]
+                        "TRANSFER TO SAVINGS")
+                    (Some "TRANSFER TO SAVINGS")
+                    "a longer transfer pattern beats a shorter tag pattern"
         ]

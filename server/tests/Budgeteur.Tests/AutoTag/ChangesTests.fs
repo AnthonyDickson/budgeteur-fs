@@ -16,7 +16,7 @@ module ChangesTests =
     let private rule (pattern : string) (tagId : Guid) : Rule = {
         Id = Guid.CreateVersion7 ()
         Pattern = RulePattern.unsafeFromString pattern
-        TagId = tagId
+        Target = RuleTarget.Tag tagId
     }
 
     let private rules = [
@@ -85,4 +85,30 @@ module ChangesTests =
                     (AutoTag.counts (AutoTag.changes Retag rules all))
                     { Tagged = 1; Changed = 1; Cleared = 1 }
                     "each kind should be counted once"
+
+            testCase
+                "a transfer rule winner gets no tag, and its rule tag clears"
+            <| fun () ->
+                let rules =
+                    rule "COUNTDOWN FUEL" fuel
+                    :: [
+                        {
+                            rule "COUNTDOWN FUEL TOP UP" fuel with
+                                Target = RuleTarget.Transfer
+                        }
+                    ]
+
+                let untagged = candidate "Countdown Fuel Top Up" None
+
+                let ruleTagged =
+                    candidate "Countdown Fuel Top Up" (Some (ruleTag fuel))
+
+                Expect.isEmpty
+                    (AutoTag.changes TagUntagged rules [ untagged; ruleTagged ])
+                    "tag untagged should leave the untagged one untagged"
+
+                Expect.equal
+                    (AutoTag.changes Retag rules [ untagged; ruleTagged ])
+                    [ Cleared ruleTagged.TransactionId ]
+                    "re-tag should clear the rule tag rather than fall through"
         ]

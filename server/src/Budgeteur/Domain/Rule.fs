@@ -56,10 +56,59 @@ module RulePattern =
     /// from the database.
     let internal unsafeFromString pattern = RulePattern pattern
 
+/// <summary>What a rule proposes when it wins: a tag, or a transfer. A
+/// transfer has no tag, so a transfer rule with a tag cannot be expressed. See
+/// decision 1 in docs/transfer-rules.md.</summary>
+[<RequireQualifiedAccess>]
+type RuleTarget =
+    | Tag of tagId : Guid
+    | Transfer
+
+/// <summary>A target crosses the API and the database as a kind (<c>Tag</c> or
+/// <c>Transfer</c>) and an optional tag id, since the OpenAPI document cannot
+/// describe a union with fields. See decision 9 in
+/// docs/transfer-rules.md.</summary>
+module RuleTarget =
+    [<Literal>]
+    let TagKind = "Tag"
+
+    [<Literal>]
+    let TransferKind = "Transfer"
+
+    /// <summary>The target from its kind and tag id. A tag target needs a tag
+    /// id and a transfer target rejects one.</summary>
+    let create
+        (kind : string)
+        (tagId : Guid option)
+        : Result<RuleTarget, DomainError> =
+        match kind, tagId with
+        | TagKind, Some tagId -> Ok (RuleTarget.Tag tagId)
+        | TagKind, None ->
+            Error (ValidationFailed "A tag target needs a tag id")
+        | TransferKind, None -> Ok RuleTarget.Transfer
+        | TransferKind, Some _ ->
+            Error (ValidationFailed "A transfer cannot have a tag")
+        | other, _ ->
+            Error (
+                ValidationFailed
+                    $"\"{other}\" is not a valid target, expecting one of \
+                    \"Tag\" or \"Transfer\"."
+            )
+
+    let kind (target : RuleTarget) : string =
+        match target with
+        | RuleTarget.Tag _ -> TagKind
+        | RuleTarget.Transfer -> TransferKind
+
+    let tagId (target : RuleTarget) : Guid option =
+        match target with
+        | RuleTarget.Tag tagId -> Some tagId
+        | RuleTarget.Transfer -> None
+
 type Rule = {
     Id : Guid
     Pattern : RulePattern
-    TagId : Guid
+    Target : RuleTarget
 }
 
 module Rule =
@@ -79,9 +128,10 @@ module Rule =
         | order -> order
 
     /// <summary>The winning rule for a description: the matching rule with the
-    /// longest pattern, with equal lengths ordered by the comparison. None when
-    /// no rule matches. Apply it to the rules once and reuse the result for
-    /// many descriptions, so the rules are sorted once.</summary>
+    /// longest pattern, whatever its target, with equal lengths ordered by the
+    /// comparison. None when no rule matches. Apply it to the rules once and
+    /// reuse the result for many descriptions, so the rules are sorted
+    /// once.</summary>
     let winner (rules : Rule list) : TransactionDescription -> Rule option =
         let rules = List.sortWith precedence rules
 

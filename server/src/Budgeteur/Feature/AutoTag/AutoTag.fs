@@ -67,8 +67,10 @@ module AutoTag =
     let MaxSamples = 5
 
     /// <summary>The categorisation changes a run makes: each candidate goes
-    /// through the action's transition with the winning rule's tag, and
-    /// only the candidates whose categorisation differs are returned.</summary>
+    /// through the action's transition with the winning rule's proposal as
+    /// the policy applies it, so a transfer rule's winner gets no rule tag, and
+    /// only the candidates whose categorisation differs are returned. See
+    /// decision 3 in docs/transfer-rules.md.</summary>
     let changes
         (action : AutoTagAction)
         (rules : Rule list)
@@ -83,11 +85,12 @@ module AutoTag =
 
         candidates
         |> List.choose (fun candidate ->
-            let winningTagId =
-                winner candidate.Description |> Option.map _.TagId
+            let applied =
+                winner candidate.Description
+                |> Option.bind (fun rule -> Policy.applyRule rule.Target)
 
             let before = candidate.Categorisation
-            let after = transition winningTagId before
+            let after = transition applied before
 
             match before, after with
             | _ when before = after -> None

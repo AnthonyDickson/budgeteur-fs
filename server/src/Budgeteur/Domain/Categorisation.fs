@@ -2,6 +2,7 @@ namespace Budgeteur.Domain.Categorisation
 
 open System
 
+open Budgeteur.Domain.Rule
 open Budgeteur.Shared.DomainError
 
 /// <summary>Who decided a categorisation, whatever its kind. Re-tag recomputes
@@ -63,9 +64,6 @@ type Categorisation =
 module Categorisation =
     let private manual tagId =
         Categorisation.Tagged (tagId, Source.Manual)
-
-    let private byRule tagId =
-        Categorisation.Tagged (tagId, Source.Rule)
 
     /// <summary>Who decided the categorisation. A dismissal is always the
     /// user's decision.</summary>
@@ -130,29 +128,31 @@ module Categorisation =
             current
         | false, Some tagId, _ -> Some (manual tagId)
 
-    /// <summary>Tag untagged: an untagged transaction gets the winning rule's
-    /// tag, if any. A tagged, dismissed, or transfer transaction keeps its
-    /// categorisation.</summary>
+    /// <summary>Tag untagged: an untagged transaction gets the applied
+    /// proposal, if any (<c>Policy.applyRule</c>). A tagged, dismissed, or
+    /// transfer transaction keeps its categorisation.</summary>
     let tagUntagged
-        (winningTagId : Guid option)
+        (applied : Categorisation option)
         (current : Categorisation option)
         : Categorisation option =
         match current with
-        | None -> Option.map byRule winningTagId
+        | None -> applied
         | Some _ -> current
 
     /// <summary>Re-tag: an untagged transaction, or one whose source is a
-    /// rule, gets the winning rule's tag, or becomes untagged when no rule
-    /// wins. Any other source is a decision that never changes.</summary>
+    /// rule, gets the applied proposal (<c>Policy.applyRule</c>), or becomes
+    /// untagged when there is none: no rule wins, or the winner's proposal is
+    /// only suggested. Any other source is a decision that never
+    /// changes.</summary>
     let retag
-        (winningTagId : Guid option)
+        (applied : Categorisation option)
         (current : Categorisation option)
         : Categorisation option =
         match current with
         | Some categorisation when source categorisation <> Source.Rule ->
             current
         | Some _
-        | None -> Option.map byRule winningTagId
+        | None -> applied
 
     /// <summary>Quick tagging with a tag makes it manual, whatever the
     /// transaction had. See decision 1 in docs/quick-tagging.md.</summary>
@@ -171,3 +171,19 @@ module Categorisation =
     /// a detected transfer. See decision 9 in docs/csv-import.md.</summary>
     let onDetectTransfer : Categorisation option =
         Some (Categorisation.Transfer Source.Detected)
+
+/// <summary>Which proposals are applied without the user; the rest are only
+/// suggested in quick tagging. A transfer leaves the income statement and the
+/// queue at once, so a wrong one would hide money; a wrong tag still shows on
+/// the dashboard. Import's detected transfers are always applied
+/// (<c>Categorisation.onDetectTransfer</c>). See decision 3 in
+/// docs/transfer-rules.md.</summary>
+module Policy =
+    /// <summary>The categorisation a winning rule applies: its tag, with the
+    /// rule source. A rule's transfer is not applied: it is only
+    /// suggested.</summary>
+    let applyRule (target : RuleTarget) : Categorisation option =
+        match target with
+        | RuleTarget.Tag tagId ->
+            Some (Categorisation.Tagged (tagId, Source.Rule))
+        | RuleTarget.Transfer -> None

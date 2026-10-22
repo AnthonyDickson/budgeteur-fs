@@ -65,11 +65,14 @@ module MigrationTests =
             ('b', 'u', 'Tagged', 'groceries', 'Rule'),
             ('c', 'u', 'Dismissed', NULL, NULL),
             ('d', 'u', 'Transfer', NULL, NULL);
+
+        INSERT INTO Rules (Id, UserId, Pattern, TagId)
+        VALUES ('r', 'u', 'COUNTDOWN', 'groceries');
         """
 
     [<Tests>]
     let tests =
-        testCase "an rc3 database keeps its data, with sources for every kind"
+        testCase "an rc3 database keeps its data, with targets and sources"
         <| fun () ->
             let name = $"migration-{Guid.NewGuid ()}"
 
@@ -98,11 +101,20 @@ module MigrationTests =
                 ]
                 "tags keep their source; dismissals and transfers become manual"
 
-            // The rebuilt table keeps its foreign keys: deleting the tag
-            // untags its transactions.
+            Expect.equal
+                (query keeper "SELECT Pattern, Target, TagId FROM Rules")
+                [ [ Some "COUNTDOWN"; Some "Tag"; Some "groceries" ] ]
+                "existing rules should become tag rules"
+
+            // The rebuilt tables keep their foreign keys: deleting the tag
+            // untags its transactions and deletes its rules.
             execute keeper "DELETE FROM Tags"
 
             Expect.equal
                 (query keeper "SELECT Kind FROM Categorisations ORDER BY Kind")
                 [ [ Some "Dismissed" ]; [ Some "Transfer" ] ]
                 "deleting the tag should remove its categorisations"
+
+            Expect.isEmpty
+                (query keeper "SELECT Id FROM Rules")
+                "deleting the tag should delete its rules"

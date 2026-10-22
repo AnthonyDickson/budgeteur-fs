@@ -40,3 +40,33 @@ ALTER TABLE Categorisations_new RENAME TO Categorisations;
 CREATE INDEX IX_Categorisations_UserId ON Categorisations(UserId);
 -- Lets deleting a tag find its categorisations without a table scan.
 CREATE INDEX IX_Categorisations_TagId ON Categorisations(TagId);
+
+-- Rules
+
+CREATE TABLE Rules_new (
+    -- v7 UUID
+    Id         GUID NOT NULL PRIMARY KEY,
+    UserId     TEXT NOT NULL,
+    -- The string pattern to match in transaction descriptions
+    Pattern    TEXT NOT NULL,
+    -- What the rule proposes when it wins: a tag, or a transfer. See decision 1 in
+    -- docs/transfer-rules.md.
+    Target     TEXT NOT NULL CHECK (Target IN ('Tag', 'Transfer')),
+    -- The tag a tag rule proposes. NULL for a transfer rule, so deleting a tag never deletes one.
+    TagId      GUID,
+    CHECK ((Target = 'Tag') = (TagId IS NOT NULL)),
+    FOREIGN KEY(TagId) REFERENCES Tags(Id) ON UPDATE CASCADE ON DELETE CASCADE,
+    -- Unique per user, ignoring case, whatever the target. NOCASE folds ASCII only; the server
+    -- checks uniqueness first with ordinal case-insensitive comparison, see docs/auto-tagging.md.
+    -- Also serves as the index for reading a user's rules.
+    UNIQUE(UserId, Pattern COLLATE NOCASE)
+);
+
+-- Every rule before this migration applies a tag.
+INSERT INTO Rules_new (Id, UserId, Pattern, Target, TagId)
+SELECT Id, UserId, Pattern, 'Tag', TagId
+FROM Rules;
+
+DROP TABLE Rules;
+
+ALTER TABLE Rules_new RENAME TO Rules;

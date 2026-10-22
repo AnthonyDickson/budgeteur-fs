@@ -82,7 +82,7 @@ pub fn panel(
 
 /// The rules belonging to a tag.
 pub fn rules_for_tag(tag_id: Uuid, rules: List(Rule)) -> List(Rule) {
-  list.filter(rules, fn(rule) { rule.tag_id == tag_id })
+  list.filter(rules, rule.targets_tag(_, tag_id))
 }
 
 fn column_headers() -> Element(msg) {

@@ -25,7 +25,7 @@ decision.
 
 | Term           | Meaning                                                                                                              |
 | -------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Rule           | A pattern and the tag it applies. Rule CRUD already exists.                                                          |
+| Rule           | A pattern and its target: a tag to apply, or a transfer to suggest ([transfer rules](transfer-rules.md)).            |
 | Match          | A rule matches a transaction when its pattern occurs anywhere in the description, ignoring case.                     |
 | Comparison     | How patterns and descriptions are compared: ordinal, ignoring case. Used by matching and rule uniqueness.            |
 | Winning rule   | The matching rule with the longest pattern. Equal lengths are ordered by the pattern's ordinal comparison.           |
@@ -188,7 +188,11 @@ decision.
   deleted a rule to stop future tagging may not expect past tags to be cleared,
   so it is confirmed. Tag untagged only fills in missing tags, so it is not.
 - **Transfers**: are categorisations of their own (decision 3), so runs skip
-  them.
+  them. A transfer rule's proposal is only suggested in quick tagging
+  ([transfer rules](transfer-rules.md) decision 3): tag untagged leaves its
+  winners untagged, and re-tag clears a rule tag whose winner is now a transfer
+  rule, counting it as cleared, so the transaction returns to the queue with the
+  suggestion. A shorter tag rule that also matches does not apply instead.
 - **Rejected**: live rules, where every rule change re-tags immediately. That
   removes both buttons, but every rule save rewrites categorisations, and a
   pattern being typed would tag transactions part way through editing.
@@ -317,7 +321,9 @@ decision.
   confirmation and the counts in the result toast are not enough.
 - **Create a rule from a transaction.** Belongs with quick-tagging.
 - **Rules on other fields.** Amount, account, or Kiwibank's other-party fields.
-  Internal transfer detection from account numbers is a separate backlog item.
+  Import detects transfers from account numbers ([CSV import](csv-import.md)
+  decision 9), and transfer rules suggest those it cannot detect
+  ([transfer rules](transfer-rules.md)).
 - **Wildcards or regular expressions.** Substring patterns first.
 - **User-ordered priority.** See decision 2.
 - **Single writer for categorisations.** See the rejected options in decision 3.
