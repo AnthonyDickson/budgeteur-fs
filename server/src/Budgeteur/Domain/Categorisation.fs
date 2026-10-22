@@ -154,18 +154,26 @@ module Categorisation =
         | Some _
         | None -> applied
 
-    /// <summary>Quick tagging with a tag makes it manual, whatever the
-    /// transaction had. See decision 1 in docs/quick-tagging.md.</summary>
-    let onQuickTag (tagId : Guid) : Categorisation option = Some (manual tagId)
+    /// <summary>Who decided a quick tag choice: the user, accepting the row's
+    /// suggestion or not. The client says which button was the suggestion. See
+    /// decision 6 in docs/transfer-rules.md.</summary>
+    let private chosen (suggested : bool) =
+        if suggested then Source.Accepted else Source.Manual
+
+    /// <summary>Quick tagging with a tag replaces whatever the transaction had
+    /// with the user's tag, accepted when it was the suggestion. See decision 1
+    /// in docs/quick-tagging.md.</summary>
+    let onQuickTag (tagId : Guid) (suggested : bool) : Categorisation option =
+        Some (Categorisation.Tagged (tagId, chosen suggested))
 
     /// <summary>Dismissing records that the transaction has no tag, whatever it
     /// had.</summary>
     let onDismiss : Categorisation option = Some Categorisation.Dismissed
 
     /// <summary>Marking a transaction as a transfer from quick tagging replaces
-    /// whatever it had.</summary>
-    let onTransfer : Categorisation option =
-        Some (Categorisation.Transfer Source.Manual)
+    /// whatever it had, accepted when it was the suggestion.</summary>
+    let onTransfer (suggested : bool) : Categorisation option =
+        Some (Categorisation.Transfer (chosen suggested))
 
     /// <summary>Import's account-number detection marks a new transaction as
     /// a detected transfer. See decision 9 in docs/csv-import.md.</summary>

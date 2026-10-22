@@ -2,7 +2,10 @@
 //// tagged, marked as a transfer, or dismissed with one click. See
 //// docs/quick-tagging.md.
 
-import budgeteur/quick_tagging_page/queue.{type Queue, type QueuedTransaction}
+import budgeteur/quick_tagging_page/queue.{
+  type Queue, type QueuedTransaction, type Suggestion, Suggestion, TagTarget,
+  TransferTarget,
+}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
@@ -106,7 +109,9 @@ fn fetch_tags() -> Effect(Msg) {
   })
 }
 
-fn save(transaction_id: Uuid, choice: Choice) -> Effect(Msg) {
+/// `suggested` says whether the choice was the row's suggestion, so the server
+/// records that the user accepted it. See decision 6 in docs/transfer-rules.md.
+fn save(transaction_id: Uuid, choice: Choice, suggested: Bool) -> Effect(Msg) {
   let callback = fn(result) {
     case result {
       // Both writes return 204 with no body, so there is nothing to decode.
@@ -124,15 +129,17 @@ fn save(transaction_id: Uuid, choice: Choice) -> Effect(Msg) {
     TagWith(tag_id:) ->
       effect.put(
         api_route.QuickTagTransaction(transaction_id) |> api_route.to_string,
-        json.object([#("tagId", json.string(uuid.to_string(tag_id)))])
+        json.object([
+          #("tagId", json.string(uuid.to_string(tag_id))),
+          #("suggested", json.bool(suggested)),
+        ])
           |> json.to_string,
         callback,
       )
-    // The transfer endpoint takes no body.
     Transfer ->
       effect.put(
         api_route.MarkTransfer(transaction_id) |> api_route.to_string,
-        "",
+        json.object([#("suggested", json.bool(suggested))]) |> json.to_string,
         callback,
       )
     Dismiss ->
@@ -285,9 +292,36 @@ fn start_save(
       ..model,
       rows: dict.insert(model.rows, transaction_id, Saving(choice:, previous:)),
     ),
-    save(transaction_id, choice),
+    save(
+      transaction_id,
+      choice,
+      is_suggestion(suggestion_for(model, transaction_id), choice),
+    ),
     None,
   )
+}
+
+fn suggestion_for(model: Model, transaction_id: Uuid) -> Option(Suggestion) {
+  case model.queue {
+    Loaded(queue) ->
+      list.find(queue.transactions, fn(transaction) {
+        transaction.id == transaction_id
+      })
+      |> option.from_result
+      |> option.then(fn(transaction) { transaction.suggestion })
+    Loading | Failed -> None
+  }
+}
+
+/// Whether the choice is the one the row suggests. Dismissing is never a
+/// suggestion.
+pub fn is_suggestion(suggestion: Option(Suggestion), choice: Choice) -> Bool {
+  case suggestion, choice {
+    Some(Suggestion(target: TagTarget(suggested), ..)), TagWith(tag_id:) ->
+      suggested == tag_id
+    Some(Suggestion(target: TransferTarget, ..)), Transfer -> True
+    _, _ -> False
+  }
 }
 
 /// Tags in the order the buttons show them, the same on every row: expense
@@ -465,6 +499,10 @@ fn transaction_row(
           ),
         ]),
       ]),
+      case transaction.suggestion {
+        Some(suggestion) -> suggestion_note(suggestion)
+        None -> element.none()
+      },
       html.div(
         [attribute.class("flex flex-wrap gap-2")],
         list.append(
@@ -473,6 +511,7 @@ fn transaction_row(
               transaction.id,
               state,
               TagWith(tag.id),
+              suggested: is_suggestion(transaction.suggestion, TagWith(tag.id)),
               testid: "quick-tag-button",
               children: [swatch.view(tag.color), html.text(tag.name)],
             )
@@ -482,6 +521,7 @@ fn transaction_row(
               transaction.id,
               state,
               Transfer,
+              suggested: is_suggestion(transaction.suggestion, Transfer),
               testid: "quick-tag-transfer",
               children: [html.text("Transfer")],
             ),
@@ -489,11 +529,39 @@ fn transaction_row(
               transaction.id,
               state,
               Dismiss,
+              suggested: False,
               testid: "quick-tag-dismiss",
               children: [html.text("Dismiss")],
             ),
           ],
         ),
+      ),
+    ],
+  )
+}
+
+/// Above the buttons: the "Suggested" label and the pattern of the rule that
+/// suggests the outlined button, so the user can check why before choosing it.
+fn suggestion_note(suggestion: Suggestion) -> Element(Msg) {
+  html.p(
+    [
+      attribute.class(
+        "flex flex-wrap items-center gap-1.5 text-xs text-fg-muted",
+      ),
+      attribute.attribute("data-testid", "quick-tag-suggestion"),
+    ],
+    [
+      html.span([attribute.class("font-semibold text-fg")], [
+        html.text("Suggested"),
+      ]),
+      html.text("by rule"),
+      html.code(
+        [
+          attribute.class(
+            "rounded bg-surface-hover px-1.5 py-0.5 font-medium text-fg",
+          ),
+        ],
+        [html.text(suggestion.pattern)],
       ),
     ],
   )
@@ -531,10 +599,13 @@ fn row_status(state: Option(Row)) -> Element(Msg) {
 
 /// A button for one choice. It shows as pressed while its choice is saving or
 /// saved, and every button in the row is disabled while a save is in flight.
+/// The suggested button keeps its place and its accessible name, and only its
+/// border marks it, so the order and Vimium's link hints stay the same.
 fn choice_button(
   transaction_id: Uuid,
   row: Option(Row),
   choice: Choice,
+  suggested suggested: Bool,
   testid testid: String,
   children children: List(Element(Msg)),
 ) -> Element(Msg) {
@@ -563,6 +634,8 @@ fn choice_button(
     False, TagWith(_), True -> "border-primary bg-primary-tint text-fg"
     False, Transfer, True -> "border-fg-muted bg-surface-hover text-fg"
     False, Dismiss, True -> "border-fg-muted bg-surface-hover text-fg"
+    False, _, False if suggested ->
+      "border-primary bg-surface text-fg hover:bg-surface-hover"
     False, _, False ->
       "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
   }
@@ -584,6 +657,10 @@ fn choice_button(
       }),
       attribute.disabled(is_disabled),
       attribute.attribute("data-testid", testid),
+      attribute.attribute("data-suggested", case suggested {
+        True -> "true"
+        False -> "false"
+      }),
       event.on_click(UserChose(transaction_id, choice)),
     ],
     children,

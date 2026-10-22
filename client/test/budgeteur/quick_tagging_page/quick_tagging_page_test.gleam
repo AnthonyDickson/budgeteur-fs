@@ -14,8 +14,10 @@ import budgeteur/shared/toast
 import gleam/dict
 import gleam/list
 import gleam/option.{None, Some}
+import gleam/string
 import gleam/time/calendar.{Date, October}
 import gleeunit/should
+import lustre/element
 import youid/uuid
 
 fn transaction(description: String) -> queue.QueuedTransaction {
@@ -25,6 +27,7 @@ fn transaction(description: String) -> queue.QueuedTransaction {
     description:,
     date: Date(2026, October, 1),
     account_name: None,
+    suggestion: None,
   )
 }
 
@@ -117,7 +120,10 @@ pub fn choosing_a_tag_saves_it_and_keeps_the_row_test() {
   let assert effect.HttpRequest(method: http_effect.Put, url:, body:, ..) =
     effect
   url |> should.equal(api_route.to_string(api_route.QuickTagTransaction(id)))
-  body |> should.equal("{\"tagId\":\"" <> uuid.to_string(tag_id) <> "\"}")
+  body
+  |> should.equal(
+    "{\"tagId\":\"" <> uuid.to_string(tag_id) <> "\",\"suggested\":false}",
+  )
   quick_tagging_page.waiting(model) |> should.equal(Some(1))
 
   let #(model, _) = update(model, ServerSaved(id, TagWith(tag_id), Ok(Nil)))
@@ -246,4 +252,60 @@ pub fn marking_a_transfer_sends_a_put_to_the_transfer_route_test() {
 
   dict.get(model.rows, id) |> should.equal(Ok(Saved(Transfer)))
   quick_tagging_page.waiting(model) |> should.equal(Some(0))
+}
+
+fn suggested_transfer_queue() -> queue.Queue {
+  let suggestion =
+    queue.Suggestion(target: queue.TransferTarget, pattern: "TO SAVINGS")
+  Queue(
+    transactions: [
+      QueuedTransaction(
+        ..transaction("Transfer to savings"),
+        suggestion: Some(suggestion),
+      ),
+    ],
+    total: 1,
+  )
+}
+
+pub fn choosing_the_suggestion_sends_the_suggestion_flag_test() {
+  let queue = suggested_transfer_queue()
+  let id = first_id(queue)
+  let groceries = tag("Groceries", Expense)
+  let #(model, _) =
+    update(loaded_model(queue), ClientFetchedTags(Ok([groceries])))
+
+  let #(_, effect) = update(model, UserChose(id, Transfer))
+  let assert effect.HttpRequest(body:, ..) = effect
+  body |> should.equal("{\"suggested\":true}")
+
+  let #(_, effect) = update(model, UserChose(id, TagWith(groceries.id)))
+  let assert effect.HttpRequest(body:, ..) = effect
+  body
+  |> should.equal(
+    "{\"tagId\":\"" <> uuid.to_string(groceries.id) <> "\",\"suggested\":false}",
+  )
+}
+
+pub fn the_suggested_button_is_marked_without_moving_test() {
+  let queue = suggested_transfer_queue()
+  let groceries = tag("Groceries", Expense)
+  let #(model, _) =
+    update(loaded_model(queue), ClientFetchedTags(Ok([groceries])))
+  let html = element.to_string(quick_tagging_page.view(model))
+
+  // The buttons keep their order: the tag, then Transfer, then Dismiss.
+  let assert [_, after_tag] =
+    string.split(html, "data-testid=\"quick-tag-button\"")
+  let assert [_, after_transfer] =
+    string.split(after_tag, "data-testid=\"quick-tag-transfer\"")
+  after_transfer
+  |> string.contains("data-testid=\"quick-tag-dismiss\"")
+  |> should.be_true
+
+  // Only Transfer is marked, and the label names the rule's pattern.
+  string.split(html, "data-suggested=\"true\"")
+  |> list.length
+  |> should.equal(2)
+  html |> string.contains("TO SAVINGS") |> should.be_true
 }

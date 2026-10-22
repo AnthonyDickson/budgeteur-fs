@@ -5,6 +5,7 @@ module EndpointTests =
     open System.Net
     open System.Net.Http
     open Expecto
+    open Microsoft.Data.Sqlite
 
     open Budgeteur.Feature.AutoTag
     open Budgeteur.Feature.QuickTag
@@ -75,20 +76,55 @@ module EndpointTests =
             return created.Id
         }
 
-    let private quickTag (client : HttpClient) (id : Guid) (tagId : Guid) =
+    let private quickTagWith
+        (suggested : bool)
+        (client : HttpClient)
+        (id : Guid)
+        (tagId : Guid)
+        =
         TestHttp.putJson
             client
             (TestHttp.itemPath QuickTagTransaction.Path id)
-            ({ TagId = tagId } : QuickTagTransaction.QuickTagRequest)
+            ({ TagId = tagId; Suggested = suggested }
+            : QuickTagTransaction.QuickTagRequest)
         |> Async.AwaitTask
+
+    let private quickTag = quickTagWith false
 
     let private dismiss (client : HttpClient) (id : Guid) =
         client.DeleteAsync (TestHttp.itemPath DismissTransaction.Path id)
         |> Async.AwaitTask
 
-    let private markTransfer (client : HttpClient) (id : Guid) =
-        client.PutAsync (TestHttp.itemPath MarkTransfer.Path id, null)
+    let private markTransferWith
+        (suggested : bool)
+        (client : HttpClient)
+        (id : Guid)
+        =
+        TestHttp.putJson
+            client
+            (TestHttp.itemPath MarkTransfer.Path id)
+            ({ Suggested = suggested } : MarkTransfer.MarkTransferRequest)
         |> Async.AwaitTask
+
+    let private markTransfer = markTransferWith false
+
+    /// <summary>The stored source of the transaction's categorisation. A
+    /// transfer's source is not in any response.</summary>
+    let private readSource (app : TestApp) (id : Guid) =
+        use conn = new SqliteConnection (app.ConnectionString)
+        conn.Open ()
+        use cmd = conn.CreateCommand ()
+
+        cmd.CommandText <-
+            "SELECT Kind, Source FROM Categorisations WHERE TransactionId = $id"
+
+        cmd.Parameters.AddWithValue ("$id", id) |> ignore
+        use reader = cmd.ExecuteReader ()
+
+        if reader.Read () then
+            Some (reader.GetString 0, reader.GetString 1)
+        else
+            None
 
     let private expectStatus
         (expected : HttpStatusCode)
@@ -538,5 +574,55 @@ module EndpointTests =
                         HttpStatusCode.BadRequest
                         $"'{query}' should be rejected"
                         response
+            }
+
+            testCaseAsync "a choice flagged as the suggestion is accepted"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+                let! tagged = create app.Client (untagged "Countdown")
+                let! transfer = create app.Client (untagged "To savings")
+
+                let! _ = quickTagWith true app.Client tagged groceries
+                let! _ = markTransferWith true app.Client transfer
+
+                Expect.equal
+                    (readSource app tagged)
+                    (Some ("Tagged", "Accepted"))
+                    "the suggested tag is accepted"
+
+                Expect.equal
+                    (readSource app transfer)
+                    (Some ("Transfer", "Accepted"))
+                    "the suggested transfer is accepted"
+
+                let! _ = quickTag app.Client tagged groceries
+                let! _ = markTransfer app.Client transfer
+
+                Expect.equal
+                    (readSource app tagged)
+                    (Some ("Tagged", "Manual"))
+                    "a tag that was not the suggestion is manual"
+
+                Expect.equal
+                    (readSource app transfer)
+                    (Some ("Transfer", "Manual"))
+                    "a transfer that was not the suggestion is manual"
+            }
+
+            testCaseAsync "marking a transfer needs the suggestion flag"
+            <| async {
+                use app = newApp ()
+                let! id = create app.Client (untagged "To savings")
+
+                let! response =
+                    app.Client.PutAsync (
+                        TestHttp.itemPath MarkTransfer.Path id,
+                        null
+                    )
+                    |> Async.AwaitTask
+
+                expectStatus HttpStatusCode.BadRequest "no body is 400" response
+                Expect.isNone (readSource app id) "nothing should be written"
             }
         ]

@@ -59,9 +59,10 @@ Categorisation, source, manual tag, and rule tag are defined in
   queue; dismissals and transfers reference no tag and are unaffected. Migration
   `001` is unreleased (no version tag contains it), so it is edited in place.
 - **Transitions** (additions to [auto-tagging](auto-tagging.md) decision 4):
-  - Quick tagging with a tag makes it manual; dismissing makes it dismissed.
-    Either replaces whatever categorisation the transaction had, a transfer
-    included.
+  - Quick tagging with a tag or a transfer records the user's decision, with the
+    `Accepted` source when it was the row's suggestion and `Manual` otherwise;
+    dismissing makes it dismissed. Either replaces whatever categorisation the
+    transaction had, a transfer included.
   - Creating a transaction without a tag leaves it untagged, so it appears in
     the queue. A tag the user forgot is what the queue is for, and dismissing is
     one click there.
@@ -198,14 +199,17 @@ Categorisation, source, manual tag, and rule tag are defined in
     account name, and optional suggestion. The response also carries the
     suggestion counts, and the request takes an optional target and tag id to
     filter by ([transfer rules](transfer-rules.md) decision 9).
-  - `PUT /api/quick-tag/{transactionId}` with a required tag id, returning
-    `204`. A tag the user does not have is `400`, whether it is missing or
-    another user's.
+  - `PUT /api/quick-tag/{transactionId}` with a required tag id and a required
+    flag saying whether the tag was the row's suggestion, returning `204`. A tag
+    the user does not have is `400`, whether it is missing or another user's.
   - `DELETE /api/quick-tag/{transactionId}` dismissing the transaction, which
     removes it from the queue, returning `204`.
   - `PUT /api/quick-tag/{transactionId}/transfer` marking the transaction as a
-    transfer, which removes it from the queue, returning `204`. It takes no
-    body.
+    transfer, which removes it from the queue, returning `204`. Its body is the
+    same suggestion flag.
+
+  A choice flagged as the suggestion records the `Accepted` source, otherwise
+  `Manual` ([transfer rules](transfer-rules.md) decision 6).
 
   For every write, an unknown transaction, or another user's, is `404`, checked
   before the write. Each is idempotent and replaces any categorisation. They
@@ -256,6 +260,10 @@ Categorisation, source, manual tag, and rule tag are defined in
   below, then the tag buttons, wrapping as needed. The description can be
   selected and copied. Rows do not open the transaction form; other fields are
   edited on the transactions page.
+- **Suggestions**: a row's suggested button is outlined, without moving it, and
+  a "Suggested" label above the buttons names the rule's pattern. The button's
+  accessible name is unchanged ([transfer rules](transfer-rules.md) decision
+  10).
 - **No tags**: a note above the rows links to the tags page, and each row offers
   only "Dismiss".
 - **Empty state**: "No transactions are waiting for a tag", with a link to the
