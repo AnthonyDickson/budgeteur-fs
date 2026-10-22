@@ -7,7 +7,9 @@ import budgeteur/shared/ui/banner
 import budgeteur/shared/ui/dialog
 import budgeteur/shared/ui/input
 import budgeteur/shared/ui/popover
-import budgeteur/tagging_page/rule.{type Rule, Rule, TagTarget, TransferTarget}
+import budgeteur/tagging_page/rule.{
+  type Rule, type Target, Rule, TagTarget, TransferTarget,
+}
 import budgeteur/tagging_page/rule_matches.{type RuleMatches, RuleMatches}
 import budgeteur/tagging_page/rule_write_request.{
   type RuleWriteRequest, RuleWriteRequest,
@@ -93,9 +95,9 @@ fn field_tag_error(field: TagField) -> Bool {
 // Update
 
 pub type Msg {
-  // "+ New Rule" clicked; the page passes the currently selected tag so the
-  // create form can seed its tag select.
-  CreateRequested(default_tag_id: Uuid)
+  // "+ New Rule" clicked; the page passes the current selection, a tag or the
+  // "Transfers" entry, so the create form can seed its tag select.
+  CreateRequested(default_target: Target)
   // Row clicked; the page looks the rule up first; the form never owns
   // the list.
   EditRequested(rule: Rule)
@@ -124,10 +126,10 @@ pub fn update(
   rules: List(Rule),
 ) -> #(Modal, Option(Request), Outcome) {
   case msg {
-    CreateRequested(default_tag_id:) ->
+    CreateRequested(default_target:) ->
       case state {
         form_modal.Submitting(..) -> #(state, None, form_modal.NoChange)
-        _ -> #(create_modal(default_tag_id), None, form_modal.NoChange)
+        _ -> #(create_modal(default_target), None, form_modal.NoChange)
       }
     EditRequested(rule:) ->
       case state {
@@ -168,11 +170,11 @@ pub fn update(
   }
 }
 
-/// An empty modal for creating a new rule under `default_tag_id`.
-fn create_modal(default_tag_id: Uuid) -> Modal {
+/// An empty modal for creating a new rule with `default_target`.
+fn create_modal(default_target: Target) -> Modal {
   form_modal.create(Form(
     pattern: field.Empty(""),
-    tag_id: ValidTag(default_tag_id),
+    tag_id: target_field(default_target),
     match_count: NotCounted,
   ))
 }
@@ -184,13 +186,18 @@ fn edit_modal(rule: Rule) -> Modal {
     id,
     Form(
       pattern: field.Valid(value: rule.pattern, input: rule.pattern),
-      tag_id: case rule.target {
-        TagTarget(tag_id:) -> ValidTag(tag_id)
-        TransferTarget -> TransferChosen
-      },
+      tag_id: target_field(rule.target),
       match_count: Counting(rule.pattern),
     ),
   )
+}
+
+/// The tag select's value for a target.
+fn target_field(target: Target) -> TagField {
+  case target {
+    TagTarget(tag_id:) -> ValidTag(tag_id)
+    TransferTarget -> TransferChosen
+  }
 }
 
 /// Validate and set the pattern field. No op for Hidden and Submitting states.

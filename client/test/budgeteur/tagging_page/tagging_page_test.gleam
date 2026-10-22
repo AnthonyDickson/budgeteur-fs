@@ -17,7 +17,9 @@ import budgeteur/tagging_page/tag_modal
 import budgeteur/tagging_page/tagging_page
 import gleam/int
 import gleam/option.{None, Some}
+import gleam/string
 import gleeunit/should
+import lustre/element
 import youid/uuid
 
 fn tag_id(n: Int) -> uuid.Uuid {
@@ -43,7 +45,7 @@ fn empty_model() -> tagging_page.Model {
   tagging_page.Model(
     tags: remote.Loaded([]),
     rules: remote.Loaded([]),
-    selected_tag: None,
+    selected: None,
     tag_modal: tag_modal.hidden(),
     tag_delete_modal: tag_delete_modal.empty(),
     rule_modal: rule_modal.hidden(),
@@ -53,11 +55,11 @@ fn empty_model() -> tagging_page.Model {
 }
 
 fn model_with(tags: List(tag.Tag)) -> tagging_page.Model {
-  let selected_tag = case tags {
-    [first, ..] -> Some(first.id)
+  let selected = case tags {
+    [first, ..] -> Some(rule.TagTarget(first.id))
     _ -> None
   }
-  tagging_page.Model(..empty_model(), tags: remote.Loaded(tags), selected_tag:)
+  tagging_page.Model(..empty_model(), tags: remote.Loaded(tags), selected:)
 }
 
 fn tags(model: tagging_page.Model) -> List(tag.Tag) {
@@ -116,7 +118,7 @@ pub fn fetched_tags_are_sorted_and_the_first_selected_test() {
     tag_named(tag_id(1), "Coffee"),
     tag_named(tag_id(2), "Rent"),
   ])
-  new_model.selected_tag |> should.equal(Some(tag_id(1)))
+  new_model.selected |> should.equal(Some(rule.TagTarget(tag_id(1))))
   effect |> should.equal(effect.none())
   out_msg |> should.equal(None)
 }
@@ -181,7 +183,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee, rent]),
       rules: remote.Loaded([make_rule_for(coffee.id)]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
     )
 
   // Delete in the tag's edit dialog swaps the dialog for the confirmation,
@@ -216,7 +218,7 @@ pub fn deleting_tag_cascades_rules_and_reselects_test() {
 
   tags(new_model) |> should.equal([rent])
   rules(new_model) |> should.equal([])
-  new_model.selected_tag |> should.equal(Some(rent.id))
+  new_model.selected |> should.equal(Some(rule.TagTarget(rent.id)))
   let assert delete_modal.Hidden = new_model.tag_delete_modal
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
@@ -231,7 +233,7 @@ pub fn deleting_rule_arms_request_then_removes_it_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee]),
       rules: remote.Loaded([starbucks]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
     )
 
   // Delete in the rule's edit dialog swaps the dialog for the confirmation,
@@ -273,7 +275,7 @@ pub fn failed_tag_delete_shows_inline_error_and_allows_retry_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee]),
       rules: remote.Loaded([]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
       tag_delete_modal: delete_modal.Deleting(target: coffee, context: 0),
     )
 
@@ -312,7 +314,7 @@ pub fn tag_delete_404_is_treated_as_success_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee]),
       rules: remote.Loaded([]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
       tag_delete_modal: delete_modal.Deleting(target: coffee, context: 0),
     )
 
@@ -350,7 +352,7 @@ pub fn stale_delete_error_when_not_deleting_is_a_noop_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee]),
       rules: remote.Loaded([]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
     )
 
   // The modal is not `Deleting` (the dialog was cancelled or never armed), so
@@ -381,7 +383,7 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee]),
       rules: remote.Loaded([existing]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
     )
 
   // Opening the create form seeds the tag select with the selected tag.
@@ -413,7 +415,7 @@ pub fn creating_rule_posts_and_appends_to_existing_rules_test() {
 
   // New rules append so insertion order equals rule evaluation order.
   rules(new_model) |> should.equal([existing, created])
-  new_model.selected_tag |> should.equal(Some(coffee.id))
+  new_model.selected |> should.equal(Some(rule.TagTarget(coffee.id)))
   new_model.rule_modal |> should.equal(rule_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
@@ -428,7 +430,7 @@ pub fn editing_rule_can_move_it_to_another_tag_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee, rent]),
       rules: remote.Loaded([starbucks]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
     )
 
   let opened =
@@ -482,7 +484,7 @@ pub fn failed_rule_save_logs_error_and_keeps_the_form_open_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee]),
       rules: remote.Loaded([starbucks]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
     )
   let opened = run(model, tagging_page.UserRequestedRuleEdit(starbucks.id))
   let #(submitting, _, _) =
@@ -517,7 +519,7 @@ pub fn cancelling_the_rule_modal_hides_it_without_changes_test() {
       ..empty_model(),
       tags: remote.Loaded([coffee]),
       rules: remote.Loaded([]),
-      selected_tag: Some(coffee.id),
+      selected: Some(rule.TagTarget(coffee.id)),
     )
   let opened = run(model, tagging_page.UserRequestedRuleCreation)
   let #(closed, effect, _) =
@@ -569,7 +571,7 @@ pub fn creating_tag_inserts_sorts_and_selects_it_test() {
     )
 
   tags(new_model) |> should.equal([coffee, created, rent])
-  new_model.selected_tag |> should.equal(Some(created.id))
+  new_model.selected |> should.equal(Some(rule.TagTarget(created.id)))
   new_model.tag_modal |> should.equal(tag_modal.hidden())
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
@@ -637,7 +639,7 @@ pub fn editing_tag_replaces_and_resorts_it_test() {
     )
 
   tags(new_model) |> should.equal([updated, coffee])
-  new_model.selected_tag |> should.equal(Some(coffee.id))
+  new_model.selected |> should.equal(Some(rule.TagTarget(coffee.id)))
   let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
     out_msg
 }
@@ -796,4 +798,45 @@ pub fn runs_are_ignored_while_one_is_in_progress_test() {
   tag_effect |> should.equal(effect.none())
   after_retag |> should.equal(running)
   retag_effect |> should.equal(effect.none())
+}
+
+pub fn selecting_transfers_shows_transfer_rules_and_creates_one_test() {
+  let coffee = tag_named(tag_id(1), "Coffee")
+  let transfer_rule =
+    rule.Rule(id: tag_id(8), pattern: "TO SAVINGS", target: rule.TransferTarget)
+  let model =
+    tagging_page.Model(
+      ..model_with([coffee]),
+      rules: remote.Loaded([make_rule_for(coffee.id), transfer_rule]),
+    )
+
+  let selected = run(model, tagging_page.UserSelected(rule.TransferTarget))
+  let html = element.to_string(tagging_page.view(selected))
+  html |> string.contains("TO SAVINGS") |> should.be_true
+  html |> string.contains("STARBUCKS") |> should.be_false
+  html |> string.contains("transfer-rules-note") |> should.be_true
+
+  // "New rule" seeds the form with the transfer target.
+  let creating = run(selected, tagging_page.UserRequestedRuleCreation)
+  let assert form_modal.Active(form: rule_modal.Form(tag_id:, ..), ..) =
+    creating.rule_modal
+  tag_id |> should.equal(rule_modal.TransferChosen)
+}
+
+pub fn deleting_a_tag_keeps_transfer_rules_test() {
+  let coffee = tag_named(tag_id(1), "Coffee")
+  let transfer_rule =
+    rule.Rule(id: tag_id(8), pattern: "TO SAVINGS", target: rule.TransferTarget)
+  let model =
+    tagging_page.Model(
+      ..model_with([coffee]),
+      rules: remote.Loaded([make_rule_for(coffee.id), transfer_rule]),
+      selected: Some(rule.TransferTarget),
+    )
+
+  let #(new_model, _, _) =
+    tagging_page.update(model, tagging_page.ServerDeletedTag(coffee, Ok(Nil)))
+
+  rules(new_model) |> should.equal([transfer_rule])
+  new_model.selected |> should.equal(Some(rule.TransferTarget))
 }

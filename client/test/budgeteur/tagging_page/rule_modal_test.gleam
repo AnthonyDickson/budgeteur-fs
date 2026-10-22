@@ -32,7 +32,8 @@ fn make_rule(id: Uuid, pattern: String, tag_id: Uuid) -> Rule {
 
 fn make_create_modal() -> Modal {
   let state = rule_modal.hidden()
-  let #(state, _, _) = rule_modal.update(state, CreateRequested(make_id(1)), [])
+  let #(state, _, _) =
+    rule_modal.update(state, CreateRequested(TagTarget(make_id(1))), [])
   state
 }
 
@@ -58,7 +59,11 @@ fn api_error(message: String) -> ApiError {
 
 pub fn opening_create_seeds_empty_pattern_and_selected_tag_test() {
   let #(state, request, outcome) =
-    rule_modal.update(rule_modal.hidden(), CreateRequested(make_id(1)), [])
+    rule_modal.update(
+      rule_modal.hidden(),
+      CreateRequested(TagTarget(make_id(1))),
+      [],
+    )
   state
   |> should.equal(Active(
     form: Form(

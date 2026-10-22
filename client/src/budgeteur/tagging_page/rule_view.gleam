@@ -3,33 +3,41 @@ import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/button
 import budgeteur/shared/ui/row
 import budgeteur/shared/ui/swatch
-import budgeteur/tagging_page/rule.{type Rule}
+import budgeteur/tagging_page/rule.{
+  type Rule, type Target, TagTarget, TransferTarget,
+}
 import gleam/list
 import gleam/option.{type Option}
+import gleam/result
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import youid/uuid.{type Uuid}
 
-/// The rules panel for the currently selected tag: its name and swatch, a
-/// "New rule" button, and the rule rows, which open the rule's form. When no tag
-/// is selected, or the selected tag no longer exists, a prompt is shown
-/// instead.
+/// The rules panel for the current selection: the selected tag's name and swatch,
+/// or "Transfers" with a note that transfer rules only suggest, a "New rule"
+/// button, and the rule rows, which open the rule's form. When nothing is
+/// selected, or the selected tag no longer exists, a prompt is shown instead.
 pub fn panel(
   tags: List(Tag),
   rules: List(Rule),
-  selected_tag: Option(Uuid),
+  selected: Option(Target),
   on_create_rule on_create_rule: msg,
   on_edit_rule on_edit_rule: fn(Uuid) -> msg,
 ) -> Element(msg) {
-  use id <- guard.some_lazy(selected_tag, else_return: rules_prompt)
-  use selected_tag <- guard.ok_lazy(
-    list.find(tags, fn(tag) { tag.id == id }),
+  use target <- guard.some_lazy(selected, else_return: rules_prompt)
+  use selection <- guard.ok_lazy(
+    case target {
+      TagTarget(tag_id:) ->
+        list.find(tags, fn(tag) { tag.id == tag_id })
+        |> result.map(SelectedTag)
+      TransferTarget -> Ok(SelectedTransfers)
+    },
     else_return: fn(_) { rules_prompt() },
   )
 
-  let rules = rules_for_tag(id, rules)
+  let rules = rules_for(target, rules)
 
   html.div(
     [
@@ -53,10 +61,7 @@ pub fn panel(
               ],
               [html.text("Rules")],
             ),
-            swatch.view(selected_tag.color),
-            html.h2([attribute.class("text-sm font-semibold text-fg")], [
-              html.text(selected_tag.name),
-            ]),
+            ..selection_heading(selection)
           ]),
           button.view(
             button.Primary,
@@ -69,8 +74,12 @@ pub fn panel(
           ),
         ],
       ),
+      case selection {
+        SelectedTransfers -> transfers_note()
+        SelectedTag(_) -> element.none()
+      },
       ..case list.is_empty(rules) {
-        True -> [rules_empty_state(selected_tag)]
+        True -> [rules_empty_state(selection)]
         False -> [
           column_headers(),
           rules_list(rules, on_edit: on_edit_rule),
@@ -80,9 +89,9 @@ pub fn panel(
   )
 }
 
-/// The rules belonging to a tag.
-pub fn rules_for_tag(tag_id: Uuid, rules: List(Rule)) -> List(Rule) {
-  list.filter(rules, rule.targets_tag(_, tag_id))
+/// The rules with the target: a tag's rules, or the transfer rules.
+pub fn rules_for(target: Target, rules: List(Rule)) -> List(Rule) {
+  list.filter(rules, fn(rule) { rule.target == target })
 }
 
 fn column_headers() -> Element(msg) {
@@ -162,7 +171,19 @@ fn rules_prompt() -> Element(msg) {
   ])
 }
 
-fn rules_empty_state(tag: Tag) -> Element(msg) {
+fn rules_empty_state(selection: Selection) -> Element(msg) {
+  let #(title, body) = case selection {
+    SelectedTag(tag) -> #(
+      "No rules for \"" <> tag.name <> "\" yet",
+      "Rules auto-tag transactions whose description contains a pattern, "
+        <> "e.g. \"STARBUCKS\" > Coffee.",
+    )
+    SelectedTransfers -> #(
+      "No transfer rules yet",
+      "Transfer rules find transfers between your accounts by a pattern in "
+        <> "the description, e.g. \"TRANSFER TO SAVINGS\".",
+    )
+  }
   html.div(
     [
       attribute.class(
@@ -171,14 +192,46 @@ fn rules_empty_state(tag: Tag) -> Element(msg) {
     ],
     [
       html.h3([attribute.class("text-sm font-medium text-fg")], [
-        html.text("No rules for \"" <> tag.name <> "\" yet"),
+        html.text(title),
       ]),
       html.p([attribute.class("mt-1 max-w-sm text-sm text-fg-muted")], [
-        html.text(
-          "Rules auto-tag transactions whose description contains a pattern, "
-          <> "e.g. \"STARBUCKS\" > Coffee.",
-        ),
+        html.text(body),
       ]),
+    ],
+  )
+}
+
+/// The selection, once its tag is found.
+type Selection {
+  SelectedTag(Tag)
+  SelectedTransfers
+}
+
+fn selection_heading(selection: Selection) -> List(Element(msg)) {
+  let heading = fn(text) {
+    html.h2([attribute.class("text-sm font-semibold text-fg")], [
+      html.text(text),
+    ])
+  }
+  case selection {
+    SelectedTag(tag) -> [swatch.view(tag.color), heading(tag.name)]
+    SelectedTransfers -> [heading("Transfers")]
+  }
+}
+
+/// Transfer rules do not mark transfers: a wrong one would hide money from the
+/// income statement and the queue. See decision 3 in docs/transfer-rules.md.
+fn transfers_note() -> Element(msg) {
+  html.p(
+    [
+      attribute.class("border-b border-border px-4 py-2 text-xs text-fg-muted"),
+      attribute.attribute("data-testid", "transfer-rules-note"),
+    ],
+    [
+      html.text(
+        "Transfer rules suggest matching transactions as transfers in quick "
+        <> "tagging. They do not mark them until you approve.",
+      ),
     ],
   )
 }

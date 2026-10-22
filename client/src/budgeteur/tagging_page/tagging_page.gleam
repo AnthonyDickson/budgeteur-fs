@@ -10,7 +10,9 @@ import budgeteur/shared/tag.{type Tag}
 import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
 import budgeteur/tagging_page/auto_tag
-import budgeteur/tagging_page/rule.{type Rule}
+import budgeteur/tagging_page/rule.{
+  type Rule, type Target, TagTarget, TransferTarget,
+}
 import budgeteur/tagging_page/rule_delete_modal
 import budgeteur/tagging_page/rule_matches
 import budgeteur/tagging_page/rule_modal
@@ -38,7 +40,9 @@ pub type Model {
     tags: Remote(List(Tag)),
     /// In evaluation order.
     rules: Remote(List(Rule)),
-    selected_tag: Option(Uuid),
+    /// Whose rules the rules panel shows: a tag, or the "Transfers" entry. A
+    /// new rule gets it as its target.
+    selected: Option(Target),
     tag_modal: tag_modal.Modal,
     tag_delete_modal: tag_delete_modal.DeleteModalState,
     rule_modal: rule_modal.Modal,
@@ -65,8 +69,8 @@ pub type Msg {
   // page (the end state matches the user's intent), so this only carries
   // genuine failures.
   ServerDeletedTag(tag: Tag, result: Result(Nil, ApiError))
-  // Selection
-  UserSelectedTag(Uuid)
+  // Selection: a tag, or the "Transfers" entry
+  UserSelected(Target)
   // Rule modal messages
   UserRequestedRuleCreation
   UserRequestedRuleEdit(Uuid)
@@ -121,7 +125,7 @@ pub fn init() -> #(Model, Effect(Msg)) {
     Model(
       tags: Loading,
       rules: Loading,
-      selected_tag: None,
+      selected: None,
       tag_modal: tag_modal.hidden(),
       tag_delete_modal: tag_delete_modal.empty(),
       rule_modal: rule_modal.hidden(),
@@ -178,9 +182,9 @@ fn fetch_failed(
   }
 }
 
-fn first_tag_id(tags: List(Tag)) -> Option(Uuid) {
+fn first_tag(tags: List(Tag)) -> Option(Target) {
   list.first(tags)
-  |> result.map(fn(tag) { tag.id })
+  |> result.map(fn(tag) { TagTarget(tag.id) })
   |> option.from_result
 }
 
@@ -188,8 +192,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   case msg {
     ClientFetchedTags(Ok(tags)) -> {
       let tags = sort_tags(tags)
-      let model =
-        Model(..model, tags: Loaded(tags), selected_tag: first_tag_id(tags))
+      let model = Model(..model, tags: Loaded(tags), selected: first_tag(tags))
       #(model, effect.none(), None)
     }
 
@@ -249,16 +252,16 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       None,
     )
 
-    UserSelectedTag(id) -> #(
-      Model(..model, selected_tag: Some(id)),
+    UserSelected(target) -> #(
+      Model(..model, selected: Some(target)),
       effect.none(),
       None,
     )
 
     UserRequestedRuleCreation -> {
-      case model.selected_tag {
-        Some(tag_id) ->
-          run_rule_modal(model, rule_modal.CreateRequested(tag_id))
+      case model.selected {
+        Some(target) ->
+          run_rule_modal(model, rule_modal.CreateRequested(target))
         None -> #(model, effect.none(), None)
       }
     }
@@ -415,7 +418,8 @@ fn open_tag_delete(model: Model) -> Model {
   case tag {
     Ok(tag) -> {
       let rule_count =
-        rule_view.rules_for_tag(tag.id, loaded_rules(model)) |> list.length
+        rule_view.rules_for(TagTarget(tag.id), loaded_rules(model))
+        |> list.length
       Model(..model, tag_delete_modal: tag_delete_modal.open(tag, rule_count))
     }
     Error(Nil) -> model
@@ -430,10 +434,10 @@ fn open_rule_delete(model: Model) -> Model {
       list.find(loaded_rules(model), fn(rule) { rule.id == id }),
     )
     use target_name <- result.map(case rule.target {
-      rule.TagTarget(tag_id:) ->
+      TagTarget(tag_id:) ->
         list.find(loaded_tags(model), fn(tag) { tag.id == tag_id })
         |> result.map(fn(tag) { tag.name })
-      rule.TransferTarget -> Ok("Transfer")
+      TransferTarget -> Ok("Transfer")
     })
     #(rule, target_name)
   }
@@ -482,12 +486,12 @@ fn on_tag_delete_succeeded(
     model
     |> map_tags(list.filter(_, fn(t) { t.id != tag.id }))
     |> map_rules(list.filter(_, fn(r) { !rule.targets_tag(r, tag.id) }))
-  let selected_tag = case model.selected_tag {
-    Some(id) if id == tag.id -> first_tag_id(loaded_tags(model))
+  let selected = case model.selected {
+    Some(TagTarget(id)) if id == tag.id -> first_tag(loaded_tags(model))
     other -> other
   }
   #(
-    Model(..model, selected_tag:, tag_delete_modal: tag_delete_modal.empty()),
+    Model(..model, selected:, tag_delete_modal: tag_delete_modal.empty()),
     effect.none(),
     Some(out_msg.success_toast("Deleted tag " <> tag.name)),
   )
@@ -601,7 +605,7 @@ fn apply_tag_outcome(
     form_modal.NoChange -> #(model, None)
     form_modal.Created(entity: tag) -> {
       let model = map_tags(model, fn(tags) { [tag, ..tags] |> sort_tags })
-      let model = Model(..model, selected_tag: Some(tag.id))
+      let model = Model(..model, selected: Some(TagTarget(tag.id)))
       #(model, Some(out_msg.success_toast("Created tag '" <> tag.name <> "'")))
     }
     form_modal.Updated(entity: tag) -> {
@@ -817,7 +821,7 @@ pub fn view(model: Model) -> Element(Msg) {
         case list.is_empty(tags) {
           True ->
             tag_view.no_tags_empty_state(on_create: UserRequestedTagCreation)
-          False -> master_detail(tags, rules, model.selected_tag)
+          False -> master_detail(tags, rules, model.selected)
         }
     },
     tag_modal.view(model.tag_modal)
@@ -884,7 +888,7 @@ fn auto_tag_buttons(run: auto_tag.Run) -> Element(Msg) {
 fn master_detail(
   tags: List(Tag),
   rules: List(Rule),
-  selected_tag: Option(Uuid),
+  selected: Option(Target),
 ) -> Element(Msg) {
   card.panel(
     [
@@ -896,15 +900,15 @@ fn master_detail(
       html.div([attribute.class("flex flex-col md:h-full md:flex-row")], [
         tag_view.panel(
           tags,
-          selected_tag,
-          on_select: UserSelectedTag,
+          selected,
+          on_select: UserSelected,
           on_edit: UserRequestedTagEdit,
           on_create: UserRequestedTagCreation,
         ),
         rule_view.panel(
           tags,
           rules,
-          selected_tag,
+          selected,
           on_create_rule: UserRequestedRuleCreation,
           on_edit_rule: UserRequestedRuleEdit,
         ),
