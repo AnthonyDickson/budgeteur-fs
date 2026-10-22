@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-22
+
 ### Added
 
 - Transfer rules, under a **Transfers** entry on the tagging page. They suggest
@@ -68,7 +70,8 @@ and this project adheres to
 
 The first release candidate.
 
-[Unreleased]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc3...HEAD
+[Unreleased]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0...HEAD
+[1.0.0]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc3...1.0.0
 [1.0.0-rc3]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc2...1.0.0-rc3
 [1.0.0-rc2]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc1...1.0.0-rc2
 [1.0.0-rc1]: https://github.com/AnthonyDickson/budgeteur-fs/tree/1.0.0-rc1
