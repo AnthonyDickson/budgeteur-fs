@@ -20,16 +20,27 @@ module UpdateRule =
     open Budgeteur.Shared.DomainError
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
+    open Budgeteur.Shared.OpenApi
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for updating a rule.</summary>
-    type UpdateRuleRequest = { Pattern : string; TagId : Guid }
+    type UpdateRuleRequest = {
+        Pattern : string
+
+        /// <summary>What the rule proposes when it wins.</summary>
+        [<SchemaHint.Enum(typeof<RuleTarget>)>]
+        Target : string
+
+        /// <summary>Required for a tag rule, and rejected for a transfer
+        /// rule.</summary>
+        TagId : Guid option
+    }
 
     [<Literal>]
     let Path = "/api/rules/{%O:guid}"
 
     /// <summary>Verify that the user has no other rule with the same pattern
-    /// under the comparison, whatever its tag, excluding the rule being
+    /// under the comparison, whatever its target, excluding the rule being
     /// updated. The database's <c>UNIQUE(UserId, Pattern COLLATE NOCASE)</c>
     /// folds ASCII case only, so the patterns are compared here.</summary>
     let private requirePatternIsUnique
@@ -97,19 +108,20 @@ module UpdateRule =
                 let! userId = Auth.getUserId ctx
 
                 let! pattern = RulePattern.create req.Pattern
+                let! target = RuleTarget.create req.Target req.TagId
 
                 let rule : Rule = {
                     Id = id
                     Pattern = pattern
-                    TagId = req.TagId
+                    Target = target
                 }
 
                 do!
                     Constraints.requireAll [
-                        Constraints.requireTagExists
+                        Constraints.requireTagIfReferenced
                             queryContext
                             userId
-                            req.TagId
+                            (RuleTarget.tagId target)
                         requirePatternIsUnique queryContext userId rule
                     ]
 

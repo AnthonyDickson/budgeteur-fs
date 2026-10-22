@@ -15,7 +15,15 @@ module MarkTransfer =
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.Endpoint
+    open Budgeteur.Shared.Json
     open Budgeteur.Shared.RequestLogging
+
+    /// <summary>Payload for marking a transaction as a transfer.</summary>
+    type MarkTransferRequest = {
+        /// <summary>Whether a transfer was the row's suggestion, so the
+        /// transfer records that the user accepted it.</summary>
+        Suggested : bool
+    }
 
     [<Literal>]
     let Path = "/api/quick-tag/{%O:guid}/transfer"
@@ -27,6 +35,7 @@ module MarkTransfer =
         Endpoint.handler (fun ctx ->
             taskResult {
                 let log = RequestLog.fromContext ctx
+                let! (req : MarkTransferRequest) = Json.read ctx
                 let! userId = Auth.getUserId ctx
 
                 do!
@@ -34,7 +43,7 @@ module MarkTransfer =
                         queryContext
                         userId
                         id
-                        Categorisation.onTransfer
+                        (Categorisation.onTransfer req.Suggested)
 
                 log.Info (
                     $"Marked transaction %O{id} as a transfer",
@@ -49,9 +58,10 @@ module MarkTransfer =
 
         op.Description <-
             "Records that the transaction moves money between the user's own \
-            accounts, replacing any tag or dismissal. A transfer is neither \
-            income nor expense and is not in the quick tagging queue. \
-            Returns 204 on success."
+            accounts, replacing any categorisation. The source is Accepted \
+            when a transfer was the row's suggestion, otherwise Manual. A \
+            transfer is neither income nor expense and is not in the quick \
+            tagging queue. Returns 204 on success."
 
         op.Tags <- HashSet [ OpenApiTagReference "Quick tagging" ]
 
@@ -61,8 +71,10 @@ module MarkTransfer =
         routef Path (handler queryContext)
         |> addOpenApi (
             OpenApiConfig (
+                requestBody = RequestBody typeof<MarkTransferRequest>,
                 responseBodies = [|
                     ResponseBody (typeof<unit>, statusCode = 204)
+                    ResponseBody (typeof<ApiError>, statusCode = 400)
                     ResponseBody (typeof<ApiError>, statusCode = 401)
                     ResponseBody (typeof<ApiError>, statusCode = 404)
                 |],

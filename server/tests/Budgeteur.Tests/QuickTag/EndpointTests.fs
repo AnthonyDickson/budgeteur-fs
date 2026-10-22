@@ -5,6 +5,7 @@ module EndpointTests =
     open System.Net
     open System.Net.Http
     open Expecto
+    open Microsoft.Data.Sqlite
 
     open Budgeteur.Feature.AutoTag
     open Budgeteur.Feature.QuickTag
@@ -22,10 +23,11 @@ module EndpointTests =
             |> TestAppConfig.withTransactions
         )
 
-    let private createRule (client : HttpClient) pattern tagId =
+    let private createRuleWith (client : HttpClient) pattern target tagId =
         async {
             let request : CreateRule.CreateRuleRequest = {
                 Pattern = pattern
+                Target = target
                 TagId = tagId
             }
 
@@ -37,7 +39,18 @@ module EndpointTests =
                 response.StatusCode
                 HttpStatusCode.Created
                 "creating a rule should return 201"
+
+            return! TestHttp.readJson<RuleResponse> response
         }
+
+    let private createRule (client : HttpClient) pattern tagId =
+        async {
+            let! _ = createRuleWith client pattern "Tag" (Some tagId)
+            ()
+        }
+
+    let private createTransferRule (client : HttpClient) pattern =
+        createRuleWith client pattern "Transfer" None
 
     let private untagged
         description
@@ -63,20 +76,68 @@ module EndpointTests =
             return created.Id
         }
 
-    let private quickTag (client : HttpClient) (id : Guid) (tagId : Guid) =
+    let private quickTagWith
+        (suggested : bool)
+        (client : HttpClient)
+        (id : Guid)
+        (tagId : Guid)
+        =
         TestHttp.putJson
             client
             (TestHttp.itemPath QuickTagTransaction.Path id)
-            ({ TagId = tagId } : QuickTagTransaction.QuickTagRequest)
+            ({ TagId = tagId; Suggested = suggested }
+            : QuickTagTransaction.QuickTagRequest)
         |> Async.AwaitTask
+
+    let private quickTag = quickTagWith false
 
     let private dismiss (client : HttpClient) (id : Guid) =
         client.DeleteAsync (TestHttp.itemPath DismissTransaction.Path id)
         |> Async.AwaitTask
 
-    let private markTransfer (client : HttpClient) (id : Guid) =
-        client.PutAsync (TestHttp.itemPath MarkTransfer.Path id, null)
+    let private markTransferWith
+        (suggested : bool)
+        (client : HttpClient)
+        (id : Guid)
+        =
+        TestHttp.putJson
+            client
+            (TestHttp.itemPath MarkTransfer.Path id)
+            ({ Suggested = suggested } : MarkTransfer.MarkTransferRequest)
         |> Async.AwaitTask
+
+    let private markTransfer = markTransferWith false
+
+    let private approve
+        (client : HttpClient)
+        (target : string)
+        (tagId : Guid option)
+        (transactionIds : Guid list)
+        =
+        TestHttp.postJson client ApproveSuggestion.Path {
+            Target = target
+            TagId = tagId
+            TransactionIds = transactionIds
+        }
+        |> Async.AwaitTask
+
+    /// <summary>The stored source of the transaction's categorisation. A
+    /// transfer's source is not in any response.</summary>
+    let private readSource (app : TestApp) (id : Guid) =
+        use conn = new SqliteConnection (app.ConnectionString)
+        conn.Open ()
+        use cmd = conn.CreateCommand ()
+
+        cmd.CommandText <-
+            "SELECT Kind, Source FROM Categorisations WHERE TransactionId = $id"
+
+        cmd.Parameters.AddWithValue ("$id", id) |> ignore
+        use reader = cmd.ExecuteReader ()
+
+        if reader.Read () then
+            Some (reader.GetString 0, reader.GetString 1)
+        else
+            None
 
     let private expectStatus
         (expected : HttpStatusCode)
@@ -377,6 +438,7 @@ module EndpointTests =
                         Description = "Newer"
                         Date = DateOnly (2026, 10, 2)
                         AccountName = None
+                        Suggestion = None
                     })
                     "an entry should carry the transaction's details"
             }
@@ -418,5 +480,256 @@ module EndpointTests =
                     "the next batch should hold the rest"
 
                 Expect.equal queue.Total 1 "the total should shrink"
+            }
+
+            testCaseAsync
+                "the queue suggests from the current rules, counts, and filters"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+                do! createRule app.Client "COUNTDOWN" groceries
+                let! savings = createTransferRule app.Client "TO SAVINGS"
+                let! _ = createTransferRule app.Client "ASB CARD"
+                let! _ = create app.Client (untagged "Transfer to savings")
+                let! _ = create app.Client (untagged "ASB CARD 1234")
+                let! _ = create app.Client (untagged "Countdown")
+                let! _ = create app.Client (untagged "Rent")
+
+                let! queue = readQueue app.Client
+
+                Expect.equal
+                    (queue.Transactions
+                     |> List.map (fun t ->
+                         t.Description, t.Suggestion |> Option.map _.Pattern))
+                    [
+                        "Rent", None
+                        "Countdown", Some "COUNTDOWN"
+                        "ASB CARD 1234", Some "ASB CARD"
+                        "Transfer to savings", Some "TO SAVINGS"
+                    ]
+                    "each row carries its winning rule's pattern"
+
+                Expect.equal
+                    queue.Suggestions
+                    [
+                        {
+                            Target = "Tag"
+                            TagId = Some groceries
+                            Count = 1
+                        }
+                        {
+                            Target = "Transfer"
+                            TagId = None
+                            Count = 2
+                        }
+                    ]
+                    "both transfer rules' suggestions are counted together"
+
+                let! response =
+                    app.Client.GetAsync $"{ReadQueue.Path}?target=Transfer"
+                    |> Async.AwaitTask
+
+                let! filtered = TestHttp.readJson<QueueResponse> response
+
+                Expect.equal
+                    (filtered.Transactions |> List.map _.Description)
+                    [ "ASB CARD 1234"; "Transfer to savings" ]
+                    "the filter keeps the rows suggested a transfer"
+
+                Expect.equal filtered.Total 2 "the filtered total"
+
+                // Editing a rule changes its suggestions without a run.
+                let! _ =
+                    TestHttp.putJson
+                        app.Client
+                        (TestHttp.itemPath UpdateRule.Path savings.Id)
+                        ({
+                            Pattern = "TO SAVINGS"
+                            Target = "Tag"
+                            TagId = Some groceries
+                        }
+                        : UpdateRule.UpdateRuleRequest)
+                    |> Async.AwaitTask
+
+                let! queue = readQueue app.Client
+
+                Expect.equal
+                    (queue.Transactions
+                     |> List.tryFind (fun t ->
+                         t.Description = "Transfer to savings")
+                     |> Option.bind _.Suggestion)
+                    (Some {
+                        Target = "Tag"
+                        TagId = Some groceries
+                        Pattern = "TO SAVINGS"
+                    })
+                    "the edited rule's new target should be suggested"
+            }
+
+            testCaseAsync "the queue filter is validated as for rules"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+
+                for query in
+                    [
+                        "target=Tag"
+                        $"target=Transfer&tagId={groceries}"
+                        $"tagId={groceries}"
+                        "target=Tag&tagId=not-a-guid"
+                        "target=Dismissed"
+                    ] do
+                    let! response =
+                        app.Client.GetAsync $"{ReadQueue.Path}?{query}"
+                        |> Async.AwaitTask
+
+                    expectStatus
+                        HttpStatusCode.BadRequest
+                        $"'{query}' should be rejected"
+                        response
+            }
+
+            testCaseAsync "a choice flagged as the suggestion is accepted"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+                let! tagged = create app.Client (untagged "Countdown")
+                let! transfer = create app.Client (untagged "To savings")
+
+                let! _ = quickTagWith true app.Client tagged groceries
+                let! _ = markTransferWith true app.Client transfer
+
+                Expect.equal
+                    (readSource app tagged)
+                    (Some ("Tagged", "Accepted"))
+                    "the suggested tag is accepted"
+
+                Expect.equal
+                    (readSource app transfer)
+                    (Some ("Transfer", "Accepted"))
+                    "the suggested transfer is accepted"
+
+                let! _ = quickTag app.Client tagged groceries
+                let! _ = markTransfer app.Client transfer
+
+                Expect.equal
+                    (readSource app tagged)
+                    (Some ("Tagged", "Manual"))
+                    "a tag that was not the suggestion is manual"
+
+                Expect.equal
+                    (readSource app transfer)
+                    (Some ("Transfer", "Manual"))
+                    "a transfer that was not the suggestion is manual"
+            }
+
+            testCaseAsync "marking a transfer needs the suggestion flag"
+            <| async {
+                use app = newApp ()
+                let! id = create app.Client (untagged "To savings")
+
+                let! response =
+                    app.Client.PutAsync (
+                        TestHttp.itemPath MarkTransfer.Path id,
+                        null
+                    )
+                    |> Async.AwaitTask
+
+                expectStatus HttpStatusCode.BadRequest "no body is 400" response
+                Expect.isNone (readSource app id) "nothing should be written"
+            }
+
+            testCaseAsync
+                "approval accepts the listed transactions still queued"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+                let! first = create app.Client (untagged "To savings 1")
+                let! second = create app.Client (untagged "To savings 2")
+                let! tagged = create app.Client (untagged "To savings 3")
+                let! unlisted = create app.Client (untagged "To savings 4")
+                // Tagged in another tab since the queue was read.
+                let! _ = quickTag app.Client tagged groceries
+
+                let! response =
+                    approve app.Client "Transfer" None [ first; second; tagged ]
+
+                expectStatus HttpStatusCode.OK "approving is 200" response
+                let! approval = TestHttp.readJson<ApprovalResponse> response
+                Expect.equal approval.Changed 2 "only queued ones change"
+
+                for id in [ first; second ] do
+                    Expect.equal
+                        (readSource app id)
+                        (Some ("Transfer", "Accepted"))
+                        "an approved transfer is accepted"
+
+                Expect.equal
+                    (readSource app tagged)
+                    (Some ("Tagged", "Manual"))
+                    "a transaction no longer queued is skipped"
+
+                Expect.isNone (readSource app unlisted) "unlisted stays queued"
+
+                let! response =
+                    approve app.Client "Tag" (Some groceries) [ unlisted ]
+
+                let! approval = TestHttp.readJson<ApprovalResponse> response
+                Expect.equal approval.Changed 1 "a tag can be approved too"
+
+                Expect.equal
+                    (readSource app unlisted)
+                    (Some ("Tagged", "Accepted"))
+                    "an approved tag is accepted"
+
+                let! response = approve app.Client "Transfer" None []
+                let! approval = TestHttp.readJson<ApprovalResponse> response
+                Expect.equal approval.Changed 0 "an empty list changes nothing"
+            }
+
+            testCaseAsync "approval rejects ids and tags the user does not have"
+            <| async {
+                use app = newApp ()
+                let! id = create app.Client (untagged "To savings")
+                let other = app.ClientForUser "other-user"
+                let! otherId = create other (untagged "Another user's")
+                let! otherTag = Seed.tag other "Dining" "Expense"
+
+                let! response =
+                    approve app.Client "Transfer" None [ id; otherId ]
+
+                expectStatus
+                    HttpStatusCode.NotFound
+                    "another user's id is 404"
+                    response
+
+                Expect.isNone
+                    (readSource app id)
+                    "nothing should be written when one id is not found"
+
+                let! response = approve app.Client "Tag" (Some otherTag) [ id ]
+
+                expectStatus
+                    HttpStatusCode.BadRequest
+                    "another user's tag is 400"
+                    response
+
+                let! response = approve app.Client "Tag" None [ id ]
+
+                expectStatus
+                    HttpStatusCode.BadRequest
+                    "no tag id is 400"
+                    response
+
+                let tooMany =
+                    List.init (ReadQueue.BatchSize + 1) (fun _ ->
+                        Guid.CreateVersion7 ())
+
+                let! response = approve app.Client "Transfer" None tooMany
+
+                expectStatus
+                    HttpStatusCode.BadRequest
+                    "more than a batch is 400"
+                    response
             }
         ]

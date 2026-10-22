@@ -91,7 +91,8 @@ pub fn init_asks_for_today_and_fetches_the_waiting_count_test() {
     effect.GetLocalDate(_),
     effect.HttpRequest(url: waiting_url, ..),
   ]) = effect
-  waiting_url |> should.equal(api_route.to_string(api_route.GetQuickTagQueue))
+  waiting_url
+  |> should.equal(api_route.to_string(api_route.GetQuickTagQueue([])))
 }
 
 pub fn today_fetches_the_dashboard_test() {

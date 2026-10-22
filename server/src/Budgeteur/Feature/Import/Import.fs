@@ -11,8 +11,8 @@ open Budgeteur.Domain.Transaction
 type NewTransaction = {
     Transaction : Transaction
     ImportHash : string
-    /// <summary>A transfer, or the winning rule's tag for a row that is not
-    /// one.</summary>
+    /// <summary>A detected transfer, or for any other row the winning
+    /// rule's tag if the policy applies it.</summary>
     Categorisation : Categorisation option
 }
 
@@ -90,8 +90,10 @@ module Import =
 
     /// <summary>The transactions to insert for the statements' new rows, and
     /// the counts. <c>accountIds</c> maps every account number of the user,
-    /// including accounts this import creates, to its account. A transfer has
-    /// no tag; any other row gets the winning rule's tag.</summary>
+    /// including accounts this import creates, to its account. A row detection
+    /// identifies is a detected transfer; any other row gets the winning
+    /// rule's proposal through the policy, so a row a transfer rule wins
+    /// stays untagged. See decision 8 in docs/transfer-rules.md.</summary>
     let plan
         (newId : unit -> Guid)
         (accountIds : Map<AccountNumber, Guid>)
@@ -108,10 +110,12 @@ module Import =
             |> List.map (fun (statement, row) ->
                 let categorisation =
                     if isTransfer userNumbers row then
-                        Categorisation.onTransfer
+                        Categorisation.onDetectTransfer
                     else
                         Categorisation.tagUntagged
-                            (winner row.Description |> Option.map _.TagId)
+                            (winner row.Description
+                             |> Option.bind (fun rule ->
+                                 Policy.applyRule rule.Target))
                             None
 
                 {
@@ -142,7 +146,7 @@ module Import =
                     match transaction.Categorisation with
                     | Some (Categorisation.Tagged _) -> true
                     | Some Categorisation.Dismissed
-                    | Some Categorisation.Transfer
+                    | Some (Categorisation.Transfer _)
                     | None -> false)
                 |> List.length
         }

@@ -24,7 +24,8 @@ module EndpointTests =
         async {
             let request : CreateRule.CreateRuleRequest = {
                 Pattern = pattern
-                TagId = tagId
+                Target = "Tag"
+                TagId = Some tagId
             }
 
             let! response =

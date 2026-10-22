@@ -47,7 +47,9 @@ pub type ApiRoute {
   RunAutoTag
   GetRuleMatches(pattern: String)
   ImportStatements
-  GetQuickTagQueue
+  /// The queue, filtered by the query parameters, if any.
+  GetQuickTagQueue(query: List(#(String, String)))
+  ApproveSuggestion
   QuickTagTransaction(id: Uuid)
   DismissTransaction(id: Uuid)
   MarkTransfer(id: Uuid)
@@ -122,7 +124,10 @@ pub fn to_string(route: ApiRoute) -> String {
       ])
     RunAutoTag -> api_prefix <> "/auto-tag"
     ImportStatements -> api_prefix <> "/imports"
-    GetQuickTagQueue -> api_prefix <> "/quick-tag"
+    GetQuickTagQueue(query: []) -> api_prefix <> "/quick-tag"
+    GetQuickTagQueue(query:) ->
+      api_prefix <> "/quick-tag?" <> uri.query_to_string(query)
+    ApproveSuggestion -> api_prefix <> "/quick-tag/approvals"
     QuickTagTransaction(id:) | DismissTransaction(id:) ->
       api_prefix <> "/quick-tag/" <> uuid.to_string(id)
     MarkTransfer(id:) ->

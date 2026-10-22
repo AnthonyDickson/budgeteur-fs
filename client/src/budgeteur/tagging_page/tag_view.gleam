@@ -3,6 +3,7 @@ import budgeteur/shared/ui/button
 import budgeteur/shared/ui/card
 import budgeteur/shared/ui/swatch
 import budgeteur/tagging_page/icon
+import budgeteur/tagging_page/rule.{type Target, TagTarget, TransferTarget}
 import gleam/list
 import gleam/option.{type Option, Some}
 import lustre/attribute
@@ -12,12 +13,13 @@ import lustre/event
 import youid/uuid.{type Uuid}
 
 /// The tag sidebar: a selectable list of tags with an edit button on each row,
-/// plus a "New tag" button. Clicking a row selects its tag, so unlike other
-/// lists the row cannot also open the form; deleting starts from the form.
+/// a "Transfers" entry for transfer rules, and a "New tag" button. Clicking a
+/// row selects its tag, so unlike other lists the row cannot also open the form;
+/// deleting starts from the form.
 pub fn panel(
   tags: List(Tag),
-  selected_tag: Option(Uuid),
-  on_select on_select: fn(Uuid) -> msg,
+  selected: Option(Target),
+  on_select on_select: fn(Target) -> msg,
   on_edit on_edit: fn(Uuid) -> msg,
   on_create on_create: msg,
 ) -> Element(msg) {
@@ -40,20 +42,11 @@ pub fn panel(
       html.ul(
         [attribute.class("flex-1 divide-y divide-border overflow-y-auto")],
         list.map(tags, fn(tag) {
-          let is_selected = selected_tag == Some(tag.id)
+          let is_selected = selected == Some(TagTarget(tag.id))
           html.li([attribute.class("group relative")], [
             html.button(
               [
-                attribute.class(
-                  "flex h-11 w-full cursor-pointer items-center gap-3 px-4 text-left "
-                  <> "focus:outline-none focus:ring-2 focus:ring-inset "
-                  <> "focus:ring-primary "
-                  <> case is_selected {
-                    True -> "border-l-2 border-primary bg-primary-tint"
-                    False ->
-                      "border-l-2 border-transparent hover:bg-surface-hover"
-                  },
-                ),
+                attribute.class(entry_class(is_selected)),
                 attribute.attribute(
                   "data-testid",
                   "tag-row-" <> uuid.to_string(tag.id),
@@ -62,22 +55,13 @@ pub fn panel(
                   True -> "true"
                   False -> "false"
                 }),
-                event.on_click(on_select(tag.id)),
+                event.on_click(on_select(TagTarget(tag.id))),
               ],
               [
                 swatch.view(tag.color),
-                html.span(
-                  [
-                    attribute.class(
-                      "flex-1 truncate pr-12 text-sm "
-                      <> case is_selected {
-                        True -> "font-medium text-fg"
-                        False -> "text-fg-muted"
-                      },
-                    ),
-                  ],
-                  [html.text(tag.name)],
-                ),
+                html.span([attribute.class(label_class(is_selected, "pr-12"))], [
+                  html.text(tag.name),
+                ]),
               ],
             ),
             html.div(
@@ -116,6 +100,7 @@ pub fn panel(
           ])
         }),
       ),
+      transfers_entry(selected == Some(TransferTarget), on_select),
       html.div([attribute.class("mt-auto border-t border-border p-3")], [
         html.button(
           [
@@ -164,4 +149,51 @@ pub fn no_tags_empty_state(on_create on_create: msg) -> Element(msg) {
       ),
     ],
   )
+}
+
+/// The "Transfers" entry below the tags, which selects the transfer rules. It is
+/// set apart by a border and has no swatch or edit button, as quick tagging's
+/// "Transfer" button has no swatch, so it does not read as a tag.
+fn transfers_entry(
+  is_selected: Bool,
+  on_select: fn(Target) -> msg,
+) -> Element(msg) {
+  html.div([attribute.class("border-t border-border")], [
+    html.button(
+      [
+        attribute.class(entry_class(is_selected)),
+        attribute.attribute("data-testid", "transfers-row"),
+        attribute.attribute("aria-current", case is_selected {
+          True -> "true"
+          False -> "false"
+        }),
+        event.on_click(on_select(TransferTarget)),
+      ],
+      [
+        html.span([attribute.class(label_class(is_selected, ""))], [
+          html.text("Transfers"),
+        ]),
+      ],
+    ),
+  ])
+}
+
+fn entry_class(is_selected: Bool) -> String {
+  "flex h-11 w-full shrink-0 cursor-pointer items-center gap-3 px-4 text-left "
+  <> "focus:outline-none focus:ring-2 focus:ring-inset "
+  <> "focus:ring-primary "
+  <> case is_selected {
+    True -> "border-l-2 border-primary bg-primary-tint"
+    False -> "border-l-2 border-transparent hover:bg-surface-hover"
+  }
+}
+
+fn label_class(is_selected: Bool, extra: String) -> String {
+  "flex-1 truncate text-sm "
+  <> extra
+  <> " "
+  <> case is_selected {
+    True -> "font-medium text-fg"
+    False -> "text-fg-muted"
+  }
 }

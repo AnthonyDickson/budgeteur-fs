@@ -23,19 +23,19 @@ decision.
 
 ## Ubiquitous language
 
-| Term           | Meaning                                                                                                    |
-| -------------- | ---------------------------------------------------------------------------------------------------------- |
-| Rule           | A pattern and the tag it applies. Rule CRUD already exists.                                                |
-| Match          | A rule matches a transaction when its pattern occurs anywhere in the description, ignoring case.           |
-| Comparison     | How patterns and descriptions are compared: ordinal, ignoring case. Used by matching and rule uniqueness.  |
-| Winning rule   | The matching rule with the longest pattern. Equal lengths are ordered by the pattern's ordinal comparison. |
-| Categorisation | A transaction's tag and its source, a dismissal, or a transfer. Kept apart; untagged means none.           |
-| Tag source     | Where a transaction's tag came from: `Manual` or `Rule`.                                                   |
-| Manual tag     | A tag the user set. Rules never change it.                                                                 |
-| Rule tag       | A tag set by auto-tagging. Derived data: re-tagging recomputes it.                                         |
-| Tag untagged   | The action that applies rules to untagged transactions only.                                               |
-| Re-tag         | The action that recomputes every transaction without a manual tag. Asks for confirmation first.            |
-| Match count    | The number of the user's non-transfer transactions a pattern matches, shown in the rule modal.             |
+| Term           | Meaning                                                                                                              |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Rule           | A pattern and its target: a tag to apply, or a transfer to suggest ([transfer rules](transfer-rules.md)).            |
+| Match          | A rule matches a transaction when its pattern occurs anywhere in the description, ignoring case.                     |
+| Comparison     | How patterns and descriptions are compared: ordinal, ignoring case. Used by matching and rule uniqueness.            |
+| Winning rule   | The matching rule with the longest pattern. Equal lengths are ordered by the pattern's ordinal comparison.           |
+| Categorisation | A tag or a transfer with its source, or a dismissal. Kept apart; untagged means none.                                |
+| Source         | Who decided a categorisation: `Manual`, `Accepted`, `Rule`, or `Detected` (see [transfer rules](transfer-rules.md)). |
+| Manual tag     | A tag the user set, with the `Manual` or `Accepted` source. Rules never change it.                                   |
+| Rule tag       | A tag with the `Rule` source, set by auto-tagging. Derived data: re-tagging recomputes it.                           |
+| Tag untagged   | The action that applies rules to untagged transactions only.                                                         |
+| Re-tag         | The action that recomputes untagged transactions and rule tags. Asks for confirmation first.                         |
+| Match count    | The number of the user's non-transfer transactions a pattern matches, shown in the rule modal.                       |
 
 ## Decisions
 
@@ -93,13 +93,14 @@ decision.
   and make every tagging change pass through the transaction model. Separate,
   categorisation can change without touching transactions, and workflows that
   tag cannot change a transaction's facts.
-- **Storage**: one row per tagged or dismissed transaction, keyed by transaction
-  id and holding the user id, the tag, and the tag source. Untagged means no
-  row.
+- **Storage**: one row per tagged, dismissed, or transfer transaction, keyed by
+  transaction id and holding the user id, the kind, the tag, and the source.
+  Untagged means no row.
   - Transaction id references `Transactions` and tag references `Tags`, both `ON
     DELETE CASCADE`: deleting either removes the categorisation.
-  - The source is `NOT NULL` and is `Manual` or `Rule`. The tag is `NULL` only
-    for a dismissal, which has the `Manual` source
+  - The source is `NOT NULL`, with one list of values for every kind
+    ([transfer rules](transfer-rules.md) decision 4). A row has a tag exactly
+    when it is tagged, and a dismissal's source is `Manual`
     ([quick tagging](quick-tagging.md) decision 1).
   - Indexed by user id, for reading a user's categorisations, and by tag id, so
     deleting a tag finds its categorisations without a table scan.
@@ -132,11 +133,12 @@ decision.
 - **Goal**: `Transactions` stays a stable record of what happened, and tagging
   develops independently of it.
 
-### 4. Categorisations record where the tag came from
+### 4. Categorisations record who decided them
 
-- **Decision**: a transaction is untagged, manually tagged, tagged by a rule,
-  dismissed (the user decided it has no tag), or a transfer
-  ([quick tagging](quick-tagging.md) decision 1). A rule tag does not record
+- **Decision**: a transaction is untagged, tagged, dismissed (the user decided
+  it has no tag), or a transfer ([quick tagging](quick-tagging.md) decision 1).
+  A tag or a transfer records its source, which says who decided it
+  ([transfer rules](transfer-rules.md) decision 4). A rule tag does not record
   which rule set it.
 - **Why**: re-tagging has to tell the user's decisions from derived ones. The
   previous project could not, so its "auto-tag all" overwrote manual tags. Smart
@@ -147,10 +149,12 @@ decision.
     untagged; keeping the same tag keeps its source, so editing the amount of a
     rule-tagged transaction does not make it manual. Saving a dismissed
     transaction without a tag keeps it dismissed. Marking a transaction as a
-    transfer makes it a transfer, whatever it had, and unmarking makes it
-    untagged, or manually tagged with the chosen tag.
-  - Auto-tagging sets rule tags, and never changes a manual tag, a dismissal, or
-    a transfer.
+    transfer makes it a manual transfer, and saving one still marked keeps its
+    source, so a detected transfer stays detected. Unmarking makes it untagged,
+    or manually tagged with the chosen tag.
+  - Auto-tagging sets rule tags. Re-tag recomputes only untagged transactions
+    and categorisations whose source is `Rule`, so it never changes a manual
+    tag, a dismissal, or a transfer.
   - Editing or deleting a rule leaves the rule tags it set unchanged until the
     next re-tag.
   - Deleting a tag removes its categorisations, which makes those transactions
@@ -173,8 +177,8 @@ decision.
 - **Decision**: two actions. Rule create, update, and delete do not change
   categorisations.
   - **Tag untagged** applies rules to untagged transactions only.
-  - **Re-tag** recomputes every transaction without a manual tag: untagged ones
-    get the winning rule's tag, rule tags change to the current winner, and rule
+  - **Re-tag** recomputes untagged transactions and rule tags: untagged ones get
+    the winning rule's tag, rule tags change to the current winner, and rule
     tags with no matching rule are cleared. Manual tags never change. It asks
     for confirmation first, saying that tags set by rules may change or be
     cleared and that manual tags are kept.
@@ -184,7 +188,11 @@ decision.
   deleted a rule to stop future tagging may not expect past tags to be cleared,
   so it is confirmed. Tag untagged only fills in missing tags, so it is not.
 - **Transfers**: are categorisations of their own (decision 3), so runs skip
-  them.
+  them. A transfer rule's proposal is only suggested in quick tagging
+  ([transfer rules](transfer-rules.md) decision 3): tag untagged leaves its
+  winners untagged, and re-tag clears a rule tag whose winner is now a transfer
+  rule, counting it as cleared, so the transaction returns to the queue with the
+  suggestion. A shorter tag rule that also matches does not apply instead.
 - **Rejected**: live rules, where every rule change re-tags immediately. That
   removes both buttons, but every rule save rewrites categorisations, and a
   pattern being typed would tag transactions part way through editing.
@@ -292,7 +300,7 @@ decision.
   - Matcher: substring, case, longest wins, the ordinal tie-break, no match.
   - Application: `TagUntagged` leaves rule tags alone; `Retag` tags, changes,
     and clears rule tags and never touches manual tags.
-  - Tag source transitions on transaction create and update.
+  - Source transitions on transaction create and update.
   - Deleting a tag that has categorisations (the cascade in decision 3).
   - Both endpoints read and write only the caller's data.
   - Client: each button produces its request and result toast; re-tag sends no
@@ -313,7 +321,9 @@ decision.
   confirmation and the counts in the result toast are not enough.
 - **Create a rule from a transaction.** Belongs with quick-tagging.
 - **Rules on other fields.** Amount, account, or Kiwibank's other-party fields.
-  Internal transfer detection from account numbers is a separate backlog item.
+  Import detects transfers from account numbers ([CSV import](csv-import.md)
+  decision 9), and transfer rules suggest those it cannot detect
+  ([transfer rules](transfer-rules.md)).
 - **Wildcards or regular expressions.** Substring patterns first.
 - **User-ordered priority.** See decision 2.
 - **Single writer for categorisations.** See the rejected options in decision 3.

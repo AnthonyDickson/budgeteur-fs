@@ -2,7 +2,10 @@
 //// tagged, marked as a transfer, or dismissed with one click. See
 //// docs/quick-tagging.md.
 
-import budgeteur/quick_tagging_page/queue.{type Queue, type QueuedTransaction}
+import budgeteur/quick_tagging_page/queue.{
+  type Queue, type QueuedTransaction, type Suggestion, type Target, Suggestion,
+  TagTarget, TransferTarget,
+}
 import budgeteur/shared/api_error.{type ApiError}
 import budgeteur/shared/api_route
 import budgeteur/shared/date
@@ -62,6 +65,11 @@ pub type Model {
     /// mistake can be corrected with another click. See decision 4 in
     /// docs/quick-tagging.md.
     rows: Dict(Uuid, Row),
+    /// The suggested target the queue is filtered by, if any. See decision 7 in
+    /// docs/transfer-rules.md.
+    filter: Option(Target),
+    /// Whether an approval of the filter's suggestion is in flight.
+    approving: Bool,
   )
 }
 
@@ -76,20 +84,34 @@ pub type Msg {
     choice: Choice,
     result: Result(Nil, ApiError),
   )
+  // A suggestion count was chosen, or the filter cleared.
+  UserFiltered(filter: Option(Target))
+  // The approval button: apply the filter's suggestion to the rows shown.
+  UserApproved
+  ServerApproved(target: Target, result: Result(Int, ApiError))
 }
 
 // Effects
 // -------
 
-fn fetch_queue() -> Effect(Msg) {
-  effect.get(api_route.GetQuickTagQueue |> api_route.to_string, fn(result) {
-    case result {
-      Ok(body) ->
-        ClientFetchedQueue(response.decode_success(body, queue.decoder()))
-      Error(http_error) ->
-        ClientFetchedQueue(Error(response.http_error_to_api_error(http_error)))
-    }
-  })
+fn fetch_queue(filter: Option(Target)) -> Effect(Msg) {
+  let query = case filter {
+    Some(target) -> queue.target_query(target)
+    None -> []
+  }
+  effect.get(
+    api_route.GetQuickTagQueue(query) |> api_route.to_string,
+    fn(result) {
+      case result {
+        Ok(body) ->
+          ClientFetchedQueue(response.decode_success(body, queue.decoder()))
+        Error(http_error) ->
+          ClientFetchedQueue(
+            Error(response.http_error_to_api_error(http_error)),
+          )
+      }
+    },
+  )
 }
 
 fn fetch_tags() -> Effect(Msg) {
@@ -106,7 +128,9 @@ fn fetch_tags() -> Effect(Msg) {
   })
 }
 
-fn save(transaction_id: Uuid, choice: Choice) -> Effect(Msg) {
+/// `suggested` says whether the choice was the row's suggestion, so the server
+/// records that the user accepted it. See decision 6 in docs/transfer-rules.md.
+fn save(transaction_id: Uuid, choice: Choice, suggested: Bool) -> Effect(Msg) {
   let callback = fn(result) {
     case result {
       // Both writes return 204 with no body, so there is nothing to decode.
@@ -124,15 +148,17 @@ fn save(transaction_id: Uuid, choice: Choice) -> Effect(Msg) {
     TagWith(tag_id:) ->
       effect.put(
         api_route.QuickTagTransaction(transaction_id) |> api_route.to_string,
-        json.object([#("tagId", json.string(uuid.to_string(tag_id)))])
+        json.object([
+          #("tagId", json.string(uuid.to_string(tag_id))),
+          #("suggested", json.bool(suggested)),
+        ])
           |> json.to_string,
         callback,
       )
-    // The transfer endpoint takes no body.
     Transfer ->
       effect.put(
         api_route.MarkTransfer(transaction_id) |> api_route.to_string,
-        "",
+        json.object([#("suggested", json.bool(suggested))]) |> json.to_string,
         callback,
       )
     Dismiss ->
@@ -144,13 +170,52 @@ fn save(transaction_id: Uuid, choice: Choice) -> Effect(Msg) {
   |> effect.with_timeout(form_modal.submit_timeout_ms)
 }
 
+/// Approve the suggestion for the transactions, which the server applies to
+/// those still in the queue.
+fn approve(target: Target, transaction_ids: List(Uuid)) -> Effect(Msg) {
+  let body =
+    json.object([
+      #(
+        "transactionIds",
+        json.array(transaction_ids, fn(id) { json.string(uuid.to_string(id)) }),
+      ),
+      ..queue.target_fields(target)
+    ])
+  let changed_decoder = {
+    use changed <- decode.field("changed", decode.int)
+    decode.success(changed)
+  }
+  effect.post(
+    api_route.ApproveSuggestion |> api_route.to_string,
+    json.to_string(body),
+    fn(result) {
+      case result {
+        Ok(body) ->
+          ServerApproved(target, response.decode_success(body, changed_decoder))
+        Error(http_error) ->
+          ServerApproved(
+            target,
+            Error(response.http_error_to_api_error(http_error)),
+          )
+      }
+    },
+  )
+  |> effect.with_timeout(form_modal.submit_timeout_ms)
+}
+
 // Init
 // ----
 
 pub fn init() -> #(Model, Effect(Msg)) {
   #(
-    Model(queue: Loading, tags: Loading, rows: dict.new()),
-    effect.batch([fetch_queue(), fetch_tags()]),
+    Model(
+      queue: Loading,
+      tags: Loading,
+      rows: dict.new(),
+      filter: None,
+      approving: False,
+    ),
+    effect.batch([fetch_queue(None), fetch_tags()]),
   )
 }
 
@@ -176,6 +241,43 @@ pub fn waiting(model: Model) -> Option(Int) {
   }
 }
 
+/// Fetch the queue again, with the filter: quick tagged and approved transactions
+/// have left the queue, so it returns the next batch. Waits for saves and
+/// approvals in flight, which could otherwise land after the fetch and leave a
+/// tagged transaction in the batch.
+fn refetch(
+  model: Model,
+  filter: Option(Target),
+) -> #(Model, Effect(Msg), Option(OutMsg)) {
+  case is_busy(model) {
+    True -> #(model, effect.none(), None)
+    False -> #(
+      Model(..model, queue: Loading, rows: dict.new(), filter:),
+      fetch_queue(filter),
+      None,
+    )
+  }
+}
+
+/// The rows shown that have no choice on the page yet: those an approval
+/// sends and counts.
+pub fn undecided(model: Model, queue: Queue) -> List(QueuedTransaction) {
+  list.filter(queue.transactions, fn(transaction) {
+    !dict.has_key(model.rows, transaction.id)
+  })
+}
+
+fn is_busy(model: Model) -> Bool {
+  model.approving || is_saving(model)
+}
+
+fn loaded_tags(model: Model) -> List(Tag) {
+  case model.tags {
+    Loaded(tags) -> tags
+    Loading | Failed -> []
+  }
+}
+
 fn is_saving(model: Model) -> Bool {
   dict.values(model.rows)
   |> list.any(fn(row) {
@@ -188,11 +290,17 @@ fn is_saving(model: Model) -> Bool {
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
   case msg {
-    ClientFetchedQueue(Ok(queue)) -> #(
-      Model(..model, queue: Loaded(queue)),
-      effect.none(),
-      None,
-    )
+    // The filter is kept until no queued transaction is suggested its target,
+    // e.g. once the last of them is approved; then the whole queue shows.
+    ClientFetchedQueue(Ok(queue)) ->
+      case model.filter, queue.transactions {
+        Some(_), [] -> #(
+          Model(..model, filter: None, queue: Loading),
+          fetch_queue(None),
+          None,
+        )
+        _, _ -> #(Model(..model, queue: Loaded(queue)), effect.none(), None)
+      }
 
     ClientFetchedQueue(Error(error)) -> #(
       Model(..model, queue: Failed),
@@ -217,18 +325,54 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg), Option(OutMsg)) {
       #(model, effect, None)
     }
 
-    // Quick tagged transactions have left the queue, so fetching it again
-    // returns the next batch. Waits for saves in flight, which could otherwise
-    // land after the fetch and leave a tagged transaction in the batch.
-    UserRequestedNextBatch ->
-      case is_saving(model) {
-        True -> #(model, effect.none(), None)
-        False -> #(
-          Model(..model, queue: Loading, rows: dict.new()),
-          fetch_queue(),
-          None,
-        )
+    UserRequestedNextBatch -> refetch(model, model.filter)
+
+    UserFiltered(filter:) -> refetch(model, filter)
+
+    UserApproved ->
+      case model.filter, model.queue, is_busy(model) {
+        Some(target), Loaded(queue), False ->
+          case undecided(model, queue) {
+            [] -> #(model, effect.none(), None)
+            transactions -> #(
+              Model(..model, approving: True),
+              approve(target, list.map(transactions, fn(t) { t.id })),
+              None,
+            )
+          }
+        _, _, _ -> #(model, effect.none(), None)
       }
+
+    ServerApproved(target:, result: Ok(changed)) -> {
+      let model = Model(..model, approving: False)
+      let #(model, effect, _) = refetch(model, model.filter)
+      #(
+        model,
+        effect,
+        Some(
+          out_msg.success_toast(approved_text(
+            target,
+            changed,
+            loaded_tags(model),
+          )),
+        ),
+      )
+    }
+
+    ServerApproved(result: Error(error), ..) -> #(
+      Model(..model, approving: False),
+      effect.LogError(api_error.describe(error)),
+      Some(
+        out_msg.error_toast(
+          "Could not approve the suggestion",
+          case api_error.is_not_found(error) {
+            True ->
+              "A transaction was deleted elsewhere. Refresh the queue and try again."
+            False -> error.details
+          },
+        ),
+      ),
+    )
 
     UserChose(transaction_id:, choice:) ->
       case dict.get(model.rows, transaction_id) {
@@ -285,9 +429,36 @@ fn start_save(
       ..model,
       rows: dict.insert(model.rows, transaction_id, Saving(choice:, previous:)),
     ),
-    save(transaction_id, choice),
+    save(
+      transaction_id,
+      choice,
+      is_suggestion(suggestion_for(model, transaction_id), choice),
+    ),
     None,
   )
+}
+
+fn suggestion_for(model: Model, transaction_id: Uuid) -> Option(Suggestion) {
+  case model.queue {
+    Loaded(queue) ->
+      list.find(queue.transactions, fn(transaction) {
+        transaction.id == transaction_id
+      })
+      |> option.from_result
+      |> option.then(fn(transaction) { transaction.suggestion })
+    Loading | Failed -> None
+  }
+}
+
+/// Whether the choice is the one the row suggests. Dismissing is never a
+/// suggestion.
+pub fn is_suggestion(suggestion: Option(Suggestion), choice: Choice) -> Bool {
+  case suggestion, choice {
+    Some(Suggestion(target: TagTarget(suggested), ..)), TagWith(tag_id:) ->
+      suggested == tag_id
+    Some(Suggestion(target: TransferTarget, ..)), Transfer -> True
+    _, _ -> False
+  }
 }
 
 /// Tags in the order the buttons show them, the same on every row: expense
@@ -328,7 +499,7 @@ pub fn view(model: Model) -> Element(Msg) {
                 attribute.class("mt-1 text-sm text-fg-muted"),
                 attribute.attribute("data-testid", "quick-tag-waiting"),
               ],
-              [html.text(waiting_text(count))],
+              [html.text(waiting_text(count, model.filter, loaded_tags(model)))],
             )
           None -> element.none()
         },
@@ -336,32 +507,71 @@ pub fn view(model: Model) -> Element(Msg) {
       case remote.both(model.queue, model.tags) {
         Loading -> loading_state()
         Failed -> failed_state()
-        Loaded(#(queue, tags)) ->
-          batch(
-            queue.transactions,
-            ordered_tags(tags),
-            model.rows,
-            is_saving(model),
-          )
+        Loaded(#(queue, tags)) -> batch(model, queue, ordered_tags(tags))
       },
     ],
   )
 }
 
-fn waiting_text(count: Int) -> String {
-  case count {
-    1 -> "1 transaction is waiting for a tag"
-    count -> int.to_string(count) <> " transactions are waiting for a tag"
+fn waiting_text(count: Int, filter: Option(Target), tags: List(Tag)) -> String {
+  let transactions = case count {
+    1 -> "1 transaction"
+    count -> int.to_string(count) <> " transactions"
+  }
+  let waiting = case count {
+    1 -> " is waiting for a tag"
+    _ -> " are waiting for a tag"
+  }
+  case filter {
+    None -> transactions <> waiting
+    Some(target) ->
+      transactions
+      <> waiting
+      <> ", with "
+      <> target_label(target, tags)
+      <> " suggested"
   }
 }
 
-fn batch(
-  transactions: List(QueuedTransaction),
-  tags: List(Tag),
-  rows: Dict(Uuid, Row),
-  is_saving: Bool,
-) -> Element(Msg) {
-  case transactions {
+/// The suggested target's name: its tag's, or "Transfer".
+fn target_label(target: Target, tags: List(Tag)) -> String {
+  case target {
+    TransferTarget -> "Transfer"
+    TagTarget(tag_id:) ->
+      case list.find(tags, fn(tag) { tag.id == tag_id }) {
+        Ok(tag) -> tag.name
+        Error(Nil) -> "a tag"
+      }
+  }
+}
+
+/// The approval button's label, e.g. "Mark 14 as transfers".
+fn approve_label(target: Target, count: Int, tags: List(Tag)) -> String {
+  case target, count {
+    TransferTarget, 1 -> "Mark 1 as a transfer"
+    TransferTarget, count -> "Mark " <> int.to_string(count) <> " as transfers"
+    TagTarget(..), count ->
+      "Tag " <> int.to_string(count) <> " as " <> target_label(target, tags)
+  }
+}
+
+/// The toast after an approval, e.g. "Marked 14 as transfers".
+fn approved_text(target: Target, changed: Int, tags: List(Tag)) -> String {
+  case target, changed {
+    TransferTarget, 1 -> "Marked 1 as a transfer"
+    TransferTarget, changed ->
+      "Marked " <> int.to_string(changed) <> " as transfers"
+    TagTarget(..), changed ->
+      "Tagged "
+      <> int.to_string(changed)
+      <> " as "
+      <> target_label(target, tags)
+  }
+}
+
+fn batch(model: Model, queue: Queue, tags: List(Tag)) -> Element(Msg) {
+  let rows = model.rows
+  case queue.transactions {
     [] -> empty_state()
     transactions ->
       html.div([attribute.class("space-y-4")], [
@@ -369,6 +579,7 @@ fn batch(
           [] -> no_tags_note()
           _ -> element.none()
         },
+        suggestions_bar(model, queue, tags),
         html.ul(
           [attribute.class("space-y-3")],
           list.map(transactions, fn(transaction) {
@@ -384,7 +595,7 @@ fn batch(
             button.Secondary,
             button.Regular,
             [
-              attribute.disabled(is_saving),
+              attribute.disabled(is_busy(model)),
               attribute.attribute("data-testid", "quick-tag-next-batch"),
               event.on_click(UserRequestedNextBatch),
             ],
@@ -393,6 +604,118 @@ fn batch(
         ]),
       ])
   }
+}
+
+/// One button per suggestion count, which filters the queue to it. While
+/// filtered, a control clears the filter and the approval button applies the
+/// suggestion to the rows shown that have no choice yet; each row still shows
+/// the pattern that suggested it. See decision 10 in docs/transfer-rules.md.
+fn suggestions_bar(
+  model: Model,
+  queue: Queue,
+  tags: List(Tag),
+) -> Element(Msg) {
+  case queue.suggestions, model.filter {
+    [], None -> element.none()
+    suggestions, filter ->
+      html.div(
+        [
+          attribute.class("flex flex-wrap items-center gap-2"),
+          attribute.attribute("data-testid", "quick-tag-suggestions"),
+        ],
+        list.flatten([
+          [
+            html.span([attribute.class("text-sm text-fg-muted")], [
+              html.text("Suggested:"),
+            ]),
+          ],
+          list.map(suggestions, fn(suggestion) {
+            suggestion_count_button(suggestion, filter, tags, is_busy(model))
+          }),
+          case filter {
+            None -> []
+            Some(target) -> {
+              let count = list.length(undecided(model, queue))
+              [
+                button.view(
+                  button.Secondary,
+                  button.Small,
+                  [
+                    attribute.disabled(is_busy(model)),
+                    attribute.attribute("data-testid", "quick-tag-clear-filter"),
+                    event.on_click(UserFiltered(None)),
+                  ],
+                  [html.text("Show all")],
+                ),
+                button.view(
+                  button.Primary,
+                  button.Small,
+                  [
+                    attribute.disabled(is_busy(model) || count == 0),
+                    attribute.attribute("data-testid", "quick-tag-approve"),
+                    event.on_click(UserApproved),
+                  ],
+                  [
+                    button.busy_label(
+                      label: approve_label(target, count, tags),
+                      busy_label: "Approving...",
+                      busy: model.approving,
+                    ),
+                  ],
+                ),
+              ]
+            }
+          },
+        ]),
+      )
+  }
+}
+
+fn suggestion_count_button(
+  suggestion: queue.SuggestionCount,
+  filter: Option(Target),
+  tags: List(Tag),
+  is_busy: Bool,
+) -> Element(Msg) {
+  let is_pressed = filter == Some(suggestion.target)
+  let swatch = case suggestion.target {
+    TagTarget(tag_id:) ->
+      case list.find(tags, fn(tag) { tag.id == tag_id }) {
+        Ok(tag) -> [swatch.view(tag.color)]
+        Error(Nil) -> []
+      }
+    TransferTarget -> []
+  }
+  html.button(
+    [
+      attribute.type_("button"),
+      attribute.class(
+        choice_button_class
+        <> " "
+        <> case is_pressed {
+          True -> "border-primary bg-primary-tint text-fg"
+          False ->
+            "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
+        },
+      ),
+      attribute.attribute("aria-pressed", case is_pressed {
+        True -> "true"
+        False -> "false"
+      }),
+      attribute.disabled(is_busy),
+      attribute.attribute("data-testid", "quick-tag-suggestion-count"),
+      event.on_click(UserFiltered(Some(suggestion.target))),
+    ],
+    list.flatten([
+      swatch,
+      [
+        html.text(target_label(suggestion.target, tags)),
+        html.span([attribute.class("tabular-nums text-fg-muted")], [
+          html.text(int.to_string(suggestion.count)),
+        ]),
+      ],
+    ]),
+  )
 }
 
 fn no_tags_note() -> Element(Msg) {
@@ -465,6 +788,10 @@ fn transaction_row(
           ),
         ]),
       ]),
+      case transaction.suggestion {
+        Some(suggestion) -> suggestion_note(suggestion)
+        None -> element.none()
+      },
       html.div(
         [attribute.class("flex flex-wrap gap-2")],
         list.append(
@@ -473,6 +800,7 @@ fn transaction_row(
               transaction.id,
               state,
               TagWith(tag.id),
+              suggested: is_suggestion(transaction.suggestion, TagWith(tag.id)),
               testid: "quick-tag-button",
               children: [swatch.view(tag.color), html.text(tag.name)],
             )
@@ -482,6 +810,7 @@ fn transaction_row(
               transaction.id,
               state,
               Transfer,
+              suggested: is_suggestion(transaction.suggestion, Transfer),
               testid: "quick-tag-transfer",
               children: [html.text("Transfer")],
             ),
@@ -489,11 +818,39 @@ fn transaction_row(
               transaction.id,
               state,
               Dismiss,
+              suggested: False,
               testid: "quick-tag-dismiss",
               children: [html.text("Dismiss")],
             ),
           ],
         ),
+      ),
+    ],
+  )
+}
+
+/// Above the buttons: the "Suggested" label and the pattern of the rule that
+/// suggests the outlined button, so the user can check why before choosing it.
+fn suggestion_note(suggestion: Suggestion) -> Element(Msg) {
+  html.p(
+    [
+      attribute.class(
+        "flex flex-wrap items-center gap-1.5 text-xs text-fg-muted",
+      ),
+      attribute.attribute("data-testid", "quick-tag-suggestion"),
+    ],
+    [
+      html.span([attribute.class("font-semibold text-fg")], [
+        html.text("Suggested"),
+      ]),
+      html.text("by rule"),
+      html.code(
+        [
+          attribute.class(
+            "rounded bg-surface-hover px-1.5 py-0.5 font-medium text-fg",
+          ),
+        ],
+        [html.text(suggestion.pattern)],
       ),
     ],
   )
@@ -531,10 +888,13 @@ fn row_status(state: Option(Row)) -> Element(Msg) {
 
 /// A button for one choice. It shows as pressed while its choice is saving or
 /// saved, and every button in the row is disabled while a save is in flight.
+/// The suggested button keeps its place and its accessible name, and only its
+/// border marks it, so the order and Vimium's link hints stay the same.
 fn choice_button(
   transaction_id: Uuid,
   row: Option(Row),
   choice: Choice,
+  suggested suggested: Bool,
   testid testid: String,
   children children: List(Element(Msg)),
 ) -> Element(Msg) {
@@ -563,6 +923,8 @@ fn choice_button(
     False, TagWith(_), True -> "border-primary bg-primary-tint text-fg"
     False, Transfer, True -> "border-fg-muted bg-surface-hover text-fg"
     False, Dismiss, True -> "border-fg-muted bg-surface-hover text-fg"
+    False, _, False if suggested ->
+      "border-primary bg-surface text-fg hover:bg-surface-hover"
     False, _, False ->
       "border-border-input bg-surface text-fg-muted hover:bg-surface-hover"
   }
@@ -584,6 +946,10 @@ fn choice_button(
       }),
       attribute.disabled(is_disabled),
       attribute.attribute("data-testid", testid),
+      attribute.attribute("data-suggested", case suggested {
+        True -> "true"
+        False -> "false"
+      }),
       event.on_click(UserChose(transaction_id, choice)),
     ],
     children,

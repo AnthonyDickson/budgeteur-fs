@@ -4,7 +4,7 @@ import budgeteur/shared/form_modal.{
   Active, Create, Created, Edit, Errored, Hidden, NoChange, Post, Put,
   Submitting, Updated,
 }
-import budgeteur/tagging_page/rule.{type Rule, Rule}
+import budgeteur/tagging_page/rule.{type Rule, Rule, TagTarget, TransferTarget}
 import budgeteur/tagging_page/rule_matches.{RuleMatches}
 import budgeteur/tagging_page/rule_modal.{
   type Modal, CancelRequested, CountFailed, CountMatches, Counted, Counting,
@@ -14,6 +14,7 @@ import budgeteur/tagging_page/rule_modal.{
 }
 import budgeteur/tagging_page/rule_write_request.{RuleWriteRequest}
 import gleam/int
+import gleam/json
 import gleam/option.{None, Some}
 import gleam/string
 import gleeunit/should
@@ -26,12 +27,13 @@ fn make_id(n: Int) -> Uuid {
 }
 
 fn make_rule(id: Uuid, pattern: String, tag_id: Uuid) -> Rule {
-  Rule(id:, pattern:, tag_id:)
+  Rule(id:, pattern:, target: TagTarget(tag_id))
 }
 
 fn make_create_modal() -> Modal {
   let state = rule_modal.hidden()
-  let #(state, _, _) = rule_modal.update(state, CreateRequested(make_id(1)), [])
+  let #(state, _, _) =
+    rule_modal.update(state, CreateRequested(TagTarget(make_id(1))), [])
   state
 }
 
@@ -57,7 +59,11 @@ fn api_error(message: String) -> ApiError {
 
 pub fn opening_create_seeds_empty_pattern_and_selected_tag_test() {
   let #(state, request, outcome) =
-    rule_modal.update(rule_modal.hidden(), CreateRequested(make_id(1)), [])
+    rule_modal.update(
+      rule_modal.hidden(),
+      CreateRequested(TagTarget(make_id(1))),
+      [],
+    )
   state
   |> should.equal(Active(
     form: Form(
@@ -114,7 +120,10 @@ pub fn validate_trims_the_request_pattern_but_not_the_field_test() {
   // the trimmed pattern.
   let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(modal, SaveRequested, [])
-  request |> should.equal(Save(Post(RuleWriteRequest("STARBUCKS", make_id(1)))))
+  request
+  |> should.equal(
+    Save(Post(RuleWriteRequest("STARBUCKS", TagTarget(make_id(1))))),
+  )
 
   let assert Submitting(
     form: Form(pattern: field.Valid(value: _, input:), tag_id:, ..),
@@ -177,7 +186,10 @@ pub fn create_rule_workflow_test() {
   let assert #(submitting, Some(request), NoChange) =
     rule_modal.update(modal, SaveRequested, [])
   let assert Submitting(mode: Create, ..) = submitting
-  request |> should.equal(Save(Post(RuleWriteRequest("STARBUCKS", make_id(1)))))
+  request
+  |> should.equal(
+    Save(Post(RuleWriteRequest("STARBUCKS", TagTarget(make_id(1))))),
+  )
 
   let saved = make_rule(make_id(3), "STARBUCKS", make_id(1))
   let #(final_state, request, outcome) =
@@ -199,7 +211,7 @@ pub fn edit_rule_workflow_keeps_own_pattern_test() {
   id |> should.equal(existing.id)
   request
   |> should.equal(
-    Save(Put(existing.id, RuleWriteRequest("STARBUCKS", make_id(1)))),
+    Save(Put(existing.id, RuleWriteRequest("STARBUCKS", TagTarget(make_id(1))))),
   )
 
   let saved = make_rule(make_id(3), "7-ELEVEN", make_id(2))
@@ -239,7 +251,7 @@ pub fn moving_a_rule_to_a_tag_without_the_pattern_is_allowed_test() {
   id |> should.equal(starbucks.id)
   request
   |> should.equal(
-    Save(Put(starbucks.id, RuleWriteRequest("STARBUCKS", make_id(2)))),
+    Save(Put(starbucks.id, RuleWriteRequest("STARBUCKS", TagTarget(make_id(2))))),
   )
 }
 
@@ -342,4 +354,27 @@ pub fn an_outdated_count_is_ignored_test() {
   |> send(MatchesCounted("COUNTDOWN", Ok(matches)))
   |> match_count_of
   |> should.equal(Counting("COUNTDOWN"))
+}
+
+pub fn choosing_transfer_sends_the_transfer_target_without_a_tag_test() {
+  let modal = make_create_modal() |> modal_with_pattern("TO SAVINGS")
+  let #(modal, _, _) = rule_modal.update(modal, TagChanged("transfer"), [])
+
+  let assert #(_, Some(Save(Post(request))), NoChange) =
+    rule_modal.update(modal, SaveRequested, [])
+  request |> should.equal(RuleWriteRequest("TO SAVINGS", TransferTarget))
+  rule_write_request.to_json(request)
+  |> json.to_string
+  |> should.equal("{\"pattern\":\"TO SAVINGS\",\"target\":\"Transfer\"}")
+}
+
+pub fn editing_a_transfer_rule_keeps_its_target_test() {
+  let transfer =
+    Rule(id: make_id(5), pattern: "TO SAVINGS", target: TransferTarget)
+  let #(modal, _, _) =
+    rule_modal.update(rule_modal.hidden(), EditRequested(transfer), [])
+
+  let assert #(_, Some(Save(Put(_, request))), NoChange) =
+    rule_modal.update(modal, SaveRequested, [transfer])
+  request |> should.equal(RuleWriteRequest("TO SAVINGS", TransferTarget))
 }

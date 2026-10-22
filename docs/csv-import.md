@@ -291,7 +291,10 @@ line. Lessons from it are cited where they shaped a decision.
   2. drops duplicates against the user's existing hashes and the request;
   3. marks internal transfers (decision 9);
   4. inserts the new transactions and gives each non-transfer the winning rule's
-     tag, using the matcher and the tag-untagged transition in `Domain/`;
+     proposal through the policy and the tag-untagged transition in `Domain/`,
+     so it gets a rule tag or stays untagged: a row a transfer rule wins is
+     neither a transfer nor tagged by a rule
+     ([transfer rules](transfer-rules.md) decision 8);
   5. records balance observations by decision 3.
 
   The response carries the counts (imported, skipped as duplicates, internal
@@ -309,9 +312,11 @@ line. Lessons from it are cited where they shaped a decision.
 - **Decision**: a row whose other party account number, in canonical form,
   equals one of the user's account numbers, including accounts the same request
   creates, is imported as a transfer: a categorisation with no tag
-  ([quick tagging](quick-tagging.md) decision 1). Only Kiwibank exports carry
-  the other party's account. Rows imported earlier are not revisited when a new
-  account is added.
+  ([quick tagging](quick-tagging.md) decision 1) and the `Detected` source
+  ([transfer rules](transfer-rules.md) decision 4), so smart tagging and a later
+  re-detection can tell it from the user's transfers. Only Kiwibank exports
+  carry the other party's account. Rows imported earlier are not revisited when
+  a new account is added.
 - **Why**: untagged transfers count as income and expenses on the dashboard. In
   the sample data, a transfer from chequing to savings would show as $3,865 of
   income. Importing related accounts in one request catches both sides.
@@ -519,8 +524,9 @@ line. Lessons from it are cited where they shaped a decision.
 - **Import history and undo.** An imports record on each transaction.
 - **Converting an item into an account.** Until then, delete and recreate.
 - **Transfers without another party column.** ASB card payments from an ASB
-  account appear in both statements and are marked by hand. A rule action that
-  marks transfers belongs with rules on other fields (auto-tagging brief).
+  account appear in both statements. A transfer rule suggests them as transfers
+  in quick tagging ([transfer rules](transfer-rules.md)); matching by amount
+  against a counterpart on another account is deferred there.
 - **More banks and Wise.** Wise exports carry several currencies.
 
 ## Assumptions

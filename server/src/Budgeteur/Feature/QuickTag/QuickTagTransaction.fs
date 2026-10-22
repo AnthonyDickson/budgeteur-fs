@@ -23,6 +23,10 @@ module QuickTagTransaction =
     type QuickTagRequest = {
         /// <summary>The tag to give the transaction.</summary>
         TagId : Guid
+
+        /// <summary>Whether the tag was the row's suggestion, so the tag
+        /// records that the user accepted it.</summary>
+        Suggested : bool
     }
 
     [<Literal>]
@@ -51,7 +55,7 @@ module QuickTagTransaction =
                         queryContext
                         userId
                         id
-                        (Categorisation.onQuickTag req.TagId)
+                        (Categorisation.onQuickTag req.TagId req.Suggested)
 
                 log.Info (
                     $"Quick tagged transaction %O{id}",
@@ -65,8 +69,10 @@ module QuickTagTransaction =
         op.Summary <- "Quick tag a transaction"
 
         op.Description <-
-            "Gives the transaction the tag as a manual tag, replacing any tag \
-            or dismissal it had. Returns 204 on success."
+            "Gives the transaction the tag as the user's decision, replacing \
+            any categorisation it had. The source is Accepted when the tag \
+            was the row's suggestion, otherwise Manual. Returns 204 on \
+            success."
 
         op.Tags <- HashSet [ OpenApiTagReference "Quick tagging" ]
 

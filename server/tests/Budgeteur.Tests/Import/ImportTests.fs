@@ -87,7 +87,7 @@ module ImportTests =
                     Pattern =
                         RulePattern.create "TRANSFER"
                         |> Result.defaultWith (failtestf "%A")
-                    TagId = tagId
+                    Target = RuleTarget.Tag tagId
                 }
 
                 let accountIds =
@@ -111,8 +111,8 @@ module ImportTests =
                 Expect.equal
                     (transactions |> List.map _.Categorisation)
                     [
-                        Some Categorisation.Transfer
-                        Some (Categorisation.Tagged (tagId, TagSource.Rule))
+                        Some (Categorisation.Transfer Source.Detected)
+                        Some (Categorisation.Tagged (tagId, Source.Rule))
                         None
                     ]
                     "only the transfer to the user's own account is marked"
@@ -133,4 +133,43 @@ module ImportTests =
                          t.Transaction.AccountId =
                              Map.tryFind chequing accountIds))
                     "every transaction is in the statement's account"
+
+            testCase "a row a transfer rule wins stays untagged and uncounted"
+            <| fun () ->
+                let tagId = Guid.NewGuid ()
+
+                let rule pattern target = {
+                    Id = Guid.NewGuid ()
+                    Pattern =
+                        RulePattern.create pattern
+                        |> Result.defaultWith (failtestf "%A")
+                    Target = target
+                }
+
+                let rules = [
+                    rule "TRANSFER" (RuleTarget.Tag tagId)
+                    rule "TRANSFER TO SAVINGS" RuleTarget.Transfer
+                ]
+
+                let transactions, counts =
+                    Import.plan
+                        Guid.NewGuid
+                        (Map.ofList [ chequing, Guid.NewGuid () ])
+                        Set.empty
+                        rules
+                        [
+                            statement chequing [
+                                row "a" "TRANSFER TO SAVINGS" None
+                            ]
+                        ]
+
+                Expect.equal
+                    (transactions |> List.map _.Categorisation)
+                    [ None ]
+                    "the shorter tag rule does not apply instead"
+
+                Expect.equal
+                    (counts.Transfers, counts.TaggedByRules)
+                    (0, 0)
+                    "neither a transfer nor tagged by a rule"
         ]

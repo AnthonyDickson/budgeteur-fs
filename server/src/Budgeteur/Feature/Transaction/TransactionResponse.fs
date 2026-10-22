@@ -10,9 +10,11 @@ type TransactionTagResponse = {
     /// <summary>The tag's id.</summary>
     Id : Guid
 
-    /// <summary>Whether the user set the tag or a rule did. Rules never change
-    /// a manual tag.</summary>
-    [<SchemaHint.Enum(typeof<TagSource>)>]
+    /// <summary>Who decided the tag: the user without a suggestion (Manual)
+    /// or by choosing one (Accepted), or a rule (Rule). Re-tag recomputes only
+    /// rule tags. Detected is reserved for transfers, which have no
+    /// tag.</summary>
+    [<SchemaHint.Enum(typeof<Source>)>]
     Source : string
 }
 
@@ -67,9 +69,9 @@ module TransactionResponse =
             | Some (Categorisation.Tagged (tagId, source)) ->
                 Some {
                     Id = tagId
-                    Source = TagSource.toString source
+                    Source = Source.toString source
                 }
             | Some Categorisation.Dismissed
-            | Some Categorisation.Transfer
+            | Some (Categorisation.Transfer _)
             | None -> None
     }

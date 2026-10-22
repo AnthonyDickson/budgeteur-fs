@@ -84,7 +84,8 @@ module EndpointTests =
 
                 let ruleRequest : CreateRule.CreateRuleRequest = {
                     Pattern = "harbour cafe"
-                    TagId = dining
+                    Target = "Tag"
+                    TagId = Some dining
                 }
 
                 let! rule =

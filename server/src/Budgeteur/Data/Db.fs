@@ -73,7 +73,7 @@ module main =
           UserId: string
           Kind: string
           TagId: Option<System.Guid>
-          Source: Option<string> }
+          Source: string }
 
         interface IWriteColumns with
             member this.WriteColumns =
@@ -138,13 +138,15 @@ module main =
         { Id: System.Guid
           UserId: string
           Pattern: string
-          TagId: System.Guid }
+          Target: string
+          TagId: Option<System.Guid> }
 
         interface IWriteColumns with
             member this.WriteColumns =
                 [ { WriteColumn.Name = "Id"; Value = box this.Id; ProviderDbType = None }
                   { WriteColumn.Name = "UserId"; Value = box this.UserId; ProviderDbType = None }
                   { WriteColumn.Name = "Pattern"; Value = box this.Pattern; ProviderDbType = None }
+                  { WriteColumn.Name = "Target"; Value = box this.Target; ProviderDbType = None }
                   { WriteColumn.Name = "TagId"; Value = box this.TagId; ProviderDbType = None } ]
 
     let Rules = table<Rules>
@@ -310,6 +312,7 @@ module main =
             { Id: Option<System.Guid>
               UserId: Option<string>
               Pattern: Option<string>
+              Target: Option<string>
               TagId: Option<System.Guid> }
 
             interface ILeftViewOf<``Rules (base)``>
@@ -404,7 +407,7 @@ module LeftViewExtensions =
             match this.TransactionId with
             | Some value ->
                 let record: main.Categorisations =
-                    { TransactionId = value; UserId = this.UserId.Value; Kind = this.Kind.Value; TagId = this.TagId; Source = this.Source }
+                    { TransactionId = value; UserId = this.UserId.Value; Kind = this.Kind.Value; TagId = this.TagId; Source = this.Source.Value }
 
                 Some record
             | None -> None
@@ -428,7 +431,7 @@ module LeftViewExtensions =
             match this.Id with
             | Some value ->
                 let record: main.Rules =
-                    { Id = value; UserId = this.UserId.Value; Pattern = this.Pattern.Value; TagId = this.TagId.Value }
+                    { Id = value; UserId = this.UserId.Value; Pattern = this.Pattern.Value; Target = this.Target.Value; TagId = this.TagId }
 
                 Some record
             | None -> None

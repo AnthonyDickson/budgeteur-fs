@@ -19,10 +19,20 @@
 
 ## Current Tasks
 
-None
-
 ## Backlog
 
+- After 1.0.0 release, transfer any learnings and useful patterns over to the
+  template project. May want to analyse the codebase and development to see
+  what worked well and what didn't work well.
+- On report page: it would be nice to have the net income value next to the
+  change in net worth and other changes. Consider a different format that better
+  shows the relationship between all the numbers and how they're derived.
+- Have auto-tagging rules be able to target transfers as well as tags?
+- On iOS, scrolling down and then opening a modal causes the modal to only cover
+  the top 3/4 of the page, leaving the bottom 1/4 interactable and without the
+  background dimming. Opening a modal without scrolling, or on desktop with or
+  without scrolling works as expected. Intermittent, cannot reproduce as of
+  writing
 - Except for transaction table and data entry, consider rounding to the nearest
   dollar
 - For modals, ensure that focus is returned to the element focused before

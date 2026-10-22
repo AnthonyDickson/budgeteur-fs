@@ -19,17 +19,28 @@ module CreateRule =
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.Endpoint
     open Budgeteur.Shared.Json
+    open Budgeteur.Shared.OpenApi
     open Budgeteur.Shared.RequestLogging
 
     /// <summary>Payload for creating a rule. The id is generated
     /// server-side.</summary>
-    type CreateRuleRequest = { Pattern : string; TagId : Guid }
+    type CreateRuleRequest = {
+        Pattern : string
+
+        /// <summary>What the rule proposes when it wins.</summary>
+        [<SchemaHint.Enum(typeof<RuleTarget>)>]
+        Target : string
+
+        /// <summary>Required for a tag rule, and rejected for a transfer
+        /// rule.</summary>
+        TagId : Guid option
+    }
 
     [<Literal>]
     let Path = "/api/rules"
 
     /// <summary>Verify that the user has no rule with the same pattern under
-    /// the comparison, whatever its tag. The database's <c>UNIQUE(UserId,
+    /// the comparison, whatever its target. The database's <c>UNIQUE(UserId,
     /// Pattern COLLATE NOCASE)</c> folds ASCII case only, so the patterns are
     /// compared here. Used on create, where the rule does not exist yet, so no
     /// existing rule is excluded from the check.</summary>
@@ -86,20 +97,21 @@ module CreateRule =
                 let! (req : CreateRuleRequest) = Json.read ctx
 
                 let! pattern = RulePattern.create req.Pattern
+                let! target = RuleTarget.create req.Target req.TagId
 
                 do!
                     Constraints.requireAll [
-                        Constraints.requireTagExists
+                        Constraints.requireTagIfReferenced
                             queryContext
                             userId
-                            req.TagId
+                            (RuleTarget.tagId target)
                         requirePatternIsUnique queryContext userId pattern
                     ]
 
                 let rule : Rule = {
                     Id = Guid.CreateVersion7 ()
                     Pattern = pattern
-                    TagId = req.TagId
+                    Target = target
                 }
 
                 let! () = insert queryContext userId rule

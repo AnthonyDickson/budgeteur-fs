@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Transfer rules, under a **Transfers** entry on the tagging page. They suggest
+  matching transactions as transfers in quick tagging rather than marking them.
+- Quick tagging marks each row's suggested button and shows the rule behind it.
+- Quick tagging counts suggestions over the whole queue, filters by one, and
+  approves it for the rows shown in one click.
+
+### Fixed
+
+- A migration that fails partway no longer leaves the database half migrated.
+
 ## [1.0.0-rc3] - 2026-10-18
 
 ### Changed
@@ -54,6 +68,7 @@ and this project adheres to
 
 The first release candidate.
 
+[Unreleased]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc3...HEAD
 [1.0.0-rc3]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc2...1.0.0-rc3
 [1.0.0-rc2]: https://github.com/AnthonyDickson/budgeteur-fs/compare/1.0.0-rc1...1.0.0-rc2
 [1.0.0-rc1]: https://github.com/AnthonyDickson/budgeteur-fs/tree/1.0.0-rc1

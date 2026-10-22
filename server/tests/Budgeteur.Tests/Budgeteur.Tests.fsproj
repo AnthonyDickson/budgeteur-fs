@@ -29,6 +29,7 @@
     <Compile Include="Domain/ReportingPeriodTests.fs" />
     <Compile Include="Data/BalanceSheetItemCodecTests.fs" />
     <Compile Include="Data/PatternMatchTests.fs" />
+    <Compile Include="Data/MigrationTests.fs" />
     <Compile Include="Account/EndpointTests.fs" />
     <Compile Include="BalanceSheet/EndpointTests.fs" />
     <Compile Include="BalanceSheet/ClosingTests.fs" />
@@ -41,6 +42,7 @@
     <Compile Include="AutoTag/ChangesTests.fs" />
     <Compile Include="AutoTag/MatchesTests.fs" />
     <Compile Include="AutoTag/EndpointTests.fs" />
+    <Compile Include="QuickTag/SuggestionTests.fs" />
     <Compile Include="QuickTag/EndpointTests.fs" />
     <Compile Include="Import/CsvTests.fs" />
     <Compile Include="Import/StatementTests.fs" />

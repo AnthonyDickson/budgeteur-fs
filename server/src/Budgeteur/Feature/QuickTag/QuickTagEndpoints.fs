@@ -10,6 +10,7 @@ module QuickTagEndpoints =
 
     let all (queryContext : QueryContextFactory) = [
         GET [ ReadQueue.endpoint queryContext ]
+        POST [ ApproveSuggestion.endpoint queryContext ]
         PUT [
             QuickTagTransaction.endpoint queryContext
             MarkTransfer.endpoint queryContext
