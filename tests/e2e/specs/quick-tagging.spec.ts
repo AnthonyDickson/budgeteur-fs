@@ -89,4 +89,79 @@ test.describe('quick tagging', () => {
         .filter({ hasText: 'To savings' }),
     ).toContainText('Transfer');
   });
+
+  test('a transfer rule suggests transfers, approved together', async ({
+    page,
+  }, testInfo) => {
+    // The rule panels show once the user has a tag.
+    await createFirstTag(page, 'Groceries');
+    await page.getByTestId('transfers-row').click();
+    await expect(page.getByTestId('transfer-rules-note')).toBeVisible();
+    await page.getByTestId('new-rule-button').click();
+    const ruleModal = page.getByTestId('rule-modal');
+    await expect(ruleModal.getByTestId('rule-tag-select')).toHaveValue(
+      'transfer',
+    );
+    await ruleModal.getByTestId('rule-pattern-input').fill('SAVINGS TOP UP');
+    await ruleModal.getByTestId('rule-submit-button').click();
+    await expect(ruleModal).toBeHidden();
+    await expect(
+      page.getByTestId('rule-row').filter({ hasText: 'SAVINGS TOP UP' }),
+    ).toBeVisible();
+
+    await recordTransaction(page, 'Savings top up 1');
+    await recordTransaction(page, 'Savings top up 2');
+
+    // A rule's transfer is only suggested, so a run leaves both untagged.
+    await page.goto('/tagging');
+    await page.getByTestId('tag-untagged-button').click();
+    await expect(
+      page
+        .getByTestId('toast')
+        .filter({ hasText: 'Tagged 0 untagged transactions' }),
+    ).toBeVisible();
+
+    await page.goto('/quick-tagging');
+    const row = queueRow(page, 'Savings top up 1');
+    await expect(row.getByTestId('quick-tag-suggestion')).toContainText(
+      'SAVINGS TOP UP',
+    );
+    await expect(row.getByRole('button', { name: 'Transfer' })).toHaveAttribute(
+      'data-suggested',
+      'true',
+    );
+
+    const count = page.getByTestId('quick-tag-suggestion-count');
+    await expect(count).toHaveText(/Transfer\s*2/);
+    await count.click();
+    await expect(count).toHaveAttribute('aria-pressed', 'true');
+    await page.screenshot({
+      path: screenshotPath(testInfo, 'transfer-suggestions'),
+      fullPage: true,
+    });
+
+    const approve = page.getByTestId('quick-tag-approve');
+    // The busy label is rendered hidden beside the label, so the text contains
+    // both.
+    await expect(approve).toContainText('Mark 2 as transfers');
+    await approve.click();
+    await expect(
+      page.getByTestId('toast').filter({ hasText: 'Marked 2 as transfers' }),
+    ).toBeVisible();
+    await expect(page.getByTestId('quick-tag-empty-state')).toBeVisible();
+
+    await page.goto('/transactions');
+    for (
+      const description of [
+        'Savings top up 1',
+        'Savings top up 2',
+      ]
+    ) {
+      await expect(
+        page
+          .locator('[data-testid="transaction-row"]')
+          .filter({ hasText: description }),
+      ).toContainText('Transfer');
+    }
+  });
 });
