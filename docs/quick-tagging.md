@@ -270,6 +270,12 @@ Categorisation, source, manual tag, and rule tag are defined in
   a "Suggested" label above the buttons names the rule's pattern. The button's
   accessible name is unchanged ([transfer rules](transfer-rules.md) decision
   10).
+- **Suggestion counts**: above the rows, one button per suggested tag or
+  transfer with its count. Choosing one filters the queue to it and shows "Show
+  all" and an approval button, such as "Mark 14 as transfers", for the rows
+  shown that have no choice yet. After an approval the page fetches the queue
+  again and keeps the filter until no queued transaction is suggested its
+  target.
 - **No tags**: a note above the rows links to the tags page, and each row offers
   only "Dismiss".
 - **Empty state**: "No transactions are waiting for a tag", with a link to the

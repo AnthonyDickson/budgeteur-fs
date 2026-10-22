@@ -4,14 +4,27 @@ import budgeteur/shared/date
 import budgeteur/shared/money
 import budgeteur/shared/uuid as uuid_codec
 import gleam/dynamic/decode
+import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/time/calendar.{type Date}
 import youid/uuid.{type Uuid}
 
 /// Up to 50 of the user's untagged non-transfer transactions, newest first,
-/// and how many the whole queue holds.
+/// and how many the whole queue holds. With a filter, only those suggested the
+/// filter's target, and how many are. `suggestions` counts each suggested
+/// target over the whole queue, whatever the filter, in the order of the row
+/// buttons.
 pub type Queue {
-  Queue(transactions: List(QueuedTransaction), total: Int)
+  Queue(
+    transactions: List(QueuedTransaction),
+    total: Int,
+    suggestions: List(SuggestionCount),
+  )
+}
+
+/// How many queued transactions are suggested a target.
+pub type SuggestionCount {
+  SuggestionCount(target: Target, count: Int)
 }
 
 /// A transaction waiting for a tag.
@@ -45,7 +58,17 @@ pub fn decoder() -> decode.Decoder(Queue) {
     decode.list(transaction_decoder()),
   )
   use total <- decode.field("total", decode.int)
-  decode.success(Queue(transactions:, total:))
+  use suggestions <- decode.field(
+    "suggestions",
+    decode.list(suggestion_count_decoder()),
+  )
+  decode.success(Queue(transactions:, total:, suggestions:))
+}
+
+fn suggestion_count_decoder() -> decode.Decoder(SuggestionCount) {
+  use target <- decode.then(target_decoder())
+  use count <- decode.field("count", decode.int)
+  decode.success(SuggestionCount(target:, count:))
 }
 
 fn transaction_decoder() -> decode.Decoder(QueuedTransaction) {
@@ -92,5 +115,27 @@ fn target_decoder() -> decode.Decoder(Target) {
     "Tag", Some(tag_id) -> decode.success(TagTarget(tag_id))
     "Transfer", None -> decode.success(TransferTarget)
     _, _ -> decode.failure(TransferTarget, "Target")
+  }
+}
+
+/// The target as query parameters, for filtering the queue by it.
+pub fn target_query(target: Target) -> List(#(String, String)) {
+  case target {
+    TagTarget(tag_id:) -> [
+      #("target", "Tag"),
+      #("tagId", uuid.to_string(tag_id)),
+    ]
+    TransferTarget -> [#("target", "Transfer")]
+  }
+}
+
+/// The target as request fields, for approving it.
+pub fn target_fields(target: Target) -> List(#(String, json.Json)) {
+  case target {
+    TagTarget(tag_id:) -> [
+      #("target", json.string("Tag")),
+      #("tagId", json.string(uuid.to_string(tag_id))),
+    ]
+    TransferTarget -> [#("target", json.string("Transfer"))]
   }
 }

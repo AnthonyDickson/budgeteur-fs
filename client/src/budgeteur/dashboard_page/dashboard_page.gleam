@@ -90,7 +90,7 @@ fn fetch_waiting() -> Effect(Msg) {
     decode.success(total)
   }
 
-  effect.get(api_route.GetQuickTagQueue |> api_route.to_string, fn(result) {
+  effect.get(api_route.GetQuickTagQueue([]) |> api_route.to_string, fn(result) {
     case result {
       Ok(body) -> ClientFetchedWaiting(response.decode_success(body, decoder))
       Error(http_error) ->

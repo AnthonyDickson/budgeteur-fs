@@ -32,7 +32,7 @@ fn transaction(description: String) -> queue.QueuedTransaction {
 }
 
 fn queue() -> queue.Queue {
-  Queue(transactions: [transaction("Countdown")], total: 1)
+  Queue(transactions: [transaction("Countdown")], total: 1, suggestions: [])
 }
 
 fn tag(name: String, kind: tag.TagKind) -> tag.Tag {
@@ -55,7 +55,7 @@ fn update(model: quick_tagging_page.Model, msg: quick_tagging_page.Msg) {
 }
 
 fn queue_url() -> String {
-  api_route.to_string(api_route.GetQuickTagQueue)
+  api_route.to_string(api_route.GetQuickTagQueue([]))
 }
 
 fn tags_url() -> String {
@@ -265,6 +265,7 @@ fn suggested_transfer_queue() -> queue.Queue {
       ),
     ],
     total: 1,
+    suggestions: [queue.SuggestionCount(target: queue.TransferTarget, count: 1)],
   )
 }
 
@@ -308,4 +309,104 @@ pub fn the_suggested_button_is_marked_without_moving_test() {
   |> list.length
   |> should.equal(2)
   html |> string.contains("TO SAVINGS") |> should.be_true
+}
+
+pub fn choosing_a_suggestion_count_filters_the_queue_test() {
+  let model = loaded_model(suggested_transfer_queue())
+
+  let #(model, effect) =
+    update(model, quick_tagging_page.UserFiltered(Some(queue.TransferTarget)))
+
+  model.filter |> should.equal(Some(queue.TransferTarget))
+  model.queue |> should.equal(Loading)
+  let assert effect.HttpRequest(method: http_effect.Get, url:, ..) = effect
+  url |> should.equal("/api/quick-tag?target=Transfer")
+}
+
+/// A page filtered to transfers, with the filtered batch loaded.
+fn filtered_model() -> quick_tagging_page.Model {
+  let model = loaded_model(suggested_transfer_queue())
+  let #(model, _) =
+    update(model, quick_tagging_page.UserFiltered(Some(queue.TransferTarget)))
+  let #(model, _) = update(model, ClientFetchedQueue(Ok(two_transfers())))
+  model
+}
+
+fn two_transfers() -> queue.Queue {
+  let suggestion =
+    Some(queue.Suggestion(target: queue.TransferTarget, pattern: "TO SAVINGS"))
+  Queue(
+    transactions: [
+      QueuedTransaction(..transaction("To savings 1"), suggestion:),
+      QueuedTransaction(..transaction("To savings 2"), suggestion:),
+    ],
+    total: 2,
+    suggestions: [queue.SuggestionCount(target: queue.TransferTarget, count: 2)],
+  )
+}
+
+pub fn approving_sends_the_undecided_rows_and_fetches_again_test() {
+  let model = filtered_model()
+  let assert Loaded(loaded) = model.queue
+  let assert [first, second] = loaded.transactions
+
+  // A row already decided on the page is not sent.
+  let #(model, _) = update(model, UserChose(first.id, Dismiss))
+  let #(model, _) = update(model, ServerSaved(first.id, Dismiss, Ok(Nil)))
+
+  let #(model, effect) = update(model, quick_tagging_page.UserApproved)
+  model.approving |> should.be_true
+  let assert effect.HttpRequest(method: http_effect.Post, url:, body:, ..) =
+    effect
+  url |> should.equal(api_route.to_string(api_route.ApproveSuggestion))
+  body
+  |> should.equal(
+    "{\"transactionIds\":[\""
+    <> uuid.to_string(second.id)
+    <> "\"],\"target\":\"Transfer\"}",
+  )
+
+  let #(model, effect, out_msg) =
+    quick_tagging_page.update(
+      model,
+      quick_tagging_page.ServerApproved(queue.TransferTarget, Ok(1)),
+    )
+  model.approving |> should.be_false
+  model.filter |> should.equal(Some(queue.TransferTarget))
+  let assert effect.HttpRequest(method: http_effect.Get, url:, ..) = effect
+  url |> should.equal("/api/quick-tag?target=Transfer")
+  let assert Some(out_msg.PageRequestedToast(level: toast.Success, ..)) =
+    out_msg
+
+  // Once no queued transaction is suggested a transfer, the whole queue shows.
+  let #(model, effect) =
+    update(
+      model,
+      ClientFetchedQueue(Ok(Queue(transactions: [], total: 0, suggestions: []))),
+    )
+  model.filter |> should.equal(None)
+  let assert effect.HttpRequest(url:, ..) = effect
+  url |> should.equal(queue_url())
+}
+
+pub fn a_failed_approval_shows_an_error_and_keeps_the_filter_test() {
+  let model = filtered_model()
+  let #(model, _) = update(model, quick_tagging_page.UserApproved)
+
+  let not_found =
+    ApiError(
+      error: "Not Found",
+      details: "Transaction not found",
+      status_code: Some(404),
+      request_id: None,
+    )
+  let #(model, _, out_msg) =
+    quick_tagging_page.update(
+      model,
+      quick_tagging_page.ServerApproved(queue.TransferTarget, Error(not_found)),
+    )
+
+  model.approving |> should.be_false
+  model.filter |> should.equal(Some(queue.TransferTarget))
+  let assert Some(out_msg.PageRequestedToast(level: toast.Error, ..)) = out_msg
 }
