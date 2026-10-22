@@ -116,6 +116,11 @@ Categorisation, source, manual tag, and rule tag are defined in
   first. There is no queue table. A batch is the first 50 with the total in the
   queue. Fetching again returns the next batch, because tagged, dismissed, and
   transfer transactions no longer match.
+- **Suggestions**: each queued transaction carries the winning rule's target and
+  pattern, computed from the current rules when the queue is read, and the
+  response counts each suggested categorisation over the whole queue. An
+  optional target filter returns only the transactions suggested it, as a batch
+  with its total ([transfer rules](transfer-rules.md) decisions 6 and 7).
 - **Why**: untagged already means "no categorisation" (auto-tagging decision 3),
   so a table would be a second record of the same fact. Newest first puts a
   recent import's leftovers and the current period at the top. Without offsets,
@@ -190,7 +195,9 @@ Categorisation, source, manual tag, and rule tag are defined in
 - **Decision**: `Feature/QuickTag/` owns four endpoints, one file each:
   - `GET /api/quick-tag` returning the batch, newest first, with the total in
     the queue. Each entry has the transaction's id, date, description, amount,
-    and account name.
+    account name, and optional suggestion. The response also carries the
+    suggestion counts, and the request takes an optional target and tag id to
+    filter by ([transfer rules](transfer-rules.md) decision 9).
   - `PUT /api/quick-tag/{transactionId}` with a required tag id, returning
     `204`. A tag the user does not have is `400`, whether it is missing or
     another user's.
@@ -304,13 +311,15 @@ Categorisation, source, manual tag, and rule tag are defined in
 
 - **Create a rule from a transaction.** A follow-up to this feature; see
   [auto-tagging](auto-tagging.md#deferred).
-- **Suggested tags.** Part of smart auto-tagging, which can rank the buttons or
-  mark a suggestion without changing their order.
+- **Suggestions from smart auto-tagging.** Rules already suggest a tag or a
+  transfer for queued transactions ([transfer rules](transfer-rules.md)); smart
+  tagging adds the model as a second origin of suggestions, with the same shape.
 - **Undismiss.** A dismissed transaction returns to the queue only if it is
   tagged in the transaction form and the tag cleared, or a tag is deleted. Add
   an action if the user needs it.
-- **Queue filters.** By account or period. Add if the queue grows long enough
-  for newest first to be a problem.
+- **More queue filters.** The queue filters by suggested categorisation
+  ([transfer rules](transfer-rules.md) decision 7). By account or period: add if
+  the queue grows long enough for newest first to be a problem.
 - **Keyboard shortcuts of the page's own.** Vimium covers keyboard use.
 
 ## Assumptions

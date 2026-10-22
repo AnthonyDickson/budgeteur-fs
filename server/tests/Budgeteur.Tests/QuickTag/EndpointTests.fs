@@ -22,12 +22,12 @@ module EndpointTests =
             |> TestAppConfig.withTransactions
         )
 
-    let private createRule (client : HttpClient) pattern tagId =
+    let private createRuleWith (client : HttpClient) pattern target tagId =
         async {
             let request : CreateRule.CreateRuleRequest = {
                 Pattern = pattern
-                Target = "Tag"
-                TagId = Some tagId
+                Target = target
+                TagId = tagId
             }
 
             let! response =
@@ -38,7 +38,18 @@ module EndpointTests =
                 response.StatusCode
                 HttpStatusCode.Created
                 "creating a rule should return 201"
+
+            return! TestHttp.readJson<RuleResponse> response
         }
+
+    let private createRule (client : HttpClient) pattern tagId =
+        async {
+            let! _ = createRuleWith client pattern "Tag" (Some tagId)
+            ()
+        }
+
+    let private createTransferRule (client : HttpClient) pattern =
+        createRuleWith client pattern "Transfer" None
 
     let private untagged
         description
@@ -378,6 +389,7 @@ module EndpointTests =
                         Description = "Newer"
                         Date = DateOnly (2026, 10, 2)
                         AccountName = None
+                        Suggestion = None
                     })
                     "an entry should carry the transaction's details"
             }
@@ -419,5 +431,112 @@ module EndpointTests =
                     "the next batch should hold the rest"
 
                 Expect.equal queue.Total 1 "the total should shrink"
+            }
+
+            testCaseAsync
+                "the queue suggests from the current rules, counts, and filters"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+                do! createRule app.Client "COUNTDOWN" groceries
+                let! savings = createTransferRule app.Client "TO SAVINGS"
+                let! _ = createTransferRule app.Client "ASB CARD"
+                let! _ = create app.Client (untagged "Transfer to savings")
+                let! _ = create app.Client (untagged "ASB CARD 1234")
+                let! _ = create app.Client (untagged "Countdown")
+                let! _ = create app.Client (untagged "Rent")
+
+                let! queue = readQueue app.Client
+
+                Expect.equal
+                    (queue.Transactions
+                     |> List.map (fun t ->
+                         t.Description, t.Suggestion |> Option.map _.Pattern))
+                    [
+                        "Rent", None
+                        "Countdown", Some "COUNTDOWN"
+                        "ASB CARD 1234", Some "ASB CARD"
+                        "Transfer to savings", Some "TO SAVINGS"
+                    ]
+                    "each row carries its winning rule's pattern"
+
+                Expect.equal
+                    queue.Suggestions
+                    [
+                        {
+                            Target = "Tag"
+                            TagId = Some groceries
+                            Count = 1
+                        }
+                        {
+                            Target = "Transfer"
+                            TagId = None
+                            Count = 2
+                        }
+                    ]
+                    "both transfer rules' suggestions are counted together"
+
+                let! response =
+                    app.Client.GetAsync $"{ReadQueue.Path}?target=Transfer"
+                    |> Async.AwaitTask
+
+                let! filtered = TestHttp.readJson<QueueResponse> response
+
+                Expect.equal
+                    (filtered.Transactions |> List.map _.Description)
+                    [ "ASB CARD 1234"; "Transfer to savings" ]
+                    "the filter keeps the rows suggested a transfer"
+
+                Expect.equal filtered.Total 2 "the filtered total"
+
+                // Editing a rule changes its suggestions without a run.
+                let! _ =
+                    TestHttp.putJson
+                        app.Client
+                        (TestHttp.itemPath UpdateRule.Path savings.Id)
+                        ({
+                            Pattern = "TO SAVINGS"
+                            Target = "Tag"
+                            TagId = Some groceries
+                        }
+                        : UpdateRule.UpdateRuleRequest)
+                    |> Async.AwaitTask
+
+                let! queue = readQueue app.Client
+
+                Expect.equal
+                    (queue.Transactions
+                     |> List.tryFind (fun t ->
+                         t.Description = "Transfer to savings")
+                     |> Option.bind _.Suggestion)
+                    (Some {
+                        Target = "Tag"
+                        TagId = Some groceries
+                        Pattern = "TO SAVINGS"
+                    })
+                    "the edited rule's new target should be suggested"
+            }
+
+            testCaseAsync "the queue filter is validated as for rules"
+            <| async {
+                use app = newApp ()
+                let! groceries = Seed.tag app.Client "Groceries" "Expense"
+
+                for query in
+                    [
+                        "target=Tag"
+                        $"target=Transfer&tagId={groceries}"
+                        $"tagId={groceries}"
+                        "target=Tag&tagId=not-a-guid"
+                        "target=Dismissed"
+                    ] do
+                    let! response =
+                        app.Client.GetAsync $"{ReadQueue.Path}?{query}"
+                        |> Async.AwaitTask
+
+                    expectStatus
+                        HttpStatusCode.BadRequest
+                        $"'{query}' should be rejected"
+                        response
             }
         ]

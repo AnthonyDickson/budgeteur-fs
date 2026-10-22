@@ -140,6 +140,7 @@
     <Compile Include="Feature/AutoTag/ReadMatches.fs" />
     <Compile Include="Feature/AutoTag/AutoTagEndpoints.fs" />
 
+    <Compile Include="Feature/QuickTag/Suggestion.fs" />
     <Compile Include="Feature/QuickTag/ReadQueue.fs" />
     <Compile Include="Feature/QuickTag/QuickTagWrite.fs" />
     <Compile Include="Feature/QuickTag/QuickTagTransaction.fs" />
