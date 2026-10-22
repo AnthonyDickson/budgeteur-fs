@@ -192,6 +192,7 @@ module TestApp =
                 .SqliteDatabase(connectionString)
                 // We need to access server assembly for the migration scripts.
                 .WithScriptsEmbeddedInAssembly(typeof<Transaction>.Assembly)
+                .WithTransactionPerScript()
                 .Build()
                 .PerformUpgrade()
 

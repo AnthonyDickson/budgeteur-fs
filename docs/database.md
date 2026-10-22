@@ -17,6 +17,11 @@ are recorded in a `SchemaVersions` table.
 - **Migration paths are part of the schema history.** DbUp identifies a
   migration by its path. Moving or renaming an applied migration makes DbUp
   treat it as new and re-run it, which fails on an existing database.
+- **Each migration runs in its own database transaction.** A script that fails
+  partway leaves the schema as it was, so a table rebuild (create, copy, drop,
+  rename) never leaves a half-migrated database. SQLite's schema changes are
+  transactional, so no script needs to opt out, and scripts do not begin
+  transactions of their own.
 - **Migrations run without the server.** A standalone script applies them, so a
   schema change can be migrated and the generated code refreshed while the
   domain code does not yet compile against it.
