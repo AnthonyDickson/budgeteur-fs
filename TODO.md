@@ -15,9 +15,81 @@
 - [x] Transaction search
 - [x] Mobile support
 - [x] Release 1.0.0
-- [ ] Smart auto-tagging via local embeddings + logistic regression/SVM
+- [ ] Smart tagging ([brief](docs/smart-tagging.md))
 
 ## Current Tasks
+
+- Smart tagging, see [docs/smart-tagging.md](docs/smart-tagging.md):
+  - Write the choice criterion into the brief before any experiment runs: the
+    target coverage, and precision on residual rows as the measure (decision 8).
+  - Set up the experiments project.
+    - Dev shell: Python and uv in `flake.nix`; `ml/` as a uv project with
+      scikit-learn, sentence-transformers, and pandas pinned in its lock file.
+    - Gitignore `ml/data/`.
+    - `just ml-export db user`: export one user's transactions, categorisations
+      (kind, tag, source), tags, and rules from a local copy of the database to
+      `ml/data/`.
+  - Build the evaluation harness in `ml/`.
+    - Rule matching as auto-tagging defines it (substring, ordinal ignoring
+      case, longest pattern wins) to find residual rows.
+    - Rolling-origin split with monthly cutoffs, scoring only residual rows
+      labelled `Manual` or `Accepted`.
+    - Metrics: top-1 accuracy for seen and unseen merchants, and precision
+      against coverage across thresholds.
+    - Diagnostics: suggested class distribution against true labels on residual
+      rows; precision near any rule known to over-match.
+  - Run the experiments.
+    - Baselines: most common class, and exact normalised description lookup.
+    - Candidates: features + LR; embeddings (all-MiniLM-L6-v2, bge-small) + LR
+      or kNN; both concatenated.
+    - Label variants: no rule labels, rule labels capped per normalised
+      description, rule labels uncapped. Also the `Accepted` weight and
+      `Detected` transfers in or out.
+    - Settle the open questions in the brief: candidate, features, label sources
+      and weights, threshold, label minimums, embedding model and storage if
+      used. Update the decisions and remove the open questions.
+  - Parity fixture.
+    - `ml/`: fit scikit-learn on an anonymised fixture from
+      `server/tests/Budgeteur.Tests/Import/Fixtures` with the chosen features
+      and weights, and write its predicted probabilities as a committed fixture.
+  - Server: the model in `Domain/` (decisions 2, 3, 7).
+    - Add MathNet.Numerics to `Directory.Packages.props`.
+    - Vectoriser: character and word n-grams, digit normalisation, TF-IDF from
+      the training set, and the amount and account features the experiments
+      kept.
+    - Weighted multinomial logistic regression with L2, optimised with L-BFGS;
+      deterministic.
+    - Abstaining: threshold, overall label minimum, per-class minimum.
+    - Policy: a model proposal is suggested, never applied.
+    - Tests: gradient check, separable data, row weights, a single class,
+      determinism, each abstain reason, the policy line, and parity with the
+      scikit-learn fixture within a tolerance.
+  - Server: embeddings, only if the experiments chose them (decisions 1, 5).
+    - ONNX Runtime and Microsoft.ML.Tokenizers; the model file in the image.
+    - Embedding function passed to the domain; storage as the brief settles.
+    - Docker: switch `docker/Dockerfile` to a glibc runtime-deps base; check the
+      trimmed publish still runs; update `docs/deployment.md`.
+  - Server: QuickTag slice (decisions 5, 6, 9).
+    - `ReadQueue.fs`: load the caller's training set with the queue, fit once
+      per read, and suggest from the model for rows no rule matches.
+    - `Suggestion.fs`: the suggestion's origin becomes a rule with its pattern,
+      or the model; counts and the filter use the target whatever the origin.
+    - `SuggestionResponse`: the pattern becomes optional, absent for a model
+      suggestion, plus an origin field. Check the OpenAPI document.
+    - Tests: rule beats model; model suggests only for residual rows; training
+      uses only the caller's labels with decision 4's sources and weights; rule
+      and model suggestions counted together; accepting a model suggestion
+      records `Accepted`.
+  - Client: quick tagging page.
+    - `queue.gleam`: decode the origin and the optional pattern.
+    - `quick_tagging_page.gleam`: the "Suggested" label without a pattern for a
+      model suggestion.
+    - Tests: a model suggestion decodes and marks its button; choosing it sends
+      the suggestion flag.
+  - E2E: tag enough transactions by hand to pass the minimums, add a similar
+    untagged one, and quick tagging marks the expected tag as suggested.
+  - Docs: the updates listed under the brief's Consequences (transfer rules,
+    quick tagging, deployment, testing strategy), and the changelog.
 
 ## Backlog
 
