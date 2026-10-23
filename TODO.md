@@ -20,8 +20,6 @@
 ## Current Tasks
 
 - Smart tagging, see [docs/smart-tagging.md](docs/smart-tagging.md):
-  - Write the choice criterion into the brief before any experiment runs: the
-    target coverage, and precision on residual rows as the measure (decision 8).
   - Set up the experiments project.
     - Dev shell: Python and uv in `flake.nix`; `ml/` as a uv project with
       scikit-learn, sentence-transformers, and pandas pinned in its lock file.

@@ -291,11 +291,25 @@ suggestion, suggestion count, approve, and accept in
     labels of residual rows, which measures distribution shift directly; and,
     for any rule known to over-match, precision on residual rows near it with
     and without rule labels.
-  - **Choice**: the criterion is written into this brief before the first run: a
-    target coverage, and the measure compared at it, precision on residual rows.
-    The candidate and variant with the best precision at that coverage win;
-    within noise, the simpler one does, where no rule labels is simpler than
-    capped rule labels, and features alone simpler than embeddings.
+  - **Choice**: fixed before the first run.
+    - **Coverage**: each candidate and variant gets one threshold, set so that
+      it suggests for 50% of the scored rows, pooled over all cutoffs.
+    - **Measure**: precision at that threshold: correct suggestions over
+      suggestions made.
+    - **Noise**: a paired bootstrap over the scored rows, with 1,000 resamples
+      and a fixed seed. Two options are within noise when the 95% interval of
+      their precision difference includes zero.
+    - **Winner**: the option with the best precision, unless a simpler option is
+      within noise of it, in which case the simplest such option wins. Features
+      alone are simpler than embeddings, and embeddings alone simpler than both
+      concatenated. For labels, no rule labels is simplest, then uncapped rule
+      labels, then capped ones.
+    - **Baseline**: the lookup cannot reach 50% coverage, since it suggests only
+      for seen merchants. The winner has to beat it on precision at the lookup's
+      own coverage, by more than noise, or the lookup ships instead.
+
+    The shipped threshold is chosen afterwards, from the winner's precision
+    against coverage (decision 7), and may differ from the comparison's.
 - **Why**: in production the model fits on every label up to now and suggests
   for the next import, so each rolling-origin step reproduces that. Every
   transaction is tested once, which matters with under a thousand rows. Random
@@ -306,12 +320,23 @@ suggestion, suggestion count, approve, and accept in
   transactions it never sees, and would favour training on rule labels for the
   wrong reason. Fixing the criterion before the results are known keeps the
   measure from being chosen to fit them, which matters most for the rule label
-  question, where there are plausible arguments on both sides.
+  question, where there are plausible arguments on both sides. A fixed coverage
+  compares options on the same number of suggestions, so a cautious option
+  cannot win by suggesting less. At 50%, the scored rows include unseen
+  merchants, where the candidates differ most, while every candidate still has
+  confident rows to suggest for. The bootstrap is paired, because every option
+  scores the same rows, and it scales with however many rows there are, where a
+  fixed margin would not.
 - **Cost**: current rules are used for every cutoff, though some were written
   later, so a few rows a rule would not then have matched are left out of
   scoring.
 - **Rejected**:
   - Stratified k-fold, for the bias above.
+  - Comparing coverage at a fixed precision. Closer to decision 7's goal, but
+    with few rows the precision near a threshold is noisy, so the threshold
+    found, and the coverage with it, would vary from run to run.
+  - A bootstrap over whole test months. It respects correlation within a month,
+    but with few months its interval is wide enough to tie most comparisons.
   - A single time split. One small, noisy test set.
   - Experiments in F#. No parity gap, but far fewer ready-made models and tools
     for trying candidates quickly; the parity test closes the gap instead.
@@ -389,7 +414,6 @@ suggestion, suggestion count, approve, and accept in
 
 Settled by the experiments, then recorded in the decisions above:
 
-- The target coverage for the choice criterion, written in before the first run.
 - Which candidate, and which features, ship.
 - Whether `Rule` categorisations are labels, and if so whether capped per
   normalised description and at what weight (decision 4).
