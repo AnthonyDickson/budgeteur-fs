@@ -137,8 +137,9 @@ def cutoffs(dataset: Dataset) -> list[pd.Timestamp]:
 
 def evaluate(dataset: Dataset, candidate: Candidate, policy: LabelPolicy) -> pd.DataFrame:
     """Run the candidate at every cutoff. One row per scored transaction, with its `cutoff`,
-    true `label`, `predicted` class, `confidence`, whether it is `correct`, and whether its
-    merchant was `seen` in the training set."""
+    true `label`, `predicted` class, `confidence`, whether it is `correct`, whether its
+    merchant was `seen` in the training set, and how many training labels there were in all
+    (`labels`) and for the predicted class (`class labels`), for setting the minimums."""
     t = dataset.transactions
     scored = dataset.scored
     results = []
@@ -160,6 +161,11 @@ def evaluate(dataset: Dataset, candidate: Candidate, policy: LabelPolicy) -> pd.
                     "predicted": predictions["predicted"].astype(object),
                     "confidence": predictions["confidence"].astype(float),
                     "seen": test["normalised"].isin(training["normalised"]),
+                    "labels": len(training),
+                    "class labels": predictions["predicted"]
+                    .map(training["label"].value_counts())
+                    .fillna(0)
+                    .astype(int),
                 }
             )
         )
