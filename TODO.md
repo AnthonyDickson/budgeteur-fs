@@ -20,15 +20,6 @@
 ## Current Tasks
 
 - Smart tagging, see [docs/smart-tagging.md](docs/smart-tagging.md):
-  - Build the evaluation harness in `ml/`.
-    - Rule matching as auto-tagging defines it (substring, ordinal ignoring
-      case, longest pattern wins) to find residual rows.
-    - Rolling-origin split with monthly cutoffs, scoring only residual rows
-      labelled `Manual` or `Accepted`.
-    - Metrics: top-1 accuracy for seen and unseen merchants, and precision
-      against coverage across thresholds.
-    - Diagnostics: suggested class distribution against true labels on residual
-      rows; precision near any rule known to over-match.
   - Run the experiments.
     - Baselines: most common class, and exact normalised description lookup.
     - Candidates: features + LR; embeddings (all-MiniLM-L6-v2, bge-small) + LR

@@ -14,3 +14,4 @@ raw-exports/
 # machine, see docs/smart-tagging.md
 ml/.venv/
 ml/data/
+ml/__pycache__/

@@ -149,6 +149,15 @@ update:
 ml-export db user:
 	uv run --project ml python ml/export.py "{{db}}" "{{user}}"
 
+# Evaluate the smart tagging candidates on the exported data, e.g.
+# just ml-evaluate --over-matching PAK
+ml-evaluate *args:
+	uv run --project ml python ml/evaluate.py {{args}}
+
+# Unit tests for the smart tagging evaluation harness
+ml-test:
+	uv run --project ml python -m unittest discover --start-directory ml
+
 # ── Database ──────────────────────────────────────────────────────────────
 
 # Scaffold a new migration file
