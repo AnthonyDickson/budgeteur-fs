@@ -19,6 +19,9 @@
               gleam
               just
               dprint
+              # Smart tagging experiments in ml/, see docs/smart-tagging.md
+              python3
+              uv
             ];
 
             shellHook = ''
@@ -34,7 +37,19 @@
               fi
             '';
 
-            env.DOTNET_ROOT = "${pkgs.dotnet-sdk_10}";
+            env = {
+              DOTNET_ROOT = "${pkgs.dotnet-sdk_10}";
+              # uv uses the shell's Python rather than downloading its own
+              UV_PYTHON = "${pkgs.python3}/bin/python";
+              UV_PYTHON_DOWNLOADS = "never";
+            }
+            # PyPI wheels (numpy, torch) link against libraries NixOS keeps out of the default paths
+            // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+              LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+                pkgs.stdenv.cc.cc.lib
+                pkgs.zlib
+              ];
+            };
           };
         };
 

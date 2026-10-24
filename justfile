@@ -143,6 +143,12 @@ update:
 	cd server && dotnet package update
 	cd server && dotnet tool update --all
 
+# Export one user's transactions, categorisations, tags, and rules from a local copy of the database to the
+# gitignored ml/data/, for the smart tagging experiments, e.g.
+# just ml-export ~/backups/app.sqlite3 <user id>
+ml-export db user:
+	uv run --project ml python ml/export.py "{{db}}" "{{user}}"
+
 # ── Database ──────────────────────────────────────────────────────────────
 
 # Scaffold a new migration file

@@ -20,13 +20,6 @@
 ## Current Tasks
 
 - Smart tagging, see [docs/smart-tagging.md](docs/smart-tagging.md):
-  - Set up the experiments project.
-    - Dev shell: Python and uv in `flake.nix`; `ml/` as a uv project with
-      scikit-learn, sentence-transformers, and pandas pinned in its lock file.
-    - Gitignore `ml/data/`.
-    - `just ml-export db user`: export one user's transactions, categorisations
-      (kind, tag, source), tags, and rules from a local copy of the database to
-      `ml/data/`.
   - Build the evaluation harness in `ml/`.
     - Rule matching as auto-tagging defines it (substring, ordinal ignoring
       case, longest pattern wins) to find residual rows.

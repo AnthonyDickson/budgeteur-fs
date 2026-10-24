@@ -9,3 +9,8 @@ docker/docker-compose.prod.yml
 
 # Raw bank exports and the anonymiser key, see docs/csv-import.md
 raw-exports/
+
+# Smart tagging experiments: the virtual environment, and real user data that never leaves the
+# machine, see docs/smart-tagging.md
+ml/.venv/
+ml/data/

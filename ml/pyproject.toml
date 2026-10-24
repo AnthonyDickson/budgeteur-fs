@@ -1,0 +1,21 @@
+# Smart tagging experiments, see docs/smart-tagging.md
+[project]
+name = "budgeteur-ml"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+  "pandas",
+  "scikit-learn",
+  "sentence-transformers",
+  "torch",
+]
+
+# The CPU build of PyTorch: the experiments' models are small, and the default build pulls in
+# gigabytes of CUDA libraries.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
