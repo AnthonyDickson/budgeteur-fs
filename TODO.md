@@ -20,37 +20,27 @@
 ## Current Tasks
 
 - Smart tagging, see [docs/smart-tagging.md](docs/smart-tagging.md):
-  - Run the experiments.
-    - Baselines: most common class, and exact normalised description lookup.
-    - Candidates: features + LR; embeddings (all-MiniLM-L6-v2, bge-small) + LR
-      or kNN; both concatenated.
-    - Label variants: no rule labels, rule labels capped per normalised
-      description, rule labels uncapped. Also the `Accepted` weight and
-      `Detected` transfers in or out.
-    - Settle the open questions in the brief: candidate, features, label sources
-      and weights, threshold, label minimums, embedding model and storage if
-      used. Update the decisions and remove the open questions.
   - Parity fixture.
-    - `ml/`: fit scikit-learn on an anonymised fixture from
-      `server/tests/Budgeteur.Tests/Import/Fixtures` with the chosen features
-      and weights, and write its predicted probabilities as a committed fixture.
-  - Server: the model in `Domain/` (decisions 2, 3, 7).
+    - `ml/`: vectorise and fit scikit-learn on an anonymised fixture from
+      `server/tests/Budgeteur.Tests/Import/Fixtures` with the shipped features,
+      label weights, and square root class balance, to a tight tolerance, and
+      write its features and predicted probabilities as committed fixtures.
+  - Server: the model in `Domain/` (decisions 2, 3, 4, 7).
     - Add MathNet.Numerics to `Directory.Packages.props`.
-    - Vectoriser: character and word n-grams, digit normalisation, TF-IDF from
-      the training set, and the amount and account features the experiments
-      kept.
-    - Weighted multinomial logistic regression with L2, optimised with L-BFGS;
-      deterministic.
-    - Abstaining: threshold, overall label minimum, per-class minimum.
+    - Vectoriser: character n-grams (3 to 5, within space-padded words) and word
+      tokens of the normalised description, TF-IDF from the training set with
+      each block normalised; the amount's sign and log2 bucket, and the account,
+      as categories.
+    - Class balance: the square root factor, rescaled to the original total
+      weight.
+    - Weighted multinomial logistic regression with L2 (C = 1), optimised with
+      L-BFGS from zero; deterministic; a single class predicted outright.
+    - Abstaining: threshold 0.7, at least 25 labels, at least 2 labels in the
+      predicted class.
     - Policy: a model proposal is suggested, never applied.
-    - Tests: gradient check, separable data, row weights, a single class,
-      determinism, each abstain reason, the policy line, and parity with the
-      scikit-learn fixture within a tolerance.
-  - Server: embeddings, only if the experiments chose them (decisions 1, 5).
-    - ONNX Runtime and Microsoft.ML.Tokenizers; the model file in the image.
-    - Embedding function passed to the domain; storage as the brief settles.
-    - Docker: switch `docker/Dockerfile` to a glibc runtime-deps base; check the
-      trimmed publish still runs; update `docs/deployment.md`.
+    - Tests: gradient check, separable data, row weights, class balance, a
+      single class, determinism, each abstain reason, the policy line, and
+      parity with the scikit-learn fixtures within a tolerance.
   - Server: QuickTag slice (decisions 5, 6, 9).
     - `ReadQueue.fs`: load the caller's training set with the queue, fit once
       per read, and suggest from the model for rows no rule matches.
@@ -71,7 +61,7 @@
   - E2E: tag enough transactions by hand to pass the minimums, add a similar
     untagged one, and quick tagging marks the expected tag as suggested.
   - Docs: the updates listed under the brief's Consequences (transfer rules,
-    quick tagging, deployment, testing strategy), and the changelog.
+    quick tagging, testing strategy), and the changelog.
 
 ## Backlog
 

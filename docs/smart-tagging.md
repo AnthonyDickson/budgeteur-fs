@@ -50,10 +50,9 @@ suggestion, suggestion count, approve, and accept in
 ### 1. The model runs in the server, in F#
 
 - **Decision**: feature extraction, training, and inference run inside the
-  server process as F# code. There is no separate ML service. If the experiments
-  (decision 8) choose sentence embeddings, they are computed with ONNX Runtime
-  in the same process, and the Docker image moves from the musl Alpine base to a
-  glibc one, because ONNX Runtime ships no musl native library.
+  server process as F# code. There is no separate ML service. The experiments
+  (decision 8) chose a model without sentence embeddings, so there is no ONNX
+  Runtime, model file, or change of Docker base image.
 - **Why**: the model is small (thousands of rows, tens of classes), so it needs
   no specialised runtime. In-process keeps one deploy, one health check, and one
   owner of user scoping. Suggestions stay part of the queue read rather than a
@@ -71,14 +70,26 @@ suggestion, suggestion count, approve, and accept in
     operational costs as Python, with thinner ML tooling and a third language.
 - **Goal**: smart tagging adds code, not infrastructure.
 
-### 2. The classifier is hand-rolled; embeddings are optional
+### 2. The classifier is hand-rolled
 
-- **Decision**: the vectoriser (character and word n-grams, TF-IDF) and a
-  weighted multinomial logistic regression with L2 regularisation are pure
-  functions in `Domain/`, using MathNet.Numerics' L-BFGS minimiser for the
-  optimisation. Embeddings, if used, come from a pretrained sentence model run
-  through ONNX Runtime, behind a function the domain receives, as other I/O is.
+- **Decision**: the vectoriser (decision 3) and a weighted multinomial logistic
+  regression with L2 regularisation are pure functions in `Domain/`, using
+  MathNet.Numerics' L-BFGS minimiser for the optimisation. They reproduce
+  scikit-learn's `TfidfVectorizer`, `OneHotEncoder`, and `LogisticRegression` as
+  the experiments configured them:
+  - **Vectoriser**: smoothed IDF from unweighted row counts; each text block
+    normalised to unit length on its own; terms and categories not in the
+    training set ignored at prediction.
+  - **Fit**: inverse regularisation strength 1; unpenalised intercepts; a
+    softmax over every class with a stable log-sum-exp; classes ordered by id,
+    with ties going to the first; starting from zero weights, with a fixed
+    memory and iteration cap, so the fit is deterministic.
+  - **One class**: a training set with a single class predicts it with full
+    confidence, since a softmax cannot be fitted to it.
+
   A parity test checks the F# fit against scikit-learn's on a fixture dataset.
+  Both sides fit it to a tight tolerance, so they are compared at the unique
+  optimum rather than where two optimisers happen to stop.
 - **Why**: a linear model over sparse features is a few hundred lines, and
   owning it means every choice the experiments made (tokenisation, weighting,
   regularisation, per-row weights) is reproduced exactly. Pure functions are
@@ -101,26 +112,43 @@ suggestion, suggestion count, approve, and accept in
 
 ### 3. Features come from the transaction's facts
 
-- **Decision**: candidate features, each kept only if the experiments show it
-  helps:
-  - character n-grams of the description (3 to 5 characters), TF-IDF weighted;
-  - word tokens of the description, with digit runs normalised, so store and
-    reference numbers do not split one merchant into many;
-  - the amount's sign and a logarithmic bucket of its size;
-  - the account;
-  - optionally, a sentence embedding of the description.
+- **Decision**: the features, all computed from the normalised description (case
+  folded as rules fold it, digit runs replaced, whitespace collapsed) or the
+  transaction's other facts:
+  - character n-grams of 3 to 5 characters within each word padded by a space on
+    either side, TF-IDF weighted;
+  - word tokens, TF-IDF weighted, so store and reference numbers, already
+    normalised away, do not split one merchant into many;
+  - the amount's sign, and the sign with the base 2 logarithm of its size
+    rounded down, as categories;
+  - the account, as a category.
 
-  The vocabulary and IDF weights come from the training set of each fit.
+  The vocabulary, IDF weights, and categories come from the training set of each
+  fit.
 - **Why**: bank descriptions are codes rather than prose, with merchant names
   truncated, abbreviated, and prefixed by a transaction type (`POS W/D`, `PAY`).
   Character n-grams match these fuzzily, as substring rules do exactly. Sign
   separates income from expense tags; size and account separate tags that share
-  a payee. N-grams cannot relate merchants with no text in common (`PAK N SAVE`
-  and `COUNTDOWN`); embeddings can, which matters while labels are few and
-  unseen merchants are common.
-- **Rejected**: the other party, particulars, code, and reference fields. Import
-  does not store them, and they cannot be recovered for old rows
-  ([transfer rules](transfer-rules.md#deferred)).
+  a payee. In the experiments each addition to character n-grams raised top-1
+  accuracy (0.806 for n-grams alone to 0.840 with all four, without class
+  balance), mostly on unseen merchants (0.520 to 0.566).
+- **Rejected**:
+  - The other party, particulars, code, and reference fields. Import does not
+    store them, and they cannot be recovered for old rows
+    ([transfer rules](transfer-rules.md#deferred)).
+  - Sentence embeddings (all-MiniLM-L6-v2, bge-small), alone or with these
+    features. They relate merchants with no text in common (`PAK N SAVE` and
+    `COUNTDOWN`), and with these features they were the most accurate option:
+    with MiniLM and the same class balance, 1 point more precision at the
+    lookup's coverage and 2 at 90% coverage, both beyond noise, and 0.649 top-1
+    accuracy on unseen merchants against 0.594. That gain costs ONNX Runtime, a
+    model file, a glibc base image, and an embedding store (decision 1), for a
+    model whose suggestions are already right about 98% of the time at the
+    shipped threshold. Revisit if unseen merchants come to dominate the queue.
+  - Dropping the account. Without it the model was 0.8 points more precise at
+    the lookup's coverage, at the edge of noise, and level at 90% coverage. Kept
+    because the account is cheap and separates tags that share a payee, which
+    this user's data may not exercise.
 - **Goal**: every feature is computable from what `Transactions` already holds.
 
 ### 4. Classes are the user's tags and transfer; labels come from categorisations
@@ -130,11 +158,13 @@ suggestion, suggestion count, approve, and accept in
     Dismissed is not a class: it means the transaction has no tag, not that it
     belongs to a category, and no proposal ever dismisses
     ([transfer rules](transfer-rules.md) decision 9).
-  - **Labels**: `Manual` categorisations at full weight; `Accepted` ones at a
-    lower weight; `Detected` transfers at full weight. The `Accepted` weight is
-    set by the experiments. Whether `Rule` categorisations are labels is open
-    (below), and settled by the experiments with a criterion fixed beforehand
-    (decision 8). Until then the default is to leave them out.
+  - **Labels**: `Manual` categorisations at full weight; `Accepted` ones at half
+    weight; `Detected` transfers at full weight. `Rule` categorisations are not
+    labels.
+  - **Class balance**: each label's weight is multiplied by the square root of
+    its class's balancing factor: the total label weight over the number of
+    classes times the class's own total. The weights are then scaled back to
+    their original total, so the regularisation strength means the same.
   - **Accepting a model suggestion** records `Accepted`, as accepting a rule's
     does. No new source value.
 - **Why**: `Manual` labels are the user's own choice. `Accepted` ones are
@@ -143,8 +173,36 @@ suggestion, suggestion count, approve, and accept in
   since import matched account numbers. Deleting a tag deletes its
   categorisations, so its class disappears from the next fit without any
   cleanup.
-- **Open: rule tags as labels**. Both sides make predictions the experiments can
-  test, so neither is assumed.
+  - **Weights unmeasured**: the export had no `Accepted` or `Detected` labels,
+    so the sweep of `Accepted` weights (a quarter, half, full) and of `Detected`
+    in or out changed nothing. Half and full stay as the reasoning above sets
+    them; rerun the sweep once quick tagging has produced `Accepted` labels.
+  - **Class balance**: unbalanced, the model favours the large classes on
+    ambiguous rows, and some small tags were almost never suggested (Donations
+    and Gifts at 13% recall, at the lookup's coverage). Full balancing raised
+    small-class recall to the lookup's level but overcorrected, suggesting a
+    small tag for rows of a large one: wrong suggestions rose, mostly
+    Entertainment for Home Expenses. The square root sits between: the best
+    top-1 accuracy (0.855 against 0.840 unbalanced, and 0.594 against 0.566 on
+    unseen merchants), the fewest wrong suggestions at the lookup's coverage (19
+    against 23 unbalanced and 25 fully balanced), and small-class recall about
+    halfway. It also limits the boost for a tag with one or two labels, which
+    full balancing gives a large share of the fit; the per-class minimum
+    (decision 7) keeps such a tag from being suggested.
+- **Rejected for class balance**:
+  - Full balancing, for the overcorrection above.
+  - Full balancing with the factor capped at 5. It only changes classes with
+    under a fifth of the mean class weight, so on this data it matched full
+    balancing.
+- **Rule tags as labels**: left out. Both sides made predictions the experiments
+  could test, so neither was assumed beforehand.
+  - **Result**: uncapped rule labels made the shipped model worse (0.551 top-1
+    accuracy on unseen merchants against 0.594, and 25 wrong suggestions at the
+    lookup's coverage against 19), and taught it Utilities, a tag only rules
+    assign, which it then suggested for residual rows. Rule labels capped at a
+    total weight of 1 per normalised description were within noise of none, so
+    none wins as the simpler option. The cap beating the uncapped variant
+    supports the redundancy argument below.
   - **For**: rule tags are likely most of a user's tagged transactions, and they
     cover the most common tags. Without them the model has few or no examples of
     those tags, so it cannot suggest them for new merchants of the same kind
@@ -153,8 +211,7 @@ suggestion, suggestion count, approve, and accept in
     after seeing its match count and samples (auto-tagging decision 7). The
     model never writes `Rule` categorisations, so there is no feedback loop, and
     fitting on read (decision 5) means a fixed rule and a re-tag correct the
-    labels on the next read. The benefit should be largest for embeddings, which
-    relate merchants with no text in common.
+    labels on the next read.
   - **Against**:
     - Distribution shift: rule tags come from transactions rules matched, while
       the model predicts only for residual rows, which differ by construction. A
@@ -176,10 +233,10 @@ suggestion, suggestion count, approve, and accept in
     description's total weight capped; rule labels uncapped. The cap answers
     redundancy and spurious tokens, so it beating the uncapped variant is a
     check on those arguments. Distribution shift and unreviewed errors are not
-    answered by a cap, and are measured directly (decision 8).
-- **Goal**: the model learns from the user's decisions, direct or through rules,
-  as far as the measurements support, and nothing about categorisations changes
-  to support it.
+    answered by a cap, and were measured directly (decision 8).
+- **Goal**: the model learns from the user's decisions as far as the
+  measurements support, every tag gets a fair share of suggestions, and nothing
+  about categorisations changes to support it.
 - **Cost**: `Accepted` does not say whether a rule or the model made the
   suggestion, so both are weighted the same.
 - **Rejected**:
@@ -195,13 +252,19 @@ suggestion, suggestion count, approve, and accept in
   the user's training set, fits the model, and predicts for each queued
   transaction no rule matches. No weights are stored. The fit is deterministic:
   the same training set always gives the same model.
-- **Why**: with under a thousand labels the fit takes tens of milliseconds, so a
-  stored model would only add a second record of what the categorisations
-  already say. Fitting on read means a suggestion always reflects the latest
-  labels, with no retrain action, staleness, or invalidation, the same reason
-  rule suggestions are computed on read ([transfer rules](transfer-rules.md)
-  decision 6). Determinism matters because the suggestion filter and the
-  approval rely on a second read returning the same suggestions as the first.
+- **Why**: the fit is cheap, so a stored model would only add a second record of
+  what the categorisations already say. In the experiments a fit on about 1,100
+  labels took 0.2 seconds in scikit-learn and under 20 MB at its peak, and the
+  hand-rolled fit is expected to take 50 to 100 milliseconds. Fit time and
+  memory grow with the labels, about linearly; the weights grow with the
+  vocabulary, about as the square root of the labels, times the classes. At ten
+  years of labels at the current rate (about 5,000), a fit is expected to take a
+  few hundred milliseconds, with a model of about a megabyte. Fitting on read
+  means a suggestion always reflects the latest labels, with no retrain action,
+  staleness, or invalidation, the same reason rule suggestions are computed on
+  read ([transfer rules](transfer-rules.md) decision 6). Determinism matters
+  because the suggestion filter and the approval rely on a second read returning
+  the same suggestions as the first.
 - **Rejected**:
   - A stored model with a retrain button. Survives restarts and costs nothing
     per read, but goes stale and needs a staleness indicator and a store.
@@ -210,10 +273,8 @@ suggestion, suggestion count, approve, and accept in
   - Online learning, updating the model per label. Always current, but the
     model's state has to be kept in step with categorisations, including edits
     and deletions.
-- **Open**: if embeddings are chosen, computing one per description on every
-  read is too slow (milliseconds each). Whether they are kept in a derived table
-  rebuilt when the model file changes, as transfer rules decision 6 allows, or
-  in a per-process cache, is decided after the experiments.
+- **Revisit**: the per-user cache, if fits grow slow enough to be noticed on the
+  queue read.
 - **Goal**: the model has no state of its own.
 
 ### 6. A rule's suggestion beats the model's
@@ -239,19 +300,29 @@ suggestion, suggestion count, approve, and accept in
     suggested, never applied. Tag untagged, re-tag, and import do not run the
     model.
   - **Abstaining**: the model makes no suggestion when:
-    - its confidence is below the threshold;
-    - the user has fewer labels than a minimum overall;
-    - its top class has fewer labels than a minimum. Such classes stay in the
-      fit, so their probability is not given to other classes, but are never
-      suggested.
-
-    The threshold and both minimums are set from the experiments.
+    - its confidence is below the threshold, 0.7;
+    - the user has fewer than 25 labels;
+    - its top class has fewer than 2 labels. Such classes stay in the fit, so
+      their probability is not given to other classes, but are never suggested.
 - **Why**: a wrong suggestion costs one click; a wrong applied tag goes
   unnoticed. The policy exists so that applying confident proposals later is a
   change to one function ([transfer rules](transfer-rules.md) decision 3). A
-  model trained on a handful of labels, or a class seen twice, is close to
+  model trained on a handful of labels, or a class seen once, is close to
   guessing, and a guess presented as a suggestion trains the user to ignore
   suggestions.
+  - **Threshold**: in the experiments, 0.7 suggested for 65% of the scored rows
+    at 98.4% precision (99.5% for seen merchants, 90.1% for unseen). 0.6
+    suggested for 74% at 95.7%, but the extra rows it adds are right only about
+    78% of the time, and approval accepts every suggestion shown at once
+    (decision 9), so a wrong one is easy to accept unread. 0.8 gave up a fifth
+    of the suggestions for under a point of precision.
+  - **Minimums**: the data did not constrain them: at 0.7 every bucket with
+    suggestions was at least 93.5% precise, however few labels the fit or the
+    predicted class had. Below 25 labels, the first month, the model reached the
+    threshold for no row. Classes with 2 labels were suggested 6 times, all
+    correctly; classes with 1 label were never suggested. The minimums are set
+    at those edges, as guards beyond what the data tested: a new tag's first
+    label carries the largest class balance factor (decision 4).
 - **Goal**: every model suggestion shown is likely enough to be right to be
   worth a click.
 
@@ -274,6 +345,7 @@ suggestion, suggestion count, approve, and accept in
       regression or nearest neighbours;
     - both feature sets in one linear model.
 
+    Each logistic regression also ran with each class balance of decision 4.
     Baselines: the most common class, and the most common label for an exact
     normalised description in the training set. A candidate has to beat the
     lookup to justify itself.
@@ -288,9 +360,10 @@ suggestion, suggestion count, approve, and accept in
     merchants; and precision against coverage across thresholds, which sets the
     threshold.
   - **Diagnostics**: the distribution of suggested classes against the true
-    labels of residual rows, which measures distribution shift directly; and,
-    for any rule known to over-match, precision on residual rows near it with
-    and without rule labels.
+    labels of residual rows, which measures distribution shift directly; recall
+    by class, and wrong suggestions by suggested class, which show tags the
+    model neglects or over-suggests; and, for any rule known to over-match,
+    precision on residual rows near it with and without rule labels.
   - **Choice**: fixed before the first run.
     - **Coverage**: each candidate and variant gets one threshold, set so that
       it suggests for 50% of the scored rows, pooled over all cutoffs.
@@ -310,6 +383,35 @@ suggestion, suggestion count, approve, and accept in
 
     The shipped threshold is chosen afterwards, from the winner's precision
     against coverage (decision 7), and may differ from the comparison's.
+  - **Result**: one user's export: 2,118 transactions and 1,068 scored rows (743
+    seen merchants, 325 unseen) over 25 monthly cutoffs. At 50% coverage every
+    candidate was 97.9% to 100% precise, so the comparison could not separate
+    them, and the criterion chose the simplest: character n-grams alone, without
+    rule labels or class balance. The lookup reached 70% coverage at 95.7%
+    precision, and the chosen option was within noise of it there (+0.4 points),
+    so by the criterion the lookup ships.
+  - **Override**: the shipped model is instead decision 3's features with the
+    square root class balance of decision 4, without rule labels. The criterion
+    assumed the lookup would fall well short of 50% coverage and that candidates
+    would differ there; on this data neither held, so the fixed measure compared
+    options where none of them fail. The shipped model is better where they
+    differ:
+    - at the lookup's coverage, 97.4% precise against the lookup's 95.7% (+1.7
+      points, interval +0.1 to +3.4);
+    - beyond it, where the lookup makes no suggestion, 89.7% precise at 90%
+      coverage, against 86.8% for character n-grams alone;
+    - top-1 accuracy of 0.855, and 0.594 on unseen merchants, against 0.806 and
+      0.520 for the criterion's choice;
+    - 19 wrong suggestions at the lookup's coverage, against 32 for the lookup
+      and 29 for the criterion's choice.
+
+    Among simple models it is the most accurate; models with embeddings were
+    more accurate still, and are rejected in decision 3 for their cost.
+- **Cost of the override**: the criterion was fixed beforehand so that results
+  could not choose the measure, and the override is chosen after seeing them.
+  Many variants were tried, so a margin as narrow as the one over the lookup is
+  weak evidence on its own. The override rests on suggestions for unseen
+  merchants, which the lookup cannot make and which no variant disputes.
 - **Why**: in production the model fits on every label up to now and suggests
   for the next import, so each rolling-origin step reproduces that. Every
   transaction is tested once, which matters with under a thousand rows. Random
@@ -360,21 +462,23 @@ suggestion, suggestion count, approve, and accept in
     choice. Abstaining (decision 7) and the down-weighting of `Accepted`
     (decision 4) address the risk without a second identity.
   - The nearest labelled description as an explanation. Natural for nearest
-    neighbours, not for logistic regression; revisit if that candidate wins.
+    neighbours, which did not ship, not for logistic regression.
 - **Goal**: quick tagging gains suggestions without gaining concepts.
 
 ### 10. Tests
 
 - **Decision**:
-  - **Domain**: the vectoriser (n-grams, digit normalisation, TF-IDF); the
-    logistic regression (a gradient check, separable data reaching high
-    confidence, row weights changing the fit, a single class, determinism);
-    abstaining for each of the three reasons; a rule's suggestion beating the
-    model's; the policy never applying a model proposal.
-  - **Parity**: the `ml/` project fits scikit-learn on an anonymised fixture and
-    writes its predicted probabilities as a committed fixture; a server test
-    fits the F# model on the same data and compares within a tolerance. CI does
-    not run Python.
+  - **Domain**: the vectoriser (n-grams, digit normalisation, TF-IDF, the amount
+    and account categories); the class balance (the square root factor, the
+    total weight kept); the logistic regression (a gradient check, separable
+    data reaching high confidence, row weights changing the fit, a single class,
+    determinism); abstaining for each of the three reasons; a rule's suggestion
+    beating the model's; the policy never applying a model proposal.
+  - **Parity**: the `ml/` project vectorises and fits scikit-learn on an
+    anonymised fixture, and writes its features and predicted probabilities as
+    committed fixtures; server tests vectorise and fit the F# model on the same
+    data and compare within a tolerance. Comparing the features separately shows
+    which half a failure is in. CI does not run Python.
   - **QuickTag**: the queue suggests from the model only for rows no rule
     matches, trains only on the caller's labels, includes each source with the
     weight decision 4 settles, and counts rule and model suggestions together;
@@ -390,8 +494,7 @@ suggestion, suggestion count, approve, and accept in
 
 ## Consequences
 
-- **Schema**: none, unless embeddings are chosen and kept in a table (decision
-  5).
+- **Schema**: none.
 - **Domain**: the vectoriser, the classifier, abstaining, and the policy line,
   beside the proposal and policy.
 - **QuickTag slice**: the queue read loads the training set, fits, and adds
@@ -399,28 +502,14 @@ suggestion, suggestion count, approve, and accept in
   model case. Counts, filter, and approval are unchanged.
 - **Client**: the suggestion decoder accepts the model origin, and the row shows
   "Suggested" without a pattern.
-- **Docker**: a glibc base image and the model file, only if embeddings are
-  chosen.
+- **Docker**: none.
 - **Dev shell**: Python and the `ml/` project's dependencies.
 - **Docs updated with the implementation**:
   - [transfer rules](transfer-rules.md): decision 4's `Model` source (not added,
     decision 4 here) and the smart tagging consequence.
   - [quick tagging](quick-tagging.md): decision 8's suggestion label and the
     deferred suggestions from smart tagging.
-  - [deployment](deployment.md): the base image, if it changes.
   - [testing strategy](testing-strategy.md): the parity fixture.
-
-## Open questions
-
-Settled by the experiments, then recorded in the decisions above:
-
-- Which candidate, and which features, ship.
-- Whether `Rule` categorisations are labels, and if so whether capped per
-  normalised description and at what weight (decision 4).
-- The `Accepted` weight, and whether `Detected` transfers help or only add easy
-  rows.
-- The threshold, and the overall and per-class label minimums.
-- If embeddings ship: which model, and how they are kept.
 
 ## Deferred
 
@@ -434,6 +523,11 @@ Settled by the experiments, then recorded in the decisions above:
 - **Fine-tuned or larger models.** Revisit the Python service (decision 1) if
   linear models over frozen features are not good enough.
 - **Other party fields.** Would improve the features once import stores them.
+- **Sentence embeddings.** More accurate on unseen merchants (decision 3), at
+  the cost of ONNX Runtime, a model file, and a glibc base image.
+- **Rerunning the experiments.** Once quick tagging has produced `Accepted`
+  labels, to set their weight from data, and to check the threshold as the
+  classes even out.
 
 ## Assumptions
 
