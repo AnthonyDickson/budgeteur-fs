@@ -270,11 +270,23 @@ suggestion, suggestion count, approve, and accept in
     per read, but goes stale and needs a staleness indicator and a store.
   - An in-memory cache per user, invalidated on categorisation writes. Saves the
     fit, but every writer of categorisations would have to invalidate it.
+  - An in-memory model per user, refitted at startup and then on a timer, such
+    as daily. Costs nothing per read, but labels from a tagging session inform
+    suggestions only after the next refit, when the model learns most during the
+    session itself. A refit between a filtered read and its approval would also
+    change the suggestions under it, against the determinism above.
   - Online learning, updating the model per label. Always current, but the
     model's state has to be kept in step with categorisations, including edits
     and deletions.
-- **Revisit**: the per-user cache, if fits grow slow enough to be noticed on the
-  queue read.
+- **Revisit**: the queue read logs each fit's duration with its label, class,
+  and feature counts. If fits regularly take more than 200 milliseconds, the
+  delay becomes noticeable on the queue read, expected somewhere between 3,000
+  and 5,000 labels. Then cache the fitted model per user, keyed by a hash of the
+  training set: a read still loads the training set, but fits only when the hash
+  differs from the cached one. The key comes from the data, so no writer has to
+  invalidate it, edits and deletions change it, and suggestions are never stale.
+  The cache saves the fit on repeated reads and filter changes but not on the
+  read after a batch is saved, since that batch changed the labels.
 - **Goal**: the model has no state of its own.
 
 ### 6. A rule's suggestion beats the model's

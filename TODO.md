@@ -41,9 +41,14 @@
     - Tests: gradient check, separable data, row weights, class balance, a
       single class, determinism, each abstain reason, the policy line, and
       parity with the scikit-learn fixtures within a tolerance.
+    - Scaling: time fits on training sets resampled to about 1,000, 5,000, and
+      10,000 labels, outside CI, and record the results in decision 5 in place
+      of the scikit-learn projection.
   - Server: QuickTag slice (decisions 5, 6, 9).
     - `ReadQueue.fs`: load the caller's training set with the queue, fit once
-      per read, and suggest from the model for rows no rule matches.
+      per read, and suggest from the model for rows no rule matches. Log the
+      fit's duration and its label, class, and feature counts in the request
+      log, for decision 5's revisit threshold.
     - `Suggestion.fs`: the suggestion's origin becomes a rule with its pattern,
       or the model; counts and the filter use the target whatever the origin.
     - `SuggestionResponse`: the pattern becomes optional, absent for a model
