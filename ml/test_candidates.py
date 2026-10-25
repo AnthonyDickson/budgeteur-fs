@@ -68,6 +68,25 @@ class LogisticRegressionTests(unittest.TestCase):
         self.assertGreater(heavy, light)
 
 
+class BalanceTests(unittest.TestCase):
+    def test_every_class_gets_the_mean_class_total(self):
+        training = pd.DataFrame({"label": ["a", "a", "a", "b"], "weight": [1.0, 1.0, 0.5, 1.0]})
+        weights = candidates.balance(training)
+        totals = weights.groupby(training["label"]).sum()
+        self.assertEqual(totals.round(9).to_dict(), {"a": 1.75, "b": 1.75})
+        # Rows within a class keep their relative weights.
+        self.assertAlmostEqual(weights[0] / weights[2], 2.0)
+
+    def test_capped_and_sqrt_factors_soften_and_keep_the_total_weight(self):
+        # One small class among large ones: its full factor is 21 / (3 * 1) = 7, and the large
+        # classes' is 21 / (3 * 10) = 0.7.
+        training = pd.DataFrame({"label": ["a"] * 10 + ["b"] * 10 + ["c"], "weight": 1.0})
+        for how, ratio in [("capped", candidates.BALANCE_CAP / 0.7), ("sqrt", 10**0.5)]:
+            weights = candidates.balance(training, how)
+            self.assertAlmostEqual(weights.iloc[-1] / weights.iloc[0], ratio)
+            self.assertAlmostEqual(weights.sum(), 21.0)
+
+
 class NearestNeighbourTests(unittest.TestCase):
     # Unit vectors by description: two near each other, one orthogonal.
     vectors = {

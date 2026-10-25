@@ -6,6 +6,7 @@ linear model. Each is a candidate as `harness.Candidate` defines them.
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -22,6 +23,9 @@ C = 1.0
 
 # Neighbours a nearest-neighbour candidate votes over.
 K = 5
+
+# The largest factor a capped balance scales a class's weight by.
+BALANCE_CAP = 5.0
 
 EMBEDDING_MODELS = {
     "minilm": "sentence-transformers/all-MiniLM-L6-v2",
@@ -128,9 +132,33 @@ def predict_single_class(training: pd.DataFrame, rows: pd.DataFrame) -> pd.DataF
     return pd.DataFrame({"predicted": classes[0], "confidence": 1.0}, index=rows.index)
 
 
-def logistic_regression(features: Callable[[], list[tuple]]) -> harness.Candidate:
+Balance = Literal["full", "capped", "sqrt"]
+"""How far a fit evens out its classes' weights, as `balance` describes."""
+
+
+def balance(training: pd.DataFrame, how: Balance = "full") -> pd.Series:
+    """Row weights scaled by a factor per class, so small classes count for more in the fit.
+    The full factor gives every class the mean class total, as scikit-learn's balanced class
+    weights but from label weights rather than row counts. A class with one or two labels then
+    carries a large share of the fit, so the capped factor is at most `BALANCE_CAP` and the
+    sqrt factor is the full factor's square root. Rows within a class keep their relative
+    weights, and the total weight is unchanged, so C means the same."""
+    totals = training.groupby("label")["weight"].transform("sum")
+    factor = training["weight"].sum() / (training["label"].nunique() * totals)
+    if how == "capped":
+        factor = factor.clip(upper=BALANCE_CAP)
+    elif how == "sqrt":
+        factor = np.sqrt(factor)
+    weight = training["weight"] * factor
+    return weight * training["weight"].sum() / weight.sum()
+
+
+def logistic_regression(
+    features: Callable[[], list[tuple]], balanced: Balance | None = None
+) -> harness.Candidate:
     """Weighted multinomial logistic regression with L2 regularisation, fitted with L-BFGS, over
-    the given features. Confidence is the top class's probability."""
+    the given features, optionally with balanced class weights. Confidence is the top class's
+    probability."""
 
     def candidate(training: pd.DataFrame, rows: pd.DataFrame) -> pd.DataFrame:
         single = predict_single_class(training, rows)
@@ -140,7 +168,8 @@ def logistic_regression(features: Callable[[], list[tuple]]) -> harness.Candidat
             ColumnTransformer(features()),
             LogisticRegression(C=C, solver="lbfgs", max_iter=2000),
         )
-        model.fit(training, training["label"], logisticregression__sample_weight=training["weight"])
+        weight = training["weight"] if balanced is None else balance(training, balanced)
+        model.fit(training, training["label"], logisticregression__sample_weight=weight)
         probabilities = model.predict_proba(rows)
         classes = model.classes_
         return pd.DataFrame(
@@ -189,18 +218,26 @@ def embedders(data: Path, descriptions: pd.Series) -> dict[str, Embedder]:
 
 def candidates(embedders: dict[str, Embedder]) -> dict[str, harness.Candidate]:
     """Every candidate, simplest first, the order the choice in decision 8 breaks ties by: the
-    feature subsets from fewest features, then embeddings alone, then both concatenated."""
-    found: dict[str, harness.Candidate] = {
-        "chars": logistic_regression(lambda: text_features(False, False, False)),
-        "chars, words": logistic_regression(lambda: text_features(True, False, False)),
-        "chars, words, amount": logistic_regression(lambda: text_features(True, True, False)),
-        "features": logistic_regression(lambda: text_features(True, True, True)),
-    }
+    feature subsets from fewest features, then embeddings alone, then both concatenated. Each
+    logistic regression is followed by its balanced variants, from full to softest."""
+    found: dict[str, harness.Candidate] = {}
+
+    def regression(name: str, features: Callable[[], list[tuple]]) -> None:
+        found[name] = logistic_regression(features)
+        found[f"{name}, balanced"] = logistic_regression(features, "full")
+        found[f"{name}, balanced capped"] = logistic_regression(features, "capped")
+        found[f"{name}, balanced sqrt"] = logistic_regression(features, "sqrt")
+
+    regression("chars", lambda: text_features(False, False, False))
+    regression("chars, words", lambda: text_features(True, False, False))
+    regression("chars, words, amount", lambda: text_features(True, True, False))
+    regression("features", lambda: text_features(True, True, True))
     for name, embedder in embedders.items():
-        found[f"{name} lr"] = logistic_regression(lambda e=embedder: [embedding_feature(e)])
+        regression(f"{name} lr", lambda e=embedder: [embedding_feature(e)])
         found[f"{name} knn"] = nearest_neighbours(embedder)
     for name, embedder in embedders.items():
-        found[f"features, {name}"] = logistic_regression(
-            lambda e=embedder: [*text_features(True, True, True), embedding_feature(e)]
+        regression(
+            f"features, {name}",
+            lambda e=embedder: [*text_features(True, True, True), embedding_feature(e)],
         )
     return found

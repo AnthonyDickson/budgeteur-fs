@@ -156,6 +156,16 @@ class MetricTests(unittest.TestCase):
         self.assertIsNone(threshold)
         self.assertTrue(pd.isna(precision))
 
+    def test_class_recall_counts_only_correct_suggestions_at_the_threshold(self):
+        r = results(["a", "a", "b", "a"], [0.9, 0.5, 0.9, 0.9], ["a", "a", "b", "b"])
+        recall = harness.class_recall(r, 0.8)
+        self.assertEqual(recall.to_dict(), {"a": 0.5, "b": 0.5})
+
+    def test_confusion_counts_suggestions_by_true_and_suggested_class(self):
+        r = results(["a", "c", "b", "a"], [0.9, 0.9, 0.9, 0.5], ["a", "a", "b", "b"])
+        confusion = harness.confusion(r, 0.8)
+        self.assertEqual(confusion.to_dict("list"), {"a": [1, 0, 0], "b": [0, 1, 0], "c": [1, 0, 0]})
+
     def test_compare_is_paired(self):
         r = results(["a", "b", "a", "b"], [0.9, 0.8, 0.7, 0.6], ["a", "a", "a", "b"])
         comparison = harness.compare(r, r.copy(), coverage=0.5)

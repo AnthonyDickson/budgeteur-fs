@@ -8,6 +8,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+from threadpoolctl import threadpool_limits
 
 import baselines
 import candidates
@@ -29,6 +30,27 @@ ACCEPTED_WEIGHTS = [0.25, 0.5, 1.0]
 COVERAGE = 0.5
 
 LOOKUP = "lookup"
+
+# The shipped candidate, which overrides the criterion's winner for the reasons decision 8
+# records. The threshold, minimums, weights, and diagnostics are reported for it.
+CHOSEN = "features, balanced sqrt"
+
+# The shipped threshold, chosen from the chosen candidate's threshold table. The minimums are
+# reported at it.
+THRESHOLD = 0.7
+
+# The options whose full confusion table the report shows: the lookup and the features
+# candidate's balance variants, without rule labels.
+CONFUSION = [
+    (name, POLICIES[0].name)
+    for name in [
+        LOOKUP,
+        "features",
+        "features, balanced",
+        "features, balanced capped",
+        "features, balanced sqrt",
+    ]
+]
 
 # Results by candidate name and policy name.
 Options = dict[tuple[str, str], pd.DataFrame]
@@ -77,6 +99,7 @@ def summarise_options(options: Options) -> None:
     for key, results in options.items():
         accuracy = harness.accuracy(results)["accuracy"]
         threshold, precision = harness.precision_at(results, COVERAGE)
+        recall = harness.class_recall(results, threshold)
         rows[key] = {
             "accuracy": accuracy["all"],
             "seen": accuracy["seen"],
@@ -84,12 +107,17 @@ def summarise_options(options: Options) -> None:
             "max coverage": harness.max_coverage(results),
             f"threshold @{COVERAGE:.0%}": threshold,
             f"precision @{COVERAGE:.0%}": precision,
+            f"recall @{COVERAGE:.0%}": (recall * results["label"].value_counts()).sum()
+            / len(results),
+            f"macro recall @{COVERAGE:.0%}": recall.mean(),
         }
     counts = harness.accuracy(next(iter(options.values())))["rows"]
-    section("Top-1 accuracy, and precision at the comparison's coverage")
+    section("Top-1 accuracy, and precision and recall at the comparison's coverage")
     print(
         f"{counts['all']} scored rows: {counts['seen']} seen and {counts['unseen']} unseen "
-        "without rule labels\n"
+        "without rule labels. Recall is correct suggestions over scored rows; macro recall is "
+        "its mean over classes. An option that cannot reach the coverage is shown at its "
+        "maximum.\n"
     )
     print(table(pd.DataFrame.from_dict(rows, orient="index")))
 
@@ -100,6 +128,54 @@ def summarise_options(options: Options) -> None:
         for key, results in options.items()
     }
     print(table(pd.DataFrame.from_dict(curve, orient="index")))
+
+
+def summarise_class_recall(dataset: harness.Dataset, options: Options, coverage: float) -> None:
+    """Recall by class for every option, at its threshold for `coverage`, or at its maximum
+    coverage when it cannot reach it."""
+    section(f"Recall by class at {coverage:.0%} coverage")
+    recall = {
+        key: harness.class_recall(results, harness.threshold_for(results, coverage))
+        for key, results in options.items()
+    }
+    frame = pd.DataFrame.from_dict(recall, orient="index")
+    true = next(iter(options.values()))["label"].value_counts()
+    frame = frame[true.index]
+    frame.columns = [f"{dataset.class_names.get(c, c)} ({true[c]})" for c in true.index]
+    frame["macro"] = frame.mean(axis=1)
+    print(table(frame))
+
+
+def class_label(dataset: harness.Dataset, cls: str) -> str:
+    return dataset.class_names.get(cls, cls)
+
+
+def summarise_confusion(dataset: harness.Dataset, options: Options, coverage: float) -> None:
+    """Wrong suggestions by suggested class for every option, and the full confusion table for
+    the options in `CONFUSION`, at each option's threshold for `coverage`, or at its maximum
+    coverage when it cannot reach it."""
+    tables = {
+        key: harness.confusion(results, harness.threshold_for(results, coverage))
+        for key, results in options.items()
+    }
+    section(f"Wrong suggestions by suggested class at {coverage:.0%} coverage")
+    wrong = {}
+    for key, confusion in tables.items():
+        off = confusion.to_numpy().copy()
+        off[range(len(off)), range(len(off))] = 0
+        wrong[key] = dict(zip(confusion.columns, off.sum(axis=0)))
+    frame = pd.DataFrame.from_dict(wrong, orient="index").fillna(0).astype(int)
+    frame.columns = [class_label(dataset, c) for c in frame.columns]
+    frame["total"] = frame.sum(axis=1)
+    print(table(frame))
+    for key in CONFUSION:
+        if key not in tables:
+            continue
+        section(f"Confusion at {coverage:.0%} coverage, true by suggested: {key}")
+        confusion = tables[key].copy()
+        confusion.index = [class_label(dataset, c) for c in confusion.index]
+        confusion.columns = [class_label(dataset, c) for c in confusion.columns]
+        print(confusion.to_string())
 
 
 def format_comparison(c: dict[str, float]) -> str:
@@ -211,12 +287,9 @@ def by_bucket(results: pd.DataFrame, mask: pd.Series, column: str, bins: list[fl
     return table(frame)
 
 
-def summarise_minimums(results: pd.DataFrame, winner: tuple[str, str]) -> None:
-    """Precision at the comparison's threshold by how many labels the fit had, for the overall
-    minimum, and by how many the predicted class had, for the per-class minimum."""
-    threshold = harness.threshold_for(results, COVERAGE)
-    if threshold is None:
-        return
+def summarise_minimums(results: pd.DataFrame, winner: tuple[str, str], threshold: float) -> None:
+    """Precision at the threshold by how many labels the fit had, for the overall minimum, and
+    by how many the predicted class had, for the per-class minimum."""
     mask = harness.suggested(results, threshold)
     inf = float("inf")
     section(f"Label minimums for {winner} at threshold {threshold:.3f}")
@@ -273,6 +346,9 @@ def main() -> None:
     embedders = candidates.embedders(args.data, dataset.transactions["description"])
     summarise_embeddings(embedders)
 
+    # The fits are small, so BLAS and OpenMP threads cost more in contention than they save: one
+    # thread makes a fit about 40 times faster.
+    threadpool_limits(1)
     found = {
         "most common": baselines.most_common,
         LOOKUP: baselines.lookup,
@@ -285,15 +361,21 @@ def main() -> None:
         for policy in policies
     }
     summarise_options(options)
+    summarise_class_recall(dataset, options, COVERAGE)
+    # The lookup's coverage compares every option with it on the same number of suggestions.
+    lookup_coverage = harness.max_coverage(options[(LOOKUP, POLICIES[0].name)])
+    summarise_class_recall(dataset, options, lookup_coverage)
+    summarise_confusion(dataset, options, lookup_coverage)
     order = [key for key in options if key[0] not in ("most common", LOOKUP)]
     winner = choose(options, order)
     if winner is None:
         return
     check_lookup(options, winner)
-    sweep_weights(dataset, found[winner[0]], winner, policies[winner[1]], options)
-    summarise_threshold(options[winner], winner)
-    summarise_minimums(options[winner], winner)
-    diagnose(dataset, options, winner[0], args.over_matching)
+    chosen = (CHOSEN, POLICIES[0].name)
+    sweep_weights(dataset, found[CHOSEN], chosen, policies[chosen[1]], options)
+    summarise_threshold(options[chosen], chosen)
+    summarise_minimums(options[chosen], chosen, THRESHOLD)
+    diagnose(dataset, options, CHOSEN, args.over_matching)
 
 
 if __name__ == "__main__":

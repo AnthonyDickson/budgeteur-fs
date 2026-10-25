@@ -296,6 +296,28 @@ def class_distribution(
     return table
 
 
+def class_recall(results: pd.DataFrame, threshold: float | None) -> pd.Series:
+    """For each class, the share of scored rows with it as their true label that the candidate
+    suggests it for at the threshold, or at any confidence when there is no threshold. Shows
+    classes the candidate never suggests, which overall precision hides."""
+    mask = suggested(results, threshold) if threshold is not None else results["predicted"].notna()
+    hits = results.loc[mask & results["correct"], "label"].value_counts()
+    true = results["label"].value_counts()
+    return hits.reindex(true.index, fill_value=0) / true
+
+
+def confusion(results: pd.DataFrame, threshold: float | None) -> pd.DataFrame:
+    """Suggestions at the threshold, or at any confidence when there is no threshold, by true
+    class (rows) and suggested class (columns), over every class either side has. Off the
+    diagonal are wrong suggestions: a column with many shows a class suggested for rows that are
+    not it, as a small class with a large weight would be."""
+    mask = suggested(results, threshold) if threshold is not None else results["predicted"].notna()
+    classes = list(results["label"].value_counts().index)
+    classes += sorted(set(results.loc[mask, "predicted"]) - set(classes))
+    table = pd.crosstab(results.loc[mask, "label"], results.loc[mask, "predicted"])
+    return table.reindex(index=classes, columns=classes, fill_value=0)
+
+
 def class_precision(results: pd.DataFrame, cls: str, threshold: float | None) -> dict[str, float]:
     """How the candidate does on residual rows for one class at the threshold: how often it
     suggests the class, how often that is right, and how many of the class's rows it finds. For
