@@ -41,6 +41,7 @@
     <Compile Include="Domain/Categorisation.fs" />
     <Compile Include="Domain/Vectoriser.fs" />
     <Compile Include="Domain/Lbfgs.fs" />
+    <Compile Include="Domain/LogisticRegression.fs" />
     <Compile Include="Domain/BalanceSheetItem.fs" />
     <Compile Include="Domain/Account.fs" />
     <Compile Include="Domain/BalanceSheet.fs" />
