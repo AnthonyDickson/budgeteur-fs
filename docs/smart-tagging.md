@@ -281,15 +281,15 @@ suggestion, suggestion count, approve, and accept in
 
   | Labels |    Fit |
   | -----: | -----: |
-  |  1,078 | 204 ms |
-  |  5,390 | 365 ms |
-  | 10,780 | 686 ms |
+  |  1,078 | 172 ms |
+  |  5,390 | 320 ms |
+  | 10,780 | 636 ms |
 
   Fit time grows with the distinct rows, about linearly; the weights grow with
   the vocabulary, about as the square root of the labels, times the classes. The
   copies keep the export's vocabulary, so real growth would add features the
   timings leave out. At ten years of labels at the current rate (about 5,000), a
-  fit takes about 0.4 seconds, with a model of about a megabyte. Fitting on read
+  fit takes about 0.3 seconds, with a model of about a megabyte. Fitting on read
   means a suggestion always reflects the latest labels, with no retrain action,
   staleness, or invalidation, the same reason rule suggestions are computed on
   read ([transfer rules](transfer-rules.md) decision 6). Determinism matters
@@ -308,15 +308,26 @@ suggestion, suggestion count, approve, and accept in
   - Online learning, updating the model per label. Always current, but the
     model's state has to be kept in step with categorisations, including edits
     and deletions.
+  - An in-memory cache per user, keyed by a hash of the training set. No writer
+    has to invalidate it, but it only saves the fit when the labels have not
+    changed since the last read: on a filter change, or a reload without
+    tagging. The usual read, "Next batch" after tagging a batch, or the read
+    after an approval, always changes the labels, so it always fits.
 - **Revisit**: the queue read logs each fit's duration with its label, class,
-  and feature counts. If fits regularly take more than 200 milliseconds, the
-  delay becomes noticeable on the queue read; the export's fit is already at
-  about that. Then cache the fitted model per user, keyed by a hash of the
-  training set: a read still loads the training set, but fits only when the hash
-  differs from the cached one. The key comes from the data, so no writer has to
-  invalidate it, edits and deletions change it, and suggestions are never stale.
-  The cache saves the fit on repeated reads and filter changes but not on the
-  read after a batch is saved, since that batch changed the labels.
+  and feature counts. Fits near 200 milliseconds, as now, are accepted: the
+  delay comes once per batch of 50 rows. If fits regularly take noticeably
+  longer, in order of cost:
+  - Loosen the gradient tolerance to scikit-learn's default of 1e-4, the
+    experiments' own, for roughly a third less time.
+  - Evaluate the objective over rows in parallel, with a fixed partition and a
+    fixed order of summing the partial gradients so the fit stays deterministic.
+  - Start each fit from the user's previous weights, kept in memory. A batch of
+    labels moves the optimum little, so far fewer iterations are needed, and
+    stale weights are only a starting point, so nothing needs invalidating. But
+    where a fit stops depends on where it starts, so the same labels could give
+    slightly different probabilities, against the determinism above.
+  - Drop n-grams in only one label. This changes the model, so the experiments
+    are rerun first.
 - **Goal**: the model has no state of its own.
 
 ### 6. A rule's suggestion beats the model's

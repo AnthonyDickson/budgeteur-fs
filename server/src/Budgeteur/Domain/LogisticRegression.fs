@@ -1,5 +1,8 @@
 namespace Budgeteur.Domain.LogisticRegression
 
+open System
+open System.Numerics.Tensors
+
 open Budgeteur.Domain.Lbfgs
 open Budgeteur.Domain.Vectoriser
 
@@ -22,6 +25,7 @@ type internal Problem = {
     Features : FeatureVector
     Labels : int array
     Weights : float array
+    TotalWeight : float
 }
 
 /// <summary>A fitted classifier over its classes, ordered by
@@ -82,13 +86,21 @@ module LogisticRegression =
             for k in 0 .. classes - 1 do
                 scores[k] <- scores[k] + value * parameters[offset + k]
 
-    /// <summary>The log of the sum of the exponentials, shifted by the
-    /// largest score so it neither overflows nor underflows.</summary>
-    let private logSumExp (scores : float array) =
-        let largest = scores |> Array.fold max -infinity
+    /// <summary>Replaces the scores with their softmax, and returns the log
+    /// of the sum of their exponentials. Both are shifted by the largest score
+    /// so they neither overflow nor underflow.</summary>
+    let private softmax (scores : float array) =
+        let largest = TensorPrimitives.Max (ReadOnlySpan scores)
+        let mutable total = 0.0
 
-        largest
-        + log (scores |> Array.sumBy (fun score -> exp (score - largest)))
+        for k in 0 .. scores.Length - 1 do
+            scores[k] <- exp (scores[k] - largest)
+            total <- total + scores[k]
+
+        for k in 0 .. scores.Length - 1 do
+            scores[k] <- scores[k] / total
+
+        largest + log total
 
     /// <summary>The weighted cross entropy of the rows plus the L2 penalty on
     /// the coefficients, divided by the total weight. Writes its gradient,
@@ -101,23 +113,30 @@ module LogisticRegression =
         let classes = problem.ClassCount
         let features = problem.Features
         let coefficients = parameters.Length - classes
-        Array.fill gradient 0 gradient.Length 0.0
+        let penalised = ReadOnlySpan (parameters, 0, coefficients)
+
+        // The penalty and its gradient; intercepts are not penalised.
+        let mutable loss =
+            TensorPrimitives.Dot (penalised, penalised) / (2.0 * C)
+
+        TensorPrimitives.Multiply (penalised, 1.0 / C, Span gradient)
+        Array.fill gradient coefficients classes 0.0
         let scores = Array.zeroCreate classes
-        let mutable loss = 0.0
 
         for row in 0 .. problem.Labels.Length - 1 do
             let first, last = problem.RowStarts[row], problem.RowStarts[row + 1]
             score classes parameters features first last scores
-            let total = logSumExp scores
             let label = problem.Labels[row]
             let weight = problem.Weights[row]
-            loss <- loss + weight * (total - scores[label])
+            let labelScore = scores[label]
+            loss <- loss + weight * (softmax scores - labelScore)
 
-            // The scores become the residuals: the weighted probability less
-            // the indicator of the row's class.
+            // The probabilities become the residuals: the weighted probability
+            // less the indicator of the row's class.
             for k in 0 .. classes - 1 do
-                let indicator = if k = label then 1.0 else 0.0
-                scores[k] <- weight * (exp (scores[k] - total) - indicator)
+                scores[k] <- weight * scores[k]
+
+            scores[label] <- scores[label] - weight
 
             for entry in first .. last - 1 do
                 let offset = features.Columns[entry] * classes
@@ -131,15 +150,13 @@ module LogisticRegression =
                 gradient[coefficients + k] <-
                     gradient[coefficients + k] + scores[k]
 
-        for index in 0 .. coefficients - 1 do
-            let coefficient = parameters[index]
-            loss <- loss + coefficient * coefficient / (2.0 * C)
-            gradient[index] <- gradient[index] + coefficient / C
+        let totalWeight = problem.TotalWeight
 
-        let totalWeight = Array.sum problem.Weights
-
-        for index in 0 .. gradient.Length - 1 do
-            gradient[index] <- gradient[index] / totalWeight
+        TensorPrimitives.Multiply (
+            ReadOnlySpan gradient,
+            1.0 / totalWeight,
+            Span gradient
+        )
 
         loss / totalWeight
 
@@ -165,6 +182,7 @@ module LogisticRegression =
                 rows |> List.map (fun (_, label, _) -> label) |> Array.ofList
             Weights =
                 rows |> List.map (fun (_, _, weight) -> weight) |> Array.ofList
+            TotalWeight = rows |> List.sumBy (fun (_, _, weight) -> weight)
         }
 
     /// <summary>Fit to the examples, whose features have columns below
@@ -228,11 +246,8 @@ module LogisticRegression =
                 features.Columns.Length
                 scores
 
-            let total = logSumExp scores
-
-            scores
-            |> Array.map (fun score -> exp (score - total))
-            |> Array.zip classes
+            softmax scores |> ignore
+            Array.zip classes scores
 
     /// <summary>The most probable class and its probability, the first in
     /// class order on a tie.</summary>

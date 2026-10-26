@@ -209,6 +209,9 @@ module Lbfgs =
         let stored = ref 0
         let newest = ref 0
         let pair age = (newest.Value - age + memory) % memory
+        // The newest pair's (s · y) / (y · y), which scales the initial
+        // inverse Hessian approximation.
+        let scaling = ref 1.0
 
         /// The two-loop recursion: minus the inverse Hessian approximation
         /// times the gradient.
@@ -225,8 +228,7 @@ module Lbfgs =
             // every line search can start from a step of 1.
             let gamma =
                 if stored.Value > 0 then
-                    let i = newest.Value
-                    dot s[i] y[i] / dot y[i] y[i]
+                    scaling.Value
                 else
                     1.0 / sqrt (dot gradient gradient)
 
@@ -285,6 +287,7 @@ module Lbfgs =
 
                 if sy > 0.0 then
                     rho[next] <- 1.0 / sy
+                    scaling.Value <- sy / dot y[next] y[next]
                     newest.Value <- next
                     stored.Value <- min memory (stored.Value + 1)
 
