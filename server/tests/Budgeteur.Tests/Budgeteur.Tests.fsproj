@@ -26,6 +26,7 @@
     <Compile Include="Domain/RuleTests.fs" />
     <Compile Include="Domain/CategorisationTests.fs" />
     <Compile Include="Domain/VectoriserTests.fs" />
+    <Compile Include="Domain/LbfgsTests.fs" />
     <Compile Include="Domain/IncomeStatementTests.fs" />
     <Compile Include="Domain/ReportingPeriodTests.fs" />
     <Compile Include="Domain/SmartTaggingParityTests.fs" />
