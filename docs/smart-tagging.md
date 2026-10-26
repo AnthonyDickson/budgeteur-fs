@@ -73,37 +73,57 @@ suggestion, suggestion count, approve, and accept in
 ### 2. The classifier is hand-rolled
 
 - **Decision**: the vectoriser (decision 3) and a weighted multinomial logistic
-  regression with L2 regularisation are pure functions in `Domain/`, using
-  MathNet.Numerics' L-BFGS minimiser for the optimisation. They reproduce
-  scikit-learn's `TfidfVectorizer`, `OneHotEncoder`, and `LogisticRegression` as
-  the experiments configured them:
+  regression with L2 regularisation are pure functions in `Domain/`, optimised
+  by our own L-BFGS minimiser: Nocedal and Wright's two-loop recursion and
+  strong Wolfe line search, with vector operations from System.Numerics.Tensors.
+  They reproduce scikit-learn's `TfidfVectorizer`, `OneHotEncoder`, and
+  `LogisticRegression` as the experiments configured them:
   - **Vectoriser**: smoothed IDF from unweighted row counts; each text block
     normalised to unit length on its own; terms and categories not in the
     training set ignored at prediction.
   - **Fit**: inverse regularisation strength 1; unpenalised intercepts; a
     softmax over every class with a stable log-sum-exp; classes ordered by id,
     with ties going to the first; starting from zero weights, with a fixed
-    memory and iteration cap, so the fit is deterministic.
+    memory and iteration cap, so the fit is deterministic. It stops when every
+    gradient component of the objective, divided by the total weight, is within
+    1e-5, ten times tighter than the scikit-learn default the experiments used.
+    Rows with the same features and class are fitted as one row with their total
+    weight, which leaves the objective unchanged and saves the cost of recurring
+    transactions.
   - **One class**: a training set with a single class predicts it with full
     confidence, since a softmax cannot be fitted to it.
 
   A parity test checks the F# fit against scikit-learn's on a fixture dataset.
-  Both sides fit it to a tight tolerance, so they are compared at the unique
-  optimum rather than where two optimisers happen to stop.
+  scikit-learn fits it to a tight tolerance, so the F# fit is compared with the
+  unique optimum rather than where another optimiser happens to stop. At the
+  shipped tolerance its probabilities are within about 5e-4 of the optimum's,
+  furthest for rows whose account the training set lacks.
 - **Why**: a linear model over sparse features is a few hundred lines, and
   owning it means every choice the experiments made (tokenisation, weighting,
   regularisation, per-row weights) is reproduced exactly. Pure functions are
   tested like the rule matcher, and contain no reflection, so trimming still
   works. The parity test turns "the shipped model is the one we measured" from
-  intent into a check.
-- **Cost**: numerical correctness is ours: a stable log-sum-exp, convergence,
-  and edge cases such as a single class. Each further model type is more code.
+  intent into a check. The minimiser is ours because no package was both fast
+  and usable: on the export's labels, a fit's objective and gradient take about
+  a millisecond, and the minimiser's own work has to stay as small, since a fit
+  runs on every queue read (decision 5).
+- **Cost**: numerical correctness is ours: a stable log-sum-exp, the line
+  search, convergence, and edge cases such as a single class. Each further model
+  type is more code.
 - **Rejected**:
   - ML.NET. Its text featuriser and maximum entropy trainer would mean less of
     our own code, but its featuriser differs from scikit-learn's, so the
     experiments would only approximate production. It is built on a stateful
     context, data views, and reflection over mutable classes, and does not
-    support trimming.
+    support trimming. Its L-BFGS minimiser is internal, so it cannot be used on
+    its own.
+  - MathNet.Numerics' L-BFGS minimiser. It allocates a new vector for every
+    operation, which for vectors of tens of thousands of weights cost 5 to 10
+    milliseconds per iteration: fits of 0.8 to 2.9 seconds on the export,
+    against about 0.2 for our own.
+  - ALGLIB's L-BFGS. The free edition is GPL, and it was slower than our own.
+  - Accord.NET's port of libLBFGS. Archived since 2020, and its line search
+    failed on this objective.
   - Exporting a scikit-learn pipeline to ONNX and running only inference. No
     parity gap, but training stays in Python, so the model cannot be fitted on
     read and would need a stored, versioned artefact per user.
@@ -482,10 +502,12 @@ suggestion, suggestion count, approve, and accept in
 - **Decision**:
   - **Domain**: the vectoriser (n-grams, digit normalisation, TF-IDF, the amount
     and account categories); the class balance (the square root factor, the
-    total weight kept); the logistic regression (a gradient check, separable
-    data reaching high confidence, row weights changing the fit, a single class,
-    determinism); abstaining for each of the three reasons; a rule's suggestion
-    beating the model's; the policy never applying a model proposal.
+    total weight kept); the minimiser (Rosenbrock's function, an ill-conditioned
+    quadratic, the iteration cap, determinism); the logistic regression (a
+    gradient check, separable data reaching high confidence, row weights
+    changing the fit, a single class, determinism); abstaining for each of the
+    three reasons; a rule's suggestion beating the model's; the policy never
+    applying a model proposal.
   - **Parity**: the `ml/` project vectorises and fits scikit-learn on an
     anonymised fixture, and writes its features and predicted probabilities as
     committed fixtures; server tests vectorise and fit the F# model on the same

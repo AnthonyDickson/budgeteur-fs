@@ -5,6 +5,8 @@ open System.IO
 open Expecto
 
 open Budgeteur.Domain.Money
+open Budgeteur.Domain.Rule
+open Budgeteur.Domain.SmartTagging
 open Budgeteur.Domain.Transaction
 open Budgeteur.Domain.Vectoriser
 open Budgeteur.Feature.Import
@@ -14,6 +16,12 @@ open Budgeteur.Feature.Import
 module SmartTaggingParityTests =
     /// How far a feature value may differ from scikit-learn's.
     let private featureTolerance = 1e-12
+
+    /// How far a probability may differ from scikit-learn's, which is fitted
+    /// to the optimum. The F# fit stops at the server's gradient tolerance,
+    /// up to about 5e-4 from it for rows whose account the training set lacks;
+    /// a different objective would be further.
+    let private probabilityTolerance = 1e-3
 
     let private read (name : string) : Map<string, string> list =
         let path =
@@ -46,13 +54,16 @@ module SmartTaggingParityTests =
         Weight : float
     }
 
-    let private accounts =
+    /// A distinct id for each of the fixture's values in a column.
+    let private ids (column : string) : Map<string, Guid> =
         read "transactions"
-        |> List.map (fun row -> row["account_id"])
+        |> List.map (fun row -> row[column])
         |> List.distinct
         |> List.mapi (fun index name ->
             name, Guid (sprintf "00000000-0000-0000-0000-%012i" (index + 1)))
         |> Map.ofList
+
+    let private accounts = ids "account_id"
 
     let private accountName =
         accounts
@@ -60,12 +71,29 @@ module SmartTaggingParityTests =
         |> List.map (fun (name, id) -> string id, name)
         |> Map.ofList
 
+    /// Classes by the fixture's names: transfer, or a tag.
+    let private classes =
+        ids "label"
+        |> Map.map (fun name id ->
+            if name = "transfer" then
+                RuleTarget.Transfer
+            else
+                RuleTarget.Tag id)
+
+    let private className =
+        classes
+        |> Map.toList
+        |> List.map (fun (name, c) -> c, name)
+        |> Map.ofList
+
+    let private transactionIds = ids "id"
+
     let private rows =
         read "transactions"
         |> List.map (fun row -> {
             Id = row["id"]
             Transaction = {
-                Id = Guid.NewGuid ()
+                Id = transactionIds[row["id"]]
                 Amount = Money.create (decimal row["amount"])
                 Description =
                     TransactionDescription.unsafeFromString row["description"]
@@ -144,4 +172,46 @@ module SmartTaggingParityTests =
                             actual[feature]
                             value
                             $"{id}: %A{feature}"
+
+            testCase "probabilities match scikit-learn's"
+            <| fun () ->
+                let model =
+                    labelled
+                    |> List.choose (fun row ->
+                        row.Label
+                        |> Option.map (fun label -> {
+                            Transaction = row.Transaction
+                            Class = classes[label]
+                            Weight = row.Weight
+                        }))
+                    |> Model.fit
+
+                let byId =
+                    rows |> List.map (fun row -> row.Id, row) |> Map.ofList
+
+                let expected = read "probabilities"
+                Expect.isNonEmpty expected "the fixture has probabilities"
+
+                for row in expected do
+                    let id = row["id"]
+
+                    let actual =
+                        Model.probabilities model byId[id].Transaction
+                        |> Array.map (fun (c, p) -> className[c], p)
+                        |> Map.ofArray
+
+                    Expect.equal
+                        (Map.keys actual |> Set.ofSeq)
+                        (row |> Map.remove "id" |> Map.keys |> Set.ofSeq)
+                        $"{id}: the same classes"
+
+                    for KeyValue (name, probability) in actual do
+                        Expect.floatClose
+                            {
+                                absolute = probabilityTolerance
+                                relative = 0.0
+                            }
+                            probability
+                            (float row[name])
+                            $"{id}: {name}"
         ]
