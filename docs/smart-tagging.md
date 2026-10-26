@@ -276,25 +276,26 @@ suggestion, suggestion count, approve, and accept in
   what the categorisations already say. Fits were timed on the export's 1,078
   labels (8 classes, about 6,800 features) and on copies of it five and ten
   times over, each copy with its own accounts, so it repeats rows as often as
-  the export does (`just ml-scaling`; median of five fits of a release build, on
-  an AMD Ryzen 7 PRO 8700GE):
+  the export does (`just ml-scaling`; median of five fits of a release build,
+  after ten warm-up fits so the JIT has optimised the code, on an AMD Ryzen 7
+  PRO 8700GE):
 
   | Labels |    Fit |
   | -----: | -----: |
-  |  1,078 | 172 ms |
-  |  5,390 | 320 ms |
-  | 10,780 | 636 ms |
+  |  1,078 | 126 ms |
+  |  5,390 | 365 ms |
+  | 10,780 | 690 ms |
 
   Fit time grows with the distinct rows, about linearly; the weights grow with
   the vocabulary, about as the square root of the labels, times the classes. The
   copies keep the export's vocabulary, so real growth would add features the
   timings leave out. At ten years of labels at the current rate (about 5,000), a
-  fit takes about 0.3 seconds, with a model of about a megabyte. Fitting on read
-  means a suggestion always reflects the latest labels, with no retrain action,
-  staleness, or invalidation, the same reason rule suggestions are computed on
-  read ([transfer rules](transfer-rules.md) decision 6). Determinism matters
-  because the suggestion filter and the approval rely on a second read returning
-  the same suggestions as the first.
+  fit takes about 0.35 seconds, with a model of about a megabyte. Fitting on
+  read means a suggestion always reflects the latest labels, with no retrain
+  action, staleness, or invalidation, the same reason rule suggestions are
+  computed on read ([transfer rules](transfer-rules.md) decision 6). Determinism
+  matters because the suggestion filter and the approval rely on a second read
+  returning the same suggestions as the first.
 - **Rejected**:
   - A stored model with a retrain button. Survives restarts and costs nothing
     per read, but goes stale and needs a staleness indicator and a store.
@@ -314,11 +315,16 @@ suggestion, suggestion count, approve, and accept in
     tagging. The usual read, "Next batch" after tagging a batch, or the read
     after an approval, always changes the labels, so it always fits.
 - **Revisit**: the queue read logs each fit's duration with its label, class,
-  and feature counts. Fits near 200 milliseconds, as now, are accepted: the
+  and feature counts. Fits of up to a few hundred milliseconds are accepted: the
   delay comes once per batch of 50 rows. If fits regularly take noticeably
   longer, in order of cost:
-  - Loosen the gradient tolerance to scikit-learn's default of 1e-4, the
-    experiments' own, for roughly a third less time.
+  - Loosen the gradient tolerance (decision 2) to scikit-learn's default of
+    1e-4, the experiments' own. Measured on the export, it takes about 15% off a
+    fit at 1,078 labels and 27% at 10,780. Against a fit to 1e-8, it changed 8
+    of the 2,118 transactions' suggestions, against none at 1e-5: each one
+    turned a suggestion on or off within 0.002 of the threshold, 7 of them off,
+    and none suggested a different tag. The parity test's tolerance would rise
+    to about 3e-3.
   - Evaluate the objective over rows in parallel, with a fixed partition and a
     fixed order of summing the partial gradients so the fit stays deterministic.
   - Start each fit from the user's previous weights, kept in memory. A batch of

@@ -36,8 +36,13 @@ let path =
 /// Copies of the export in each training set.
 let copies = [ 1; 5; 10 ]
 
-/// Timed fits per size, after one untimed fit to warm up the JIT.
+/// Timed fits per training set.
 let repeats = 5
+
+/// Untimed fits of the export before any are timed. The JIT recompiles hot
+/// methods with full optimisation only after they have run for a while, so a
+/// single warm-up fit leaves the first training set timed partly unoptimised.
+let warmUps = 10
 
 let fieldsOrFail (line: CsvLine) =
     match Csv.fields line.Text with
@@ -108,9 +113,10 @@ printfn "| -----: | ------: | -------: | --------------: | -----------: |"
 
 let trainingSets = copies |> List.map copied
 
-for training in trainingSets do
-    Model.fit training |> ignore
+for _ in 1..warmUps do
+    Model.fit (List.ofArray labels) |> ignore
 
+for training in trainingSets do
     let times =
         List.init repeats (fun _ ->
             let watch = Stopwatch.StartNew()
