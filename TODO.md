@@ -20,11 +20,6 @@
 ## Current Tasks
 
 - Smart tagging, see [docs/smart-tagging.md](docs/smart-tagging.md):
-  - Parity fixture.
-    - `ml/`: vectorise and fit scikit-learn on an anonymised fixture from
-      `server/tests/Budgeteur.Tests/Import/Fixtures` with the shipped features,
-      label weights, and square root class balance, to a tight tolerance, and
-      write its features and predicted probabilities as committed fixtures.
   - Server: the model in `Domain/` (decisions 2, 3, 4, 7).
     - Add MathNet.Numerics to `Directory.Packages.props`.
     - Vectoriser: character n-grams (3 to 5, within space-padded words) and word
@@ -40,7 +35,8 @@
     - Policy: a model proposal is suggested, never applied.
     - Tests: gradient check, separable data, row weights, class balance, a
       single class, determinism, each abstain reason, the policy line, and
-      parity with the scikit-learn fixtures within a tolerance.
+      parity with the scikit-learn fixtures in `Domain/Fixtures/SmartTagging`
+      (written by `just ml-parity`) within a tolerance.
     - Scaling: time fits on training sets resampled to about 1,000, 5,000, and
       10,000 labels, outside CI, and record the results in decision 5 in place
       of the scikit-learn projection.

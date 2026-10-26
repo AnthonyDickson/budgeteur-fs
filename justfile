@@ -154,6 +154,11 @@ ml-export db user:
 ml-evaluate *args:
 	uv run --project ml python ml/evaluate.py {{args}}
 
+# Fit scikit-learn on the labelled import fixtures and write the server's smart tagging parity
+# fixtures to server/tests/Budgeteur.Tests/Domain/Fixtures/SmartTagging/
+ml-parity:
+	uv run --project ml python ml/parity.py
+
 # Unit tests for the smart tagging evaluation harness
 ml-test:
 	uv run --project ml python -m unittest discover --start-directory ml
