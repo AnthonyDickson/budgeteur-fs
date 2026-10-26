@@ -213,4 +213,11 @@ module CategorisationTests =
                                 (transition applied current)
                                 ruleTransfer
                                 $"%A{target} on %A{current}"
+
+            testCase "the policy never applies a model proposal"
+            <| fun () ->
+                for target in [ RuleTarget.Tag tagA; RuleTarget.Transfer ] do
+                    Expect.isNone
+                        (Policy.applyModel target)
+                        $"%A{target} is only suggested"
         ]

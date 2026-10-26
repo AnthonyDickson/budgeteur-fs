@@ -203,3 +203,8 @@ module Policy =
         | RuleTarget.Tag tagId ->
             Some (Categorisation.Tagged (tagId, Source.Rule))
         | RuleTarget.Transfer -> None
+
+    /// <summary>The categorisation the model's proposal applies: none, since
+    /// a model proposal is only suggested. See decision 7 in
+    /// docs/smart-tagging.md.</summary>
+    let applyModel (_ : RuleTarget) : Categorisation option = None
