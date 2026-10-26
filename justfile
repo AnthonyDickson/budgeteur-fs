@@ -159,6 +159,12 @@ ml-evaluate *args:
 ml-parity:
 	uv run --project ml python ml/parity.py
 
+# Time smart tagging fits on the exported labels and on copies of them, for decision 5 in
+# docs/smart-tagging.md
+ml-scaling:
+	dotnet build server/src/Budgeteur -c Release
+	dotnet fsi server/scripts/smart-tagging-scaling.fsx ml/data/transactions.csv
+
 # Unit tests for the smart tagging evaluation harness
 ml-test:
 	uv run --project ml python -m unittest discover --start-directory ml

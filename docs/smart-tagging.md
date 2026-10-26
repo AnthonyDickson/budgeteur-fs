@@ -273,13 +273,23 @@ suggestion, suggestion count, approve, and accept in
   transaction no rule matches. No weights are stored. The fit is deterministic:
   the same training set always gives the same model.
 - **Why**: the fit is cheap, so a stored model would only add a second record of
-  what the categorisations already say. In the experiments a fit on about 1,100
-  labels took 0.2 seconds in scikit-learn and under 20 MB at its peak, and the
-  hand-rolled fit is expected to take 50 to 100 milliseconds. Fit time and
-  memory grow with the labels, about linearly; the weights grow with the
-  vocabulary, about as the square root of the labels, times the classes. At ten
-  years of labels at the current rate (about 5,000), a fit is expected to take a
-  few hundred milliseconds, with a model of about a megabyte. Fitting on read
+  what the categorisations already say. Fits were timed on the export's 1,078
+  labels (8 classes, about 6,800 features) and on copies of it five and ten
+  times over, each copy with its own accounts, so it repeats rows as often as
+  the export does (`just ml-scaling`; median of five fits of a release build, on
+  an AMD Ryzen 7 PRO 8700GE):
+
+  | Labels |    Fit |
+  | -----: | -----: |
+  |  1,078 | 204 ms |
+  |  5,390 | 365 ms |
+  | 10,780 | 686 ms |
+
+  Fit time grows with the distinct rows, about linearly; the weights grow with
+  the vocabulary, about as the square root of the labels, times the classes. The
+  copies keep the export's vocabulary, so real growth would add features the
+  timings leave out. At ten years of labels at the current rate (about 5,000), a
+  fit takes about 0.4 seconds, with a model of about a megabyte. Fitting on read
   means a suggestion always reflects the latest labels, with no retrain action,
   staleness, or invalidation, the same reason rule suggestions are computed on
   read ([transfer rules](transfer-rules.md) decision 6). Determinism matters
@@ -300,8 +310,8 @@ suggestion, suggestion count, approve, and accept in
     and deletions.
 - **Revisit**: the queue read logs each fit's duration with its label, class,
   and feature counts. If fits regularly take more than 200 milliseconds, the
-  delay becomes noticeable on the queue read, expected somewhere between 3,000
-  and 5,000 labels. Then cache the fitted model per user, keyed by a hash of the
+  delay becomes noticeable on the queue read; the export's fit is already at
+  about that. Then cache the fitted model per user, keyed by a hash of the
   training set: a read still loads the training set, but fits only when the hash
   differs from the cached one. The key comes from the data, so no writer has to
   invalidate it, edits and deletions change it, and suggestions are never stale.

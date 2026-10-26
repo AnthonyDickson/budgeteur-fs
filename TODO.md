@@ -20,26 +20,6 @@
 ## Current Tasks
 
 - Smart tagging, see [docs/smart-tagging.md](docs/smart-tagging.md):
-  - Server: the model in `Domain/` (decisions 2, 3, 4, 7).
-    - Add MathNet.Numerics to `Directory.Packages.props`.
-    - Vectoriser: character n-grams (3 to 5, within space-padded words) and word
-      tokens of the normalised description, TF-IDF from the training set with
-      each block normalised; the amount's sign and log2 bucket, and the account,
-      as categories.
-    - Class balance: the square root factor, rescaled to the original total
-      weight.
-    - Weighted multinomial logistic regression with L2 (C = 1), optimised with
-      L-BFGS from zero; deterministic; a single class predicted outright.
-    - Abstaining: threshold 0.7, at least 25 labels, at least 2 labels in the
-      predicted class.
-    - Policy: a model proposal is suggested, never applied.
-    - Tests: gradient check, separable data, row weights, class balance, a
-      single class, determinism, each abstain reason, the policy line, and
-      parity with the scikit-learn fixtures in `Domain/Fixtures/SmartTagging`
-      (written by `just ml-parity`) within a tolerance.
-    - Scaling: time fits on training sets resampled to about 1,000, 5,000, and
-      10,000 labels, outside CI, and record the results in decision 5 in place
-      of the scikit-learn projection.
   - Server: QuickTag slice (decisions 5, 6, 9).
     - `ReadQueue.fs`: load the caller's training set with the queue, fit once
       per read, and suggest from the model for rows no rule matches. Log the
