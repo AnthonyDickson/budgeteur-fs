@@ -1,10 +1,5 @@
 package budgeteur.feature.tag
 
-import budgeteur.feature.tag.CreateTag.createTag
-import budgeteur.feature.tag.DeleteTag.deleteTag
-import budgeteur.feature.tag.ReadAllTags.readAllTags
-import budgeteur.feature.tag.ReadTag.readTag
-import budgeteur.feature.tag.UpdateTag.updateTag
 import budgeteur.shared.Db
 import io.ktor.server.routing.Route
 

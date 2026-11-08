@@ -1,6 +1,6 @@
 package budgeteur
 
-import budgeteur.shared.Auth
+import budgeteur.shared.USER_AUTH
 import budgeteur.shared.Db
 import budgeteur.shared.apiJson
 import budgeteur.shared.UserPrincipal
@@ -43,7 +43,7 @@ fun withTestApp(
                         environment = "Test",
                         startedAt = startedAt,
                         configureAuth = {
-                            provider(Auth.PROVIDER) {
+                            provider(USER_AUTH) {
                                 authenticate { ctx ->
                                     val user = ctx.call.request.headers[TEST_USER_HEADER] ?: DEFAULT_TEST_USER
                                     ctx.principal(UserPrincipal(user))

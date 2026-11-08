@@ -38,11 +38,13 @@ exits. On startup it applies pending migrations.
 
 Vertical slices, as in the F# server:
 
-- `feature/<name>/` holds one file per operation. Each is an `object` with its
-  queries as private functions over a jOOQ `DSLContext` and a `Route` extension
-  that registers the handler. `TagEndpoints.kt` registers the slice.
-- `domain/` is the pure model, `data/` the codecs and constraint checks,
-  `shared/` the infrastructure. Slices depend on these, never on each other.
+- `feature/<name>/` holds one file per operation: its queries as private
+  extension functions on jOOQ's `DSLContext`, and a `Route` extension that
+  registers the handler. `TagEndpoints.kt` registers the slice. The file is the
+  module, so there are no wrapping `object`s.
+- `domain/` is the pure model, `data/` the codecs (extension functions between
+  generated records and the domain) and constraint checks, `shared/` the
+  infrastructure. Slices depend on these, never on each other.
 - `App.kt` builds the application from a `Dependencies` value (database, clock,
   auth setup); `Main.kt` is the imperative shell that reads config, migrates and
   starts serving. The test host builds its own `Dependencies` with an in-memory
@@ -50,25 +52,31 @@ Vertical slices, as in the F# server:
 
 ## Design notes
 
-- **Handlers.** A handler is a block in Arrow's `Raise<DomainError>` context:
-  `bind()` unwraps an `Either` and `raise` fails. `DomainError` holds only the
-  failures a handler expects (validation, not found), and the handler wrapper
-  writes them as JSON errors. Unexpected failures stay exceptions, and Ktor's
-  StatusPages plugin writes them as JSON errors. jOOQ wraps driver exceptions,
-  so it looks through the causes to tell a constraint violation (409) from other
-  database errors (500).
+- **Raise contexts.** Fallible functions declare their error type as a context
+  parameter, `context(_: Raise<E>)`, and return the plain value, so callers
+  compose them without wrapping or unwrapping `Either`. Context parameters are
+  stable from Kotlin 2.4, and Arrow's `arrow.core.raise.context` package
+  provides `raise`, `ensure`, `withError` and `zipOrAccumulate` in this form.
+  `Either` appears only at the edges: in tests and in loading config.
+- **Handlers.** A handler is a block with a `Raise<DomainError>` context, run by
+  the `handle` extension on the call. `DomainError` holds only the failures a
+  handler expects (validation, not found), and the handler wrapper writes them
+  as JSON errors. Unexpected failures stay exceptions, and Ktor's StatusPages
+  plugin writes them as JSON errors. jOOQ wraps driver exceptions, so it looks
+  through the causes to tell a constraint violation (409) from other database
+  errors (500).
 - **JSON.** Ktor's ContentNegotiation plugin reads and writes bodies with
   kotlinx.serialization. A body that does not decode is a validation failure.
-- **Validation.** Domain constructors fail with a plain `String`. The request
-  parser accumulates every field's failure and raises one `ValidationFailed`
-  with one line per failure.
+- **Validation.** Domain constructors raise a plain `String`. The request parser
+  accumulates every field's failure and raises one `ValidationFailed` with one
+  line per failure.
 - **Refined types.** `TagName` is a `@JvmInline value class` with a private
   constructor, so the only way to build one from input is `TagName.create`.
   Payload-free choices (`TagColor`, `TagKind`) are enums; choices with data are
   sealed interfaces (`DomainError`), matched exhaustively with `when`.
-- **Constraint checks.** Handlers check database constraints before writing, as
-  `Either<ConstraintError, Unit>` values, and `requireAll` turns the failures
-  into one `ValidationFailed`.
+- **Constraint checks.** Handlers check database constraints before writing.
+  Each check raises a `ConstraintError`; `requireAll` runs every check and turns
+  the failures into one `ValidationFailed`.
 
 ## Schema and generated code
 
@@ -117,7 +125,7 @@ domain enums, but that would tie generated code to `domain/`.
 - **Data access.** jOOQ with generated tables matches SqlHydra: typed columns
   and similar query shapes. Owning the schema removed the converter and naming
   config that compatibility needed; codegen is about 60 lines of Gradle.
-- **Size.** The Tag slice with its domain and codec is 374 lines against 755 in
+- **Size.** The Tag slice with its domain and codec is 351 lines against 755 in
   F#. Most of the difference is the per-endpoint OpenAPI configuration the PoC
   lacks and the narrower F# line width, so it is not evidence that Kotlin is
   terser.

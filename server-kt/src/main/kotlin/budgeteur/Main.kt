@@ -1,8 +1,8 @@
 package budgeteur
 
 import arrow.core.getOrElse
-import budgeteur.shared.Auth
-import budgeteur.shared.Config
+import budgeteur.shared.oidcBearer
+import budgeteur.shared.loadConfig
 import budgeteur.shared.Db
 import budgeteur.shared.systemClock
 import io.ktor.server.engine.embeddedServer
@@ -14,7 +14,7 @@ import kotlin.system.exitProcess
 /** The imperative shell: read config, migrate, start serving. */
 fun main() {
     val config =
-        Config.load(System.getenv()).getOrElse { failures ->
+        loadConfig(System.getenv()).getOrElse { failures ->
             System.err.println("The server refused to start: configuration validation failed.")
             failures.forEach { System.err.println("  - $it") }
             exitProcess(1)
@@ -29,7 +29,7 @@ fun main() {
             clock = systemClock,
             environment = config.environment,
             startedAt = Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().startTime),
-            configureAuth = { Auth.bearer(this, config.oidc) },
+            configureAuth = { oidcBearer(config.oidc) },
         )
 
     embeddedServer(Netty, port = config.port) { budgeteur(deps) }.start(wait = true)

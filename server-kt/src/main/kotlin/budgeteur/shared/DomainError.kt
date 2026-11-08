@@ -9,7 +9,4 @@ sealed interface DomainError {
     data class ValidationFailed(val message: String) : DomainError
 
     data class NotFound(val message: String) : DomainError
-
-    /** The request carried no `sub` claim. */
-    data object Unauthorised : DomainError
 }

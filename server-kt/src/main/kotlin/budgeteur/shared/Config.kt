@@ -1,11 +1,12 @@
 package budgeteur.shared
 
 import arrow.core.Either
-import arrow.core.EitherNel
-import arrow.core.leftNel
-import arrow.core.raise.either
-import arrow.core.raise.zipOrAccumulate
-import arrow.core.right
+import arrow.core.NonEmptyList
+import arrow.core.raise.Raise
+import arrow.core.raise.context.either
+import arrow.core.raise.context.ensureNotNull
+import arrow.core.raise.context.raise
+import arrow.core.raise.context.zipOrAccumulate
 
 data class OidcConfig(
     val authority: String,
@@ -20,36 +21,36 @@ data class AppConfig(
     val environment: String,
 )
 
+private typealias Env = Map<String, String>
+
+context(_: Raise<String>)
+private fun Env.required(name: String): String = ensureNotNull(get(name)?.takeIf(String::isNotBlank)) { "$name is required" }
+
+context(_: Raise<String>)
+private fun Env.port(): Int {
+    val raw = get("PORT") ?: return 5000
+    return raw.toIntOrNull()?.takeIf { it in 1..65535 } ?: raise("PORT must be a port number, got $raw")
+}
+
+private fun Env.audiences(): List<String> =
+    get("OIDC_VALID_AUDIENCES").orEmpty().split(',').map(String::trim).filter(String::isNotEmpty)
+
 /**
  * Reads configuration from environment variables, reporting every missing or
  * invalid setting at once so the server refuses to start with a full list.
  */
-object Config {
-    private fun required(env: Map<String, String>, name: String): EitherNel<String, String> =
-        env[name]?.takeIf { it.isNotBlank() }?.right() ?: "$name is required".leftNel()
-
-    private fun port(env: Map<String, String>): EitherNel<String, Int> {
-        val raw = env["PORT"] ?: return 5000.right()
-        return raw.toIntOrNull()?.takeIf { it in 1..65535 }?.right() ?: "PORT must be a port number, got $raw".leftNel()
+fun loadConfig(env: Env): Either<NonEmptyList<String>, AppConfig> =
+    either {
+        zipOrAccumulate(
+            { env.required("BUDGETEUR_DATABASE") },
+            { env.required("OIDC_AUTHORITY") },
+            { env.port() },
+        ) { database, authority, port ->
+            AppConfig(
+                databaseUrl = "jdbc:sqlite:$database",
+                oidc = OidcConfig(authority, env.audiences()),
+                port = port,
+                environment = env["BUDGETEUR_ENVIRONMENT"] ?: "Production",
+            )
+        }
     }
-
-    fun load(env: Map<String, String>): Either<List<String>, AppConfig> =
-        either {
-            zipOrAccumulate(
-                { required(env, "BUDGETEUR_DATABASE").bindNel() },
-                { required(env, "OIDC_AUTHORITY").bindNel() },
-                { port(env).bindNel() },
-            ) { database, authority, port ->
-                AppConfig(
-                    databaseUrl = "jdbc:sqlite:$database",
-                    oidc =
-                        OidcConfig(
-                            authority = authority,
-                            validAudiences = env["OIDC_VALID_AUDIENCES"].orEmpty().split(',').map(String::trim).filter(String::isNotEmpty),
-                        ),
-                    port = port,
-                    environment = env["BUDGETEUR_ENVIRONMENT"] ?: "Production",
-                )
-            }
-        }.mapLeft { it.toList() }
-}

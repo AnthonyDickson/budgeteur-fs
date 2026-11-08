@@ -1,8 +1,8 @@
 package budgeteur.domain
 
-import arrow.core.Either
-import arrow.core.left
-import arrow.core.right
+import arrow.core.raise.Raise
+import arrow.core.raise.context.ensure
+import arrow.core.raise.context.ensureNotNull
 import java.util.UUID
 
 /**
@@ -14,14 +14,14 @@ value class TagName private constructor(val value: String) {
     companion object {
         const val MAX_LENGTH = 64
 
-        fun create(raw: String): Either<String, TagName> {
+        context(_: Raise<String>)
+        fun create(raw: String): TagName {
             val name = raw.trim()
-            return when {
-                name.isEmpty() -> "Tag name cannot be null or whitespace".left()
-                name.length > MAX_LENGTH ->
-                    "Name is too long. Names must be at most $MAX_LENGTH characters, but got ${name.length}".left()
-                else -> TagName(name).right()
+            ensure(name.isNotEmpty()) { "Tag name cannot be null or whitespace" }
+            ensure(name.length <= MAX_LENGTH) {
+                "Name is too long. Names must be at most $MAX_LENGTH characters, but got ${name.length}"
             }
+            return TagName(name)
         }
 
         /** Skips validation, for trusted values read from the database. */
@@ -38,9 +38,11 @@ enum class TagColor {
     Yellow, Green, Teal, Sky, Sapphire, Blue, Lavender;
 
     companion object {
-        fun parse(raw: String): Either<String, TagColor> =
-            entries.find { it.name == raw }?.right()
-                ?: "\"$raw\" is not a valid value for TagColor, expecting one of ${entries.joinToString(", ")}.".left()
+        context(_: Raise<String>)
+        fun parse(raw: String): TagColor =
+            ensureNotNull(entries.find { it.name == raw }) {
+                "\"$raw\" is not a valid value for TagColor, expecting one of ${entries.joinToString(", ")}."
+            }
     }
 }
 
@@ -49,9 +51,11 @@ enum class TagKind {
     Income, Expense;
 
     companion object {
-        fun parse(raw: String): Either<String, TagKind> =
-            entries.find { it.name == raw }?.right()
-                ?: "\"$raw\" is not a valid value for TagKind, expecting one of \"Income\" or \"Expense\".".left()
+        context(_: Raise<String>)
+        fun parse(raw: String): TagKind =
+            ensureNotNull(entries.find { it.name == raw }) {
+                "\"$raw\" is not a valid value for TagKind, expecting one of \"Income\" or \"Expense\"."
+            }
     }
 }
 

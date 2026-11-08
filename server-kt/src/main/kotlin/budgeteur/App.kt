@@ -1,9 +1,9 @@
 package budgeteur
 
-import budgeteur.feature.status.GetStatus
-import budgeteur.feature.status.GetStatus.getStatus
+import budgeteur.feature.status.STATUS_PATH
+import budgeteur.feature.status.getStatus
 import budgeteur.feature.tag.tagEndpoints
-import budgeteur.shared.Auth
+import budgeteur.shared.USER_AUTH
 import budgeteur.shared.Clock
 import budgeteur.shared.Db
 import budgeteur.shared.RequestLogging
@@ -30,12 +30,12 @@ class Dependencies(
     val clock: Clock,
     val environment: String,
     val startedAt: Instant,
-    /** Registers the [Auth.PROVIDER] provider: JWT bearer in the server, a fake in tests. */
+    /** Registers the [USER_AUTH] provider: JWT bearer in the server, a fake in tests. */
     val configureAuth: AuthenticationConfig.() -> Unit,
 )
 
 fun Application.budgeteur(deps: Dependencies) {
-    install(RequestLogging) { quietPaths = setOf(GetStatus.PATH) }
+    install(RequestLogging) { quietPaths = setOf(STATUS_PATH) }
     install(ContentNegotiation) { json(apiJson) }
     install(StatusPages) { apiErrors() }
     install(Authentication) { deps.configureAuth(this) }
@@ -43,7 +43,7 @@ fun Application.budgeteur(deps: Dependencies) {
     routing {
         getStatus(deps.db, deps.environment, deps.startedAt, deps.clock)
 
-        authenticate(Auth.PROVIDER) {
+        authenticate(USER_AUTH) {
             tagEndpoints(deps.db)
         }
 

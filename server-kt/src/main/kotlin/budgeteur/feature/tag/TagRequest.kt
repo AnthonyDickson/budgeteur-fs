@@ -1,8 +1,9 @@
 package budgeteur.feature.tag
 
+import arrow.core.NonEmptyList
 import arrow.core.raise.Raise
-import arrow.core.raise.withError
-import arrow.core.raise.zipOrAccumulate
+import arrow.core.raise.context.withError
+import arrow.core.raise.context.zipOrAccumulate
 import budgeteur.domain.Tag
 import budgeteur.domain.TagColor
 import budgeteur.domain.TagKind
@@ -25,11 +26,12 @@ data class TagRequest(
  * Parses every field, reporting all failures in one error, one per line, so a
  * client sees them together.
  */
-fun Raise<DomainError>.parseTag(id: UUID, request: TagRequest): Tag =
-    withError({ errors -> DomainError.ValidationFailed(errors.joinToString("\n")) }) {
+context(_: Raise<DomainError>)
+fun TagRequest.toTag(id: UUID): Tag =
+    withError({ errors: NonEmptyList<String> -> DomainError.ValidationFailed(errors.joinToString("\n")) }) {
         zipOrAccumulate(
-            { TagName.create(request.name).bind() },
-            { TagColor.parse(request.color).bind() },
-            { TagKind.parse(request.kind).bind() },
+            { TagName.create(name) },
+            { TagColor.parse(color) },
+            { TagKind.parse(kind) },
         ) { name, color, kind -> Tag(id, name, color, kind) }
     }

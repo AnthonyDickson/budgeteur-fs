@@ -6,22 +6,20 @@ import budgeteur.domain.TagColor
 import budgeteur.domain.TagKind
 import budgeteur.domain.TagName
 
-object TagCodec {
-    fun toRow(tag: Tag, userId: String) =
-        TagsRecord(
-            id = tag.id,
-            userId = userId,
-            name = tag.name.value,
-            color = tag.color.name,
-            kind = tag.kind.name,
-        )
+fun Tag.toRecord(userId: String) =
+    TagsRecord(
+        id = id,
+        userId = userId,
+        name = name.value,
+        color = color.name,
+        kind = kind.name,
+    )
 
-    /** The tag endpoints parse every column before writing it, and the database checks kind. */
-    fun fromRow(row: TagsRecord): Tag =
-        Tag(
-            id = row.id,
-            name = TagName.unsafe(row.name),
-            color = TagColor.valueOf(row.color),
-            kind = TagKind.valueOf(row.kind),
-        )
-}
+/** The tag endpoints parse every column before writing it, and the database checks kind. */
+fun TagsRecord.toTag(): Tag =
+    Tag(
+        id = id,
+        name = TagName.unsafe(name),
+        color = TagColor.valueOf(color),
+        kind = TagKind.valueOf(kind),
+    )

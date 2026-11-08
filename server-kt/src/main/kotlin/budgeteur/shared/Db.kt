@@ -22,9 +22,9 @@ class Db(val url: String) {
         }
 
     /** Runs jOOQ queries over one connection. */
-    suspend fun <T> sql(work: (DSLContext) -> T): T =
+    suspend fun <T> sql(work: DSLContext.() -> T): T =
         withContext(Dispatchers.IO) {
-            open().use { work(DSL.using(it, SQLDialect.SQLITE, settings)) }
+            open().use { DSL.using(it, SQLDialect.SQLITE, settings).work() }
         }
 
     /** Applies pending migrations from `db/migration` and returns how many ran. */

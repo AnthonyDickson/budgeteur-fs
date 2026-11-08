@@ -13,8 +13,6 @@ data class TagResponse(
     val color: String,
     /** Which side of the income statement the tag's transactions are on. */
     val kind: String,
-) {
-    companion object {
-        fun fromDomain(tag: Tag) = TagResponse(tag.id, tag.name.value, tag.color.name, tag.kind.name)
-    }
-}
+)
+
+fun Tag.toResponse() = TagResponse(id, name.value, color.name, kind.name)

@@ -1,56 +1,52 @@
 package budgeteur.feature.tag
 
-import arrow.core.Either
-import arrow.core.raise.either
-import arrow.core.raise.ensure
+import arrow.core.raise.Raise
+import arrow.core.raise.context.ensure
 import budgeteur.data.ConstraintError
-import budgeteur.data.Constraints.requireAll
 import budgeteur.data.db.tables.references.TAGS
+import budgeteur.data.requireAll
 import budgeteur.domain.Tag
-import budgeteur.shared.Auth
 import budgeteur.shared.Db
 import budgeteur.shared.DomainError
-import budgeteur.shared.Endpoint
-import budgeteur.shared.Endpoint.body
-import budgeteur.shared.Endpoint.uuidParam
-import io.ktor.server.response.respond
+import budgeteur.shared.handle
 import budgeteur.shared.log
+import budgeteur.shared.receiveOrRaise
+import budgeteur.shared.userId
+import budgeteur.shared.uuidParam
+import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.put
 import org.jooq.DSLContext
 
-object UpdateTag {
-    const val PATH = "/api/tags/{id}"
+/** The `UNIQUE (user_id, name)` constraint, ignoring the tag being updated. */
+context(_: Raise<ConstraintError>)
+private fun DSLContext.requireUniqueName(userId: String, tag: Tag) =
+    ensure(!fetchExists(TAGS, TAGS.USER_ID.eq(userId), TAGS.NAME.eq(tag.name.value), TAGS.ID.ne(tag.id))) {
+        ConstraintError("A tag with the name '${tag.name.value}' already exists")
+    }
 
-    /** The `UNIQUE (user_id, name)` constraint, ignoring the tag being updated. */
-    private fun requireNameIsUnique(sql: DSLContext, userId: String, tag: Tag): Either<ConstraintError, Unit> =
-        either {
-            val taken = sql.fetchExists(TAGS, TAGS.USER_ID.eq(userId), TAGS.NAME.eq(tag.name.value), TAGS.ID.ne(tag.id))
-            ensure(!taken) { ConstraintError("A tag with the name '${tag.name.value}' already exists") }
-        }
+/** Returns false when the user has no tag with the id. */
+private fun DSLContext.updateTag(userId: String, tag: Tag): Boolean =
+    update(TAGS)
+        .set(TAGS.NAME, tag.name.value)
+        .set(TAGS.COLOR, tag.color.name)
+        .set(TAGS.KIND, tag.kind.name)
+        .where(TAGS.ID.eq(tag.id), TAGS.USER_ID.eq(userId))
+        .execute() > 0
 
-    /** Returns false when the user has no tag with the id. */
-    private fun update(sql: DSLContext, userId: String, tag: Tag): Boolean =
-        sql.update(TAGS)
-            .set(TAGS.NAME, tag.name.value)
-            .set(TAGS.COLOR, tag.color.name)
-            .set(TAGS.KIND, tag.kind.name)
-            .where(TAGS.ID.eq(tag.id), TAGS.USER_ID.eq(userId))
-            .execute() > 0
+fun Route.updateTag(db: Db) =
+    put("/api/tags/{id}") {
+        call.handle {
+            val userId = call.userId
+            val id = call.uuidParam("id")
+            val tag = call.receiveOrRaise<TagRequest>().toTag(id)
 
-    fun Route.updateTag(db: Db) =
-        put(PATH) {
-            Endpoint.handle(call) {
-                val userId = Auth.userId(call).bind()
-                val id = uuidParam(call, "id")
-                val request = body<TagRequest>(call)
-                val tag = parseTag(id, request)
-
-                requireAll(db.sql { requireNameIsUnique(it, userId, tag) })
-                ensure(db.sql { update(it, userId, tag) }) { DomainError.NotFound("Tag $id not found") }
-
-                call.log.info("Updated tag $id", "tagId" to id)
-                call.respond(TagResponse.fromDomain(tag))
+            db.sql {
+                requireAll({ requireUniqueName(userId, tag) })
+                ensure(updateTag(userId, tag)) { DomainError.NotFound("Tag $id not found") }
             }
+
+            call.log.info("Updated tag $id", "tagId" to id)
+            call.respond(tag.toResponse())
         }
-}
+    }

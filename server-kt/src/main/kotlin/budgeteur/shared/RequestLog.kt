@@ -36,8 +36,6 @@ class RequestLog {
 
     fun error(message: String, vararg props: Pair<String, Any?>) = add(LogLevel.Error, message, props)
 
-    fun addAll(more: List<LogEntry>) = synchronized(entries) { entries.addAll(more) }
-
     fun snapshot(): List<LogEntry> = synchronized(entries) { entries.toList() }
 
     private fun add(level: LogLevel, message: String, props: Array<out Pair<String, Any?>>) =
