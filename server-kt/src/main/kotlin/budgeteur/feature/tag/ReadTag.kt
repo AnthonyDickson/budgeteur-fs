@@ -8,7 +8,7 @@ import budgeteur.shared.Db
 import budgeteur.shared.DomainError
 import budgeteur.shared.Endpoint
 import budgeteur.shared.Endpoint.uuidParam
-import budgeteur.shared.Json
+import io.ktor.server.response.respond
 import budgeteur.shared.log
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -32,7 +32,7 @@ object ReadTag {
                 val tag = db.sql { get(it, userId, id) } ?: raise(DomainError.NotFound("Tag $id not found"))
 
                 call.log.info("Returned tag $id", "tagId" to id)
-                Json.write(call, TagResponse.fromDomain(tag))
+                call.respond(TagResponse.fromDomain(tag))
             }
         }
 }

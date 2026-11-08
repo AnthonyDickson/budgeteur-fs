@@ -12,7 +12,8 @@ import budgeteur.domain.TagName
 import budgeteur.shared.Auth
 import budgeteur.shared.Db
 import budgeteur.shared.Endpoint
-import budgeteur.shared.Json
+import budgeteur.shared.Endpoint.body
+import io.ktor.server.response.respond
 import budgeteur.shared.log
 import budgeteur.shared.uuidV7
 import io.ktor.http.HttpStatusCode
@@ -38,14 +39,14 @@ object CreateTag {
         post(PATH) {
             Endpoint.handle(call) {
                 val userId = Auth.userId(call).bind()
-                val request = Json.read<TagRequest>(call).bind()
+                val request = body<TagRequest>(call)
                 val tag = parseTag(uuidV7(), request)
 
                 requireAll(db.sql { requireNameIsUnique(it, userId, tag.name) })
                 db.sql { insert(it, userId, tag) }
 
                 call.log.info("Created tag ${tag.id}", "tagId" to tag.id)
-                Json.write(call, TagResponse.fromDomain(tag), HttpStatusCode.Created)
+                call.respond(HttpStatusCode.Created, TagResponse.fromDomain(tag))
             }
         }
 }

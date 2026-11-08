@@ -2,7 +2,7 @@ package budgeteur.feature.status
 
 import budgeteur.shared.Clock
 import budgeteur.shared.Db
-import budgeteur.shared.Json
+import io.ktor.server.response.respond
 import budgeteur.shared.LogEntry
 import budgeteur.shared.LogLevel
 import budgeteur.shared.log
@@ -85,6 +85,6 @@ object GetStatus {
                     database = database,
                 )
             val status = if (database.status == HEALTHY) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable
-            Json.write(call, response, status)
+            call.respond(status, response)
         }
 }

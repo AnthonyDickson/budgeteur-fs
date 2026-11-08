@@ -3,19 +3,22 @@ package budgeteur
 import budgeteur.feature.status.GetStatus
 import budgeteur.feature.status.GetStatus.getStatus
 import budgeteur.feature.tag.tagEndpoints
-import budgeteur.shared.ApiError
 import budgeteur.shared.Auth
 import budgeteur.shared.Clock
 import budgeteur.shared.Db
-import budgeteur.shared.Json
 import budgeteur.shared.RequestLogging
-import budgeteur.shared.requestId
+import budgeteur.shared.apiErrors
+import budgeteur.shared.apiJson
+import budgeteur.shared.respondError
 import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.AuthenticationConfig
 import io.ktor.server.auth.authenticate
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
@@ -33,6 +36,8 @@ class Dependencies(
 
 fun Application.budgeteur(deps: Dependencies) {
     install(RequestLogging) { quietPaths = setOf(GetStatus.PATH) }
+    install(ContentNegotiation) { json(apiJson) }
+    install(StatusPages) { apiErrors() }
     install(Authentication) { deps.configureAuth(this) }
 
     routing {
@@ -45,13 +50,7 @@ fun Application.budgeteur(deps: Dependencies) {
         // Unknown API paths get a JSON 404. Ktor ranks the literal routes above
         // this tailcard, whatever the order of registration.
         route("/api/{...}") {
-            handle {
-                Json.write(
-                    call,
-                    ApiError("Not Found", "No API endpoint matches ${call.request.path()}", 404, call.requestId),
-                    HttpStatusCode.NotFound,
-                )
-            }
+            handle { call.respondError(HttpStatusCode.NotFound, "Not Found", "No API endpoint matches ${call.request.path()}") }
         }
     }
 }

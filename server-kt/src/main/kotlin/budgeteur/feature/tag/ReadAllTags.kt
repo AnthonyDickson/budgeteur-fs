@@ -6,7 +6,7 @@ import budgeteur.domain.Tag
 import budgeteur.shared.Auth
 import budgeteur.shared.Db
 import budgeteur.shared.Endpoint
-import budgeteur.shared.Json
+import io.ktor.server.response.respond
 import budgeteur.shared.log
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -25,7 +25,7 @@ object ReadAllTags {
                 val tags = db.sql { getAll(it, userId) }
 
                 call.log.info("Returned ${tags.size} tags", "count" to tags.size)
-                Json.write(call, tags.map(TagResponse::fromDomain))
+                call.respond(tags.map(TagResponse::fromDomain))
             }
         }
 }

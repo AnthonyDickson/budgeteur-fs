@@ -1,14 +1,16 @@
 package budgeteur.shared
 
-import arrow.core.Either
 import arrow.core.raise.Raise
 import arrow.core.raise.either
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.statuspages.StatusPagesConfig
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
 import io.ktor.util.AttributeKey
 import java.sql.SQLException
 import java.util.UUID
-import kotlin.coroutines.cancellation.CancellationException
 import org.sqlite.SQLiteErrorCode
 import org.sqlite.SQLiteException
 
@@ -18,39 +20,15 @@ private val requestIdKey = AttributeKey<String>("RequestId")
 val ApplicationCall.requestId: String
     get() = attributes.computeIfAbsent(requestIdKey) { UUID.randomUUID().toString() }
 
+suspend fun ApplicationCall.respondError(status: HttpStatusCode, title: String, details: String) =
+    respond(status, ApiError(title, details, status.value, requestId))
+
 /**
- * Runs a handler written in Arrow's Raise DSL and turns its outcome into a
- * response. The handler writes its own success response; this writes every
- * failure, so no exception escapes a handler.
+ * Runs a handler written in Arrow's Raise DSL. The handler writes its own
+ * success response; this writes the error a handler raises. Exceptions are
+ * left to [apiErrors].
  */
 object Endpoint {
-    /** jOOQ wraps the driver's exceptions in its own, so look through the causes. */
-    private fun fromException(log: RequestLog, e: Exception): DomainError {
-        val sqlError = generateSequence<Throwable>(e) { it.cause }.filterIsInstance<SQLException>().firstOrNull()
-        return when {
-            sqlError is SQLiteException && sqlError.resultCode.code and 0xff == SQLiteErrorCode.SQLITE_CONSTRAINT.code -> {
-                log.warn("Unhandled constraint violation: ${sqlError.message}", "exception" to e.toString())
-                DomainError.Conflict(e)
-            }
-            sqlError != null -> DomainError.DatabaseError(e)
-            else -> DomainError.UnhandledException(e)
-        }
-    }
-
-    private suspend fun run(call: ApplicationCall, handler: suspend Raise<DomainError>.() -> Unit): Either<DomainError, Unit> =
-        try {
-            either { handler() }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Either.Left(fromException(call.log, e))
-        }
-
-    private fun internalError(log: RequestLog, errorType: String, cause: Throwable): Triple<HttpStatusCode, String, String> {
-        log.error(cause.stackTraceToString(), "errorType" to errorType)
-        return Triple(HttpStatusCode.InternalServerError, "Internal Server Error", "An unexpected error occurred")
-    }
-
     /**
      * A UUID path parameter. A malformed one gets a 404, as for a path that
      * matches no route.
@@ -61,34 +39,54 @@ object Endpoint {
             ?: raise(DomainError.NotFound("No API endpoint matches ${call.request.local.uri}"))
     }
 
+    /** The request body. One that does not decode to [T] is a validation failure. */
+    suspend inline fun <reified T : Any> Raise<DomainError>.body(call: ApplicationCall): T =
+        try {
+            call.receive<T>()
+        } catch (e: BadRequestException) {
+            raise(DomainError.ValidationFailed(e.cause?.message ?: e.message ?: "Invalid request body"))
+        }
+
     suspend fun handle(call: ApplicationCall, handler: suspend Raise<DomainError>.() -> Unit) {
-        val error = run(call, handler).leftOrNull() ?: return
+        val error = either { handler() }.leftOrNull() ?: return
         val log = call.log
-        val (status, title, details) =
-            when (error) {
-                is DomainError.ValidationFailed -> {
-                    log.warn("Validation failed: ${error.message}", "errorType" to "ValidationFailed")
-                    Triple(HttpStatusCode.BadRequest, "Validation Error", error.message)
-                }
-                is DomainError.NotFound -> {
-                    log.warn("Not found: ${error.message}", "errorType" to "NotFound")
-                    Triple(HttpStatusCode.NotFound, "Not Found", error.message)
-                }
-                DomainError.Unauthorised -> {
-                    log.error("Got a request where the user claims were not defined")
-                    Triple(HttpStatusCode.Unauthorized, "Unauthorized", "Did not find claims in the request data")
-                }
-                is DomainError.Conflict -> {
-                    log.warn("Conflict: ${error.cause}", "errorType" to "Conflict")
-                    Triple(
-                        HttpStatusCode.Conflict,
-                        "Conflict",
-                        "The request could not be completed due to unhandled database constraint violations.",
-                    )
-                }
-                is DomainError.DatabaseError -> internalError(log, "DatabaseError", error.cause)
-                is DomainError.UnhandledException -> internalError(log, "UnhandledException", error.cause)
+        when (error) {
+            is DomainError.ValidationFailed -> {
+                log.warn("Validation failed: ${error.message}", "errorType" to "ValidationFailed")
+                call.respondError(HttpStatusCode.BadRequest, "Validation Error", error.message)
             }
-        Json.write(call, ApiError(title, details, status.value, call.requestId), status)
+            is DomainError.NotFound -> {
+                log.warn("Not found: ${error.message}", "errorType" to "NotFound")
+                call.respondError(HttpStatusCode.NotFound, "Not Found", error.message)
+            }
+            DomainError.Unauthorised -> {
+                log.error("Got a request where the user claims were not defined")
+                call.respondError(HttpStatusCode.Unauthorized, "Unauthorized", "Did not find claims in the request data")
+            }
+        }
+    }
+}
+
+/**
+ * Turns an exception that escapes a handler into a JSON error. A constraint
+ * violation is a 409: handlers check constraints first, so one that reaches
+ * here marks a missed check rather than a broken server.
+ */
+fun StatusPagesConfig.apiErrors() {
+    exception<Throwable> { call, cause ->
+        // jOOQ wraps the driver's exceptions in its own, so look through the causes.
+        val sqlError = generateSequence(cause) { it.cause }.filterIsInstance<SQLException>().firstOrNull()
+        if (sqlError is SQLiteException && sqlError.resultCode.code and 0xff == SQLiteErrorCode.SQLITE_CONSTRAINT.code) {
+            call.log.warn("Unhandled constraint violation: ${sqlError.message}", "errorType" to "Conflict")
+            call.respondError(
+                HttpStatusCode.Conflict,
+                "Conflict",
+                "The request could not be completed due to unhandled database constraint violations.",
+            )
+        } else {
+            val errorType = if (sqlError != null) "DatabaseError" else "UnhandledException"
+            call.log.error(cause.stackTraceToString(), "errorType" to errorType)
+            call.respondError(HttpStatusCode.InternalServerError, "Internal Server Error", "An unexpected error occurred")
+        }
     }
 }

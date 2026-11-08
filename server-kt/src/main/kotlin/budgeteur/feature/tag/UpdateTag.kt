@@ -11,8 +11,9 @@ import budgeteur.shared.Auth
 import budgeteur.shared.Db
 import budgeteur.shared.DomainError
 import budgeteur.shared.Endpoint
+import budgeteur.shared.Endpoint.body
 import budgeteur.shared.Endpoint.uuidParam
-import budgeteur.shared.Json
+import io.ktor.server.response.respond
 import budgeteur.shared.log
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.put
@@ -42,14 +43,14 @@ object UpdateTag {
             Endpoint.handle(call) {
                 val userId = Auth.userId(call).bind()
                 val id = uuidParam(call, "id")
-                val request = Json.read<TagRequest>(call).bind()
+                val request = body<TagRequest>(call)
                 val tag = parseTag(id, request)
 
                 requireAll(db.sql { requireNameIsUnique(it, userId, tag) })
                 ensure(db.sql { update(it, userId, tag) }) { DomainError.NotFound("Tag $id not found") }
 
                 call.log.info("Updated tag $id", "tagId" to id)
-                Json.write(call, TagResponse.fromDomain(tag))
+                call.respond(TagResponse.fromDomain(tag))
             }
         }
 }

@@ -51,10 +51,14 @@ Vertical slices, as in the F# server:
 ## Design notes
 
 - **Handlers.** A handler is a block in Arrow's `Raise<DomainError>` context:
-  `bind()` unwraps an `Either` and `raise` fails. `Endpoint.handle` writes every
-  failure, and any exception, as a JSON error, so no exception escapes a
-  handler. jOOQ wraps driver exceptions, so it looks through the causes to tell
-  a constraint violation (409) from other database errors (500).
+  `bind()` unwraps an `Either` and `raise` fails. `DomainError` holds only the
+  failures a handler expects (validation, not found), and the handler wrapper
+  writes them as JSON errors. Unexpected failures stay exceptions, and Ktor's
+  StatusPages plugin writes them as JSON errors. jOOQ wraps driver exceptions,
+  so it looks through the causes to tell a constraint violation (409) from other
+  database errors (500).
+- **JSON.** Ktor's ContentNegotiation plugin reads and writes bodies with
+  kotlinx.serialization. A body that does not decode is a validation failure.
 - **Validation.** Domain constructors fail with a plain `String`. The request
   parser accumulates every field's failure and raises one `ValidationFailed`
   with one line per failure.

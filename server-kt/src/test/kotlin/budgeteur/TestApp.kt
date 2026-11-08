@@ -2,7 +2,7 @@ package budgeteur
 
 import budgeteur.shared.Auth
 import budgeteur.shared.Db
-import budgeteur.shared.Json
+import budgeteur.shared.apiJson
 import budgeteur.shared.UserPrincipal
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
@@ -65,4 +65,4 @@ fun HttpRequestBuilder.json(body: String) {
 
 fun HttpRequestBuilder.asUser(user: String) = header(TEST_USER_HEADER, user)
 
-suspend inline fun <reified T> HttpResponse.read(): T = Json.format.decodeFromString(bodyAsText())
+suspend inline fun <reified T> HttpResponse.read(): T = apiJson.decodeFromString(bodyAsText())

@@ -33,7 +33,7 @@ object Auth {
             HttpClient.newHttpClient()
                 .send(HttpRequest.newBuilder(discovery).build(), HttpResponse.BodyHandlers.ofString())
                 .body()
-        val jwks = Json.format.parseToJsonElement(body).jsonObject.getValue("jwks_uri").jsonPrimitive.content
+        val jwks = apiJson.parseToJsonElement(body).jsonObject.getValue("jwks_uri").jsonPrimitive.content
         return URI(jwks)
     }
 
@@ -54,14 +54,7 @@ object Auth {
                 if (oidc.validAudiences.isNotEmpty()) withAnyOfAudience(*oidc.validAudiences.toTypedArray())
             }
             validate { credential -> credential.payload.subject?.let(::UserPrincipal) }
-            challenge { _, _ -> unauthorised(call) }
+            challenge { _, _ -> call.respondError(HttpStatusCode.Unauthorized, "Unauthorized", "Authentication required") }
         }
     }
-
-    suspend fun unauthorised(call: ApplicationCall) =
-        Json.write(
-            call,
-            ApiError("Unauthorized", "Authentication required", 401, call.requestId),
-            HttpStatusCode.Unauthorized,
-        )
 }
