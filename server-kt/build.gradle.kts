@@ -23,7 +23,11 @@ plugins {
 
 group = "budgeteur"
 
-version = "0.1.0"
+// The image build passes the release version and commit, as `just publish` does for the F#
+// server: `gradle installDist -PappVersion=1.2.3 -PgitSha=abc123`.
+version = providers.gradleProperty("appVersion").getOrElse("0.0.0-local")
+
+val gitSha = providers.gradleProperty("gitSha").getOrElse("")
 
 repositories { mavenCentral() }
 
@@ -139,8 +143,12 @@ sourceSets.main { kotlin.srcDir(generatedJooq) }
 
 tasks.compileKotlin { dependsOn("jooqCodegen") }
 
-// GetStatus reports this as the running version.
-tasks.jar { manifest { attributes("Implementation-Version" to project.version) } }
+// GetStatus reports this as the running version: `1.2.3+abc123`, as the F# server reports its
+// informational version.
+tasks.jar {
+    val implementationVersion = if (gitSha.isEmpty()) "$version" else "$version+$gitSha"
+    manifest { attributes("Implementation-Version" to implementationVersion) }
+}
 
 // `just audit` scans this SBOM: what the server runs with, not the build's own tooling.
 tasks.cyclonedxDirectBom { includeConfigs.set(listOf("runtimeClasspath")) }

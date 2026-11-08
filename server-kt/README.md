@@ -62,6 +62,23 @@ migrations.
 Against the dev Authelia (`docker compose -f docker/docker-compose.yml up
 authelia`), use the values in the F# server's `appsettings.Development.json`.
 
+## Production image
+
+`docker/Dockerfile.kt` builds the client and the server and runs them on a JRE
+on Alpine, as `docker/Dockerfile` does for the F# server:
+
+    docker build -f docker/Dockerfile.kt --build-arg APP_VERSION=1.2.3 \
+      --build-arg GIT_SHA=$(git rev-parse HEAD) -t budgeteur-kt .
+
+It serves the client from `/app/wwwroot` on port 5000 and runs as `app` (UID
+1654, as in the F# image), which owns the `/data` and `/logs` mount points. Give
+it its own volumes: its schema is not the F# server's. Set
+`BUDGETEUR_DATABASE=/data/app.sqlite3`,
+`BUDGETEUR_SESSION_KEY_FILE=/data/session-keys` and
+`BUDGETEUR_LOG_FILE=/logs/app.log`, along with the OIDC settings above. The
+image is about 410 MB, of which the server's jars are 64 MB and the rest the JRE
+on Alpine. `/api/status` reports `APP_VERSION+GIT_SHA`, as the F# server does.
+
 ## Stack
 
 | Concern         | Choice                                                |
@@ -263,7 +280,7 @@ domain enums, but that would tie generated code to `domain/`.
   money as integer cents rather than SQLite's REAL-backed numerics, and dates as
   ISO-8601 text.
 - The rules slice, beyond the stub, and every other slice the client uses.
-- The production Docker image and CI still build the F# server only.
+- The image is not published, and CI does not build it.
 
 ## Findings
 
