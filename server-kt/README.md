@@ -53,6 +53,7 @@ migrations.
 | `BUDGETEUR_SESSION_KEY_FILE` | Optional: cookie keys, created if missing, so sessions persist             |
 | `SCALAR_CLIENT_ID`           | Optional: in Development, serves the API docs with this client             |
 | `BUDGETEUR_WEB_ROOT`         | Optional: the client's build (`client/dist`), served with the SPA fallback |
+| `BUDGETEUR_LOG_FILE`         | Optional: also log to this file, rolled at 10 MB, 10 files kept            |
 | `PORT`                       | Optional, default 5000                                                     |
 | `BUDGETEUR_ENVIRONMENT`      | `Development` trusts the provider's self-signed TLS certificate            |
 
@@ -176,6 +177,12 @@ Vertical slices, as in the F# server:
   `ApplicationStopPreparing` event until none remain. Ktor raises it before
   closing the listening socket, so a call that arrives meanwhile is served and
   waited for too.
+- **Log file.** With `BUDGETEUR_LOG_FILE` set, the log also goes to that file,
+  rolled at 10 MB with 10 files kept, about 100 MB, as in the F# server. The
+  appender is added in code, since `logback.xml` cannot add one conditionally
+  without Janino, and both outputs share `JsonLogEncoder`. Logback checks the
+  size once a minute by default, which lets a burst overshoot the limit, so the
+  check runs once a second.
 - **Forwarded headers.** Behind a proxy that terminates TLS, the login builds
   its callback URL from `X-Forwarded-Proto`, as the F# server does (see
   [deployment](../docs/deployment.md#hosting)). The server trusts

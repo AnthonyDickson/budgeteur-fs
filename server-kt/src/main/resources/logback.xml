@@ -1,14 +1,9 @@
 <configuration>
-  <!-- One JSON object per line, as the F# server's Serilog compact JSON. Key-value
-       pairs (the request log's fields) become fields of the object. -->
+  <!-- The format is JsonLogEncoder's. BUDGETEUR_LOG_FILE adds a rolling file
+       appender in code (shared/Logging.kt), since this file cannot add one
+       conditionally without Janino. -->
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-      <timeZone>UTC</timeZone>
-      <fieldNames>
-        <version>[ignore]</version>
-        <levelValue>[ignore]</levelValue>
-      </fieldNames>
-    </encoder>
+    <encoder class="budgeteur.shared.JsonLogEncoder" />
   </appender>
   <root level="INFO">
     <appender-ref ref="STDOUT" />

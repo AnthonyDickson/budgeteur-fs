@@ -50,6 +50,8 @@ data class AppConfig(
      * The client's build, served with the SPA fallback. Unset in Development, where Vite serves it.
      */
     val webRoot: Path?,
+    /** A file to log to as well as the console, rolled at 10 MB. */
+    val logFile: Path?,
     val port: Int,
     val environment: String,
 ) {
@@ -133,6 +135,7 @@ fun loadConfig(env: Env): Either<NonEmptyList<String>, AppConfig> = either {
             sessionKeyFile = env.optional("BUDGETEUR_SESSION_KEY_FILE")?.let(Path::of),
             scalarClientId = env.optional("SCALAR_CLIENT_ID"),
             webRoot = webRoot,
+            logFile = env.optional("BUDGETEUR_LOG_FILE")?.let(Path::of),
             port = port,
             environment = env["BUDGETEUR_ENVIRONMENT"] ?: "Production",
         )

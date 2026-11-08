@@ -7,6 +7,7 @@ import budgeteur.shared.Db
 import budgeteur.shared.NimbusOidcClient
 import budgeteur.shared.SessionKeys
 import budgeteur.shared.loadConfig
+import budgeteur.shared.logToFile
 import budgeteur.shared.oidcBearer
 import budgeteur.shared.systemClock
 import budgeteur.shared.trustAnyCertificateForDevelopment
@@ -27,6 +28,8 @@ fun main() {
             failures.forEach { System.err.println("  - $it") }
             exitProcess(1)
         }
+
+    config.logFile?.let(::logToFile)
 
     // The development provider has a self-signed certificate.
     if (config.isDevelopment) trustAnyCertificateForDevelopment()
