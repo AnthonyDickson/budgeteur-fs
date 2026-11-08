@@ -8,7 +8,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import java.sql.SQLException
 import java.time.Duration
 import java.time.Instant
 import kotlinx.coroutines.withTimeoutOrNull
@@ -51,11 +50,8 @@ private suspend fun checkDatabase(db: Db, log: RequestLog): DatabaseHealth =
         try {
             db.sql { selectOne().fetch() }
             DatabaseHealth(HEALTHY, null)
-        } catch (e: SQLException) {
-            // Opening the connection throws the driver's exception; queries throw jOOQ's.
-            log.warn("Database health probe failed", "exception" to e.message)
-            DatabaseHealth(UNHEALTHY, "database unreachable")
         } catch (e: DataAccessException) {
+            // jOOQ wraps the driver's exceptions, including failures to connect.
             log.warn("Database health probe failed", "exception" to e.message)
             DatabaseHealth(UNHEALTHY, "database unreachable")
         }

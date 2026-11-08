@@ -37,7 +37,7 @@ fun Route.createTag(db: Db) =
             val userId = call.userId
             val tag = call.receiveOrRaise<TagRequest>().toTag(newId())
 
-            db.sql {
+            db.transaction {
                 requireAll({ requireUniqueName(userId, tag.name) })
                 insertTag(userId, tag)
             }

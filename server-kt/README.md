@@ -47,8 +47,9 @@ Vertical slices, as in the F# server:
   infrastructure. Slices depend on these, never on each other.
 - `App.kt` builds the application from a `Dependencies` value (database, clock,
   auth setup); `Main.kt` is the imperative shell that reads config, migrates and
-  starts serving. The test host builds its own `Dependencies` with an in-memory
-  database and a fake auth provider driven by an `X-Test-User` header.
+  starts serving. The test host builds its own `Dependencies` with a database in
+  a temporary file, so locking behaves as in production, and a fake auth
+  provider driven by an `X-Test-User` header.
 
 ## Design notes
 
@@ -77,6 +78,14 @@ Vertical slices, as in the F# server:
 - **Constraint checks.** Handlers check database constraints before writing.
   Each check raises a `ConstraintError`; `requireAll` runs every check and turns
   the failures into one `ValidationFailed`.
+- **Transactions.** A handler that checks then writes does both in one
+  transaction, and raising inside it rolls the transaction back. Transactions
+  begin `IMMEDIATE`, taking SQLite's write lock at the start, so a concurrent
+  writer waits and then sees the committed row. With SQLite's default deferred
+  transactions the second writer would fail at its write with
+  `SQLITE_BUSY_SNAPSHOT`, a 500. Every connection comes from one SQLite data
+  source that also sets foreign keys, WAL and the busy timeout. There is no
+  pool: opening a SQLite connection is cheap.
 
 ## Schema and generated code
 

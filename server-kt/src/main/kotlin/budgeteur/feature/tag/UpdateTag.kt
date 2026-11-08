@@ -41,7 +41,7 @@ fun Route.updateTag(db: Db) =
             val id = call.uuidParam("id")
             val tag = call.receiveOrRaise<TagRequest>().toTag(id)
 
-            db.sql {
+            db.transaction {
                 requireAll({ requireUniqueName(userId, tag) })
                 ensure(updateTag(userId, tag)) { DomainError.NotFound("Tag $id not found") }
             }

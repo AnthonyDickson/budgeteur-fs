@@ -1,9 +1,9 @@
 package budgeteur
 
-import budgeteur.shared.USER_AUTH
 import budgeteur.shared.Db
-import budgeteur.shared.apiJson
+import budgeteur.shared.USER_AUTH
 import budgeteur.shared.UserPrincipal
+import budgeteur.shared.apiJson
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.setBody
@@ -13,48 +13,57 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
-import java.util.UUID
 
 /** Acts as a different user against the same database, for the user scoping tests. */
 const val TEST_USER_HEADER = "X-Test-User"
 const val DEFAULT_TEST_USER = "test-user"
 
 /**
- * Runs [block] against the app with a fresh in-memory database. SQLite drops a
- * shared-cache in-memory database when its last connection closes, and each
- * query opens its own, so a keeper connection stays open for the test.
+ * Runs [block] against a migrated database in a temporary file, deleted
+ * afterwards. A file rather than an in-memory database, so locking and WAL
+ * behave as in production.
  */
+fun <T> withTempDb(block: (Db) -> T): T {
+    val file = Files.createTempFile("budgeteur-test-", ".sqlite3")
+    try {
+        val db = Db("jdbc:sqlite:$file")
+        db.migrate()
+        return block(db)
+    } finally {
+        listOf("", "-wal", "-shm").forEach { Files.deleteIfExists(Path.of("$file$it")) }
+    }
+}
+
+/** Runs [block] against the app with a fresh database. */
 fun withTestApp(
     clock: () -> Instant = Instant::now,
     block: suspend ApplicationTestBuilder.(db: Db) -> Unit,
-) {
-    val db = Db("jdbc:sqlite:file:test-${UUID.randomUUID()}?mode=memory&cache=shared")
+) = withTempDb { db ->
     // Ktor builds the application lazily, on the first request, so read the start now.
     val startedAt = clock()
-    db.open().use {
-        db.migrate()
-        testApplication {
-            application {
-                budgeteur(
-                    Dependencies(
-                        db = db,
-                        clock = clock,
-                        environment = "Test",
-                        startedAt = startedAt,
-                        configureAuth = {
-                            provider(USER_AUTH) {
-                                authenticate { ctx ->
-                                    val user = ctx.call.request.headers[TEST_USER_HEADER] ?: DEFAULT_TEST_USER
-                                    ctx.principal(UserPrincipal(user))
-                                }
+    testApplication {
+        application {
+            budgeteur(
+                Dependencies(
+                    db = db,
+                    clock = clock,
+                    environment = "Test",
+                    startedAt = startedAt,
+                    configureAuth = {
+                        provider(USER_AUTH) {
+                            authenticate { ctx ->
+                                val user = ctx.call.request.headers[TEST_USER_HEADER] ?: DEFAULT_TEST_USER
+                                ctx.principal(UserPrincipal(user))
                             }
-                        },
-                    ),
-                )
-            }
-            block(db)
+                        }
+                    },
+                ),
+            )
         }
+        block(db)
     }
 }
 
