@@ -286,7 +286,7 @@ domain enums, but that would tie generated code to `domain/`.
   money as integer cents rather than SQLite's REAL-backed numerics, and dates as
   ISO-8601 text.
 - The rules slice, beyond the stub, and every other slice the client uses.
-- The image is not published, and CI does not build it.
+- The image is not published; CI only builds it and smoke tests it.
 
 ## Findings
 

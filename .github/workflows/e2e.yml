@@ -51,3 +51,45 @@ jobs:
           path: |
             tests/e2e/test-results/
           retention-days: 7
+
+  # The specs tagged @kotlin against the Kotlin PoC (server-kt/), which the
+  # stack builds in its server container.
+  e2e-kotlin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build client-dev image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.client-dev
+          # The name compose gives the Kotlin e2e stack's client image.
+          tags: budgeteur-kt-e2e-client:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run E2E tests
+        run: |
+          docker compose \
+            -f docker/docker-compose.e2e-kt.yml \
+            up \
+            --abort-on-container-exit \
+            --exit-code-from e2e \
+            --remove-orphans
+
+      - if: failure()
+        run: |
+          echo "Kotlin E2E tests failed. Run 'just kt-e2e-test' locally to reproduce."
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-kotlin-results
+          path: |
+            tests/e2e/test-results/
+          retention-days: 7

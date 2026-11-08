@@ -154,3 +154,140 @@ jobs:
       - if: failure()
         run: |
           echo "F# linting failed. Run 'just lint' locally to see the issues and fix them."
+
+  # Slice boundaries of both servers. No compiler or formatter checks these.
+  check-architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: extractions/setup-just@v4
+
+      - run: just check-architecture
+
+      - if: failure()
+        run: |
+          echo "Architecture check failed. Run 'just check-architecture' locally to see the violations."
+
+  # The Kotlin PoC (server-kt/). Gradle matches the dev shell's.
+  kotlin-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.14.4'
+
+      - run: gradle --no-daemon test
+        working-directory: server-kt
+
+      - if: failure()
+        run: |
+          echo "Kotlin tests failed. Run 'just kt-test' locally to reproduce and fix the failures."
+
+  format-kotlin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.14.4'
+
+      - run: gradle --no-daemon ktfmtCheck
+        working-directory: server-kt
+
+      - if: failure()
+        run: |
+          echo "Kotlin formatting check failed. Run 'just format' to fix."
+
+  lint-kotlin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.14.4'
+
+      - run: gradle --no-daemon detektMain detektTest
+        working-directory: server-kt
+
+      - if: failure()
+        run: |
+          echo "Kotlin linting failed. Run 'just kt-lint' locally to see the issues and fix them."
+
+  # The image is not published; building it here keeps docker/Dockerfile.kt
+  # working. The smoke test runs it as the F# image's is run before a release.
+  kotlin-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.kt
+          load: true
+          tags: budgeteur-kt:smoke
+          build-args: |
+            APP_VERSION=0.0.0-ci
+            GIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=kotlin-image
+          cache-to: type=gha,mode=max,scope=kotlin-image
+
+      # A named volume over /data, the production environment, and a
+      # placeholder OIDC authority, which is only contacted on login. Waits
+      # for a healthy status report carrying the build's version and for the
+      # client's index page.
+      - name: Smoke test
+        env:
+          VERSION: 0.0.0-ci+${{ github.sha }}
+        run: |
+          docker run -d --name smoke -p 5000:5000 -v smoke-data:/data -v smoke-logs:/logs \
+            -e OIDC_AUTHORITY=https://auth.example.invalid \
+            -e OIDC_CLIENT_ID=budgeteur-fs \
+            -e OIDC_CLIENT_SECRET=smoke \
+            -e LOGIN_RETURN_URL=http://localhost:5000/ \
+            -e BUDGETEUR_DATABASE=/data/app.sqlite3 \
+            -e BUDGETEUR_SESSION_KEY_FILE=/data/session-keys \
+            -e BUDGETEUR_LOG_FILE=/logs/app.log \
+            budgeteur-kt:smoke
+          for _ in $(seq 1 30); do
+            if status="$(curl -fsS http://localhost:5000/api/status)"; then
+              echo "$status"
+              index="$(curl -fsS http://localhost:5000/ || true)"
+              if grep -qF "\"version\":\"$VERSION\"" <<< "$status" \
+                && grep -qi '<!doctype html>' <<< "$index"; then
+                exit 0
+              fi
+              echo "Expected version $VERSION and the client's index page"
+              break
+            fi
+            sleep 1
+          done
+          docker logs smoke
+          exit 1
+
+      - if: failure()
+        run: |
+          echo "The Kotlin image failed to build or its smoke test. Build it with 'docker build -f docker/Dockerfile.kt .' and run it with a named volume over /data to reproduce."
