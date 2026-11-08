@@ -137,6 +137,15 @@ Vertical slices, as in the F# server:
   `HttpsURLConnection`'s, process-wide, which is acceptable because the provider
   is the only host the server calls. Nimbus ignores the `HttpsURLConnection`
   defaults.
+- **Forwarded headers.** Behind a proxy that terminates TLS, the login builds
+  its callback URL from `X-Forwarded-Proto`, as the F# server does (see
+  [deployment](../docs/deployment.md#hosting)). The server trusts
+  `X-Forwarded-Proto` and `X-Forwarded-For` only from loopback and private IPv4
+  peers, and takes their last value, since earlier values come from the client.
+  The proxy must pass the Host header through. Ktor's `XForwardedHeaders` plugin
+  was rejected: it cannot check the peer, its default takes the client's first
+  value, and when the scheme changes it keeps the connection's port, which would
+  put `:80` into an `https://` URL. The replacement plugin is about 40 lines.
 
 ## Schema and generated code
 
@@ -168,9 +177,6 @@ domain enums, but that would tie generated code to `domain/`.
 - Acceptance of a valid bearer token has not been tested end to end.
 - OpenAPI document and Scalar UI. Ktor's options are its OpenAPI generation
   plugin or a library such as Kompendium; neither was evaluated.
-- Forwarded headers. The login builds its callback URL from the request, so
-  behind a TLS-terminating proxy it would send an `http://` redirect URI until
-  Ktor's `XForwardedHeaders` plugin is installed with trusted proxies.
 - Request body size limit, static files and the SPA fallback.
 - `Money`, dates and the rest of the domain. Owning the schema allows storing
   money as integer cents rather than SQLite's REAL-backed numerics, and dates as

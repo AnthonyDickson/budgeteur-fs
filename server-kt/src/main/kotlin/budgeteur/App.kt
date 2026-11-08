@@ -14,6 +14,7 @@ import budgeteur.shared.Db
 import budgeteur.shared.LoginConfig
 import budgeteur.shared.OidcClient
 import budgeteur.shared.RequestLogging
+import budgeteur.shared.TrustedForwardedHeaders
 import budgeteur.shared.apiErrors
 import budgeteur.shared.apiJson
 import budgeteur.shared.authenticated
@@ -50,6 +51,7 @@ class Dependencies(
 )
 
 fun Application.budgeteur(deps: Dependencies) {
+    install(TrustedForwardedHeaders)
     install(RequestLogging) { quietPaths = setOf(STATUS_PATH) }
     install(ContentNegotiation) { json(apiJson) }
     install(StatusPages) { apiErrors() }
