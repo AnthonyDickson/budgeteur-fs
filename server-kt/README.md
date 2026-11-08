@@ -17,6 +17,18 @@ From the dev shell (`nix develop`, which includes JDK 21 and Gradle):
 | `just kt-format`                       | Format with ktfmt           |
 | `gradle installDist` (in `server-kt/`) | Build `build/install/...`   |
 
+The dev shell also provides JetBrains'
+[`kotlin-lsp`](https://github.com/Kotlin/kotlin-lsp), which the repository's
+Helix and Crush configs start with `kotlin-lsp --stdio` from `server-kt/`.
+nixpkgs only carries the community `kotlin-language-server`, whose bundled
+Kotlin 2.1 compiler cannot read the 2.4 standard library, so
+`nix/packages/kotlin-lsp` packages JetBrains' prebuilt release, the flake's only
+unfree package. JetBrains builds expire about a month after release and old
+downloads are deleted, so `just update-kotlin-lsp` moves the pin in
+`nix/packages/kotlin-lsp/pin.json` to the latest release; the shell hook warns
+once the pinned build is 25 days old. Its bundled analyser must support the
+Kotlin version in `build.gradle.kts`, so bump the two together.
+
 `just kt-e2e-test` runs `docker/docker-compose.e2e-kt.yml`: the F# E2E stack
 with this server in place of the F# one, running only the specs tagged
 `@kotlin`, those whose endpoints the PoC has. Tag a spec or test when the PoC

@@ -34,6 +34,10 @@ kt-e2e-test:
 kt-test:
 	cd server-kt && gradle --no-daemon test
 
+# Pin the dev shell's kotlin-lsp to JetBrains' latest release; builds expire about a month after release.
+update-kotlin-lsp:
+	nix/packages/kotlin-lsp/update.sh
+
 # npm install
 client-install-deps:
 	cd client && npm install

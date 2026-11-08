@@ -11,3 +11,15 @@ args = ["fsautocomplete", "--adaptive-lsp-server-enabled"]
 
 [language-server.fsharp-ls.config]
 AutomaticWorkspaceInit = true
+
+[[language]]
+name = "kotlin"
+# Helix defaults kotlin to the community `kotlin-language-server`, which cannot
+# read Kotlin 2.4 libraries. The dev shell provides JetBrains' `kotlin-lsp`
+# instead. The Gradle settings file marks server-kt/ as the project root.
+roots = ["settings.gradle.kts"]
+language-servers = ["kotlin-lsp"]
+
+[language-server.kotlin-lsp]
+command = "kotlin-lsp"
+args = ["--stdio"]

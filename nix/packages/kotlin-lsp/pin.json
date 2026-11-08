@@ -1,0 +1,10 @@
+{
+  "version": "263.7084.0",
+  "released": "2026-10-17",
+  "releasedEpoch": 1792233172,
+  "hashes": {
+    "x86_64-linux": "sha256-rgxLAeF6tzpKUienjqmebcvj5JlgAxWyJ1mk5M3dEd8=",
+    "aarch64-linux": "sha256-RQq3wdgOSBBqpCm0jLQibYLKEqiiQARHrgI4Z5R4DKw=",
+    "aarch64-darwin": "sha256-tAO/ilS9RY47pnMc+KuzNAvgi0OcA1dt/AKxP682lLg="
+  }
+}
