@@ -79,8 +79,8 @@ e2e-test:
 	docker compose -f docker/docker-compose.e2e.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
 	docker compose -f docker/docker-compose.e2e.yml down
 
-# Format with dprint (see dprint.json) + gleam format + fantomas
-format:
+# Format with dprint (see dprint.json) + gleam format + fantomas + ktfmt
+format: kt-format
 	dprint fmt
 	gleam format
 	cd server && dotnet fantomas .
