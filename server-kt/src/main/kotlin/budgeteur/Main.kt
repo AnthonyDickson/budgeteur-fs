@@ -60,6 +60,7 @@ fun main() {
                     ?.let {
                         ApiDocsSettings(it, { oidc.authorizationEndpoint }, { oidc.tokenEndpoint })
                     },
+            webRoot = config.webRoot,
         )
 
     embeddedServer(Netty, port = config.port) { budgeteur(deps) }.start(wait = true)

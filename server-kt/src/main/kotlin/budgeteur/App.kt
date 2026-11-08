@@ -22,6 +22,7 @@ import budgeteur.shared.apiErrors
 import budgeteur.shared.apiJson
 import budgeteur.shared.authenticated
 import budgeteur.shared.bodyLimit
+import budgeteur.shared.clientFiles
 import budgeteur.shared.respondError
 import budgeteur.shared.userSession
 import budgeteur.shared.userSessionCookie
@@ -38,6 +39,7 @@ import io.ktor.server.routing.openapi.hide
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.sessions.Sessions
+import java.nio.file.Path
 import java.time.Instant
 
 /** Everything the app needs from outside. The server and the test host each build one. */
@@ -55,6 +57,8 @@ class Dependencies(
     val configureBearer: AuthenticationConfig.() -> Unit,
     /** Serves the OpenAPI document and Scalar when present: Development only. */
     val apiDocs: ApiDocsSettings? = null,
+    /** The client's build, served with the SPA fallback when present. */
+    val webRoot: Path? = null,
 )
 
 fun Application.budgeteur(deps: Dependencies) {
@@ -96,5 +100,7 @@ fun Application.budgeteur(deps: Dependencies) {
                 }
             }
             .hide()
+
+        deps.webRoot?.let { clientFiles(it) }
     }
 }

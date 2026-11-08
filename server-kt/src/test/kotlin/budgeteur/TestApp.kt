@@ -99,6 +99,7 @@ object FakeOidcClient : OidcClient {
 fun withTestApp(
     clock: () -> Instant = Instant::now,
     defaultUser: String? = DEFAULT_TEST_USER,
+    webRoot: Path? = null,
     block: suspend ApplicationTestBuilder.(db: Db) -> Unit,
 ) = withTempDb { db ->
     // Ktor builds the application lazily, on the first request, so read the start now.
@@ -129,6 +130,7 @@ fun withTestApp(
                             { URI("https://provider.test/authorize") },
                             { URI("https://provider.test/token") },
                         ),
+                    webRoot = webRoot,
                 )
             )
         }

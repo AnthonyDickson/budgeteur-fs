@@ -40,20 +40,21 @@ The server reads its settings from environment variables. It reports every
 missing or invalid setting at once and exits. On startup it applies pending
 migrations.
 
-| Variable                     | Purpose                                                         |
-| ---------------------------- | --------------------------------------------------------------- |
-| `BUDGETEUR_DATABASE`         | SQLite file path                                                |
-| `OIDC_AUTHORITY`             | The provider's issuer URL                                       |
-| `OIDC_CLIENT_ID`             | The SPA login's client                                          |
-| `OIDC_CLIENT_SECRET`         | Its secret                                                      |
-| `OIDC_CALLBACK_PATH`         | Optional, default `/signin-oidc`                                |
-| `OIDC_VALID_AUDIENCES`       | Optional, comma separated; bearer tokens only                   |
-| `OIDC_LOGOUT_URL`            | Optional: the provider's logout page                            |
-| `LOGIN_RETURN_URL`           | Absolute URL a login returns to, e.g. `http://localhost:5173/`  |
-| `BUDGETEUR_SESSION_KEY_FILE` | Optional: cookie keys, created if missing, so sessions persist  |
-| `SCALAR_CLIENT_ID`           | Optional: in Development, serves the API docs with this client  |
-| `PORT`                       | Optional, default 5000                                          |
-| `BUDGETEUR_ENVIRONMENT`      | `Development` trusts the provider's self-signed TLS certificate |
+| Variable                     | Purpose                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `BUDGETEUR_DATABASE`         | SQLite file path                                                           |
+| `OIDC_AUTHORITY`             | The provider's issuer URL                                                  |
+| `OIDC_CLIENT_ID`             | The SPA login's client                                                     |
+| `OIDC_CLIENT_SECRET`         | Its secret                                                                 |
+| `OIDC_CALLBACK_PATH`         | Optional, default `/signin-oidc`                                           |
+| `OIDC_VALID_AUDIENCES`       | Optional, comma separated; bearer tokens only                              |
+| `OIDC_LOGOUT_URL`            | Optional: the provider's logout page                                       |
+| `LOGIN_RETURN_URL`           | Absolute URL a login returns to, e.g. `http://localhost:5173/`             |
+| `BUDGETEUR_SESSION_KEY_FILE` | Optional: cookie keys, created if missing, so sessions persist             |
+| `SCALAR_CLIENT_ID`           | Optional: in Development, serves the API docs with this client             |
+| `BUDGETEUR_WEB_ROOT`         | Optional: the client's build (`client/dist`), served with the SPA fallback |
+| `PORT`                       | Optional, default 5000                                                     |
+| `BUDGETEUR_ENVIRONMENT`      | `Development` trusts the provider's self-signed TLS certificate            |
 
 Against the dev Authelia (`docker compose -f docker/docker-compose.yml up
 authelia`), use the values in the F# server's `appsettings.Development.json`.
@@ -158,6 +159,14 @@ Vertical slices, as in the F# server:
   a JSON 413. ContentNegotiation wraps the limit's exception in a
   `BadRequestException`, so the body parser unwraps it rather than reporting a
   400.
+- **Client files.** With `BUDGETEUR_WEB_ROOT` set, the server serves the
+  client's build, and `index.html` for any other path without a file extension,
+  as ASP.NET Core's `MapFallbackToFile` does, so the SPA's routes load on a
+  refresh. A missing file is a 404, and `/api/...` keeps its JSON 404 because
+  literal routes outrank the catch-all. Development leaves it unset, as Vite
+  serves the client. Vite's hashed bundles under `assets/` are cached for a
+  year; everything else, `index.html` above all, is `no-cache`, so a deploy
+  shows at once. The F# server leaves caching to the browser's heuristics.
 - **Forwarded headers.** Behind a proxy that terminates TLS, the login builds
   its callback URL from `X-Forwarded-Proto`, as the F# server does (see
   [deployment](../docs/deployment.md#hosting)). The server trusts
@@ -218,7 +227,6 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- Static files and the SPA fallback.
 - `Money`, dates and the rest of the domain. Owning the schema allows storing
   money as integer cents rather than SQLite's REAL-backed numerics, and dates as
   ISO-8601 text.

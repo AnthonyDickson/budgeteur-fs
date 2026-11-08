@@ -10,6 +10,7 @@ import arrow.core.raise.context.raise
 import arrow.core.raise.context.zipOrAccumulate
 import java.net.URI
 import java.nio.file.Path
+import kotlin.io.path.isRegularFile
 
 data class OidcConfig(
     val authority: String,
@@ -45,6 +46,10 @@ data class AppConfig(
      * environments never do.
      */
     val scalarClientId: String?,
+    /**
+     * The client's build, served with the SPA fallback. Unset in Development, where Vite serves it.
+     */
+    val webRoot: Path?,
     val port: Int,
     val environment: String,
 ) {
@@ -75,6 +80,16 @@ private fun Env.callbackPath(): String {
 }
 
 context(_: Raise<String>)
+private fun Env.webRoot(): Path? {
+    val raw = optional("BUDGETEUR_WEB_ROOT") ?: return null
+    val dir = Path.of(raw)
+    ensure(dir.resolve(CLIENT_INDEX).isRegularFile()) {
+        "BUDGETEUR_WEB_ROOT must be a directory holding $CLIENT_INDEX, got $raw"
+    }
+    return dir
+}
+
+context(_: Raise<String>)
 private fun absoluteUrl(name: String, value: String): String {
     val uri = runCatching { URI(value) }.getOrNull()
     ensure(uri != null && uri.scheme in setOf("http", "https") && uri.host != null) {
@@ -100,13 +115,24 @@ fun loadConfig(env: Env): Either<NonEmptyList<String>, AppConfig> = either {
         { absoluteUrl("LOGIN_RETURN_URL", env.required("LOGIN_RETURN_URL")) },
         { env.optional("OIDC_LOGOUT_URL")?.let { absoluteUrl("OIDC_LOGOUT_URL", it) } },
         { env.port() },
-    ) { database, authority, clientId, clientSecret, callbackPath, returnUrl, logoutUrl, port ->
+        { env.webRoot() },
+    ) {
+        database,
+        authority,
+        clientId,
+        clientSecret,
+        callbackPath,
+        returnUrl,
+        logoutUrl,
+        port,
+        webRoot ->
         AppConfig(
             databaseUrl = "jdbc:sqlite:$database",
             oidc = OidcConfig(authority, clientId, clientSecret, callbackPath, env.audiences()),
             login = LoginConfig(returnUrl, logoutUrl),
             sessionKeyFile = env.optional("BUDGETEUR_SESSION_KEY_FILE")?.let(Path::of),
             scalarClientId = env.optional("SCALAR_CLIENT_ID"),
+            webRoot = webRoot,
             port = port,
             environment = env["BUDGETEUR_ENVIRONMENT"] ?: "Production",
         )
