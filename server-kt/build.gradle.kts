@@ -3,15 +3,15 @@ import org.flywaydb.core.Flyway
 buildscript {
     // The build runs the migrations itself to give jOOQ a schema to read.
     dependencies {
-        classpath("org.flywaydb:flyway-core:11.8.0")
-        classpath("org.xerial:sqlite-jdbc:3.50.3.0")
+        classpath("org.flywaydb:flyway-core:13.12.1")
+        classpath("org.xerial:sqlite-jdbc:3.54.1.0")
     }
 }
 
 plugins {
-    kotlin("jvm") version "2.2.21"
-    kotlin("plugin.serialization") version "2.2.21"
-    id("org.jooq.jooq-codegen-gradle") version "3.20.5"
+    kotlin("jvm") version "2.4.21"
+    kotlin("plugin.serialization") version "2.4.21"
+    id("org.jooq.jooq-codegen-gradle") version "3.21.9"
     application
 }
 
@@ -20,10 +20,10 @@ version = "0.1.0"
 
 repositories { mavenCentral() }
 
-val ktor = "3.3.1"
-val arrow = "2.1.2"
-val jooq = "3.20.5"
-val sqliteJdbc = "3.50.3.0"
+val ktor = "3.6.1"
+val arrow = "2.3.0"
+val jooq = "3.21.9"
+val sqliteJdbc = "3.54.1.0"
 
 dependencies {
     implementation("io.ktor:ktor-server-core:$ktor")
@@ -31,12 +31,12 @@ dependencies {
     implementation("io.ktor:ktor-server-auth:$ktor")
     implementation("io.ktor:ktor-server-auth-jwt:$ktor")
     implementation("io.arrow-kt:arrow-core:$arrow")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     implementation("org.xerial:sqlite-jdbc:$sqliteJdbc")
-    implementation("org.flywaydb:flyway-core:11.8.0")
+    implementation("org.flywaydb:flyway-core:13.12.1")
     implementation("org.jooq:jooq:$jooq")
     implementation("org.jooq:jooq-kotlin:$jooq")
-    implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("ch.qos.logback:logback-classic:1.6.6")
 
     jooqCodegen("org.xerial:sqlite-jdbc:$sqliteJdbc")
 
