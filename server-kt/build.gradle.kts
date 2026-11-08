@@ -47,6 +47,7 @@ dependencies {
     implementation(libs.jooq.kotlin)
     implementation(libs.logback.classic)
     implementation(libs.logstash.logback.encoder)
+    implementation(platform(libs.jackson3.bom))
 
     jooqCodegen(libs.sqlite.jdbc)
 

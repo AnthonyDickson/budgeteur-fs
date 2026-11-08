@@ -11,6 +11,9 @@ sqlite-jdbc = "3.54.1.0"
 [libraries]
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+# logstash-logback-encoder 9.0 brings Jackson 3.0.1, which has known
+# vulnerabilities; this lifts every Jackson 3 module.
+jackson3-bom = "tools.jackson:jackson-bom:3.2.4"
 jooq = { module = "org.jooq:jooq", version.ref = "jooq" }
 jooq-kotlin = { module = "org.jooq:jooq-kotlin", version.ref = "jooq" }
 kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0"
