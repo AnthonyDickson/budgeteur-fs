@@ -167,6 +167,14 @@ Vertical slices, as in the F# server:
   serves the client. Vite's hashed bundles under `assets/` are cached for a
   year; everything else, `index.html` above all, is `no-cache`, so a deploy
   shows at once. The F# server leaves caching to the browser's heuristics.
+- **Shutdown.** On a stop signal the server waits up to 30 seconds for calls in
+  flight, as the F# server's host does. Ktor's `shutdownGracePeriod` is Netty's
+  quiet period instead: the workers stop once idle that long, which cuts off a
+  call awaiting the database or the provider, and delays every stop by the full
+  period. So the app counts calls in flight and holds Ktor's
+  `ApplicationStopPreparing` event until none remain. Ktor raises it before
+  closing the listening socket, so a call that arrives meanwhile is served and
+  waited for too.
 - **Forwarded headers.** Behind a proxy that terminates TLS, the login builds
   its callback URL from `X-Forwarded-Proto`, as the F# server does (see
   [deployment](../docs/deployment.md#hosting)). The server trusts

@@ -16,6 +16,7 @@ import budgeteur.shared.Db
 import budgeteur.shared.LoginConfig
 import budgeteur.shared.OidcClient
 import budgeteur.shared.RequestLogging
+import budgeteur.shared.SHUTDOWN_TIMEOUT
 import budgeteur.shared.TrustedForwardedHeaders
 import budgeteur.shared.apiDocs
 import budgeteur.shared.apiErrors
@@ -23,6 +24,7 @@ import budgeteur.shared.apiJson
 import budgeteur.shared.authenticated
 import budgeteur.shared.bodyLimit
 import budgeteur.shared.clientFiles
+import budgeteur.shared.drainCallsOnStop
 import budgeteur.shared.respondError
 import budgeteur.shared.userSession
 import budgeteur.shared.userSessionCookie
@@ -62,6 +64,7 @@ class Dependencies(
 )
 
 fun Application.budgeteur(deps: Dependencies) {
+    drainCallsOnStop(SHUTDOWN_TIMEOUT)
     install(TrustedForwardedHeaders)
     install(RequestLogging) { quietPaths = setOf(STATUS_PATH) }
     install(ContentNegotiation) { json(apiJson) }
