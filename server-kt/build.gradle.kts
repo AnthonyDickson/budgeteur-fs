@@ -1,19 +1,22 @@
+import com.github.benmanes.gradle.versions.updates.DependencyUpdatesTask
 import org.flywaydb.core.Flyway
 
 buildscript {
     // The build runs the migrations itself to give jOOQ a schema to read.
     dependencies {
-        classpath("org.flywaydb:flyway-core:13.12.1")
-        classpath("org.xerial:sqlite-jdbc:3.54.1.0")
+        classpath(libs.flyway.core)
+        classpath(libs.sqlite.jdbc)
     }
 }
 
 plugins {
-    kotlin("jvm") version "2.4.21"
-    kotlin("plugin.serialization") version "2.4.21"
-    id("org.jooq.jooq-codegen-gradle") version "3.21.9"
-    id("com.ncorti.ktfmt.gradle") version "0.27.0"
-    id("dev.detekt") version "2.0.0-alpha.6"
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.jooq.codegen)
+    alias(libs.plugins.ktfmt)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.versions)
+    alias(libs.plugins.version.catalog.update)
     application
 }
 
@@ -23,36 +26,41 @@ version = "0.1.0"
 
 repositories { mavenCentral() }
 
-val ktor = "3.6.1"
-val arrow = "2.3.0"
-val jooq = "3.21.9"
-val sqliteJdbc = "3.54.1.0"
-
 dependencies {
-    implementation("io.ktor:ktor-server-core:$ktor")
-    implementation("io.ktor:ktor-server-netty:$ktor")
-    implementation("io.ktor:ktor-server-auth:$ktor")
-    implementation("io.ktor:ktor-server-body-limit:$ktor")
-    implementation("io.ktor:ktor-server-auth-jwt:$ktor")
-    implementation("io.ktor:ktor-server-sessions:$ktor")
-    implementation("io.ktor:ktor-server-routing-openapi:$ktor")
-    implementation("io.ktor:ktor-server-content-negotiation:$ktor")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor")
-    implementation("io.ktor:ktor-server-status-pages:$ktor")
-    implementation("io.arrow-kt:arrow-core:$arrow")
-    implementation("com.nimbusds:oauth2-oidc-sdk:11.38.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
-    implementation("org.xerial:sqlite-jdbc:$sqliteJdbc")
-    implementation("org.flywaydb:flyway-core:13.12.1")
-    implementation("org.jooq:jooq:$jooq")
-    implementation("org.jooq:jooq-kotlin:$jooq")
-    implementation("ch.qos.logback:logback-classic:1.6.6")
-    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.netty)
+    implementation(libs.ktor.server.auth)
+    implementation(libs.ktor.server.body.limit)
+    implementation(libs.ktor.server.auth.jwt)
+    implementation(libs.ktor.server.sessions)
+    implementation(libs.ktor.server.routing.openapi)
+    implementation(libs.ktor.server.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.server.status.pages)
+    implementation(libs.arrow.core)
+    implementation(libs.nimbus.oidc)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.sqlite.jdbc)
+    implementation(libs.flyway.core)
+    implementation(libs.jooq)
+    implementation(libs.jooq.kotlin)
+    implementation(libs.logback.classic)
+    implementation(libs.logstash.logback.encoder)
 
-    jooqCodegen("org.xerial:sqlite-jdbc:$sqliteJdbc")
+    jooqCodegen(libs.sqlite.jdbc)
 
     testImplementation(kotlin("test"))
-    testImplementation("io.ktor:ktor-server-test-host:$ktor")
+    testImplementation(libs.ktor.server.test.host)
+}
+
+// `just kt-outdated` and `just kt-update` offer a pre-release only in place of a pre-release.
+fun isStable(version: String) =
+    !Regex("(?i)alpha|beta|rc|-m\\d|eap|snapshot").containsMatchIn(version)
+
+tasks.withType<DependencyUpdatesTask> {
+    // The dev shell provides Gradle.
+    checkForGradleUpdate = false
+    rejectVersionIf { !isStable(candidate.version) && isStable(currentVersion) }
 }
 
 kotlin {

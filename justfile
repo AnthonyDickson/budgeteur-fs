@@ -175,6 +175,8 @@ outdated:
 	# use `-` to ignore the exit code npm so outdated packages don't stop the next command from being run by just
 	-cd client && npm outdated
 	cd server && dotnet list package --outdated
+	# Pre-releases are offered only in place of a pre-release (see server-kt/build.gradle.kts)
+	cd server-kt && gradle --no-daemon dependencyUpdates
 
 # Update all dependencies in the project to their latest versions
 update:
@@ -182,6 +184,8 @@ update:
 	cd client && npm update
 	cd server && dotnet package update
 	cd server && dotnet tool update --all
+	# Rewrites server-kt/gradle/libs.versions.toml; versions marked @pin stay
+	cd server-kt && gradle --no-daemon versionCatalogUpdate
 
 # ── Database ──────────────────────────────────────────────────────────────
 

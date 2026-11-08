@@ -28,7 +28,8 @@ unfree package. JetBrains builds expire about a month after release and old
 downloads are deleted, so `just update-kotlin-lsp` moves the pin in
 `nix/packages/kotlin-lsp/pin.json` to the latest release; the shell hook warns
 once the pinned build is 25 days old. Its bundled analyser must support the
-Kotlin version in `build.gradle.kts`, so bump the two together.
+Kotlin version in `gradle/libs.versions.toml`, so bump the two together; the
+catalog pins it, so `just update` leaves it alone.
 
 `just kt-e2e-test` runs `docker/docker-compose.e2e-kt.yml`: the F# E2E stack
 with this server in place of the F# one, running only the specs tagged
@@ -78,6 +79,7 @@ authelia`), use the values in the F# server's `appsettings.Development.json`.
 | Request logging | One wide event per request (Ktor plugin + Logback)    |
 | Log format      | JSON lines (logstash-logback-encoder)                 |
 | Tests           | kotlin.test (JUnit 5) and Ktor `testApplication`      |
+| Versions        | Gradle version catalog, `gradle/libs.versions.toml`   |
 | Lint            | detekt 2 (alpha), overrides in `detekt.yml`           |
 
 ## Layout
