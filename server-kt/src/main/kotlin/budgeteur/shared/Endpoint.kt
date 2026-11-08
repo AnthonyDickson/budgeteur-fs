@@ -25,33 +25,40 @@ val ApplicationCall.requestId: String
     get() = attributes.computeIfAbsent(requestIdKey) { UUID.randomUUID().toString() }
 
 /**
- * The authenticated user. Routes inside `authenticate` always have one, so a
- * missing principal is a routing mistake, not a client error.
+ * The authenticated user. Routes inside `authenticate` always have one, so a missing principal is a
+ * routing mistake, not a client error.
  */
 val ApplicationCall.userId: String
-    get() = checkNotNull(principal<UserPrincipal>()) { "No principal: the route is not inside authenticate" }.userId
+    get() =
+        checkNotNull(principal<UserPrincipal>()) {
+                "No principal: the route is not inside authenticate"
+            }
+            .userId
 
 suspend fun ApplicationCall.respondError(status: HttpStatusCode, title: String, details: String) =
     respond(status, ApiError(title, details, status.value, requestId))
 
 /**
- * Runs a handler that raises [DomainError]s. The handler writes its own
- * success response; this writes the error it raises. Exceptions are left to
- * [apiErrors].
+ * Runs a handler that raises [DomainError]s. The handler writes its own success response; this
+ * writes the error it raises. Exceptions are left to [apiErrors].
  */
 suspend fun ApplicationCall.handle(handler: suspend context(Raise<DomainError>) () -> Unit) {
-    either { handler() }.onLeft { error ->
-        when (error) {
-            is DomainError.ValidationFailed -> {
-                log.warn("Validation failed: ${error.message}", "errorType" to "ValidationFailed")
-                respondError(HttpStatusCode.BadRequest, "Validation Error", error.message)
-            }
-            is DomainError.NotFound -> {
-                log.warn("Not found: ${error.message}", "errorType" to "NotFound")
-                respondError(HttpStatusCode.NotFound, "Not Found", error.message)
+    either { handler() }
+        .onLeft { error ->
+            when (error) {
+                is DomainError.ValidationFailed -> {
+                    log.warn(
+                        "Validation failed: ${error.message}",
+                        "errorType" to "ValidationFailed",
+                    )
+                    respondError(HttpStatusCode.BadRequest, "Validation Error", error.message)
+                }
+                is DomainError.NotFound -> {
+                    log.warn("Not found: ${error.message}", "errorType" to "NotFound")
+                    respondError(HttpStatusCode.NotFound, "Not Found", error.message)
+                }
             }
         }
-    }
 }
 
 /** A UUID path parameter. A malformed one gets a 404, as for a path that matches no route. */
@@ -70,16 +77,23 @@ suspend inline fun <reified T : Any> ApplicationCall.receiveOrRaise(): T =
     }
 
 /**
- * Turns an exception that escapes a handler into a JSON error. A constraint
- * violation is a 409: handlers check constraints first, so one that reaches
- * here marks a missed check rather than a broken server.
+ * Turns an exception that escapes a handler into a JSON error. A constraint violation is a 409:
+ * handlers check constraints first, so one that reaches here marks a missed check rather than a
+ * broken server.
  */
 fun StatusPagesConfig.apiErrors() {
     exception<Throwable> { call, cause ->
         // jOOQ wraps the driver's exceptions in its own, so look through the causes.
-        val sqlError = generateSequence(cause) { it.cause }.filterIsInstance<SQLException>().firstOrNull()
-        if (sqlError is SQLiteException && sqlError.resultCode.code and 0xff == SQLiteErrorCode.SQLITE_CONSTRAINT.code) {
-            call.log.warn("Unhandled constraint violation: ${sqlError.message}", "errorType" to "Conflict")
+        val sqlError =
+            generateSequence(cause) { it.cause }.filterIsInstance<SQLException>().firstOrNull()
+        if (
+            sqlError is SQLiteException &&
+                sqlError.resultCode.code and 0xff == SQLiteErrorCode.SQLITE_CONSTRAINT.code
+        ) {
+            call.log.warn(
+                "Unhandled constraint violation: ${sqlError.message}",
+                "errorType" to "Conflict",
+            )
             call.respondError(
                 HttpStatusCode.Conflict,
                 "Conflict",
@@ -88,7 +102,11 @@ fun StatusPagesConfig.apiErrors() {
         } else {
             val errorType = if (sqlError != null) "DatabaseError" else "UnhandledException"
             call.log.error(cause.stackTraceToString(), "errorType" to errorType)
-            call.respondError(HttpStatusCode.InternalServerError, "Internal Server Error", "An unexpected error occurred")
+            call.respondError(
+                HttpStatusCode.InternalServerError,
+                "Internal Server Error",
+                "An unexpected error occurred",
+            )
         }
     }
 }

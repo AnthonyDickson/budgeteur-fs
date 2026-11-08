@@ -24,13 +24,14 @@ private fun jwksUri(authority: String): URI {
         HttpClient.newHttpClient()
             .send(HttpRequest.newBuilder(discovery).build(), HttpResponse.BodyHandlers.ofString())
             .body()
-    val jwks = apiJson.parseToJsonElement(body).jsonObject.getValue("jwks_uri").jsonPrimitive.content
+    val jwks =
+        apiJson.parseToJsonElement(body).jsonObject.getValue("jwks_uri").jsonPrimitive.content
     return URI(jwks)
 }
 
 /**
- * Registers [USER_AUTH] as bearer tokens signed by the OIDC provider. Fetches
- * the provider's discovery document once, at startup.
+ * Registers [USER_AUTH] as bearer tokens signed by the OIDC provider. Fetches the provider's
+ * discovery document once, at startup.
  */
 fun AuthenticationConfig.oidcBearer(oidc: OidcConfig) {
     val jwkProvider =
@@ -42,9 +43,16 @@ fun AuthenticationConfig.oidcBearer(oidc: OidcConfig) {
     jwt(USER_AUTH) {
         verifier(jwkProvider, oidc.authority) {
             // Authelia does not put an aud claim in access tokens.
-            if (oidc.validAudiences.isNotEmpty()) withAnyOfAudience(*oidc.validAudiences.toTypedArray())
+            if (oidc.validAudiences.isNotEmpty())
+                withAnyOfAudience(*oidc.validAudiences.toTypedArray())
         }
         validate { credential -> credential.payload.subject?.let(::UserPrincipal) }
-        challenge { _, _ -> call.respondError(HttpStatusCode.Unauthorized, "Unauthorized", "Authentication required") }
+        challenge { _, _ ->
+            call.respondError(
+                HttpStatusCode.Unauthorized,
+                "Unauthorized",
+                "Authentication required",
+            )
+        }
     }
 }

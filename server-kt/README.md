@@ -13,6 +13,7 @@ From the dev shell (`nix develop`, which includes JDK 21 and Gradle):
 | Command                                | Purpose                   |
 | -------------------------------------- | ------------------------- |
 | `just kt-test`                         | Run the tests             |
+| `just kt-format`                       | Format with ktfmt         |
 | `gradle installDist` (in `server-kt/`) | Build `build/install/...` |
 
 The server reads `BUDGETEUR_DATABASE` (SQLite file path), `OIDC_AUTHORITY`,

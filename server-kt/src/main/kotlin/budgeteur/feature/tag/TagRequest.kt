@@ -23,15 +23,19 @@ data class TagRequest(
 )
 
 /**
- * Parses every field, reporting all failures in one error, one per line, so a
- * client sees them together.
+ * Parses every field, reporting all failures in one error, one per line, so a client sees them
+ * together.
  */
 context(_: Raise<DomainError>)
 fun TagRequest.toTag(id: UUID): Tag =
-    withError({ errors: NonEmptyList<String> -> DomainError.ValidationFailed(errors.joinToString("\n")) }) {
+    withError({ errors: NonEmptyList<String> ->
+        DomainError.ValidationFailed(errors.joinToString("\n"))
+    }) {
         zipOrAccumulate(
             { TagName.create(name) },
             { TagColor.parse(color) },
             { TagKind.parse(kind) },
-        ) { name, color, kind -> Tag(id, name, color, kind) }
+        ) { name, color, kind ->
+            Tag(id, name, color, kind)
+        }
     }

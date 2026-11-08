@@ -55,9 +55,13 @@ private suspend fun checkDatabase(db: Db, log: RequestLog): DatabaseHealth =
             log.warn("Database health probe failed", "exception" to e.message)
             DatabaseHealth(UNHEALTHY, "database unreachable")
         }
-    } ?: DatabaseHealth(UNHEALTHY, "database probe timed out").also { log.warn("Database health probe timed out") }
+    }
+        ?: DatabaseHealth(UNHEALTHY, "database probe timed out").also {
+            log.warn("Database health probe timed out")
+        }
 
-private val version: String = StatusResponse::class.java.`package`?.implementationVersion ?: "unknown"
+private val version: String =
+    StatusResponse::class.java.`package`?.implementationVersion ?: "unknown"
 
 fun Route.getStatus(db: Db, environment: String, startedAt: Instant, clock: Clock) =
     get(STATUS_PATH) {
@@ -72,6 +76,7 @@ fun Route.getStatus(db: Db, environment: String, startedAt: Instant, clock: Cloc
                 uptime = formatUptime(uptime),
                 database = database,
             )
-        val status = if (database.status == HEALTHY) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable
+        val status =
+            if (database.status == HEALTHY) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable
         call.respond(status, response)
     }

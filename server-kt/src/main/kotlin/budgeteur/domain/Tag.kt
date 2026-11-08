@@ -6,8 +6,8 @@ import arrow.core.raise.context.ensureNotNull
 import java.util.UUID
 
 /**
- * A trimmed, non-blank name of at most [MAX_LENGTH] characters. The private
- * constructor means the only way to get one from untrusted input is [create].
+ * A trimmed, non-blank name of at most [MAX_LENGTH] characters. The private constructor means the
+ * only way to get one from untrusted input is [create].
  */
 @JvmInline
 value class TagName private constructor(val value: String) {
@@ -30,12 +30,24 @@ value class TagName private constructor(val value: String) {
 }
 
 /**
- * A tag's colour: one of Catppuccin's accent colours, by name. The client draws
- * it in the active flavour's value. Declared in Catppuccin's order.
+ * A tag's colour: one of Catppuccin's accent colours, by name. The client draws it in the active
+ * flavour's value. Declared in Catppuccin's order.
  */
 enum class TagColor {
-    Rosewater, Flamingo, Pink, Mauve, Red, Maroon, Peach,
-    Yellow, Green, Teal, Sky, Sapphire, Blue, Lavender;
+    Rosewater,
+    Flamingo,
+    Pink,
+    Mauve,
+    Red,
+    Maroon,
+    Peach,
+    Yellow,
+    Green,
+    Teal,
+    Sky,
+    Sapphire,
+    Blue,
+    Lavender;
 
     companion object {
         context(_: Raise<String>)
@@ -48,7 +60,8 @@ enum class TagColor {
 
 /** Which side of the income statement a tag's transactions are on. */
 enum class TagKind {
-    Income, Expense;
+    Income,
+    Expense;
 
     companion object {
         context(_: Raise<String>)

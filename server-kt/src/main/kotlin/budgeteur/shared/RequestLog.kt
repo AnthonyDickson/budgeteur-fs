@@ -14,7 +14,11 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 
-enum class LogLevel { Info, Warning, Error }
+enum class LogLevel {
+    Info,
+    Warning,
+    Error,
+}
 
 data class LogEntry(
     val level: LogLevel,
@@ -24,17 +28,19 @@ data class LogEntry(
 )
 
 /**
- * Collects a request's log entries so the request is logged once, as one wide
- * event, when its response is sent.
+ * Collects a request's log entries so the request is logged once, as one wide event, when its
+ * response is sent.
  */
 class RequestLog {
     private val entries = mutableListOf<LogEntry>()
 
     fun info(message: String, vararg props: Pair<String, Any?>) = add(LogLevel.Info, message, props)
 
-    fun warn(message: String, vararg props: Pair<String, Any?>) = add(LogLevel.Warning, message, props)
+    fun warn(message: String, vararg props: Pair<String, Any?>) =
+        add(LogLevel.Warning, message, props)
 
-    fun error(message: String, vararg props: Pair<String, Any?>) = add(LogLevel.Error, message, props)
+    fun error(message: String, vararg props: Pair<String, Any?>) =
+        add(LogLevel.Error, message, props)
 
     fun snapshot(): List<LogEntry> = synchronized(entries) { entries.toList() }
 
@@ -67,29 +73,30 @@ val RequestLogging =
             if (path in quietPaths) return@on
             val entries = call.log.snapshot()
             val elapsedMs = (System.nanoTime() - call.attributes[startKey]) / 1_000_000
-            val event =
-                buildJsonObject {
-                    put("method", call.request.httpMethod.value)
-                    put("path", path)
-                    put("status", call.response.status()?.value)
-                    put("elapsedMs", elapsedMs)
-                    put("user", call.principal<UserPrincipal>()?.userId)
-                    put(
-                        "entries",
-                        buildJsonArray {
-                            entries.forEach { entry ->
-                                add(
-                                    buildJsonObject {
-                                        put("level", entry.level.name)
-                                        put("message", entry.message)
-                                        put("timestamp", entry.timestamp.toString())
-                                        entry.properties.forEach { (k, v) -> put(k, JsonPrimitive(v?.toString())) }
-                                    },
-                                )
-                            }
-                        },
-                    )
-                }
+            val event = buildJsonObject {
+                put("method", call.request.httpMethod.value)
+                put("path", path)
+                put("status", call.response.status()?.value)
+                put("elapsedMs", elapsedMs)
+                put("user", call.principal<UserPrincipal>()?.userId)
+                put(
+                    "entries",
+                    buildJsonArray {
+                        entries.forEach { entry ->
+                            add(
+                                buildJsonObject {
+                                    put("level", entry.level.name)
+                                    put("message", entry.message)
+                                    put("timestamp", entry.timestamp.toString())
+                                    entry.properties.forEach { (k, v) ->
+                                        put(k, JsonPrimitive(v?.toString()))
+                                    }
+                                }
+                            )
+                        }
+                    },
+                )
+            }
             when (entries.maxOfOrNull { it.level } ?: LogLevel.Info) {
                 LogLevel.Info -> logger.info("{}", event)
                 LogLevel.Warning -> logger.warn("{}", event)

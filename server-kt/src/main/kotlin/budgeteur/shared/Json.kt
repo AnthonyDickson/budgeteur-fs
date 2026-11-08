@@ -28,8 +28,8 @@ object UuidSerializer : KSerializer<UUID> {
 }
 
 /**
- * Request and response bodies. Missing fields fail to decode, and nulls and
- * defaults are written rather than dropped, so every field is always present.
+ * Request and response bodies. Missing fields fail to decode, and nulls and defaults are written
+ * rather than dropped, so every field is always present.
  */
 val apiJson = Json {
     explicitNulls = true

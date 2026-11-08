@@ -21,7 +21,14 @@ import org.jooq.DSLContext
 /** The `UNIQUE (user_id, name)` constraint, ignoring the tag being updated. */
 context(_: Raise<ConstraintError>)
 private fun DSLContext.requireUniqueName(userId: String, tag: Tag) =
-    ensure(!fetchExists(TAGS, TAGS.USER_ID.eq(userId), TAGS.NAME.eq(tag.name.value), TAGS.ID.ne(tag.id))) {
+    ensure(
+        !fetchExists(
+            TAGS,
+            TAGS.USER_ID.eq(userId),
+            TAGS.NAME.eq(tag.name.value),
+            TAGS.ID.ne(tag.id),
+        )
+    ) {
         ConstraintError("A tag with the name '${tag.name.value}' already exists")
     }
 

@@ -1,9 +1,9 @@
 package budgeteur
 
 import arrow.core.getOrElse
-import budgeteur.shared.oidcBearer
-import budgeteur.shared.loadConfig
 import budgeteur.shared.Db
+import budgeteur.shared.loadConfig
+import budgeteur.shared.oidcBearer
 import budgeteur.shared.systemClock
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty

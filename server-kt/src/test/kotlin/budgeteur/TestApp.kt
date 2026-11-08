@@ -22,9 +22,8 @@ const val TEST_USER_HEADER = "X-Test-User"
 const val DEFAULT_TEST_USER = "test-user"
 
 /**
- * Runs [block] against a migrated database in a temporary file, deleted
- * afterwards. A file rather than an in-memory database, so locking and WAL
- * behave as in production.
+ * Runs [block] against a migrated database in a temporary file, deleted afterwards. A file rather
+ * than an in-memory database, so locking and WAL behave as in production.
  */
 fun <T> withTempDb(block: (Db) -> T): T {
     val file = Files.createTempFile("budgeteur-test-", ".sqlite3")
@@ -55,12 +54,13 @@ fun withTestApp(
                     configureAuth = {
                         provider(USER_AUTH) {
                             authenticate { ctx ->
-                                val user = ctx.call.request.headers[TEST_USER_HEADER] ?: DEFAULT_TEST_USER
+                                val user =
+                                    ctx.call.request.headers[TEST_USER_HEADER] ?: DEFAULT_TEST_USER
                                 ctx.principal(UserPrincipal(user))
                             }
                         }
                     },
-                ),
+                )
             )
         }
         block(db)

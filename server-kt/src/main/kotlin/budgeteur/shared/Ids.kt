@@ -12,9 +12,7 @@ typealias Clock = () -> Instant
 val systemClock: Clock = Instant::now
 
 /**
- * A version 7 UUID: ids sort by creation time, which keeps index inserts in
- * order. The generator is still experimental in Kotlin 2.4; the rest of the
- * Uuid API is stable.
+ * A version 7 UUID: ids sort by creation time, which keeps index inserts in order. The generator is
+ * still experimental in Kotlin 2.4; the rest of the Uuid API is stable.
  */
-@OptIn(ExperimentalUuidApi::class)
-fun newId(): UUID = Uuid.generateV7().toJavaUuid()
+@OptIn(ExperimentalUuidApi::class) fun newId(): UUID = Uuid.generateV7().toJavaUuid()

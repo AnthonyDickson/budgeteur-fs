@@ -41,21 +41,24 @@ class InfraTests {
 
 class EndpointTests {
     @Test
-    fun `a constraint violation a handler did not check is a 409, not a 500`() =
-        withTestApp { db ->
-            routing {
-                post("/test/duplicate") {
-                    call.handle {
-                        val id = newId()
-                        db.sql {
-                            repeat(2) { insertInto(TAGS).set(TagsRecord(id, "user", "Rent $it", "Red", "Expense")).execute() }
+    fun `a constraint violation a handler did not check is a 409, not a 500`() = withTestApp { db ->
+        routing {
+            post("/test/duplicate") {
+                call.handle {
+                    val id = newId()
+                    db.sql {
+                        repeat(2) {
+                            insertInto(TAGS)
+                                .set(TagsRecord(id, "user", "Rent $it", "Red", "Expense"))
+                                .execute()
                         }
                     }
                 }
             }
-
-            val response = client.post("/test/duplicate")
-            assertEquals(HttpStatusCode.Conflict, response.status)
-            assertEquals("Conflict", response.read<ApiError>().error)
         }
+
+        val response = client.post("/test/duplicate")
+        assertEquals(HttpStatusCode.Conflict, response.status)
+        assertEquals("Conflict", response.read<ApiError>().error)
+    }
 }

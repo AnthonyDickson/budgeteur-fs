@@ -3,10 +3,10 @@ package budgeteur
 import budgeteur.feature.status.STATUS_PATH
 import budgeteur.feature.status.getStatus
 import budgeteur.feature.tag.tagEndpoints
-import budgeteur.shared.USER_AUTH
 import budgeteur.shared.Clock
 import budgeteur.shared.Db
 import budgeteur.shared.RequestLogging
+import budgeteur.shared.USER_AUTH
 import budgeteur.shared.apiErrors
 import budgeteur.shared.apiJson
 import budgeteur.shared.respondError
@@ -43,14 +43,18 @@ fun Application.budgeteur(deps: Dependencies) {
     routing {
         getStatus(deps.db, deps.environment, deps.startedAt, deps.clock)
 
-        authenticate(USER_AUTH) {
-            tagEndpoints(deps.db)
-        }
+        authenticate(USER_AUTH) { tagEndpoints(deps.db) }
 
         // Unknown API paths get a JSON 404. Ktor ranks the literal routes above
         // this tailcard, whatever the order of registration.
         route("/api/{...}") {
-            handle { call.respondError(HttpStatusCode.NotFound, "Not Found", "No API endpoint matches ${call.request.path()}") }
+            handle {
+                call.respondError(
+                    HttpStatusCode.NotFound,
+                    "Not Found",
+                    "No API endpoint matches ${call.request.path()}",
+                )
+            }
         }
     }
 }

@@ -12,10 +12,12 @@ plugins {
     kotlin("jvm") version "2.4.21"
     kotlin("plugin.serialization") version "2.4.21"
     id("org.jooq.jooq-codegen-gradle") version "3.21.9"
+    id("com.ncorti.ktfmt.gradle") version "0.27.0"
     application
 }
 
 group = "budgeteur"
+
 version = "0.1.0"
 
 repositories { mavenCentral() }
@@ -48,6 +50,9 @@ dependencies {
 }
 
 kotlin { jvmToolchain(21) }
+
+// The Kotlin coding conventions: four-space indents, 100 columns.
+ktfmt { kotlinLangStyle() }
 
 application { mainClass.set("budgeteur.MainKt") }
 

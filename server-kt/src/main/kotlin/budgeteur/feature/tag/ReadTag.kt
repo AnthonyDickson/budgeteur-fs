@@ -24,7 +24,10 @@ fun Route.readTag(db: Db) =
         call.handle {
             val userId = call.userId
             val id = call.uuidParam("id")
-            val tag = ensureNotNull(db.sql { findTag(userId, id) }) { DomainError.NotFound("Tag $id not found") }
+            val tag =
+                ensureNotNull(db.sql { findTag(userId, id) }) {
+                    DomainError.NotFound("Tag $id not found")
+                }
 
             call.log.info("Returned tag $id", "tagId" to id)
             call.respond(tag.toResponse())
