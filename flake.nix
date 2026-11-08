@@ -15,6 +15,9 @@
           devShells.default = pkgs.mkShell {
             buildInputs = with pkgs; [
               dotnet-sdk_10
+              # Kotlin port PoC in server-kt/
+              jdk21
+              gradle
               nodejs_24
               gleam
               just

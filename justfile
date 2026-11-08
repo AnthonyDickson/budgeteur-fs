@@ -20,6 +20,10 @@ server-watch:
 	ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://0.0.0.0:5000}" dotnet watch run --project server/src/Budgeteur --no-hot-reload
 
 # Expecto tests (through the Expecto test adapter, same as IDE test explorers)
+# Kotlin port PoC, see server-kt/README.md
+kt-test:
+	cd server-kt && gradle --no-daemon test
+
 server-test:
 	dotnet test server/Budgeteur.slnx
 
