@@ -2,15 +2,17 @@ package budgeteur.shared
 
 import java.sql.Connection
 import java.sql.DriverManager
-import java.sql.PreparedStatement
-import java.sql.ResultSet
-import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.flywaydb.core.Flyway
+import org.jooq.DSLContext
+import org.jooq.SQLDialect
+import org.jooq.conf.Settings
+import org.jooq.impl.DSL
 
 /**
- * Opens a connection per unit of work, as the F# server's QueryContextFactory
- * does. JDBC blocks, so work runs on the IO dispatcher.
+ * The SQLite database. Each unit of work opens its own connection; JDBC blocks,
+ * so work runs on the IO dispatcher.
  */
 class Db(val url: String) {
     fun open(): Connection =
@@ -19,40 +21,27 @@ class Db(val url: String) {
             connection.createStatement().use { it.execute("PRAGMA foreign_keys = ON") }
         }
 
-    suspend fun <T> run(work: (Connection) -> T): T =
-        withContext(Dispatchers.IO) { open().use(work) }
+    /** Runs jOOQ queries over one connection. */
+    suspend fun <T> sql(work: (DSLContext) -> T): T =
+        withContext(Dispatchers.IO) {
+            open().use { work(DSL.using(it, SQLDialect.SQLITE, settings)) }
+        }
+
+    /** Applies pending migrations from `db/migration` and returns how many ran. */
+    fun migrate(): Int {
+        val result = Flyway.configure().dataSource(url, null, null).load().migrate()
+        // WAL is stored in the file, so setting it once covers later connections.
+        open().use { c -> c.createStatement().use { it.execute("PRAGMA journal_mode = WAL") } }
+        return result.migrationsExecuted
+    }
+
+    private companion object {
+        init {
+            // jOOQ logs a banner and usage tips on first use.
+            System.setProperty("org.jooq.no-logo", "true")
+            System.setProperty("org.jooq.no-tips", "true")
+        }
+
+        val settings: Settings = Settings().withExecuteLogging(false)
+    }
 }
-
-/**
- * GUIDs are stored as uppercase TEXT, the format Microsoft.Data.Sqlite writes,
- * so both servers can share a database.
- */
-fun UUID.toDb(): String = toString().uppercase()
-
-fun ResultSet.uuid(column: String): UUID = UUID.fromString(getString(column))
-
-private fun PreparedStatement.bind(params: List<Any?>) =
-    params.forEachIndexed { i, param ->
-        when (param) {
-            is UUID -> setString(i + 1, param.toDb())
-            else -> setObject(i + 1, param)
-        }
-    }
-
-fun <T> Connection.query(sql: String, vararg params: Any?, row: (ResultSet) -> T): List<T> =
-    prepareStatement(sql).use { statement ->
-        statement.bind(params.toList())
-        statement.executeQuery().use { rs ->
-            buildList { while (rs.next()) add(row(rs)) }
-        }
-    }
-
-fun Connection.count(sql: String, vararg params: Any?): Int =
-    query(sql, *params) { it.getInt(1) }.single()
-
-/** Returns the number of rows affected. */
-fun Connection.execute(sql: String, vararg params: Any?): Int =
-    prepareStatement(sql).use { statement ->
-        statement.bind(params.toList())
-        statement.executeUpdate()
-    }

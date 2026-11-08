@@ -13,7 +13,7 @@ private val random = SecureRandom()
 
 /**
  * A version 7 UUID (RFC 9562): a millisecond timestamp then random bits, so
- * ids sort by creation time like the F# server's Guid.CreateVersion7.
+ * ids sort by creation time.
  */
 fun uuidV7(now: Instant = Instant.now()): UUID {
     val millis = now.toEpochMilli()

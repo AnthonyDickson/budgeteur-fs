@@ -1,31 +1,22 @@
 package budgeteur.shared
 
 import budgeteur.feature.status.GetStatus
+import budgeteur.data.db.tables.records.TagsRecord
+import budgeteur.data.db.tables.references.TAGS
 import budgeteur.read
 import budgeteur.withTestApp
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.server.routing.post
+import io.ktor.server.routing.routing
 import io.ktor.http.HttpStatusCode
 import java.time.Duration
 import java.time.Instant
-import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class InfraTests {
-    @Test
-    fun `migrations are journalled under DbUp's names and run once`() {
-        val db = Db("jdbc:sqlite:file:test-${UUID.randomUUID()}?mode=memory&cache=shared")
-        db.open().use { keeper ->
-            val first = Migrations.run(db)
-            assertTrue(first.isNotEmpty())
-            assertEquals(emptyList(), Migrations.run(db))
-
-            val names = keeper.query("SELECT ScriptName FROM SchemaVersions ORDER BY SchemaVersionID") { it.getString(1) }
-            assertEquals(first.map { "Budgeteur.Data.Migrations.$it" }, names)
-        }
-    }
-
     @Test
     fun `config reports every missing setting`() {
         val failures = Config.load(mapOf("PORT" to "nope")).leftOrNull().orEmpty()
@@ -55,4 +46,27 @@ class InfraTests {
             assertEquals("0h 1m 30s", status.uptime)
         }
     }
+}
+
+class EndpointTests {
+    @Test
+    fun `a constraint violation a handler did not check is a 409, not a 500`() =
+        withTestApp { db ->
+            routing {
+                post("/test/duplicate") {
+                    Endpoint.handle(call) {
+                        val id = uuidV7()
+                        db.sql { sql ->
+                            repeat(2) {
+                                sql.insertInto(TAGS).set(TagsRecord(id, "user", "Rent $it", "Red", "Expense")).execute()
+                            }
+                        }
+                    }
+                }
+            }
+
+            val response = client.post("/test/duplicate")
+            assertEquals(HttpStatusCode.Conflict, response.status)
+            assertEquals("Conflict", response.read<ApiError>().error)
+        }
 }

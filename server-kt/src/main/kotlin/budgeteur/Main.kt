@@ -4,7 +4,6 @@ import arrow.core.getOrElse
 import budgeteur.shared.Auth
 import budgeteur.shared.Config
 import budgeteur.shared.Db
-import budgeteur.shared.Migrations
 import budgeteur.shared.systemClock
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -22,7 +21,7 @@ fun main() {
         }
 
     val db = Db(config.databaseUrl)
-    Migrations.run(db).forEach { println("Applied migration $it") }
+    println("Applied ${db.migrate()} migrations")
 
     val deps =
         Dependencies(

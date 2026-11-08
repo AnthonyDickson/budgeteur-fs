@@ -24,15 +24,18 @@ val ApplicationCall.requestId: String
  * failure, so no exception escapes a handler.
  */
 object Endpoint {
-    private fun fromException(log: RequestLog, e: Exception): DomainError =
-        when {
-            e is SQLiteException && e.resultCode.code and 0xff == SQLiteErrorCode.SQLITE_CONSTRAINT.code -> {
-                log.warn("Unhandled constraint violation: ${e.message}", "exception" to e.toString())
+    /** jOOQ wraps the driver's exceptions in its own, so look through the causes. */
+    private fun fromException(log: RequestLog, e: Exception): DomainError {
+        val sqlError = generateSequence<Throwable>(e) { it.cause }.filterIsInstance<SQLException>().firstOrNull()
+        return when {
+            sqlError is SQLiteException && sqlError.resultCode.code and 0xff == SQLiteErrorCode.SQLITE_CONSTRAINT.code -> {
+                log.warn("Unhandled constraint violation: ${sqlError.message}", "exception" to e.toString())
                 DomainError.Conflict(e)
             }
-            e is SQLException -> DomainError.DatabaseError(e)
+            sqlError != null -> DomainError.DatabaseError(e)
             else -> DomainError.UnhandledException(e)
         }
+    }
 
     private suspend fun run(call: ApplicationCall, handler: suspend Raise<DomainError>.() -> Unit): Either<DomainError, Unit> =
         try {
@@ -49,8 +52,8 @@ object Endpoint {
     }
 
     /**
-     * A GUID path parameter. A malformed one gets the 404 an unmatched route
-     * would, as Oxpecker's typed routes do.
+     * A UUID path parameter. A malformed one gets a 404, as for a path that
+     * matches no route.
      */
     fun Raise<DomainError>.uuidParam(call: ApplicationCall, name: String): UUID {
         val raw = call.parameters[name]

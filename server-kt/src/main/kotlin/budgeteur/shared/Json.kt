@@ -26,7 +26,7 @@ data class ApiError(
     val requestId: String,
 )
 
-/** UUIDs on the wire are lowercase, as .NET writes them. */
+/** UUIDs in their canonical lowercase form. */
 object UuidSerializer : KSerializer<UUID> {
     override val descriptor = PrimitiveSerialDescriptor("UUID", PrimitiveKind.STRING)
 
@@ -37,7 +37,7 @@ object UuidSerializer : KSerializer<UUID> {
 
 object Json {
     val format = KJson {
-        // Mirror Thoth's auto coders: missing fields fail, nulls are written.
+        // Missing fields fail to decode, and nulls are written rather than dropped.
         explicitNulls = true
         encodeDefaults = true
     }

@@ -48,12 +48,21 @@ object GetStatus {
     /** The probe's outcome plus what to log about it; the caller does the logging. */
     private suspend fun checkDatabase(db: Db): Pair<DatabaseHealth, List<LogEntry>> =
         withTimeoutOrNull(probeTimeout.toMillis()) {
-            try {
-                db.run { c -> c.createStatement().use { it.executeQuery("SELECT 1").close() } }
-                DatabaseHealth(HEALTHY, null) to emptyList()
-            } catch (e: java.sql.SQLException) {
-                DatabaseHealth(UNHEALTHY, "database unreachable") to
-                    listOf(LogEntry(LogLevel.Warning, "Database health probe failed", mapOf("exception" to e.message)))
+            // Opening the connection throws the driver's exception; queries throw jOOQ's.
+            val failure =
+                try {
+                    db.sql { it.selectOne().fetch() }
+                    null
+                } catch (e: java.sql.SQLException) {
+                    e
+                } catch (e: org.jooq.exception.DataAccessException) {
+                    e
+                }
+            when (failure) {
+                null -> DatabaseHealth(HEALTHY, null) to emptyList()
+                else ->
+                    DatabaseHealth(UNHEALTHY, "database unreachable") to
+                        listOf(LogEntry(LogLevel.Warning, "Database health probe failed", mapOf("exception" to failure.message)))
             }
         } ?: (DatabaseHealth(UNHEALTHY, "database probe timed out") to
             listOf(LogEntry(LogLevel.Warning, "Database health probe timed out", emptyMap())))

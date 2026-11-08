@@ -3,7 +3,6 @@ package budgeteur
 import budgeteur.shared.Auth
 import budgeteur.shared.Db
 import budgeteur.shared.Json
-import budgeteur.shared.Migrations
 import budgeteur.shared.UserPrincipal
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
@@ -34,7 +33,7 @@ fun withTestApp(
     // Ktor builds the application lazily, on the first request, so read the start now.
     val startedAt = clock()
     db.open().use {
-        Migrations.run(db)
+        db.migrate()
         testApplication {
             application {
                 budgeteur(
