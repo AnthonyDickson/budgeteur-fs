@@ -46,6 +46,7 @@ dependencies {
     implementation("org.jooq:jooq:$jooq")
     implementation("org.jooq:jooq-kotlin:$jooq")
     implementation("ch.qos.logback:logback-classic:1.6.6")
+    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
 
     jooqCodegen("org.xerial:sqlite-jdbc:$sqliteJdbc")
 

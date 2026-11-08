@@ -74,6 +74,7 @@ authelia`), use the values in the F# server's `appsettings.Development.json`.
 | API auth        | OIDC JWT bearer (`ktor-server-auth-jwt`)              |
 | API docs        | Ktor's routing OpenAPI generation, Scalar from a CDN  |
 | Request logging | One wide event per request (Ktor plugin + Logback)    |
+| Log format      | JSON lines (logstash-logback-encoder)                 |
 | Tests           | kotlin.test (JUnit 5) and Ktor `testApplication`      |
 
 ## Layout

@@ -8,11 +8,8 @@ import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
 import io.ktor.util.AttributeKey
 import java.time.Instant
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
+import org.slf4j.event.Level
 
 enum class LogLevel {
     Info,
@@ -73,36 +70,33 @@ val RequestLogging =
             if (path in quietPaths) return@on
             val entries = call.log.snapshot()
             val elapsedMs = (System.nanoTime() - call.attributes[startKey]) / 1_000_000
-            val event = buildJsonObject {
-                put("method", call.request.httpMethod.value)
-                put("path", path)
-                put("status", call.response.status()?.value)
-                put("elapsedMs", elapsedMs)
-                put("user", call.principal<UserPrincipal>()?.userId)
-                put(
-                    "entries",
-                    buildJsonArray {
-                        entries.forEach { entry ->
-                            add(
-                                buildJsonObject {
-                                    put("level", entry.level.name)
-                                    put("message", entry.message)
-                                    put("timestamp", entry.timestamp.toString())
-                                    entry.properties.forEach { (k, v) ->
-                                        put(k, JsonPrimitive(v?.toString()))
-                                    }
-                                }
-                            )
-                        }
-                    },
-                )
-            }
-            when (entries.maxOfOrNull { it.level } ?: LogLevel.Info) {
-                LogLevel.Info -> logger.info("{}", event)
-                LogLevel.Warning -> logger.warn("{}", event)
-                LogLevel.Error -> logger.error("{}", event)
-            }
+            val method = call.request.httpMethod.value
+            val status = call.response.status()?.value
+            val level =
+                when (entries.maxOfOrNull { it.level } ?: LogLevel.Info) {
+                    LogLevel.Info -> Level.INFO
+                    LogLevel.Warning -> Level.WARN
+                    LogLevel.Error -> Level.ERROR
+                }
+            // The encoder writes each key-value pair as a field of the JSON event.
+            logger
+                .atLevel(level)
+                .addKeyValue("method", method)
+                .addKeyValue("path", path)
+                .addKeyValue("status", status)
+                .addKeyValue("elapsedMs", elapsedMs)
+                .addKeyValue("requestId", call.requestId)
+                .addKeyValue("user", call.principal<UserPrincipal>()?.userId)
+                .addKeyValue("entries", entries.map(LogEntry::toFields))
+                .log("$method $path $status in $elapsedMs ms")
         }
     }
+
+private fun LogEntry.toFields(): Map<String, String?> =
+    mapOf(
+        "level" to level.name,
+        "message" to message,
+        "timestamp" to timestamp.toString(),
+    ) + properties.mapValues { (_, value) -> value?.toString() }
 
 private val startKey = AttributeKey<Long>("RequestStart")

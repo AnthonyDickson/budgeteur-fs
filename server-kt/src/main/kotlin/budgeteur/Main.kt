@@ -15,6 +15,9 @@ import io.ktor.server.netty.Netty
 import java.lang.management.ManagementFactory
 import java.time.Instant
 import kotlin.system.exitProcess
+import org.slf4j.LoggerFactory
+
+private val log = LoggerFactory.getLogger("budgeteur.Main")
 
 /** The imperative shell: read config, migrate, start serving. */
 fun main() {
@@ -31,11 +34,11 @@ fun main() {
     val sessionKeys =
         config.sessionKeyFile?.let(SessionKeys::loadOrCreate)
             ?: SessionKeys.random().also {
-                println("BUDGETEUR_SESSION_KEY_FILE is not set: a restart signs every user out")
+                log.warn("BUDGETEUR_SESSION_KEY_FILE is not set: a restart signs every user out")
             }
 
     val db = Db(config.databaseUrl)
-    println("Applied ${db.migrate()} migrations")
+    log.info("Applied {} migrations", db.migrate())
 
     val oidc =
         NimbusOidcClient(config.oidc.authority, config.oidc.clientId, config.oidc.clientSecret)
