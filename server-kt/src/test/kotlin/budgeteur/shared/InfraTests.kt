@@ -20,7 +20,7 @@ class InfraTests {
     @Test
     fun `config reports every missing setting`() {
         val failures = loadConfig(mapOf("PORT" to "nope")).leftOrNull().orEmpty()
-        assertEquals(3, failures.size, failures.toString())
+        assertEquals(6, failures.size, failures.toString())
     }
 
     @Test

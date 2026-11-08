@@ -3,8 +3,8 @@
 An exploration of what the backend would look like written in Kotlin only, in a
 functional-first style. It owns its schema and conventions and shares nothing
 with the F# server except the HTTP API shape, which the Gleam client depends on.
-It covers the infrastructure and two slices: `GET /api/status` and Tag CRUD
-(`/api/tags`).
+It covers the infrastructure, the SPA's login and logout, and two slices: `GET
+/api/status` and Tag CRUD (`/api/tags`).
 
 ## Running
 
@@ -16,10 +16,26 @@ From the dev shell (`nix develop`, which includes JDK 21 and Gradle):
 | `just kt-format`                       | Format with ktfmt         |
 | `gradle installDist` (in `server-kt/`) | Build `build/install/...` |
 
-The server reads `BUDGETEUR_DATABASE` (SQLite file path), `OIDC_AUTHORITY`,
-optional `OIDC_VALID_AUDIENCES` (comma separated), `PORT` (default 5000) and
-`BUDGETEUR_ENVIRONMENT`. It reports every missing or invalid setting at once and
-exits. On startup it applies pending migrations.
+The server reads its settings from environment variables. It reports every
+missing or invalid setting at once and exits. On startup it applies pending
+migrations.
+
+| Variable                     | Purpose                                                         |
+| ---------------------------- | --------------------------------------------------------------- |
+| `BUDGETEUR_DATABASE`         | SQLite file path                                                |
+| `OIDC_AUTHORITY`             | The provider's issuer URL                                       |
+| `OIDC_CLIENT_ID`             | The SPA login's client                                          |
+| `OIDC_CLIENT_SECRET`         | Its secret                                                      |
+| `OIDC_CALLBACK_PATH`         | Optional, default `/signin-oidc`                                |
+| `OIDC_VALID_AUDIENCES`       | Optional, comma separated; bearer tokens only                   |
+| `OIDC_LOGOUT_URL`            | Optional: the provider's logout page                            |
+| `LOGIN_RETURN_URL`           | Absolute URL a login returns to, e.g. `http://localhost:5173/`  |
+| `BUDGETEUR_SESSION_KEY_FILE` | Optional: cookie keys, created if missing, so sessions persist  |
+| `PORT`                       | Optional, default 5000                                          |
+| `BUDGETEUR_ENVIRONMENT`      | `Development` trusts the provider's self-signed TLS certificate |
+
+Against the dev Authelia (`docker compose -f docker/docker-compose.yml up
+authelia`), use the values in the F# server's `appsettings.Development.json`.
 
 ## Stack
 
@@ -31,7 +47,9 @@ exits. On startup it applies pending migrations.
 | JSON            | kotlinx.serialization                                 |
 | Database        | SQLite through jOOQ, table code generated from schema |
 | Migrations      | Flyway, SQL scripts in `src/main/resources/db/`       |
-| Auth            | OIDC JWT bearer (`ktor-server-auth-jwt`)              |
+| SPA login       | OIDC code flow (Nimbus OAuth 2.0 / OIDC SDK)          |
+| SPA session     | Encrypted cookie (Ktor Sessions)                      |
+| API auth        | OIDC JWT bearer (`ktor-server-auth-jwt`)              |
 | Request logging | One wide event per request (Ktor plugin + Logback)    |
 | Tests           | kotlin.test (JUnit 5) and Ktor `testApplication`      |
 
@@ -47,10 +65,11 @@ Vertical slices, as in the F# server:
   generated records and the domain) and constraint checks, `shared/` the
   infrastructure. Slices depend on these, never on each other.
 - `App.kt` builds the application from a `Dependencies` value (database, clock,
-  auth setup); `Main.kt` is the imperative shell that reads config, migrates and
-  starts serving. The test host builds its own `Dependencies` with a database in
-  a temporary file, so locking behaves as in production, and a fake auth
-  provider driven by an `X-Test-User` header.
+  OIDC client, cookie keys, bearer setup); `Main.kt` is the imperative shell
+  that reads config, migrates and starts serving. The test host builds its own
+  `Dependencies` with a database in a temporary file, so locking behaves as in
+  production, a fake bearer provider driven by an `X-Test-User` header, and a
+  fake OIDC provider that logs in whoever the authorization code names.
 
 ## Design notes
 
@@ -87,6 +106,29 @@ Vertical slices, as in the F# server:
   `SQLITE_BUSY_SNAPSHOT`, a 500. Every connection comes from one SQLite data
   source that also sets foreign keys, WAL and the busy timeout. There is no
   pool: opening a SQLite connection is cheap.
+- **Authentication.** Authenticated routes accept the SPA's session cookie or a
+  bearer token, and both give a `UserPrincipal` holding the `sub` claim. Either
+  one failing gives the same JSON 401, which the client turns into a redirect to
+  `/login`.
+- **Login.** The `auth` slice runs the authorization code flow with PKCE and a
+  nonce, as ASP.NET Core's OIDC handler does. `/login` keeps the attempt (state,
+  nonce, code verifier, return URL) in a short-lived cookie scoped to the
+  callback path. The callback uses the attempt up whether it succeeds or not,
+  and then sets the session cookie. The OIDC client is an interface, so the
+  slice's tests run the real cookies and redirects against a fake provider. The
+  Nimbus client resolves the provider's metadata on first use, so the server
+  starts while the provider is down.
+- **Sessions.** The session cookie holds the user id and an expiry, encrypted
+  and signed by Ktor's `SessionTransportTransformerEncrypt`. The expiry is
+  inside the cookie because the cookie's own `Max-Age` is a hint the client can
+  ignore. A session lasts an hour; once half of that has passed, the next
+  request renews it, matching ASP.NET Core's sliding expiration. The keys come
+  from a file, which plays the part of ASP.NET Core's data protection keys.
+- **Dev TLS.** In `Development` the server accepts any certificate on outgoing
+  HTTPS, for Authelia's self-signed one. It sets both Nimbus's defaults and
+  `HttpsURLConnection`'s, process-wide, which is acceptable because the provider
+  is the only host the server calls. Nimbus ignores the `HttpsURLConnection`
+  defaults.
 
 ## Schema and generated code
 
@@ -115,13 +157,14 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- Cookie/OIDC login and logout for the SPA, and the dev-only TLS bypass for the
-  provider's self-signed certificate. Acceptance of a valid bearer token has not
-  been tested end to end.
+- Acceptance of a valid bearer token has not been tested end to end. The login
+  has, against the dev Authelia with curl, but not through the client or E2E.
 - OpenAPI document and Scalar UI. Ktor's options are its OpenAPI generation
   plugin or a library such as Kompendium; neither was evaluated.
-- Request body size limit, forwarded headers, data protection, static files and
-  the SPA fallback.
+- Forwarded headers. The login builds its callback URL from the request, so
+  behind a TLS-terminating proxy it would send an `http://` redirect URI until
+  Ktor's `XForwardedHeaders` plugin is installed with trusted proxies.
+- Request body size limit, static files and the SPA fallback.
 - `Money`, dates and the rest of the domain. Owning the schema allows storing
   money as integer cents rather than SQLite's REAL-backed numerics, and dates as
   ISO-8601 text.
@@ -139,6 +182,12 @@ domain enums, but that would tie generated code to `domain/`.
   F#. Most of the difference is the per-endpoint OpenAPI configuration the PoC
   lacks and the narrower F# line width, so it is not evidence that Kotlin is
   terser.
+- **Auth.** ASP.NET Core provides the cookie and OIDC handlers. Ktor provides
+  the encrypted session cookie, but its `oauth` provider is OAuth 2.0 only: it
+  does not validate ID tokens or use a nonce, and its default state manager
+  generates state without checking it. Nimbus covers the OIDC parts (discovery,
+  PKCE, token exchange, ID token validation), and the slice and session code
+  around it come to about 300 lines, excluding comments and imports.
 - **Losses.** No partial application or pipelines, so composition leans on
   extension functions; enums and sealed types are wordier than unions for
   parsing from strings; `Raise` uses exceptions internally, so a broad `catch

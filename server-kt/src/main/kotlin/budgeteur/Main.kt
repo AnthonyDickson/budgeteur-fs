@@ -1,10 +1,14 @@
 package budgeteur
 
 import arrow.core.getOrElse
+import budgeteur.shared.CookieSettings
 import budgeteur.shared.Db
+import budgeteur.shared.NimbusOidcClient
+import budgeteur.shared.SessionKeys
 import budgeteur.shared.loadConfig
 import budgeteur.shared.oidcBearer
 import budgeteur.shared.systemClock
+import budgeteur.shared.trustAnyCertificateForDevelopment
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import java.lang.management.ManagementFactory
@@ -20,8 +24,20 @@ fun main() {
             exitProcess(1)
         }
 
+    // The development provider has a self-signed certificate.
+    if (config.isDevelopment) trustAnyCertificateForDevelopment()
+
+    val sessionKeys =
+        config.sessionKeyFile?.let(SessionKeys::loadOrCreate)
+            ?: SessionKeys.random().also {
+                println("BUDGETEUR_SESSION_KEY_FILE is not set: a restart signs every user out")
+            }
+
     val db = Db(config.databaseUrl)
     println("Applied ${db.migrate()} migrations")
+
+    val oidc =
+        NimbusOidcClient(config.oidc.authority, config.oidc.clientId, config.oidc.clientSecret)
 
     val deps =
         Dependencies(
@@ -29,7 +45,14 @@ fun main() {
             clock = systemClock,
             environment = config.environment,
             startedAt = Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().startTime),
-            configureAuth = { oidcBearer(config.oidc) },
+            oidc = oidc,
+            login = config.login,
+            callbackPath = config.oidc.callbackPath,
+            // Development serves plain HTTP.
+            cookies = CookieSettings(sessionKeys, secure = !config.isDevelopment),
+            configureBearer = {
+                oidcBearer(config.oidc.authority, config.oidc.validAudiences) { oidc.jwkSetUri }
+            },
         )
 
     embeddedServer(Netty, port = config.port) { budgeteur(deps) }.start(wait = true)
