@@ -11,6 +11,10 @@ sqlite-jdbc = "3.54.1.0"
 [libraries]
 arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
 flyway-core = { module = "org.flywaydb:flyway-core", version.ref = "flyway" }
+# ktor-server-auth-jwt brings Jackson 2.22.0 and Guava 33.6.0, which have
+# known vulnerabilities; these lift them.
+guava = "com.google.guava:guava:33.7.2-jre"
+jackson2-bom = "com.fasterxml.jackson:jackson-bom:2.22.4"
 # logstash-logback-encoder 9.0 brings Jackson 3.0.1, which has known
 # vulnerabilities; this lifts every Jackson 3 module.
 jackson3-bom = "tools.jackson:jackson-bom:3.2.4"

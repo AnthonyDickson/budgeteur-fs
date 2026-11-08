@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.logback.classic)
     implementation(libs.logstash.logback.encoder)
     implementation(platform(libs.jackson3.bom))
+    implementation(platform(libs.jackson2.bom))
+    constraints { implementation(libs.guava) }
 
     jooqCodegen(libs.sqlite.jdbc)
 
