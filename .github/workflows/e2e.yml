@@ -27,7 +27,8 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile.client-dev
-          tags: e2e-client:latest
+          # The name compose gives the e2e stack's client image, so it uses this build.
+          tags: budgeteur-fs-e2e-client:latest
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -41,8 +42,6 @@ jobs:
             --abort-on-container-exit \
             --exit-code-from e2e \
             --remove-orphans
-        env:
-          COMPOSE_PROJECT_NAME: e2e
 
       - name: Upload test artifacts
         if: always()
@@ -51,5 +50,4 @@ jobs:
           name: e2e-results
           path: |
             tests/e2e/test-results/
-            tests/e2e/auth.json
           retention-days: 7
