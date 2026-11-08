@@ -4,7 +4,7 @@ import { screenshotPath } from '../support/screenshot';
 /// Authelia's login form, which shows only without a provider session.
 const providerLogin = '#username-textfield';
 
-test.describe('auth', () => {
+test.describe('auth', { tag: '@kotlin' }, () => {
   test(
     'a login returns to its page, and logging out ends the provider session',
     async ({ browser, baseURL }, testInfo) => {
@@ -21,7 +21,7 @@ test.describe('auth', () => {
       try {
         await logIn(page, baseURL!, workerUser(testInfo.parallelIndex));
         // The login returns to the page that asked for it.
-        await expect(page).toHaveURL(/\/transactions$/);
+        await expect(page).toHaveURL(/\/tagging$/);
         await page.goto('/');
         await page.getByTestId('log-out-button').click();
 
@@ -31,7 +31,9 @@ test.describe('auth', () => {
         await expect(page.locator(providerLogin)).toBeVisible();
 
         // The app asks for a login again, rather than signing straight back in.
-        await page.goto('/');
+        // The tagging page, since its endpoints exist on both the F# and Kotlin
+        // servers: a missing endpoint answers 404, not 401.
+        await page.goto('/tagging');
         await page.waitForURL('**127.0.0.1:9091**');
         await expect(page.locator(providerLogin)).toBeVisible();
         await page.screenshot({

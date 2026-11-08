@@ -17,7 +17,7 @@ async function createFirstTag(page: Page, name: string) {
 // The browser can close a dialog without the page asking (Escape, or a click
 // outside it). The page must hear about it, or its model would still say the
 // dialog is open and the next open would do nothing.
-test.describe('dialogs', () => {
+test.describe('dialogs', { tag: '@kotlin' }, () => {
   test(
     'a form dialog closed by the browser opens again',
     async ({ page }, testInfo) => {

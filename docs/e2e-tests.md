@@ -50,6 +50,8 @@ docker compose -f docker/docker-compose.e2e.yml run --rm e2e \
   390 by 664, the narrowest supported phone (decision 13 in
   [styling](styling.md)), and checks that pages fit the screen, nothing is
   clipped, and fields will not make Safari zoom. A new page or dialog joins it.
+- The `@kotlin` tag marks the tests that also run against the Kotlin server PoC
+  (`just kt-e2e-test`, see [server-kt/README.md](../server-kt/README.md)).
 
 ## README Screenshots
 

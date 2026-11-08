@@ -1,0 +1,65 @@
+# E2E tests against the Kotlin PoC server (server-kt/). Runs the specs tagged
+# @kotlin: those the PoC's endpoints support. Shares Authelia, the client and
+# Playwright with the F# stack in docker-compose.e2e.yml.
+name: budgeteur-kt-e2e
+
+services:
+  authelia:
+    extends:
+      file: docker-compose.e2e.yml
+      service: authelia
+
+  server:
+    image: gradle:8.14.4-jdk21
+    container_name: budgeteur-kt-server-e2e
+    network_mode: "host"
+    # The source is mounted read-only and built in a copy, so the build never
+    # writes root-owned files into the working tree.
+    command: >
+      sh -c "mkdir -p /work &&
+      tar -C /src/server-kt --exclude=./build --exclude=./.gradle --exclude=./.kotlin -cf - . | tar -C /work -xf - &&
+      cd /work && rm -f /tmp/budgeteur_e2e.db &&
+      gradle --no-daemon --quiet installDist &&
+      exec build/install/budgeteur/bin/budgeteur"
+    environment:
+      - BUDGETEUR_ENVIRONMENT=Development
+      - BUDGETEUR_DATABASE=/tmp/budgeteur_e2e.db
+      - OIDC_AUTHORITY=https://127.0.0.1:9091
+      - OIDC_CLIENT_ID=budgeteur-fs
+      - OIDC_CLIENT_SECRET=elmish-todos-dev-secret
+      - OIDC_LOGOUT_URL=https://127.0.0.1:9091/logout
+      - LOGIN_RETURN_URL=http://localhost:5173/
+    volumes:
+      - ../server-kt:/src/server-kt:ro
+      - gradle-home:/root/.gradle
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:5000/api/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      # The first build downloads Gradle's dependencies.
+      start_period: 300s
+
+  client:
+    extends:
+      file: docker-compose.e2e.yml
+      service: client
+
+  e2e:
+    extends:
+      file: docker-compose.e2e.yml
+      service: e2e
+    command: sh -c "npm install && npx playwright test --reporter=line --grep @kotlin"
+    depends_on:
+      authelia:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+      client:
+        condition: service_healthy
+
+volumes:
+  gradle-home:
+  gleam-packages:
+  client-node-modules:
+  e2e-node-modules:

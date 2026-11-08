@@ -89,6 +89,7 @@ async function recordTransaction(page: Page, description: string) {
 test.describe('tagging', () => {
   test(
     'creates the first tag from the empty state',
+    { tag: '@kotlin' },
     async ({ page }, testInfo) => {
       await gotoEmptyTagging(page);
 
@@ -180,47 +181,51 @@ test.describe('tagging', () => {
     });
   });
 
-  test('validates tag names', async ({ page }, testInfo) => {
-    await gotoEmptyTagging(page);
-    await page.getByTestId('create-first-tag-button').click();
-    const modal = tagModal(page);
+  test(
+    'validates tag names',
+    { tag: '@kotlin' },
+    async ({ page }, testInfo) => {
+      await gotoEmptyTagging(page);
+      await page.getByTestId('create-first-tag-button').click();
+      const modal = tagModal(page);
 
-    // A blank name is rejected on submit.
-    await modal.getByTestId('tag-submit-button').click();
-    await expect(modal).toContainText('Name cannot be empty');
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'tag-name-required'),
-      fullPage: true,
-    });
+      // A blank name is rejected on submit.
+      await modal.getByTestId('tag-submit-button').click();
+      await expect(modal).toContainText('Name cannot be empty');
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'tag-name-required'),
+        fullPage: true,
+      });
 
-    // Over-long names are rejected as you type.
-    await modal.getByTestId('tag-name-input').fill('x'.repeat(65));
-    await expect(modal).toContainText(
-      'Name cannot be longer than 64 characters',
-    );
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'tag-name-too-long'),
-      fullPage: true,
-    });
+      // Over-long names are rejected as you type.
+      await modal.getByTestId('tag-name-input').fill('x'.repeat(65));
+      await expect(modal).toContainText(
+        'Name cannot be longer than 64 characters',
+      );
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'tag-name-too-long'),
+        fullPage: true,
+      });
 
-    // A valid name saves.
-    await modal.getByTestId('tag-name-input').fill('Groceries');
-    await modal.getByTestId('tag-submit-button').click();
-    await expect(modal).toBeHidden();
+      // A valid name saves.
+      await modal.getByTestId('tag-name-input').fill('Groceries');
+      await modal.getByTestId('tag-submit-button').click();
+      await expect(modal).toBeHidden();
 
-    // Reusing an existing name is rejected before the round trip.
-    await page.getByTestId('new-tag-button').click();
-    await expect(modal).toBeVisible();
-    await modal.getByTestId('tag-name-input').fill('Groceries');
-    await modal.getByTestId('tag-submit-button').click();
-    await expect(modal).toContainText('A tag with this name already exists');
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'tag-name-duplicate'),
-      fullPage: true,
-    });
-    await modal.getByTestId('tag-cancel-button').click();
-    await expect(modal).toBeHidden();
-  });
+      // Reusing an existing name is rejected before the round trip.
+      await page.getByTestId('new-tag-button').click();
+      await expect(modal).toBeVisible();
+      await modal.getByTestId('tag-name-input').fill('Groceries');
+      await modal.getByTestId('tag-submit-button').click();
+      await expect(modal).toContainText('A tag with this name already exists');
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'tag-name-duplicate'),
+        fullPage: true,
+      });
+      await modal.getByTestId('tag-cancel-button').click();
+      await expect(modal).toBeHidden();
+    },
+  );
 
   test('deletes a tag and cascades its rules', async ({ page }) => {
     await gotoEmptyTagging(page);

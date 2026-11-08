@@ -10,11 +10,19 @@ It covers the infrastructure, the SPA's login and logout, and two slices: `GET
 
 From the dev shell (`nix develop`, which includes JDK 21 and Gradle):
 
-| Command                                | Purpose                   |
-| -------------------------------------- | ------------------------- |
-| `just kt-test`                         | Run the tests             |
-| `just kt-format`                       | Format with ktfmt         |
-| `gradle installDist` (in `server-kt/`) | Build `build/install/...` |
+| Command                                | Purpose                     |
+| -------------------------------------- | --------------------------- |
+| `just kt-test`                         | Run the tests               |
+| `just kt-e2e-test`                     | Run the `@kotlin` E2E specs |
+| `just kt-format`                       | Format with ktfmt           |
+| `gradle installDist` (in `server-kt/`) | Build `build/install/...`   |
+
+`just kt-e2e-test` runs `docker/docker-compose.e2e-kt.yml`: the F# E2E stack
+with this server in place of the F# one, running only the specs tagged
+`@kotlin`, those whose endpoints the PoC has. Tag a spec or test when the PoC
+gains its endpoints. The tagging page also loads rules, so `GET /api/rules` is a
+stub that returns no rules, and the E2E fixtures' `DELETE /api/test/user-data`
+is registered in Development only, as in the F# server.
 
 The server reads its settings from environment variables. It reports every
 missing or invalid setting at once and exits. On startup it applies pending
@@ -157,8 +165,7 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- Acceptance of a valid bearer token has not been tested end to end. The login
-  has, against the dev Authelia with curl, but not through the client or E2E.
+- Acceptance of a valid bearer token has not been tested end to end.
 - OpenAPI document and Scalar UI. Ktor's options are its OpenAPI generation
   plugin or a library such as Kompendium; neither was evaluated.
 - Forwarded headers. The login builds its callback URL from the request, so
@@ -168,7 +175,8 @@ domain enums, but that would tie generated code to `domain/`.
 - `Money`, dates and the rest of the domain. Owning the schema allows storing
   money as integer cents rather than SQLite's REAL-backed numerics, and dates as
   ISO-8601 text.
-- Docker, E2E and CI still build the F# server.
+- The rules slice, beyond the stub, and every other slice the client uses.
+- The production Docker image and CI still build the F# server only.
 
 ## Findings
 

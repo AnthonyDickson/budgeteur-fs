@@ -19,10 +19,11 @@ export function workerUser(parallelIndex: number): string {
 }
 
 /// Log in as `username` through the SPA's OIDC redirect to Authelia, ending
-/// back on the transactions page that asked for it.
+/// back on the tagging page that asked for it.
 export async function logIn(page: Page, baseURL: string, username: string) {
-  // HACK: Use transactions page to trigger auth redirect
-  await page.goto('/transactions');
+  // HACK: Use a page that loads data to trigger the auth redirect. The tagging
+  // page's endpoints exist on both the F# and Kotlin servers.
+  await page.goto('/tagging');
 
   // SPA detects 401, redirects to /login, OIDC challenge lands on Authelia
   await page.waitForURL('**127.0.0.1:9091**');

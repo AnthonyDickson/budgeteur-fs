@@ -27,6 +27,10 @@ server-test:
 kt-format:
 	cd server-kt && gradle --no-daemon ktfmtFormat
 
+kt-e2e-test:
+	docker compose -f docker/docker-compose.e2e-kt.yml up --abort-on-container-exit --exit-code-from e2e --remove-orphans
+	docker compose -f docker/docker-compose.e2e-kt.yml down
+
 kt-test:
 	cd server-kt && gradle --no-daemon test
 
