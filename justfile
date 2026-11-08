@@ -129,6 +129,27 @@ check-architecture:
 		fi
 	done < <(find server/src/Budgeteur/{Shared,Domain,Data} -name '*.fs' -type f)
 
+	# The same rules for the Kotlin PoC. Kotlin names another package through an import or a
+	# fully qualified name, so match both, and skip the file's own package line.
+	kt="server-kt/src/main/kotlin/budgeteur"
+	while IFS= read -r file; do
+		slice="$(basename "$(dirname "$file")")"
+		deps="$(grep -v '^package ' "$file" | grep -oE 'budgeteur\.feature\.[a-z]+' | sed 's/budgeteur\.feature\.//' | sort -u || true)"
+		while read -r dep; do
+			if [[ -n "$dep" && "$dep" != "$slice" ]]; then
+				echo "Cross-slice dependency: $file uses budgeteur.feature.$dep"
+				fail=1
+			fi
+		done <<< "$deps"
+	done < <(find "$kt/feature" -name '*.kt' -type f)
+
+	while IFS= read -r file; do
+		if grep -v '^package ' "$file" | grep -qE 'budgeteur\.feature\.'; then
+			echo "Shared package depends on a feature: $file"
+			fail=1
+		fi
+	done < <(find "$kt"/{shared,domain,data} -name '*.kt' -type f)
+
 	if [[ $fail -ne 0 ]]; then
 		echo "Architecture violations found (see above)"
 		exit 1

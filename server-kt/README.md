@@ -88,7 +88,8 @@ Vertical slices, as in the F# server:
   module, so there are no wrapping `object`s.
 - `domain/` is the pure model, `data/` the codecs (extension functions between
   generated records and the domain) and constraint checks, `shared/` the
-  infrastructure. Slices depend on these, never on each other.
+  infrastructure. Slices depend on these, never on each other, which `just
+  check-architecture` enforces.
 - `App.kt` builds the application from a `Dependencies` value (database, clock,
   OIDC client, cookie keys, bearer setup); `Main.kt` is the imperative shell
   that reads config, migrates and starts serving. The test host builds its own
