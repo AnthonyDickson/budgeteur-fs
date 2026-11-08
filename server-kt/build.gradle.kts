@@ -31,6 +31,7 @@ dependencies {
     implementation("io.ktor:ktor-server-core:$ktor")
     implementation("io.ktor:ktor-server-netty:$ktor")
     implementation("io.ktor:ktor-server-auth:$ktor")
+    implementation("io.ktor:ktor-server-body-limit:$ktor")
     implementation("io.ktor:ktor-server-auth-jwt:$ktor")
     implementation("io.ktor:ktor-server-sessions:$ktor")
     implementation("io.ktor:ktor-server-routing-openapi:$ktor")

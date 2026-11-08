@@ -11,6 +11,7 @@ import budgeteur.shared.ApiDocsSettings
 import budgeteur.shared.BEARER_AUTH
 import budgeteur.shared.Clock
 import budgeteur.shared.CookieSettings
+import budgeteur.shared.DEFAULT_BODY_LIMIT
 import budgeteur.shared.Db
 import budgeteur.shared.LoginConfig
 import budgeteur.shared.OidcClient
@@ -20,6 +21,7 @@ import budgeteur.shared.apiDocs
 import budgeteur.shared.apiErrors
 import budgeteur.shared.apiJson
 import budgeteur.shared.authenticated
+import budgeteur.shared.bodyLimit
 import budgeteur.shared.respondError
 import budgeteur.shared.userSession
 import budgeteur.shared.userSessionCookie
@@ -70,6 +72,7 @@ fun Application.budgeteur(deps: Dependencies) {
     }
 
     routing {
+        bodyLimit(DEFAULT_BODY_LIMIT)
         getStatus(deps.db, deps.environment, deps.startedAt, deps.clock)
         authEndpoints(deps.oidc, deps.login, deps.callbackPath, deps.clock)
         deps.apiDocs?.let { apiDocs(it) }

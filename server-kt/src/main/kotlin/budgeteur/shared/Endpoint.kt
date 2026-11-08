@@ -7,6 +7,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.principal
 import io.ktor.server.plugins.BadRequestException
+import io.ktor.server.plugins.PayloadTooLargeException
 import io.ktor.server.plugins.statuspages.StatusPagesConfig
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -67,12 +68,19 @@ fun ApplicationCall.uuidParam(name: String): UUID =
     parameters[name]?.let(Uuid::parseHexDashOrNull)?.toJavaUuid()
         ?: raise(DomainError.NotFound("No API endpoint matches ${request.local.uri}"))
 
-/** The request body. One that does not decode to [T] is a validation failure. */
+/**
+ * The request body. One that does not decode to [T] is a validation failure. One that passes the
+ * [bodyLimit] stays a [PayloadTooLargeException], which ContentNegotiation wraps.
+ */
 context(_: Raise<DomainError>)
 suspend inline fun <reified T : Any> ApplicationCall.receiveOrRaise(): T =
     try {
         receive<T>()
     } catch (e: BadRequestException) {
+        generateSequence<Throwable>(e) { it.cause }
+            .filterIsInstance<PayloadTooLargeException>()
+            .firstOrNull()
+            ?.let { throw it }
         raise(DomainError.ValidationFailed(e.cause?.message ?: e.message ?: "Invalid request body"))
     }
 
@@ -82,6 +90,14 @@ suspend inline fun <reified T : Any> ApplicationCall.receiveOrRaise(): T =
  * broken server.
  */
 fun StatusPagesConfig.apiErrors() {
+    exception<PayloadTooLargeException> { call, cause ->
+        call.log.warn("Request body too large: ${cause.message}", "errorType" to "PayloadTooLarge")
+        call.respondError(
+            HttpStatusCode.PayloadTooLarge,
+            "Payload Too Large",
+            cause.message ?: "The request body is too large",
+        )
+    }
     exception<Throwable> { call, cause ->
         // jOOQ wraps the driver's exceptions in its own, so look through the causes.
         val sqlError =

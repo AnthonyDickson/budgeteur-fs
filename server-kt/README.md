@@ -151,6 +151,13 @@ Vertical slices, as in the F# server:
   `HttpsURLConnection`'s, process-wide, which is acceptable because the provider
   is the only host the server calls. Nimbus ignores the `HttpsURLConnection`
   defaults.
+- **Body limits.** Request bodies are capped at 64 KB, as in the F# server.
+  Ktor's `RequestBodyLimit` plugin is route scoped, and the closest install
+  wins, so the routing root installs the default and an endpoint that needs more
+  (the CSV import, once ported) installs its own limit. A body over the limit is
+  a JSON 413. ContentNegotiation wraps the limit's exception in a
+  `BadRequestException`, so the body parser unwraps it rather than reporting a
+  400.
 - **Forwarded headers.** Behind a proxy that terminates TLS, the login builds
   its callback URL from `X-Forwarded-Proto`, as the F# server does (see
   [deployment](../docs/deployment.md#hosting)). The server trusts
@@ -211,7 +218,7 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- Request body size limit, static files and the SPA fallback.
+- Static files and the SPA fallback.
 - `Money`, dates and the rest of the domain. Owning the schema allows storing
   money as integer cents rather than SQLite's REAL-backed numerics, and dates as
   ISO-8601 text.
