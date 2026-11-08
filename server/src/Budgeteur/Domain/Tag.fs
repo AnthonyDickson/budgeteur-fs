@@ -8,7 +8,7 @@ type TagName = private TagName of string
 
 module TagName =
     [<Literal>]
-    let private MaxNameLength = 64
+    let internal MaxLength = 64
 
     let private nonEmpty name =
         if String.IsNullOrWhiteSpace name then
@@ -17,11 +17,11 @@ module TagName =
             Ok name
 
     let private acceptableLength (name : string) =
-        if name.Length > MaxNameLength then
+        if name.Length > MaxLength then
             Error (
                 ValidationFailed
                     $"Name is too long. Names must be at most \
-                    %i{MaxNameLength} characters, but got %i{name.Length}"
+                    %i{MaxLength} characters, but got %i{name.Length}"
             )
         else
             Ok name

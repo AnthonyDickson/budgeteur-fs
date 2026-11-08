@@ -3,6 +3,7 @@ namespace Budgeteur.Feature.Tag
 module CreateTag =
     open System
     open System.Collections.Generic
+    open System.ComponentModel.DataAnnotations
     open System.Threading.Tasks
 
     open FsToolkit.ErrorHandling
@@ -25,6 +26,8 @@ module CreateTag =
     /// <summary>Payload for creating a tag. The id is generated
     /// server-side.</summary>
     type CreateTagRequest = {
+        [<MinLength(1)>]
+        [<MaxLength(TagName.MaxLength)>]
         Name : string
         /// <summary>A Catppuccin accent colour, by name.</summary>
         [<SchemaHint.Enum(typeof<TagColor>)>]

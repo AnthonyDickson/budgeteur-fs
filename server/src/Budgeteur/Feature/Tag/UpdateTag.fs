@@ -3,6 +3,7 @@ namespace Budgeteur.Feature.Tag
 module UpdateTag =
     open System
     open System.Collections.Generic
+    open System.ComponentModel.DataAnnotations
     open System.Threading.Tasks
 
     open FsToolkit.ErrorHandling
@@ -24,6 +25,8 @@ module UpdateTag =
 
     /// <summary>Payload for updating a tag.</summary>
     type UpdateTagRequest = {
+        [<MinLength(1)>]
+        [<MaxLength(TagName.MaxLength)>]
         Name : string
         /// <summary>A Catppuccin accent colour, by name.</summary>
         [<SchemaHint.Enum(typeof<TagColor>)>]

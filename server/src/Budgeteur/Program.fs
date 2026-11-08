@@ -119,8 +119,7 @@ let private configureForwardedHeaders
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "172.16.0.0/12")
     options.KnownIPNetworks.Add (System.Net.IPNetwork.Parse "192.168.0.0/16")
 
-let private withAuth endpoints =
-    Seq.map (addFilter Auth.requireAuth) endpoints
+let private withAuth endpoints = Seq.map Auth.authenticated endpoints
 
 let private buildEndpoints
     (connectionString : string)

@@ -53,6 +53,13 @@ Hints describe the document only; they do not validate requests. Domain
 invariants remain the source of truth, so keep hints in step when a rule
 changes.
 
+## Security
+
+Each operation declares its own security requirement. Endpoints behind the
+authentication filter carry endpoint metadata saying so, and an operation
+transformer adds the OAuth requirement to those operations only. The status
+endpoint, which needs no login, is documented as open.
+
 ## Decimals
 
 Decimals are encoded as JSON strings, and the client sends strings, so every

@@ -1,12 +1,15 @@
 namespace Budgeteur.Feature.Tag
 
 open System
+open System.ComponentModel.DataAnnotations
 
 open Budgeteur.Domain.Tag
 open Budgeteur.Shared.OpenApi
 
 type TagResponse = {
     Id : Guid
+    [<MinLength(1)>]
+    [<MaxLength(TagName.MaxLength)>]
     Name : string
     /// <summary>A Catppuccin accent colour, by name.</summary>
     [<SchemaHint.Enum(typeof<TagColor>)>]
