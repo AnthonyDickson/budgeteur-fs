@@ -225,6 +225,12 @@ Vertical slices, as in the F# server:
   the 2.0 alpha: 1.23.8, the last stable release, embeds the Kotlin 2.0
   compiler, which predates context parameters. `detekt.yml` holds only the
   overrides of detekt's defaults, each with its reason.
+- **Dependencies.** `just outdated` lists newer versions (ben-manes versions
+  plugin) and `just update` rewrites the version catalog (version-catalog-update
+  plugin). Gradle has no audit of its own, and the OWASP plugin needs an NVD API
+  key and a large database, so `just audit` writes a CycloneDX SBOM of the
+  runtime classpath and scans it with `osv-scanner`, which the dev shell
+  provides.
 
 ## Schema and generated code
 

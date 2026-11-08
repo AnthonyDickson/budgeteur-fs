@@ -17,6 +17,7 @@ plugins {
     alias(libs.plugins.detekt)
     alias(libs.plugins.versions)
     alias(libs.plugins.version.catalog.update)
+    alias(libs.plugins.cyclonedx)
     application
 }
 
@@ -139,3 +140,6 @@ tasks.compileKotlin { dependsOn("jooqCodegen") }
 
 // GetStatus reports this as the running version.
 tasks.jar { manifest { attributes("Implementation-Version" to project.version) } }
+
+// `just audit` scans this SBOM: what the server runs with, not the build's own tooling.
+tasks.cyclonedxDirectBom { includeConfigs.set(listOf("runtimeClasspath")) }

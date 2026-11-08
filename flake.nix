@@ -31,6 +31,8 @@
               jdk21
               gradle
               kotlin-lsp
+              # `just audit` scans the Kotlin PoC's SBOM with it
+              osv-scanner
               nodejs_24
               gleam
               just

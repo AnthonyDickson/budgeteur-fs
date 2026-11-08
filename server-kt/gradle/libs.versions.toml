@@ -31,6 +31,7 @@ nimbus-oidc = "com.nimbusds:oauth2-oidc-sdk:11.38.2"
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 
 [plugins]
+cyclonedx = "org.cyclonedx.bom:3.5.1"
 detekt = "dev.detekt:2.0.0-alpha.6"
 jooq-codegen = { id = "org.jooq.jooq-codegen-gradle", version.ref = "jooq" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

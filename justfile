@@ -168,6 +168,8 @@ anonymise-csv input output:
 audit:
 	cd client && npm audit
 	cd server && dotnet list package --vulnerable
+	cd server-kt && gradle --no-daemon -q cyclonedxDirectBom
+	osv-scanner scan --lockfile server-kt/build/reports/cyclonedx-direct/bom.json
 
 # List the outdated packages in the project
 outdated:
