@@ -84,6 +84,9 @@ suspend inline fun <reified T : Any> ApplicationCall.receiveOrRaise(): T =
         raise(DomainError.ValidationFailed(e.cause?.message ?: e.message ?: "Invalid request body"))
     }
 
+/** SQLite's extended result codes keep the primary code in their low byte. */
+private const val PRIMARY_RESULT_CODE = 0xff
+
 /**
  * Turns an exception that escapes a handler into a JSON error. A constraint violation is a 409:
  * handlers check constraints first, so one that reaches here marks a missed check rather than a
@@ -104,7 +107,8 @@ fun StatusPagesConfig.apiErrors() {
             generateSequence(cause) { it.cause }.filterIsInstance<SQLException>().firstOrNull()
         if (
             sqlError is SQLiteException &&
-                sqlError.resultCode.code and 0xff == SQLiteErrorCode.SQLITE_CONSTRAINT.code
+                sqlError.resultCode.code and PRIMARY_RESULT_CODE ==
+                    SQLiteErrorCode.SQLITE_CONSTRAINT.code
         ) {
             call.log.warn(
                 "Unhandled constraint violation: ${sqlError.message}",

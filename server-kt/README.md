@@ -15,6 +15,7 @@ From the dev shell (`nix develop`, which includes JDK 21 and Gradle):
 | `just kt-test`                         | Run the tests               |
 | `just kt-e2e-test`                     | Run the `@kotlin` E2E specs |
 | `just kt-format`                       | Format with ktfmt           |
+| `just kt-lint`                         | Lint with detekt            |
 | `gradle installDist` (in `server-kt/`) | Build `build/install/...`   |
 
 The dev shell also provides JetBrains'
@@ -77,6 +78,7 @@ authelia`), use the values in the F# server's `appsettings.Development.json`.
 | Request logging | One wide event per request (Ktor plugin + Logback)    |
 | Log format      | JSON lines (logstash-logback-encoder)                 |
 | Tests           | kotlin.test (JUnit 5) and Ktor `testApplication`      |
+| Lint            | detekt 2 (alpha), overrides in `detekt.yml`           |
 
 ## Layout
 
@@ -216,6 +218,11 @@ Vertical slices, as in the F# server:
   rejected alternatives: `ktor-server-openapi` generates static HTML through
   swagger-codegen, Kompendium has had no release since 2024, and
   smiley4/ktor-openapi duplicates what Ktor now provides.
+
+- **Lint.** detekt runs with type resolution (`detektMain`, `detektTest`). It is
+  the 2.0 alpha: 1.23.8, the last stable release, embeds the Kotlin 2.0
+  compiler, which predates context parameters. `detekt.yml` holds only the
+  overrides of detekt's defaults, each with its reason.
 
 ## Schema and generated code
 

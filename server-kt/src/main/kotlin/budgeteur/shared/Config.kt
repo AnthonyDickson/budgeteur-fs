@@ -67,10 +67,13 @@ private fun Env.required(name: String): String =
 
 private fun Env.optional(name: String): String? = get(name)?.takeIf(String::isNotBlank)
 
+private const val DEFAULT_PORT = 5000
+private val PORTS = 1..65535
+
 context(_: Raise<String>)
 private fun Env.port(): Int {
-    val raw = get("PORT") ?: return 5000
-    return raw.toIntOrNull()?.takeIf { it in 1..65535 }
+    val raw = get("PORT") ?: return DEFAULT_PORT
+    return raw.toIntOrNull()?.takeIf { it in PORTS }
         ?: raise("PORT must be a port number, got $raw")
 }
 

@@ -1,0 +1,11 @@
+# Overrides of detekt's defaults, which apply otherwise.
+
+naming:
+  MatchingDeclarationName:
+    # A file is a module named for its concept (see README.md, Layout), not for
+    # the one class it may hold.
+    active: false
+
+style:
+  ReturnCount:
+    excludeGuardClauses: true

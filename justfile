@@ -34,6 +34,10 @@ kt-e2e-test:
 kt-test:
 	cd server-kt && gradle --no-daemon test
 
+# detekt, with type resolution (see server-kt/detekt.yml)
+kt-lint:
+	cd server-kt && gradle --no-daemon detektMain detektTest
+
 # Pin the dev shell's kotlin-lsp to JetBrains' latest release; builds expire about a month after release.
 update-kotlin-lsp:
 	nix/packages/kotlin-lsp/update.sh
@@ -81,8 +85,8 @@ format:
 	gleam format
 	cd server && dotnet fantomas .
 
-# Lint with fsharplint
-lint: check-architecture check-strings
+# Lint with fsharplint, and the Kotlin PoC with detekt
+lint: check-architecture check-strings kt-lint
 	cd server && dotnet fsharplint lint Budgeteur.slnx
 
 # Reject a `\` line continuation inside a triple-quoted F# string, which keeps the backslash and the next line's
