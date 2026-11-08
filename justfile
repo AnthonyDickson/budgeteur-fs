@@ -24,6 +24,10 @@ server-test:
 	dotnet test server/Budgeteur.slnx
 
 # Kotlin port PoC, see server-kt/README.md
+kt-run:
+	docker compose -f docker/docker-compose.kt.yml up
+	docker compose -f docker/docker-compose.kt.yml down
+
 kt-format:
 	cd server-kt && gradle --no-daemon ktfmtFormat
 

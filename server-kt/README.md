@@ -12,6 +12,7 @@ From the dev shell (`nix develop`, which includes JDK 21 and Gradle):
 
 | Command                                | Purpose                     |
 | -------------------------------------- | --------------------------- |
+| `just kt-run`                          | Run the dev stack           |
 | `just kt-test`                         | Run the tests               |
 | `just kt-e2e-test`                     | Run the `@kotlin` E2E specs |
 | `just kt-format`                       | Format with ktfmt           |
@@ -61,6 +62,11 @@ migrations.
 
 Against the dev Authelia (`docker compose -f docker/docker-compose.yml up
 authelia`), use the values in the F# server's `appsettings.Development.json`.
+
+`just kt-run` runs `docker/docker-compose.kt.yml`: the F# development stack
+(Authelia and the Vite client) with this server in place of the F# one. Log in
+with `dev` / `dev-password` at `http://localhost:5173`. The server builds when
+its container starts, so restart it to pick up a change.
 
 ## Production image
 

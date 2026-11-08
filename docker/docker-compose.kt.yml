@@ -1,0 +1,64 @@
+# The development stack (docker-compose.yml) with the Kotlin PoC server
+# (server-kt/) in place of the F# one. Log in with dev / dev-password at
+# http://localhost:5173. Restart the server service to pick up a change:
+# `docker compose -f docker/docker-compose.kt.yml restart server`.
+name: budgeteur-kt
+
+services:
+  authelia:
+    extends:
+      file: docker-compose.yml
+      service: authelia
+    container_name: budgeteur-kt-authelia
+
+  server:
+    image: gradle:8.14.4-jdk21
+    container_name: budgeteur-kt-server
+    network_mode: "host"
+    # The source is mounted read-only and built in a copy, so the build never
+    # writes root-owned files into the working tree.
+    command: >
+      sh -c "mkdir -p /work &&
+      tar -C /src/server-kt --exclude=./build --exclude=./.gradle --exclude=./.kotlin -cf - . | tar -C /work -xf - &&
+      cd /work &&
+      gradle --no-daemon --quiet installDist &&
+      exec build/install/budgeteur/bin/budgeteur"
+    # The values of the F# server's appsettings.Development.json.
+    environment:
+      - BUDGETEUR_ENVIRONMENT=Development
+      - BUDGETEUR_DATABASE=/data/app.sqlite3
+      - BUDGETEUR_SESSION_KEY_FILE=/data/session-keys
+      - OIDC_AUTHORITY=https://127.0.0.1:9091
+      - OIDC_CLIENT_ID=budgeteur-fs
+      - OIDC_CLIENT_SECRET=elmish-todos-dev-secret
+      - OIDC_LOGOUT_URL=https://127.0.0.1:9091/logout
+      - LOGIN_RETURN_URL=http://localhost:5173/
+      - SCALAR_CLIENT_ID=scalar-docs
+    volumes:
+      - ../server-kt:/src/server-kt:ro
+      - gradle-home:/root/.gradle
+      - server-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:5000/api/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      # The first build downloads Gradle's dependencies.
+      start_period: 300s
+
+  client:
+    extends:
+      file: docker-compose.yml
+      service: client
+    container_name: budgeteur-kt-client
+    depends_on:
+      server:
+        condition: service_healthy
+      authelia:
+        condition: service_healthy
+
+volumes:
+  gradle-home:
+  server-data:
+  gleam-packages:
+  client-node-modules:
