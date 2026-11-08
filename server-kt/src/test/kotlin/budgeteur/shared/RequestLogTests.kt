@@ -7,6 +7,12 @@ import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.OutputStreamAppender
 import ch.qos.logback.core.read.ListAppender
 import io.ktor.client.request.get
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.install
+import io.ktor.server.response.respond
+import io.ktor.server.routing.get
+import io.ktor.server.routing.routing
+import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.serialization.json.Json
@@ -54,5 +60,22 @@ class RequestLogTests {
         assertEquals("test-user", event["user"]?.jsonPrimitive?.content)
         val entry = event["entries"]!!.jsonArray.single().jsonObject
         assertEquals("NotFound", entry["errorType"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `a quiet path logs its failures only`() {
+        var status = HttpStatusCode.OK
+        val events = captureRequestLog {
+            testApplication {
+                install(RequestLogging) { quietPaths = setOf("/probe") }
+                routing { get("/probe") { call.respond(status, "") } }
+
+                client.get("/probe")
+                status = HttpStatusCode.ServiceUnavailable
+                client.get("/probe")
+            }
+        }
+
+        assertEquals(listOf(503), events.map { it["status"]?.jsonPrimitive?.int })
     }
 }

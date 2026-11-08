@@ -50,7 +50,10 @@ private val requestLogKey = AttributeKey<RequestLog>("RequestLog")
 val ApplicationCall.log: RequestLog
     get() = attributes[requestLogKey]
 
-/** Paths to leave out of the log, such as the status probe. */
+/**
+ * Paths whose successful requests are left out of the log, such as the status probe. Failures stay,
+ * so an unhealthy probe still shows.
+ */
 class RequestLoggingConfig {
     var quietPaths: Set<String> = emptySet()
 }
@@ -67,11 +70,11 @@ val RequestLogging =
 
         on(ResponseSent) { call ->
             val path = call.request.path()
-            if (path in quietPaths) return@on
+            val status = call.response.status()?.value
+            if (path in quietPaths && (status ?: 0) < 400) return@on
             val entries = call.log.snapshot()
             val elapsedMs = (System.nanoTime() - call.attributes[startKey]) / 1_000_000
             val method = call.request.httpMethod.value
-            val status = call.response.status()?.value
             val level =
                 when (entries.maxOfOrNull { it.level } ?: LogLevel.Info) {
                     LogLevel.Info -> Level.INFO
