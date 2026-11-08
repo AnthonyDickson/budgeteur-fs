@@ -9,17 +9,21 @@ import budgeteur.domain.TagColor
 import budgeteur.domain.TagKind
 import budgeteur.domain.TagName
 import budgeteur.shared.DomainError
+import budgeteur.shared.EnumOf
+import io.ktor.openapi.JsonSchema
 import java.util.UUID
 import kotlinx.serialization.Serializable
 
-/** Payload for creating or replacing a tag. Create generates the id. */
+/**
+ * Payload for creating or replacing a tag. Create generates the id. The fields stay strings, so
+ * that [toTag] reports every invalid field rather than the first that fails to decode.
+ */
 @Serializable
+@JsonSchema.Description("Payload for creating or replacing a tag. Create generates the id.")
 data class TagRequest(
-    val name: String,
-    /** A Catppuccin accent colour, by name. */
-    val color: String,
-    /** Which side of the income statement the tag's transactions are on. */
-    val kind: String,
+    @JsonSchema.MinLength(1) @JsonSchema.MaxLength(TagName.MAX_LENGTH) val name: String,
+    @JsonSchema.Description(TagDocs.COLOR) @EnumOf(TagColor::class) val color: String,
+    @JsonSchema.Description(TagDocs.KIND) @EnumOf(TagKind::class) val kind: String,
 )
 
 /**

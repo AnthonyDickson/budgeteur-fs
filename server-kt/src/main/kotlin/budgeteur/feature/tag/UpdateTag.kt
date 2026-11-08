@@ -8,13 +8,19 @@ import budgeteur.data.requireAll
 import budgeteur.domain.Tag
 import budgeteur.shared.Db
 import budgeteur.shared.DomainError
+import budgeteur.shared.errors
 import budgeteur.shared.handle
+import budgeteur.shared.json
 import budgeteur.shared.log
 import budgeteur.shared.receiveOrRaise
 import budgeteur.shared.userId
 import budgeteur.shared.uuidParam
+import budgeteur.shared.uuidPath
+import io.ktor.http.HttpStatusCode
+import io.ktor.openapi.jsonSchema
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.openapi.describe
 import io.ktor.server.routing.put
 import org.jooq.DSLContext
 
@@ -43,17 +49,36 @@ private fun DSLContext.updateTag(userId: String, tag: Tag): Boolean =
 
 fun Route.updateTag(db: Db) =
     put("/api/tags/{id}") {
-        call.handle {
-            val userId = call.userId
-            val id = call.uuidParam("id")
-            val tag = call.receiveOrRaise<TagRequest>().toTag(id)
+            call.handle {
+                val userId = call.userId
+                val id = call.uuidParam("id")
+                val tag = call.receiveOrRaise<TagRequest>().toTag(id)
 
-            db.transaction {
-                requireAll({ requireUniqueName(userId, tag) })
-                ensure(updateTag(userId, tag)) { DomainError.NotFound("Tag $id not found") }
+                db.transaction {
+                    requireAll({ requireUniqueName(userId, tag) })
+                    ensure(updateTag(userId, tag)) { DomainError.NotFound("Tag $id not found") }
+                }
+
+                call.log.info("Updated tag $id", "tagId" to id)
+                call.respond(tag.toResponse())
             }
-
-            call.log.info("Updated tag $id", "tagId" to id)
-            call.respond(tag.toResponse())
         }
-    }
+        .describe {
+            summary = "Update a tag"
+            description = "Replaces the tag."
+            tag("Tags")
+            uuidPath("id")
+            requestBody {
+                required = true
+                schema = jsonSchema<TagRequest>()
+            }
+            responses {
+                json<TagResponse>(HttpStatusCode.OK)
+                errors(
+                    HttpStatusCode.BadRequest,
+                    HttpStatusCode.Unauthorized,
+                    HttpStatusCode.NotFound,
+                    HttpStatusCode.Conflict,
+                )
+            }
+        }

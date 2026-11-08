@@ -39,6 +39,7 @@ migrations.
 | `OIDC_LOGOUT_URL`            | Optional: the provider's logout page                            |
 | `LOGIN_RETURN_URL`           | Absolute URL a login returns to, e.g. `http://localhost:5173/`  |
 | `BUDGETEUR_SESSION_KEY_FILE` | Optional: cookie keys, created if missing, so sessions persist  |
+| `SCALAR_CLIENT_ID`           | Optional: in Development, serves the API docs with this client  |
 | `PORT`                       | Optional, default 5000                                          |
 | `BUDGETEUR_ENVIRONMENT`      | `Development` trusts the provider's self-signed TLS certificate |
 
@@ -58,6 +59,7 @@ authelia`), use the values in the F# server's `appsettings.Development.json`.
 | SPA login       | OIDC code flow (Nimbus OAuth 2.0 / OIDC SDK)          |
 | SPA session     | Encrypted cookie (Ktor Sessions)                      |
 | API auth        | OIDC JWT bearer (`ktor-server-auth-jwt`)              |
+| API docs        | Ktor's routing OpenAPI generation, Scalar from a CDN  |
 | Request logging | One wide event per request (Ktor plugin + Logback)    |
 | Tests           | kotlin.test (JUnit 5) and Ktor `testApplication`      |
 
@@ -146,6 +148,29 @@ Vertical slices, as in the F# server:
   was rejected: it cannot check the peer, its default takes the client's first
   value, and when the scheme changes it keeps the connection's port, which would
   put `:80` into an `https://` URL. The replacement plugin is about 40 lines.
+- **API docs.** With `SCALAR_CLIENT_ID` set, Development serves the OpenAPI
+  document at `/openapi/v1.json` and Scalar at `/scalar/v1`, the paths the F#
+  server uses and Authelia's `scalar-docs` client expects. Ktor builds the
+  document from the routing tree:
+  - Each endpoint documents itself with `describe`, next to its handler.
+  - Each operation's security requirement comes from the `authenticate` block
+    around it, so `/api/status` needs none.
+  - Schemas come from the DTOs' kotlinx.serialization descriptors. Ktor marks
+    non-null fields required and reads `JsonSchema` annotations for
+    descriptions, formats and length bounds.
+  - String fields that hold an enum's name carry `@EnumOf`, which lists the
+    enum's constants, as the F# `SchemaHint.Enum` does. They stay strings, so
+    the request parser can report a bad value alongside the other fields'
+    failures.
+  - The bearer scheme is documented as OAuth 2.0 with the provider's endpoints,
+    read from its discovery document, so Scalar can log in and send the token.
+  - Browser redirects, the docs themselves, the rules stub and the test reset
+    are hidden.
+
+  Ktor's `describe` API is marked experimental, so the build opts in. The
+  rejected alternatives: `ktor-server-openapi` generates static HTML through
+  swagger-codegen, Kompendium has had no release since 2024, and
+  smiley4/ktor-openapi duplicates what Ktor now provides.
 
 ## Schema and generated code
 
@@ -174,9 +199,6 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- Acceptance of a valid bearer token has not been tested end to end.
-- OpenAPI document and Scalar UI. Ktor's options are its OpenAPI generation
-  plugin or a library such as Kompendium; neither was evaluated.
 - Request body size limit, static files and the SPA fallback.
 - `Money`, dates and the rest of the domain. Owning the schema allows storing
   money as integer cents rather than SQLite's REAL-backed numerics, and dates as
@@ -192,10 +214,13 @@ domain enums, but that would tie generated code to `domain/`.
 - **Data access.** jOOQ with generated tables matches SqlHydra: typed columns
   and similar query shapes. Owning the schema removed the converter and naming
   config that compatibility needed; codegen is about 60 lines of Gradle.
-- **Size.** The Tag slice with its domain and codec is 351 lines against 755 in
-  F#. Most of the difference is the per-endpoint OpenAPI configuration the PoC
-  lacks and the narrower F# line width, so it is not evidence that Kotlin is
-  terser.
+- **Size.** The Tag slice with its domain, codec and OpenAPI descriptions is 480
+  lines against 755 in F#, so most of the difference is the narrower F# line
+  width rather than evidence that Kotlin is terser. The shared OpenAPI code is
+  where Kotlin is smaller: the F# server's schema transformers (376 lines) work
+  around `System.Text.Json` not understanding F# types, while Ktor's inference
+  reads kotlinx.serialization descriptors, so `ApiDocs.kt` (229 lines, including
+  the Scalar page) needs only the `EnumOf` hint.
 - **Auth.** ASP.NET Core provides the cookie and OIDC handlers. Ktor provides
   the encrypted session cookie, but its `oauth` provider is OAuth 2.0 only: it
   does not validate ID tokens or use a nonce, and its default state manager

@@ -76,7 +76,11 @@ fun SessionsConfig.userSessionCookie(settings: CookieSettings) =
  * on every response.
  */
 fun AuthenticationConfig.userSession(clock: Clock) {
-    session<UserSession>(SESSION_AUTH) {
+    session(
+        SESSION_AUTH,
+        "The SPA's session cookie, set by logging in at /login.",
+        UserSession::class,
+    ) {
         validate { session ->
             val now = clock()
             when {

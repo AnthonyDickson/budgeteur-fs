@@ -4,6 +4,7 @@ import arrow.core.raise.Raise
 import arrow.core.raise.context.ensure
 import arrow.core.raise.context.ensureNotNull
 import arrow.core.raise.context.raise
+import budgeteur.shared.ApiDocsSettings
 import budgeteur.shared.AuthorizationStart
 import budgeteur.shared.BEARER_AUTH
 import budgeteur.shared.CookieSettings
@@ -56,6 +57,8 @@ fun <T> withTempDb(block: (Db) -> T): T {
 const val TEST_RETURN_URL = "http://localhost:5173/"
 
 const val FAKE_PROVIDER = "https://provider.test/authorize"
+
+const val TEST_SCALAR_CLIENT = "scalar-docs"
 
 /**
  * A provider that logs in whoever the authorization code names, so a test completes a login by
@@ -120,6 +123,12 @@ fun withTestApp(
                             }
                         }
                     },
+                    apiDocs =
+                        ApiDocsSettings(
+                            TEST_SCALAR_CLIENT,
+                            { URI("https://provider.test/authorize") },
+                            { URI("https://provider.test/token") },
+                        ),
                 )
             )
         }

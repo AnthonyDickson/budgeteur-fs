@@ -40,6 +40,11 @@ data class AppConfig(
     val login: LoginConfig,
     /** Holds the keys that encrypt the session cookie. Without it they last until a restart. */
     val sessionKeyFile: Path?,
+    /**
+     * The OIDC client the API docs log in with. Development serves the docs when it is set; other
+     * environments never do.
+     */
+    val scalarClientId: String?,
     val port: Int,
     val environment: String,
 ) {
@@ -101,6 +106,7 @@ fun loadConfig(env: Env): Either<NonEmptyList<String>, AppConfig> = either {
             oidc = OidcConfig(authority, clientId, clientSecret, callbackPath, env.audiences()),
             login = LoginConfig(returnUrl, logoutUrl),
             sessionKeyFile = env.optional("BUDGETEUR_SESSION_KEY_FILE")?.let(Path::of),
+            scalarClientId = env.optional("SCALAR_CLIENT_ID"),
             port = port,
             environment = env["BUDGETEUR_ENVIRONMENT"] ?: "Production",
         )

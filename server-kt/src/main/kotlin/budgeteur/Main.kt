@@ -1,6 +1,7 @@
 package budgeteur
 
 import arrow.core.getOrElse
+import budgeteur.shared.ApiDocsSettings
 import budgeteur.shared.CookieSettings
 import budgeteur.shared.Db
 import budgeteur.shared.NimbusOidcClient
@@ -53,6 +54,12 @@ fun main() {
             configureBearer = {
                 oidcBearer(config.oidc.authority, config.oidc.validAudiences) { oidc.jwkSetUri }
             },
+            apiDocs =
+                config.scalarClientId
+                    ?.takeIf { config.isDevelopment }
+                    ?.let {
+                        ApiDocsSettings(it, { oidc.authorizationEndpoint }, { oidc.tokenEndpoint })
+                    },
         )
 
     embeddedServer(Netty, port = config.port) { budgeteur(deps) }.start(wait = true)

@@ -9,6 +9,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
+import io.ktor.server.routing.openapi.hide
 
 /**
  * Deletes all of the current user's data, so each E2E test starts empty. Registered in Development
@@ -16,11 +17,14 @@ import io.ktor.server.routing.delete
  */
 fun Route.resetUserData(db: Db) =
     delete("/api/test/user-data") {
-        call.handle {
-            val userId = call.userId
-            val tags = db.transaction { deleteFrom(TAGS).where(TAGS.USER_ID.eq(userId)).execute() }
+            call.handle {
+                val userId = call.userId
+                val tags = db.transaction {
+                    deleteFrom(TAGS).where(TAGS.USER_ID.eq(userId)).execute()
+                }
 
-            call.log.info("Reset user data", "tagsDeleted" to tags)
-            call.respond(HttpStatusCode.NoContent)
+                call.log.info("Reset user data", "tagsDeleted" to tags)
+                call.respond(HttpStatusCode.NoContent)
+            }
         }
-    }
+        .hide()

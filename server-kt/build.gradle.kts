@@ -33,6 +33,7 @@ dependencies {
     implementation("io.ktor:ktor-server-auth:$ktor")
     implementation("io.ktor:ktor-server-auth-jwt:$ktor")
     implementation("io.ktor:ktor-server-sessions:$ktor")
+    implementation("io.ktor:ktor-server-routing-openapi:$ktor")
     implementation("io.ktor:ktor-server-content-negotiation:$ktor")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor")
     implementation("io.ktor:ktor-server-status-pages:$ktor")
@@ -51,7 +52,11 @@ dependencies {
     testImplementation("io.ktor:ktor-server-test-host:$ktor")
 }
 
-kotlin { jvmToolchain(21) }
+kotlin {
+    jvmToolchain(21)
+    // Route.describe, which documents an endpoint in the OpenAPI document.
+    compilerOptions { optIn.add("io.ktor.utils.io.ExperimentalKtorApi") }
+}
 
 // The Kotlin coding conventions: four-space indents, 100 columns.
 ktfmt { kotlinLangStyle() }

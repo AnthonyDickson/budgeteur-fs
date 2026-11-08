@@ -7,6 +7,7 @@ import budgeteur.feature.status.STATUS_PATH
 import budgeteur.feature.status.getStatus
 import budgeteur.feature.tag.tagEndpoints
 import budgeteur.feature.testsupport.resetUserData
+import budgeteur.shared.ApiDocsSettings
 import budgeteur.shared.BEARER_AUTH
 import budgeteur.shared.Clock
 import budgeteur.shared.CookieSettings
@@ -15,6 +16,7 @@ import budgeteur.shared.LoginConfig
 import budgeteur.shared.OidcClient
 import budgeteur.shared.RequestLogging
 import budgeteur.shared.TrustedForwardedHeaders
+import budgeteur.shared.apiDocs
 import budgeteur.shared.apiErrors
 import budgeteur.shared.apiJson
 import budgeteur.shared.authenticated
@@ -30,6 +32,7 @@ import io.ktor.server.auth.AuthenticationConfig
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
+import io.ktor.server.routing.openapi.hide
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.sessions.Sessions
@@ -48,6 +51,8 @@ class Dependencies(
     val cookies: CookieSettings,
     /** Registers the [BEARER_AUTH] provider: JWT bearer in the server, a fake in tests. */
     val configureBearer: AuthenticationConfig.() -> Unit,
+    /** Serves the OpenAPI document and Scalar when present: Development only. */
+    val apiDocs: ApiDocsSettings? = null,
 )
 
 fun Application.budgeteur(deps: Dependencies) {
@@ -67,6 +72,7 @@ fun Application.budgeteur(deps: Dependencies) {
     routing {
         getStatus(deps.db, deps.environment, deps.startedAt, deps.clock)
         authEndpoints(deps.oidc, deps.login, deps.callbackPath, deps.clock)
+        deps.apiDocs?.let { apiDocs(it) }
 
         authenticated {
             tagEndpoints(deps.db)
@@ -78,13 +84,14 @@ fun Application.budgeteur(deps: Dependencies) {
         // Unknown API paths get a JSON 404. Ktor ranks the literal routes above
         // this tailcard, whatever the order of registration.
         route("/api/{...}") {
-            handle {
-                call.respondError(
-                    HttpStatusCode.NotFound,
-                    "Not Found",
-                    "No API endpoint matches ${call.request.path()}",
-                )
+                handle {
+                    call.respondError(
+                        HttpStatusCode.NotFound,
+                        "Not Found",
+                        "No API endpoint matches ${call.request.path()}",
+                    )
+                }
             }
-        }
+            .hide()
     }
 }

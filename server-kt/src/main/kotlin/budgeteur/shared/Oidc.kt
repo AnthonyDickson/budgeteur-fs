@@ -86,6 +86,13 @@ class NimbusOidcClient(authority: String, clientId: String, clientSecret: String
     val jwkSetUri: URI
         get() = metadata.jwkSetURI
 
+    /** Where the API docs' OAuth flow sends the user to log in. */
+    val authorizationEndpoint: URI
+        get() = metadata.authorizationEndpointURI
+
+    val tokenEndpoint: URI
+        get() = metadata.tokenEndpointURI
+
     override fun startAuthorization(redirectUri: URI): AuthorizationStart {
         val state = State()
         val nonce = Nonce()
