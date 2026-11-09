@@ -80,16 +80,33 @@ private fun ReferenceOr<JsonSchema>.map(f: (JsonSchema) -> JsonSchema): Referenc
     valueOrNull()?.let { ReferenceOr.Value(f(it)) } ?: this
 
 /**
- * Adds the [EnumOf] values to [schema], following [descriptor] into list items and object
- * properties, so a type's schema is the same wherever it appears. Otherwise Ktor would see two
- * schemas for one type and number the second.
+ * A nullable object property as `oneOf` the object and null, the shape Ktor gives a nullable
+ * reference. Ktor folds the null into the object's own `type`, so the object's schema would differ
+ * from its non-null uses and get a second, numbered component.
+ */
+private fun JsonSchema.nullableObjectAsOneOf(): JsonSchema {
+    val types = (type as? JsonSchema.SchemaType.AnyOf)?.types?.toSet()
+    if (title == null || types != setOf(JsonType.OBJECT, JsonType.NULL)) return this
+    return JsonSchema(
+        oneOf =
+            listOf(
+                ReferenceOr.Value(copy(type = JsonType.OBJECT)),
+                ReferenceOr.Value(JsonSchema(type = JsonType.NULL)),
+            )
+    )
+}
+
+/**
+ * Adds the [EnumOf] values to [schema] and rewrites nullable object properties, following
+ * [descriptor] into list items and object properties, so a type's schema is the same wherever it
+ * appears. Otherwise Ktor would see two schemas for one type and number the second.
  */
 @OptIn(ExperimentalSerializationApi::class)
-private fun withEnums(schema: JsonSchema, descriptor: SerialDescriptor): JsonSchema =
+private fun normalised(schema: JsonSchema, descriptor: SerialDescriptor): JsonSchema =
     when (descriptor.kind) {
         StructureKind.LIST ->
             schema.copy(
-                items = schema.items?.map { withEnums(it, descriptor.getElementDescriptor(0)) }
+                items = schema.items?.map { normalised(it, descriptor.getElementDescriptor(0)) }
             )
         StructureKind.CLASS ->
             schema.copy(
@@ -107,18 +124,18 @@ private fun withEnums(schema: JsonSchema, descriptor: SerialDescriptor): JsonSch
                                 ?.enumConstants
                                 ?.map { GenericElement(it.name) }
                         property.map { child ->
-                            withEnums(child, descriptor.getElementDescriptor(i)).let {
-                                if (values == null) it else it.copy(enum = values)
-                            }
+                            normalised(child, descriptor.getElementDescriptor(i))
+                                .let { if (values == null) it else it.copy(enum = values) }
+                                .nullableObjectAsOneOf()
                         }
                     }
             )
         else -> schema
     }
 
-/** Ktor's schema inference from kotlinx.serialization, plus [EnumOf]. */
+/** Ktor's schema inference from kotlinx.serialization, [normalised]. */
 private val schemaInference = JsonSchemaInference { type ->
-    withEnums(
+    normalised(
         KotlinxSerializerJsonSchemaInference.Default.buildSchema(type),
         serializer(type).descriptor,
     )
@@ -144,6 +161,14 @@ fun Operation.Builder.uuidPath(name: String) = parameters {
     path(name) {
         required = true
         schema = JsonSchema(type = JsonType.STRING, format = "uuid")
+    }
+}
+
+/** A path parameter holding a calendar date, `yyyy-MM-dd`. */
+fun Operation.Builder.datePath(name: String) = parameters {
+    path(name) {
+        required = true
+        schema = JsonSchema(type = JsonType.STRING, format = DATE_FORMAT)
     }
 }
 

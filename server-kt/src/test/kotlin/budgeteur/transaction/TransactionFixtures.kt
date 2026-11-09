@@ -1,15 +1,12 @@
 package budgeteur.transaction
 
-import budgeteur.data.db.tables.records.AccountsRecord
-import budgeteur.data.db.tables.references.ACCOUNTS
+import budgeteur.feature.account.AccountResponse
 import budgeteur.feature.tag.TagResponse
 import budgeteur.feature.transaction.TransactionRequest
 import budgeteur.feature.transaction.TransactionResponse
 import budgeteur.json
 import budgeteur.read
-import budgeteur.shared.Db
 import budgeteur.shared.apiJson
-import budgeteur.shared.newId
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.post
@@ -47,22 +44,7 @@ suspend fun HttpClient.createTag(name: String, kind: String = "Expense"): UUID =
         .read<TagResponse>()
         .id
 
-/** The PoC has no accounts slice yet, so tests write accounts directly. */
-suspend fun Db.insertAccount(userId: String, name: String): UUID {
-    val id = newId()
-    sql {
-        insertInto(ACCOUNTS)
-            .set(
-                AccountsRecord(
-                    id = id,
-                    userId = userId,
-                    number = null,
-                    name = name,
-                    term = "Current",
-                    closedOn = null,
-                )
-            )
-            .execute()
-    }
-    return id
-}
+suspend fun HttpClient.createAccount(name: String): UUID =
+    post("/api/accounts") { json("""{"name": "$name", "term": "Current"}""") }
+        .read<AccountResponse>()
+        .id

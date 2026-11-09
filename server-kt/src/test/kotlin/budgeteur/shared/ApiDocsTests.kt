@@ -31,8 +31,8 @@ class ApiDocsTests {
 
     @Test
     fun `the document covers the API endpoints only`() = withDocument { doc ->
-        // Not the login redirects, the docs themselves, the rules and accounts stubs, the
-        // Development-only endpoints, or the JSON 404 for unknown paths.
+        // Not the login redirects, the docs themselves, the rules stub, the Development-only
+        // endpoints, or the JSON 404 for unknown paths.
         assertEquals(
             setOf(
                 "/api/status",
@@ -41,6 +41,11 @@ class ApiDocsTests {
                 "/api/transactions",
                 "/api/transactions/search",
                 "/api/transactions/{id}",
+                "/api/accounts",
+                "/api/accounts/{id}",
+                "/api/accounts/{id}/close-date",
+                "/api/accounts/{id}/observations",
+                "/api/accounts/{id}/observations/{asOf}",
             ),
             doc.at("paths").jsonObject.keys,
         )
@@ -88,6 +93,13 @@ class ApiDocsTests {
                 "SearchTagRequest",
                 "SearchAmountRequest",
                 "SearchResponse",
+                "CreateAccountRequest",
+                "UpdateAccountRequest",
+                "CloseAccountRequest",
+                "BalanceEntryRequest",
+                "AccountResponse",
+                "AccountBalanceResponse",
+                "TransactionsAfterCloseResponse",
             ),
             schemas.jsonObject.keys,
         )
@@ -141,6 +153,16 @@ class ApiDocsTests {
                 )
                 .strings(),
         )
+        val parameters =
+            doc.at("paths", "/api/accounts/{id}/observations/{asOf}", "delete")
+                .jsonObject
+                .getValue("parameters")
+                .jsonArray
+                .associate {
+                    it.at("name").jsonPrimitive.content to
+                        it.at("schema", "format").jsonPrimitive.content
+                }
+        assertEquals(mapOf("id" to "uuid", "asOf" to DATE_FORMAT), parameters)
     }
 
     @Test

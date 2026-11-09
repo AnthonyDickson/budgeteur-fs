@@ -3,9 +3,10 @@
 An exploration of what the backend would look like written in Kotlin only, in a
 functional-first style. It owns its schema and conventions and shares nothing
 with the F# server except the HTTP API shape, which the Gleam client depends on.
-It covers the infrastructure, the SPA's login and logout, and three slices: `GET
-/api/status`, Tag CRUD (`/api/tags`), and transactions with search
-(`/api/transactions`).
+It covers the infrastructure, the SPA's login and logout, and four slices: `GET
+/api/status`, Tag CRUD (`/api/tags`), transactions with search
+(`/api/transactions`), and accounts with their balances and close dates
+(`/api/accounts`).
 
 ## Running
 
@@ -36,10 +37,11 @@ catalog pins it, so `just update` leaves it alone.
 `just kt-e2e-test` runs `docker/docker-compose.e2e-kt.yml`: the F# E2E stack
 with this server in place of the F# one, running only the specs tagged
 `@kotlin`, those whose endpoints the PoC has. Tag a spec or test when the PoC
-gains its endpoints. The tagging page also loads rules and the transaction page
-accounts, so `GET /api/rules` and `GET /api/accounts` are stubs that return
-empty lists, and the E2E fixtures' `DELETE /api/test/user-data` is registered in
-Development only, as in the F# server.
+gains its endpoints. The tagging page also loads rules, so `GET /api/rules` is a
+stub that returns no rules, and the E2E fixtures' `DELETE /api/test/user-data`
+is registered in Development only, as in the F# server. No account spec runs
+yet: the client manages accounts on the balance sheet page, which needs `GET
+/api/balance-sheet`.
 
 The server reads its settings from environment variables. It reports every
 missing or invalid setting at once and exits. On startup it applies pending
@@ -265,11 +267,17 @@ Vertical slices, as in the F# server:
     enum's constants, as the F# `SchemaHint.Enum` does. They stay strings, so
     the request parser can report a bad value alongside the other fields'
     failures.
+  - A nullable object field is documented as `oneOf` the object and null, as
+    Ktor documents a nullable reference. Ktor's inference folds the null into
+    the object's own `type`, and a description on the field merges into the
+    object's schema; either makes the object's schema differ from its other
+    uses, so Ktor adds a second, numbered component. Such fields therefore carry
+    no description; their type does.
   - The bearer scheme is documented as OAuth 2.0 with the provider's endpoints,
     read from its discovery document, so Scalar can log in and send the token.
-  - Browser redirects, the docs themselves, the rules and accounts stubs and the
-    test reset are hidden. The Development-only list of every transaction is
-    documented, as the docs are served in Development only.
+  - Browser redirects, the docs themselves, the rules stub and the test reset
+    are hidden. The Development-only list of every transaction is documented, as
+    the docs are served in Development only.
 
   Ktor's `describe` API is marked experimental, so the build opts in. The
   rejected alternatives: `ktor-server-openapi` generates static HTML through
@@ -316,9 +324,8 @@ domain enums, but that would tie generated code to `domain/`.
 
 - The domain beyond what tags and transactions use. `Categorisation` has only
   the transitions the transaction slice needs.
-- The accounts and rules slices, beyond their stubs, and every other slice the
-  client uses. The `accounts` table exists, since transactions reference it;
-  tests insert accounts directly.
+- The rules slice, beyond the stub, and every other slice the client uses.
+- E2E coverage of accounts, which waits on the balance sheet slice.
 - The image is not published; CI only builds it and smoke tests it.
 
 ## Findings
@@ -334,10 +341,11 @@ domain enums, but that would tie generated code to `domain/`.
   width rather than evidence that Kotlin is terser. The shared OpenAPI code is
   where Kotlin is smaller: the F# server's schema transformers (376 lines) work
   around `System.Text.Json` not understanding F# types, while Ktor's inference
-  reads kotlinx.serialization descriptors, so `ApiDocs.kt` (229 lines, including
-  the Scalar page) needs only the `EnumOf` hint. The transaction slice is 995
-  lines against 1,405 in F# (`feature/transaction/` against
-  `Feature/Transaction/`), with the same caveat.
+  reads kotlinx.serialization descriptors, so `ApiDocs.kt` (263 lines, including
+  the Scalar page) needs only the `EnumOf` hint and the nullable object fix. The
+  transaction slice is 997 lines against 1,405 in F# (`feature/transaction/`
+  against `Feature/Transaction/`), and the account slice 886 against 1,361, with
+  the same caveat.
 - **Auth.** ASP.NET Core provides the cookie and OIDC handlers. Ktor provides
   the encrypted session cookie, but its `oauth` provider is OAuth 2.0 only: it
   does not validate ID tokens or use a nonce, and its default state manager

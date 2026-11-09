@@ -1,6 +1,5 @@
 package budgeteur.transaction
 
-import budgeteur.DEFAULT_TEST_USER
 import budgeteur.asUser
 import budgeteur.data.db.tables.references.CATEGORISATIONS
 import budgeteur.data.db.tables.references.TRANSACTIONS
@@ -99,8 +98,8 @@ class TransactionEndpointTests {
     @Test
     fun `a transaction carries its account's name, and only the user's accounts`() =
         withTestApp { db ->
-            val everyday = db.insertAccount(DEFAULT_TEST_USER, "Everyday")
-            val savings = db.insertAccount(DEFAULT_TEST_USER, "Savings")
+            val everyday = client.createAccount("Everyday")
+            val savings = client.createAccount("Savings")
 
             val created = client.createTransaction(transaction("Coffee", accountId = everyday))
             assertEquals("Everyday", created.accountName)

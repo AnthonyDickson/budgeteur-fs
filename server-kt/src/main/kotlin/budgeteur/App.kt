@@ -1,6 +1,6 @@
 package budgeteur
 
-import budgeteur.feature.account.readAllAccounts
+import budgeteur.feature.account.accountEndpoints
 import budgeteur.feature.auth.authEndpoints
 import budgeteur.feature.auth.loginAttemptCookie
 import budgeteur.feature.rule.readAllRules
@@ -90,8 +90,8 @@ fun Application.budgeteur(deps: Dependencies) {
         authenticated {
             tagEndpoints(deps.db)
             transactionEndpoints(deps.db)
+            accountEndpoints(deps.db, deps.clock)
             readAllRules()
-            readAllAccounts()
             // Inspection and test helpers, so they can never be reached against real data.
             if (deps.environment == "Development") {
                 transactionDevelopmentEndpoints(deps.db)

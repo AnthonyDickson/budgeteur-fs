@@ -109,8 +109,8 @@ class SearchEndpointTests {
 
     @Test
     fun `account matches one account or none`() = withTestApp { db ->
-        val everyday = db.insertAccount(DEFAULT_TEST_USER, "Everyday")
-        val savings = db.insertAccount(DEFAULT_TEST_USER, "Savings")
+        val everyday = client.createAccount("Everyday")
+        val savings = client.createAccount("Savings")
         client.createTransaction(transaction("Everyday", accountId = everyday))
         client.createTransaction(transaction("Savings", accountId = savings))
         client.createTransaction(transaction("Cash"))

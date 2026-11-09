@@ -25,7 +25,9 @@ internal object TransactionDocs {
 }
 
 @Serializable
-@JsonSchema.Description("A transaction's tag and who decided it.")
+@JsonSchema.Description(
+    "A transaction's tag and who decided it. None when it is untagged, dismissed, or a transfer."
+)
 data class TransactionTagResponse(
     @JsonSchema.Format("uuid") val id: UUID,
     @JsonSchema.Description(
@@ -49,9 +51,8 @@ data class TransactionResponse(
     @JsonSchema.Format("uuid") val accountId: UUID?,
     @JsonSchema.Description("The name of the transaction's account, if it has one.")
     val accountName: String?,
-    @JsonSchema.Description(
-        "The transaction's tag, or none when it is untagged, dismissed, or a transfer."
-    )
+    // Described on the type: a description here would make Ktor document the type twice once it
+    // appears elsewhere.
     val tag: TransactionTagResponse?,
 )
 
