@@ -65,15 +65,17 @@ sealed interface Categorisation {
         /**
          * Keeping a transfer, a dismissal, or the same tag keeps its source, so editing the amount
          * of a rule-tagged transaction does not make it manual and saving a detected transfer keeps
-         * it detected. Any other change is the user's.
+         * it detected. Otherwise the user's choice applies, as on create.
          */
-        fun onUpdate(isTransfer: Boolean, tagId: UUID?, current: Categorisation?): Categorisation? =
-            when {
-                isTransfer -> current as? Transfer ?: Transfer(Source.Manual)
-                tagId == null -> current as? Dismissed
-                current is Tagged && current.tagId == tagId -> current
-                else -> Tagged(tagId, Source.Manual)
+        fun onUpdate(isTransfer: Boolean, tagId: UUID?, current: Categorisation?): Categorisation? {
+            val chosen = onCreate(isTransfer, tagId)
+            return when (current) {
+                is Transfer -> if (isTransfer) current else chosen
+                Dismissed -> chosen ?: current
+                is Tagged -> if (!isTransfer && tagId == current.tagId) current else chosen
+                null -> chosen
             }
+        }
     }
 }
 
