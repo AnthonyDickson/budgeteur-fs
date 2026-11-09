@@ -3,6 +3,8 @@ package budgeteur
 import budgeteur.feature.account.accountEndpoints
 import budgeteur.feature.auth.authEndpoints
 import budgeteur.feature.auth.loginAttemptCookie
+import budgeteur.feature.balancesheet.balanceSheetDevelopmentEndpoints
+import budgeteur.feature.balancesheet.balanceSheetEndpoints
 import budgeteur.feature.rule.readAllRules
 import budgeteur.feature.status.STATUS_PATH
 import budgeteur.feature.status.getStatus
@@ -91,10 +93,12 @@ fun Application.budgeteur(deps: Dependencies) {
             tagEndpoints(deps.db)
             transactionEndpoints(deps.db)
             accountEndpoints(deps.db, deps.clock)
+            balanceSheetEndpoints(deps.db, deps.clock)
             readAllRules()
             // Inspection and test helpers, so they can never be reached against real data.
             if (deps.environment == "Development") {
                 transactionDevelopmentEndpoints(deps.db)
+                balanceSheetDevelopmentEndpoints(deps.db)
                 resetUserData(deps.db)
             }
         }

@@ -3,10 +3,10 @@
 An exploration of what the backend would look like written in Kotlin only, in a
 functional-first style. It owns its schema and conventions and shares nothing
 with the F# server except the HTTP API shape, which the Gleam client depends on.
-It covers the infrastructure, the SPA's login and logout, and four slices: `GET
+It covers the infrastructure, the SPA's login and logout, and five slices: `GET
 /api/status`, Tag CRUD (`/api/tags`), transactions with search
-(`/api/transactions`), and accounts with their balances and close dates
-(`/api/accounts`).
+(`/api/transactions`), accounts with their balances and close dates
+(`/api/accounts`), and the balance sheet with its items (`/api/balance-sheet`).
 
 ## Running
 
@@ -39,9 +39,7 @@ with this server in place of the F# one, running only the specs tagged
 `@kotlin`, those whose endpoints the PoC has. Tag a spec or test when the PoC
 gains its endpoints. The tagging page also loads rules, so `GET /api/rules` is a
 stub that returns no rules, and the E2E fixtures' `DELETE /api/test/user-data`
-is registered in Development only, as in the F# server. No account spec runs
-yet: the client manages accounts on the balance sheet page, which needs `GET
-/api/balance-sheet`.
+is registered in Development only, as in the F# server.
 
 The server reads its settings from environment variables. It reports every
 missing or invalid setting at once and exits. On startup it applies pending
@@ -273,6 +271,11 @@ Vertical slices, as in the F# server:
     object's schema; either makes the object's schema differ from its other
     uses, so Ktor adds a second, numbered component. Such fields therefore carry
     no description; their type does.
+  - Components are named by the class's simple name, and a second class with the
+    same name gets its fully qualified one. Slices keep their own response
+    types, so a type that would repeat another slice's name takes a different
+    one: the balance sheet's `LateTransactionsResponse` matches the account
+    slice's `TransactionsAfterCloseResponse`.
   - The bearer scheme is documented as OAuth 2.0 with the provider's endpoints,
     read from its discovery document, so Scalar can log in and send the token.
   - Browser redirects, the docs themselves, the rules stub and the test reset
@@ -325,7 +328,8 @@ domain enums, but that would tie generated code to `domain/`.
 - The domain beyond what tags and transactions use. `Categorisation` has only
   the transitions the transaction slice needs.
 - The rules slice, beyond the stub, and every other slice the client uses.
-- E2E coverage of accounts, which waits on the balance sheet slice.
+- The balance sheet drawn for a past date and the history it is drawn from,
+  which only the dashboard and reports use.
 - The image is not published; CI only builds it and smoke tests it.
 
 ## Findings
@@ -344,8 +348,8 @@ domain enums, but that would tie generated code to `domain/`.
   reads kotlinx.serialization descriptors, so `ApiDocs.kt` (263 lines, including
   the Scalar page) needs only the `EnumOf` hint and the nullable object fix. The
   transaction slice is 997 lines against 1,405 in F# (`feature/transaction/`
-  against `Feature/Transaction/`), and the account slice 886 against 1,361, with
-  the same caveat.
+  against `Feature/Transaction/`), the account slice 886 against 1,361, and the
+  balance sheet slice 1,156 against 1,710, with the same caveat.
 - **Auth.** ASP.NET Core provides the cookie and OIDC handlers. Ktor provides
   the encrypted session cookie, but its `oauth` provider is OAuth 2.0 only: it
   does not validate ID tokens or use a nonce, and its default state manager

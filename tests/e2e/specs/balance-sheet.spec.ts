@@ -99,7 +99,7 @@ async function deleteItem(page: Page, name: string) {
   await expect(itemRow(page, name)).toHaveCount(0);
 }
 
-test.describe('balance sheet', () => {
+test.describe('balance sheet', { tag: '@kotlin' }, () => {
   test(
     'tracks items, totals, and the empty state',
     async ({ page }, testInfo) => {
@@ -190,7 +190,7 @@ test.describe('balance sheet', () => {
   );
 });
 
-test.describe('closing items', () => {
+test.describe('closing items', { tag: '@kotlin' }, () => {
   test('a closed item leaves the sheet and can be reopened', async ({ page }) => {
     await gotoNewBalanceSheet(page);
     await addItem(page, {
@@ -237,7 +237,7 @@ test.describe('closing items', () => {
   });
 });
 
-test.describe('line details', () => {
+test.describe('line details', { tag: '@kotlin' }, () => {
   test("an item's history records and deletes values", async ({ page }) => {
     await gotoNewBalanceSheet(page);
     await addItem(page, {
@@ -333,7 +333,7 @@ async function recordBalance(
   await expect(balanceModal(page)).toBeHidden();
 }
 
-test.describe('balance sheet accounts', () => {
+test.describe('balance sheet accounts', { tag: '@kotlin' }, () => {
   test(
     'places accounts by the sign of their balance',
     async ({ page }, testInfo) => {

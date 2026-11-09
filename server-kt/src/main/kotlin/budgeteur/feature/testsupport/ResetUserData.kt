@@ -1,6 +1,7 @@
 package budgeteur.feature.testsupport
 
 import budgeteur.data.db.tables.references.ACCOUNTS
+import budgeteur.data.db.tables.references.BALANCE_SHEET_ITEMS
 import budgeteur.data.db.tables.references.TAGS
 import budgeteur.data.db.tables.references.TRANSACTIONS
 import budgeteur.shared.Db
@@ -16,29 +17,29 @@ import io.ktor.server.routing.openapi.hide
 /**
  * Deletes all of the current user's data, so each E2E test starts empty. Registered in Development
  * only, so it can never be reached against real data. Categorisations go with their transactions,
- * by cascade.
+ * by cascade, and observations with their items and accounts.
  */
 fun Route.resetUserData(db: Db) =
     delete("/api/test/user-data") {
             call.handle {
                 val userId = call.userId
-                val (transactions, accounts, tags) =
-                    db.transaction {
-                        Triple(
+                val deleted = db.transaction {
+                    mapOf(
+                        "transactionsDeleted" to
                             deleteFrom(TRANSACTIONS)
                                 .where(TRANSACTIONS.USER_ID.eq(userId))
                                 .execute(),
+                        "accountsDeleted" to
                             deleteFrom(ACCOUNTS).where(ACCOUNTS.USER_ID.eq(userId)).execute(),
-                            deleteFrom(TAGS).where(TAGS.USER_ID.eq(userId)).execute(),
-                        )
-                    }
+                        "itemsDeleted" to
+                            deleteFrom(BALANCE_SHEET_ITEMS)
+                                .where(BALANCE_SHEET_ITEMS.USER_ID.eq(userId))
+                                .execute(),
+                        "tagsDeleted" to deleteFrom(TAGS).where(TAGS.USER_ID.eq(userId)).execute(),
+                    )
+                }
 
-                call.log.info(
-                    "Reset user data",
-                    "transactionsDeleted" to transactions,
-                    "accountsDeleted" to accounts,
-                    "tagsDeleted" to tags,
-                )
+                call.log.info("Reset user data", *deleted.toList().toTypedArray())
                 call.respond(HttpStatusCode.NoContent)
             }
         }
