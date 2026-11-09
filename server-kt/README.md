@@ -3,12 +3,13 @@
 An exploration of what the backend would look like written in Kotlin only, in a
 functional-first style. It owns its schema and conventions and shares nothing
 with the F# server except the HTTP API shape, which the Gleam client depends on.
-It covers the infrastructure, the SPA's login and logout, and nine slices: `GET
+It covers the infrastructure, the SPA's login and logout, and ten slices: `GET
 /api/status`, Tag CRUD (`/api/tags`), transactions with search
 (`/api/transactions`), accounts with their balances and close dates
 (`/api/accounts`), the balance sheet with its items (`/api/balance-sheet`),
 rules (`/api/rules`), auto-tagging (`/api/auto-tag`), statement import
-(`/api/imports`), and quick tagging (`/api/quick-tag`).
+(`/api/imports`), quick tagging (`/api/quick-tag`), and the dashboard
+(`/api/dashboard`).
 
 ## Running
 
@@ -326,9 +327,7 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- Every other slice the client uses: the dashboard and reports.
-- The balance sheet drawn for a past date and the history it is drawn from,
-  which only the dashboard and reports use.
+- Reports (`/api/reports`), the one slice the client uses that is not ported.
 - The image is not published; CI only builds it and smoke tests it.
 
 ## Findings

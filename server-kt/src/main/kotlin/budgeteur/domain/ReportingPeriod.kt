@@ -1,6 +1,10 @@
 package budgeteur.domain
 
+import arrow.core.raise.Raise
+import arrow.core.raise.context.ensureNotNull
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /** How long a reporting period is. See decision 5 in docs/reports.md. */
 enum class Frequency {
@@ -11,7 +15,16 @@ enum class Frequency {
     CalendarYear,
 
     /** 1 April to 31 March. */
-    FinancialYear,
+    FinancialYear;
+
+    companion object {
+        context(_: Raise<String>)
+        fun parse(raw: String): Frequency =
+            ensureNotNull(entries.find { it.name == raw }) {
+                "\"$raw\" is not a valid value for Frequency, expecting one of \"Monthly\", " +
+                    "\"Quarterly\", \"CalendarYear\", or \"FinancialYear\"."
+            }
+    }
 }
 
 /**
@@ -27,12 +40,33 @@ private constructor(val frequency: Frequency, val from: LocalDate, val to: Local
     /** The period after, of the same frequency. */
     fun next() = containing(frequency, to.plusDays(1))
 
+    /**
+     * Whether the period's last day is on or before the client's [today]. A report for a period
+     * that is not complete is to date.
+     */
+    fun isComplete(today: LocalDate) = to <= today
+
+    /**
+     * The period's name, e.g. "March 2026", "Q1 2026", "2026", or "2026/27" for a financial year.
+     */
+    val label: String
+        get() =
+            when (frequency) {
+                Frequency.Monthly -> from.format(monthLabel)
+                Frequency.Quarterly ->
+                    "Q${(from.monthValue - 1) / MONTHS_IN_QUARTER + 1} ${from.year}"
+                Frequency.CalendarYear -> "${from.year}"
+                Frequency.FinancialYear -> "${from.year}/%02d".format((from.year + 1) % 100)
+            }
+
     companion object {
         /** The month a financial year starts in. */
         const val FINANCIAL_YEAR_START = 4
 
         private const val MONTHS_IN_QUARTER = 3
         private const val MONTHS_IN_YEAR = 12
+
+        private val monthLabel = DateTimeFormatter.ofPattern("MMMM uuuu", Locale.ENGLISH)
 
         /** The period of the frequency that contains [date]. */
         fun containing(frequency: Frequency, date: LocalDate): ReportingPeriod {

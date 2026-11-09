@@ -21,7 +21,7 @@ async function expectUsableTaggingPage(page: Page) {
     .toBeVisible();
 }
 
-test.describe('navigation', () => {
+test.describe('navigation', { tag: '@kotlin' }, () => {
   test(
     'the no-tags link in the transaction modal opens the tagging page',
     async ({

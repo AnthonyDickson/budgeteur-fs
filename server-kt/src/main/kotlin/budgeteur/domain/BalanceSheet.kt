@@ -1,5 +1,7 @@
 package budgeteur.domain
 
+import java.time.LocalDate
+
 /**
  * The open items and accounts a user tracks: the two sources of lines. The sheet stores no date of
  * its own: each line carries its own as-of date. See decisions 4 and 5 in docs/balance-sheet.md.
@@ -60,6 +62,10 @@ data class BalanceSheet(
     val netWorth: Money
         get() = totalAssets - totalLiabilities
 
+    /** Whether any line has a known balance. A sheet without one has no meaningful totals. */
+    val hasKnownLines: Boolean
+        get() = items.isNotEmpty() || accounts.any { it.current != null }
+
     /**
      * Current assets minus current liabilities: the near-term position. Unlike net worth it
      * excludes non-current debt, so it stays sensitive to near-term decisions.
@@ -75,4 +81,55 @@ data class BalanceSheet(
         fun accountSide(balance: Money): Pair<Side, Money> =
             if (balance < Money.ZERO) Side.Liability to -balance else Side.Asset to balance
     }
+}
+
+/** Whether a line closed on [closedOn], if ever, is still held on [date]. */
+private fun isOpenOn(date: LocalDate, closedOn: LocalDate?) = closedOn == null || date < closedOn
+
+/**
+ * Every item and account a user has, open or closed, each with its observation history in any
+ * order: what a balance sheet for any statement date is drawn from. See decision 3 in
+ * docs/reports.md.
+ */
+data class BalanceSheetHistory(
+    val items: List<Pair<BalanceSheetItem, List<ItemObservation>>>,
+    val accounts: List<Pair<Account, List<BalanceObservation>>>,
+) {
+    /** The as-of date of the earliest observation of any item or account, if any. */
+    val firstObservation: LocalDate?
+        get() =
+            (items.flatMap { (_, observations) -> observations.map { it.asOf } } +
+                    accounts.flatMap { (_, observations) -> observations.map { it.asOf } })
+                .minOrNull()
+
+    /**
+     * The balance sheet drawn for a statement date. Each line's balance is its latest observation
+     * on or before the date. A line enters the sheet at its first observation and leaves it on its
+     * close date. An account with no observations at all has an unknown balance, as on the current
+     * sheet. Balances between observations are not interpolated: a line keeps its latest value
+     * until the next, and its as-of date shows how old it is. See decision 3 in docs/reports.md.
+     */
+    fun asOf(date: LocalDate): BalanceSheet =
+        BalanceSheet(
+            items =
+                items
+                    .filter { (item, _) -> isOpenOn(date, item.closedOn) }
+                    .mapNotNull { (item, observations) ->
+                        observations
+                            .filter { it.asOf <= date }
+                            .maxByOrNull { it.asOf }
+                            ?.let { ItemValue(item, it) }
+                    },
+            accounts =
+                accounts
+                    .filter { (account, _) -> isOpenOn(date, account.closedOn) }
+                    .mapNotNull { (account, observations) ->
+                        val latest = observations.filter { it.asOf <= date }.maxByOrNull { it.asOf }
+                        when {
+                            observations.isEmpty() -> AccountBalance(account, null)
+                            latest != null -> AccountBalance(account, latest)
+                            else -> null
+                        }
+                    },
+        )
 }

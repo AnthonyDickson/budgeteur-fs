@@ -61,6 +61,7 @@ class ApiDocsTests {
                 "/api/quick-tag/approvals",
                 "/api/quick-tag/{id}",
                 "/api/quick-tag/{id}/transfer",
+                "/api/dashboard",
             ),
             doc.at("paths").jsonObject.keys,
         )
@@ -143,6 +144,13 @@ class ApiDocsTests {
                 "ApprovalResponse",
                 "QuickTagRequest",
                 "MarkTransferRequest",
+                "DashboardPositionResponse",
+                "FigureResponse",
+                "MonthLineResponse",
+                "MonthResponse",
+                "HistoryMonthResponse",
+                "HistoryTotalsResponse",
+                "DashboardResponse",
             ),
             schemas.jsonObject.keys,
         )

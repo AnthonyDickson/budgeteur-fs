@@ -79,7 +79,7 @@ async function recordTransaction(
   ).toHaveCount(1);
 }
 
-test.describe('dashboard', () => {
+test.describe('dashboard', { tag: '@kotlin' }, () => {
   test(
     'shows the month to date',
     async ({ page }, testInfo) => {
@@ -164,7 +164,7 @@ test.describe('dashboard', () => {
   );
 });
 
-test.describe('dashboard against earlier months', () => {
+test.describe('dashboard against earlier months', { tag: '@kotlin' }, () => {
   test(
     'compares the month with earlier months and shows the history',
     async ({ page }, testInfo) => {

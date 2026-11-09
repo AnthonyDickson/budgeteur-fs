@@ -62,3 +62,24 @@ value class Money(val cents: Long) : Comparable<Money> {
 }
 
 fun Iterable<Money>.sum(): Money = fold(Money.ZERO, Money::plus)
+
+/** [this] divided by [count], rounded to cents, midpoint away from zero: a mean of amounts. */
+fun Money.dividedBy(count: Int): Money =
+    Money(
+        BigDecimal.valueOf(cents)
+            .divide(BigDecimal.valueOf(count.toLong()), 0, RoundingMode.HALF_UP)
+            .longValueExact()
+    )
+
+/**
+ * [part] as a percentage of a positive [whole], rounded to two places, midpoint away from zero.
+ * Null when [whole] is zero or negative, where a share is not meaningful.
+ */
+fun percentOf(whole: Money, part: Money): BigDecimal? =
+    if (whole > Money.ZERO) {
+        BigDecimal.valueOf(part.cents)
+            .multiply(BigDecimal.valueOf(100))
+            .divide(BigDecimal.valueOf(whole.cents), 2, RoundingMode.HALF_UP)
+    } else {
+        null
+    }

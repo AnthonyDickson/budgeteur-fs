@@ -56,6 +56,9 @@ const val DATE_FORMAT = "date"
  */
 const val MONEY_PATTERN = """^-?\d+(\.\d+)?$"""
 
+/** The `pattern` of a string field holding a percentage or other decimal that is not an amount. */
+const val DECIMAL_PATTERN = """^-?\d+(\.\d+)?$"""
+
 /**
  * What the API docs need from outside: the OIDC client that Scalar logs in with, and the provider's
  * endpoints, read when the document is requested so the provider need not be up at startup.

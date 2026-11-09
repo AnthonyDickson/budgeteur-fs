@@ -6,6 +6,7 @@ import budgeteur.feature.auth.loginAttemptCookie
 import budgeteur.feature.autotag.autoTagEndpoints
 import budgeteur.feature.balancesheet.balanceSheetDevelopmentEndpoints
 import budgeteur.feature.balancesheet.balanceSheetEndpoints
+import budgeteur.feature.dashboard.dashboardEndpoints
 import budgeteur.feature.imports.importEndpoints
 import budgeteur.feature.quicktag.quickTagEndpoints
 import budgeteur.feature.rule.ruleEndpoints
@@ -101,6 +102,7 @@ fun Application.budgeteur(deps: Dependencies) {
             autoTagEndpoints(deps.db)
             importEndpoints(deps.db)
             quickTagEndpoints(deps.db)
+            dashboardEndpoints(deps.db)
             // Inspection and test helpers, so they can never be reached against real data.
             if (deps.environment == "Development") {
                 transactionDevelopmentEndpoints(deps.db)

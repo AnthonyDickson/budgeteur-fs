@@ -8,7 +8,7 @@ const pageBackground = {
   dark: 'rgb(24, 24, 37)',
 } as const;
 
-test.describe('theme', () => {
+test.describe('theme', { tag: '@kotlin' }, () => {
   for (const scheme of ['light', 'dark'] as const) {
     test(`the ${scheme} colour scheme selects its flavour`, async ({
       page,
