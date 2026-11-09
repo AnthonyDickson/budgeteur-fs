@@ -39,8 +39,15 @@ suspend fun HttpClient.createTransaction(
     return response.read()
 }
 
-suspend fun HttpClient.createTag(name: String, kind: String = "Expense"): UUID =
-    post("/api/tags") { json("""{"name": "$name", "color": "Green", "kind": "$kind"}""") }
+suspend fun HttpClient.createTag(
+    name: String,
+    kind: String = "Expense",
+    configure: HttpRequestBuilder.() -> Unit = {},
+): UUID =
+    post("/api/tags") {
+            json("""{"name": "$name", "color": "Green", "kind": "$kind"}""")
+            configure()
+        }
         .read<TagResponse>()
         .id
 

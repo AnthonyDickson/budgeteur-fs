@@ -3,10 +3,11 @@
 An exploration of what the backend would look like written in Kotlin only, in a
 functional-first style. It owns its schema and conventions and shares nothing
 with the F# server except the HTTP API shape, which the Gleam client depends on.
-It covers the infrastructure, the SPA's login and logout, and five slices: `GET
+It covers the infrastructure, the SPA's login and logout, and six slices: `GET
 /api/status`, Tag CRUD (`/api/tags`), transactions with search
 (`/api/transactions`), accounts with their balances and close dates
-(`/api/accounts`), and the balance sheet with its items (`/api/balance-sheet`).
+(`/api/accounts`), the balance sheet with its items (`/api/balance-sheet`), and
+rules (`/api/rules`).
 
 ## Running
 
@@ -37,9 +38,9 @@ catalog pins it, so `just update` leaves it alone.
 `just kt-e2e-test` runs `docker/docker-compose.e2e-kt.yml`: the F# E2E stack
 with this server in place of the F# one, running only the specs tagged
 `@kotlin`, those whose endpoints the PoC has. Tag a spec or test when the PoC
-gains its endpoints. The tagging page also loads rules, so `GET /api/rules` is a
-stub that returns no rules, and the E2E fixtures' `DELETE /api/test/user-data`
-is registered in Development only, as in the F# server.
+gains its endpoints. The E2E fixtures' `DELETE /api/test/user-data` is
+registered in Development only, as in the F# server. The tagging specs that
+count or run a rule's matches wait on the auto-tagging slice.
 
 The server reads its settings from environment variables. It reports every
 missing or invalid setting at once and exits. On startup it applies pending
@@ -278,9 +279,9 @@ Vertical slices, as in the F# server:
     slice's `TransactionsAfterCloseResponse`.
   - The bearer scheme is documented as OAuth 2.0 with the provider's endpoints,
     read from its discovery document, so Scalar can log in and send the token.
-  - Browser redirects, the docs themselves, the rules stub and the test reset
-    are hidden. The Development-only list of every transaction is documented, as
-    the docs are served in Development only.
+  - Browser redirects, the docs themselves and the test reset are hidden. The
+    Development-only lists of every transaction and item are documented, as the
+    docs are served in Development only.
 
   Ktor's `describe` API is marked experimental, so the build opts in. The
   rejected alternatives: `ktor-server-openapi` generates static HTML through
@@ -327,7 +328,8 @@ domain enums, but that would tie generated code to `domain/`.
 
 - The domain beyond what tags and transactions use. `Categorisation` has only
   the transitions the transaction slice needs.
-- The rules slice, beyond the stub, and every other slice the client uses.
+- Every other slice the client uses, and choosing the rule that wins for a
+  description, which only auto-tagging, quick tagging and import use.
 - The balance sheet drawn for a past date and the history it is drawn from,
   which only the dashboard and reports use.
 - The image is not published; CI only builds it and smoke tests it.
@@ -349,7 +351,8 @@ domain enums, but that would tie generated code to `domain/`.
   the Scalar page) needs only the `EnumOf` hint and the nullable object fix. The
   transaction slice is 997 lines against 1,405 in F# (`feature/transaction/`
   against `Feature/Transaction/`), the account slice 886 against 1,361, and the
-  balance sheet slice 1,156 against 1,710, with the same caveat.
+  balance sheet slice 1,156 against 1,710, and the rule slice 355 against 602,
+  with the same caveat.
 - **Auth.** ASP.NET Core provides the cookie and OIDC handlers. Ktor provides
   the encrypted session cookie, but its `oauth` provider is OAuth 2.0 only: it
   does not validate ID tokens or use a nonce, and its default state manager

@@ -2,6 +2,7 @@ package budgeteur.feature.testsupport
 
 import budgeteur.data.db.tables.references.ACCOUNTS
 import budgeteur.data.db.tables.references.BALANCE_SHEET_ITEMS
+import budgeteur.data.db.tables.references.RULES
 import budgeteur.data.db.tables.references.TAGS
 import budgeteur.data.db.tables.references.TRANSACTIONS
 import budgeteur.shared.Db
@@ -35,6 +36,9 @@ fun Route.resetUserData(db: Db) =
                             deleteFrom(BALANCE_SHEET_ITEMS)
                                 .where(BALANCE_SHEET_ITEMS.USER_ID.eq(userId))
                                 .execute(),
+                        // Transfer rules have no tag, so they do not go with the tags.
+                        "rulesDeleted" to
+                            deleteFrom(RULES).where(RULES.USER_ID.eq(userId)).execute(),
                         "tagsDeleted" to deleteFrom(TAGS).where(TAGS.USER_ID.eq(userId)).execute(),
                     )
                 }

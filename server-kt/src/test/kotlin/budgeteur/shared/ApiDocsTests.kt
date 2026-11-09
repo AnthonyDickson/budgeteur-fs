@@ -31,7 +31,7 @@ class ApiDocsTests {
 
     @Test
     fun `the document covers the API endpoints only`() = withDocument { doc ->
-        // Not the login redirects, the docs themselves, the rules stub, the Development-only
+        // Not the login redirects, the docs themselves, the Development-only
         // endpoints, or the JSON 404 for unknown paths.
         assertEquals(
             setOf(
@@ -52,6 +52,8 @@ class ApiDocsTests {
                 "/api/balance-sheet/items/{id}/close-date",
                 "/api/balance-sheet/items/{id}/observations",
                 "/api/balance-sheet/items/{id}/observations/{asOf}",
+                "/api/rules",
+                "/api/rules/{id}",
             ),
             doc.at("paths").jsonObject.keys,
         )
@@ -117,6 +119,8 @@ class ApiDocsTests {
                 "CloseBalanceSheetItemRequest",
                 "ItemObservationRequest",
                 "ItemObservationResponse",
+                "RuleRequest",
+                "RuleResponse",
             ),
             schemas.jsonObject.keys,
         )

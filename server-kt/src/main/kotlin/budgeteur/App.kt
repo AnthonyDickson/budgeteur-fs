@@ -5,7 +5,7 @@ import budgeteur.feature.auth.authEndpoints
 import budgeteur.feature.auth.loginAttemptCookie
 import budgeteur.feature.balancesheet.balanceSheetDevelopmentEndpoints
 import budgeteur.feature.balancesheet.balanceSheetEndpoints
-import budgeteur.feature.rule.readAllRules
+import budgeteur.feature.rule.ruleEndpoints
 import budgeteur.feature.status.STATUS_PATH
 import budgeteur.feature.status.getStatus
 import budgeteur.feature.tag.tagEndpoints
@@ -94,7 +94,7 @@ fun Application.budgeteur(deps: Dependencies) {
             transactionEndpoints(deps.db)
             accountEndpoints(deps.db, deps.clock)
             balanceSheetEndpoints(deps.db, deps.clock)
-            readAllRules()
+            ruleEndpoints(deps.db)
             // Inspection and test helpers, so they can never be reached against real data.
             if (deps.environment == "Development") {
                 transactionDevelopmentEndpoints(deps.db)

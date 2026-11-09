@@ -113,73 +113,77 @@ test.describe('tagging', () => {
     },
   );
 
-  test('manages a full tag and rule lifecycle', async ({ page }, testInfo) => {
-    await gotoEmptyTagging(page);
+  test(
+    'manages a full tag and rule lifecycle',
+    { tag: '@kotlin' },
+    async ({ page }, testInfo) => {
+      await gotoEmptyTagging(page);
 
-    await createFirstTag(page, 'Groceries');
-    await createTag(page, 'Transport');
-    // The most recently created tag becomes selected.
-    await expect(page.getByTestId('rules-panel')).toContainText('Transport');
+      await createFirstTag(page, 'Groceries');
+      await createTag(page, 'Transport');
+      // The most recently created tag becomes selected.
+      await expect(page.getByTestId('rules-panel')).toContainText('Transport');
 
-    await createRule(page, 'STARBUCKS');
-    await expect(toast(page, 'Created rule STARBUCKS')).toBeVisible();
+      await createRule(page, 'STARBUCKS');
+      await expect(toast(page, 'Created rule STARBUCKS')).toBeVisible();
 
-    // Edit the rule's pattern.
-    await ruleRow(page, 'STARBUCKS').click();
-    await expect(ruleModal(page)).toBeVisible();
-    await ruleModal(page).getByTestId('rule-pattern-input').fill('LATTE');
-    await ruleModal(page).getByTestId('rule-submit-button').click();
-    await expect(ruleModal(page)).toBeHidden();
-    await expect(ruleRow(page, 'LATTE')).toBeVisible();
-    await expect(toast(page, 'Updated rule LATTE')).toBeVisible();
+      // Edit the rule's pattern.
+      await ruleRow(page, 'STARBUCKS').click();
+      await expect(ruleModal(page)).toBeVisible();
+      await ruleModal(page).getByTestId('rule-pattern-input').fill('LATTE');
+      await ruleModal(page).getByTestId('rule-submit-button').click();
+      await expect(ruleModal(page)).toBeHidden();
+      await expect(ruleRow(page, 'LATTE')).toBeVisible();
+      await expect(toast(page, 'Updated rule LATTE')).toBeVisible();
 
-    // Selecting another tag swaps the rules panel to that tag's rules.
-    await tagRow(page, 'Groceries').click();
-    await expect(page.getByTestId('rules-panel')).toContainText('Groceries');
-    await expect(page.getByTestId('rules-panel')).toContainText(
-      'No rules for "Groceries" yet',
-    );
+      // Selecting another tag swaps the rules panel to that tag's rules.
+      await tagRow(page, 'Groceries').click();
+      await expect(page.getByTestId('rules-panel')).toContainText('Groceries');
+      await expect(page.getByTestId('rules-panel')).toContainText(
+        'No rules for "Groceries" yet',
+      );
 
-    // Delete the rule.
-    await tagRow(page, 'Transport').click();
-    await ruleRow(page, 'LATTE').click();
-    await ruleModal(page).getByTestId('rule-delete-button').click();
-    await expect(ruleModal(page)).toBeHidden();
-    const deleteRuleModal = page.getByTestId('delete-rule-modal');
-    await expect(deleteRuleModal).toBeVisible();
-    await deleteRuleModal.getByTestId('rule-delete-confirm-button').click();
-    await expect(deleteRuleModal).toBeHidden();
-    await expect(ruleRow(page, 'LATTE')).toHaveCount(0);
-    await expect(toast(page, 'Deleted rule LATTE')).toBeVisible();
+      // Delete the rule.
+      await tagRow(page, 'Transport').click();
+      await ruleRow(page, 'LATTE').click();
+      await ruleModal(page).getByTestId('rule-delete-button').click();
+      await expect(ruleModal(page)).toBeHidden();
+      const deleteRuleModal = page.getByTestId('delete-rule-modal');
+      await expect(deleteRuleModal).toBeVisible();
+      await deleteRuleModal.getByTestId('rule-delete-confirm-button').click();
+      await expect(deleteRuleModal).toBeHidden();
+      await expect(ruleRow(page, 'LATTE')).toHaveCount(0);
+      await expect(toast(page, 'Deleted rule LATTE')).toBeVisible();
 
-    // Edit the tag.
-    await page.getByRole('button', { name: 'Edit tag Transport' }).click();
-    await expect(tagModal(page)).toBeVisible();
-    await tagModal(page).getByTestId('tag-name-input').fill('Travel');
-    await tagModal(page).getByTestId('tag-submit-button').click();
-    await expect(tagModal(page)).toBeHidden();
-    await expect(tagRow(page, 'Travel')).toBeVisible();
-    await expect(page.getByTestId('rules-panel')).toContainText('Travel');
-    await expect(toast(page, "Updated tag 'Travel'")).toBeVisible();
+      // Edit the tag.
+      await page.getByRole('button', { name: 'Edit tag Transport' }).click();
+      await expect(tagModal(page)).toBeVisible();
+      await tagModal(page).getByTestId('tag-name-input').fill('Travel');
+      await tagModal(page).getByTestId('tag-submit-button').click();
+      await expect(tagModal(page)).toBeHidden();
+      await expect(tagRow(page, 'Travel')).toBeVisible();
+      await expect(page.getByTestId('rules-panel')).toContainText('Travel');
+      await expect(toast(page, "Updated tag 'Travel'")).toBeVisible();
 
-    // Delete the tag; selection moves to the remaining one.
-    await openTagDelete(page, 'Travel');
-    const deleteTagModal = page.getByTestId('delete-tag-modal');
-    await expect(deleteTagModal).toBeVisible();
-    await deleteTagModal.getByTestId('tag-delete-confirm-button').click();
-    await expect(deleteTagModal).toBeHidden();
-    await expect(tagRow(page, 'Travel')).toHaveCount(0);
-    await expect(tagRow(page, 'Groceries')).toHaveAttribute(
-      'aria-current',
-      'true',
-    );
-    await expect(toast(page, 'Deleted tag Travel')).toBeVisible();
+      // Delete the tag; selection moves to the remaining one.
+      await openTagDelete(page, 'Travel');
+      const deleteTagModal = page.getByTestId('delete-tag-modal');
+      await expect(deleteTagModal).toBeVisible();
+      await deleteTagModal.getByTestId('tag-delete-confirm-button').click();
+      await expect(deleteTagModal).toBeHidden();
+      await expect(tagRow(page, 'Travel')).toHaveCount(0);
+      await expect(tagRow(page, 'Groceries')).toHaveAttribute(
+        'aria-current',
+        'true',
+      );
+      await expect(toast(page, 'Deleted tag Travel')).toBeVisible();
 
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'lifecycle-complete'),
-      fullPage: true,
-    });
-  });
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'lifecycle-complete'),
+        fullPage: true,
+      });
+    },
+  );
 
   test(
     'validates tag names',
@@ -227,78 +231,90 @@ test.describe('tagging', () => {
     },
   );
 
-  test('deletes a tag and cascades its rules', async ({ page }) => {
-    await gotoEmptyTagging(page);
-    await createFirstTag(page, 'Groceries');
-    await createRule(page, 'STARBUCKS');
-    await createRule(page, 'COUNTDOWN');
+  test(
+    'deletes a tag and cascades its rules',
+    { tag: '@kotlin' },
+    async ({ page }) => {
+      await gotoEmptyTagging(page);
+      await createFirstTag(page, 'Groceries');
+      await createRule(page, 'STARBUCKS');
+      await createRule(page, 'COUNTDOWN');
 
-    await openTagDelete(page, 'Groceries');
-    const modal = page.getByTestId('delete-tag-modal');
-    await expect(modal).toBeVisible();
-    await expect(modal).toContainText('Its 2 matching rules are deleted too');
+      await openTagDelete(page, 'Groceries');
+      const modal = page.getByTestId('delete-tag-modal');
+      await expect(modal).toBeVisible();
+      await expect(modal).toContainText('Its 2 matching rules are deleted too');
 
-    // Cancel keeps the tag.
-    await modal.getByTestId('tag-delete-cancel-button').click();
-    await expect(modal).toBeHidden();
-    await expect(tagRow(page, 'Groceries')).toBeVisible();
+      // Cancel keeps the tag.
+      await modal.getByTestId('tag-delete-cancel-button').click();
+      await expect(modal).toBeHidden();
+      await expect(tagRow(page, 'Groceries')).toBeVisible();
 
-    // Confirming removes the tag (and its rules, back to the empty state).
-    await openTagDelete(page, 'Groceries');
-    await expect(modal).toBeVisible();
-    await modal.getByTestId('tag-delete-confirm-button').click();
-    await expect(modal).toBeHidden();
-    await expect(page.getByTestId('no-tags-empty-state')).toBeVisible();
-    await expect(toast(page, 'Deleted tag Groceries')).toBeVisible();
-  });
+      // Confirming removes the tag (and its rules, back to the empty state).
+      await openTagDelete(page, 'Groceries');
+      await expect(modal).toBeVisible();
+      await modal.getByTestId('tag-delete-confirm-button').click();
+      await expect(modal).toBeHidden();
+      await expect(page.getByTestId('no-tags-empty-state')).toBeVisible();
+      await expect(toast(page, 'Deleted tag Groceries')).toBeVisible();
+    },
+  );
 
-  test('validates rule patterns', async ({ page }, testInfo) => {
-    await gotoEmptyTagging(page);
-    await createFirstTag(page, 'Groceries');
+  test(
+    'validates rule patterns',
+    { tag: '@kotlin' },
+    async ({ page }, testInfo) => {
+      await gotoEmptyTagging(page);
+      await createFirstTag(page, 'Groceries');
 
-    await page.getByTestId('new-rule-button').click();
-    const modal = ruleModal(page);
-    await expect(modal).toBeVisible();
-    await modal.getByTestId('rule-submit-button').click();
-    await expect(modal).toContainText('Pattern cannot be empty');
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'rule-pattern-required'),
-      fullPage: true,
-    });
-    await modal.getByTestId('rule-cancel-button').click();
-    await expect(modal).toBeHidden();
-  });
+      await page.getByTestId('new-rule-button').click();
+      const modal = ruleModal(page);
+      await expect(modal).toBeVisible();
+      await modal.getByTestId('rule-submit-button').click();
+      await expect(modal).toContainText('Pattern cannot be empty');
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'rule-pattern-required'),
+        fullPage: true,
+      });
+      await modal.getByTestId('rule-cancel-button').click();
+      await expect(modal).toBeHidden();
+    },
+  );
 
-  test('rule patterns are unique per user, ignoring case', async ({ page }) => {
-    await gotoEmptyTagging(page);
-    await createFirstTag(page, 'Groceries');
-    await createRule(page, 'STARBUCKS');
+  test(
+    'rule patterns are unique per user, ignoring case',
+    { tag: '@kotlin' },
+    async ({ page }) => {
+      await gotoEmptyTagging(page);
+      await createFirstTag(page, 'Groceries');
+      await createRule(page, 'STARBUCKS');
 
-    // The same pattern in another case is rejected under the same tag.
-    await page.getByTestId('new-rule-button').click();
-    const modal = ruleModal(page);
-    await expect(modal).toBeVisible();
-    await modal.getByTestId('rule-pattern-input').fill('starbucks');
-    await modal.getByTestId('rule-submit-button').click();
-    await expect(modal).toContainText(
-      'A rule with this pattern already exists',
-    );
-    await modal.getByTestId('rule-cancel-button').click();
-    await expect(modal).toBeHidden();
+      // The same pattern in another case is rejected under the same tag.
+      await page.getByTestId('new-rule-button').click();
+      const modal = ruleModal(page);
+      await expect(modal).toBeVisible();
+      await modal.getByTestId('rule-pattern-input').fill('starbucks');
+      await modal.getByTestId('rule-submit-button').click();
+      await expect(modal).toContainText(
+        'A rule with this pattern already exists',
+      );
+      await modal.getByTestId('rule-cancel-button').click();
+      await expect(modal).toBeHidden();
 
-    // And under a different tag.
-    await createTag(page, 'Transport');
-    await page.getByTestId('new-rule-button').click();
-    await expect(modal).toBeVisible();
-    await modal.getByTestId('rule-pattern-input').fill('STARBUCKS');
-    await modal.getByTestId('rule-submit-button').click();
-    await expect(modal).toContainText(
-      'A rule with this pattern already exists',
-    );
-    await modal.getByTestId('rule-cancel-button').click();
-    await expect(modal).toBeHidden();
-    await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(0);
-  });
+      // And under a different tag.
+      await createTag(page, 'Transport');
+      await page.getByTestId('new-rule-button').click();
+      await expect(modal).toBeVisible();
+      await modal.getByTestId('rule-pattern-input').fill('STARBUCKS');
+      await modal.getByTestId('rule-submit-button').click();
+      await expect(modal).toContainText(
+        'A rule with this pattern already exists',
+      );
+      await modal.getByTestId('rule-cancel-button').click();
+      await expect(modal).toBeHidden();
+      await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(0);
+    },
+  );
 
   test('the rule modal counts what a pattern matches', async ({ page }) => {
     await recordTransaction(page, 'PAY Countdown Ponsonby');
@@ -356,52 +372,64 @@ test.describe('tagging', () => {
     await expect(page.getByTestId('transaction-rule-tag-hint')).toBeVisible();
   });
 
-  test('editing a rule can move it to another tag', async ({ page }) => {
-    await gotoEmptyTagging(page);
-    await createFirstTag(page, 'Groceries');
-    await createRule(page, 'STARBUCKS');
-    await createTag(page, 'Transport');
-    await tagRow(page, 'Groceries').click();
+  test(
+    'editing a rule can move it to another tag',
+    { tag: '@kotlin' },
+    async ({ page }) => {
+      await gotoEmptyTagging(page);
+      await createFirstTag(page, 'Groceries');
+      await createRule(page, 'STARBUCKS');
+      await createTag(page, 'Transport');
+      await tagRow(page, 'Groceries').click();
 
-    await ruleRow(page, 'STARBUCKS').click();
-    const modal = ruleModal(page);
-    await expect(modal).toBeVisible();
-    await modal.getByTestId('rule-tag-select').selectOption({
-      label: 'Transport',
-    });
-    await modal.getByTestId('rule-submit-button').click();
-    await expect(modal).toBeHidden();
+      await ruleRow(page, 'STARBUCKS').click();
+      const modal = ruleModal(page);
+      await expect(modal).toBeVisible();
+      await modal.getByTestId('rule-tag-select').selectOption({
+        label: 'Transport',
+      });
+      await modal.getByTestId('rule-submit-button').click();
+      await expect(modal).toBeHidden();
 
-    // The rule left Groceries and now lives under Transport.
-    await expect(page.getByTestId('rules-panel')).toContainText(
-      'No rules for "Groceries" yet',
-    );
-    await tagRow(page, 'Transport').click();
-    await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(1);
-  });
+      // The rule left Groceries and now lives under Transport.
+      await expect(page.getByTestId('rules-panel')).toContainText(
+        'No rules for "Groceries" yet',
+      );
+      await tagRow(page, 'Transport').click();
+      await expect(ruleRow(page, 'STARBUCKS')).toHaveCount(1);
+    },
+  );
 
-  test('a new rule starts on the selected tag', async ({ page }) => {
-    await gotoEmptyTagging(page);
-    await createFirstTag(page, 'Groceries');
-    await createTag(page, 'Transport');
-    await tagRow(page, 'Transport').click();
+  test(
+    'a new rule starts on the selected tag',
+    { tag: '@kotlin' },
+    async ({ page }) => {
+      await gotoEmptyTagging(page);
+      await createFirstTag(page, 'Groceries');
+      await createTag(page, 'Transport');
+      await tagRow(page, 'Transport').click();
 
-    await page.getByTestId('new-rule-button').click();
-    const modal = ruleModal(page);
-    await expect(modal).toBeVisible();
-    await expect(
-      modal.getByTestId('rule-tag-select').locator('option:checked'),
-    ).toHaveText('Transport');
-  });
+      await page.getByTestId('new-rule-button').click();
+      const modal = ruleModal(page);
+      await expect(modal).toBeVisible();
+      await expect(
+        modal.getByTestId('rule-tag-select').locator('option:checked'),
+      ).toHaveText('Transport');
+    },
+  );
 
-  test('shows saved tags and rules after a reload', async ({ page }) => {
-    await gotoEmptyTagging(page);
-    await createFirstTag(page, 'Groceries');
-    await createRule(page, 'STARBUCKS');
+  test(
+    'shows saved tags and rules after a reload',
+    { tag: '@kotlin' },
+    async ({ page }) => {
+      await gotoEmptyTagging(page);
+      await createFirstTag(page, 'Groceries');
+      await createRule(page, 'STARBUCKS');
 
-    await page.reload();
+      await page.reload();
 
-    await expect(tagRow(page, 'Groceries')).toBeVisible();
-    await expect(ruleRow(page, 'STARBUCKS')).toBeVisible();
-  });
+      await expect(tagRow(page, 'Groceries')).toBeVisible();
+      await expect(ruleRow(page, 'STARBUCKS')).toBeVisible();
+    },
+  );
 });
