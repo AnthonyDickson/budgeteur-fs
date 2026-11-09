@@ -47,7 +47,7 @@ sealed interface Categorisation {
     data class Transfer(override val source: Source) : Categorisation
 
     // The transitions between untagged, tagged, dismissed, and transfer. See decision 4 in
-    // docs/auto-tagging.md. Quick tagging's arrive with its slice.
+    // docs/auto-tagging.md and decision 1 in docs/quick-tagging.md.
     companion object {
         /** A transfer is neither income nor expense, so a request cannot give it a tag. */
         context(_: Raise<String>)
@@ -107,6 +107,35 @@ sealed interface Categorisation {
          * unlike a rule's transfer. See decision 3 in docs/transfer-rules.md.
          */
         val detectedTransfer: Categorisation = Transfer(Source.Detected)
+
+        /**
+         * Who decided a quick tagging choice: the user, accepting the row's suggestion or not. The
+         * client says which button was the suggestion. See decision 6 in docs/transfer-rules.md.
+         */
+        private fun chosen(suggested: Boolean) = if (suggested) Source.Accepted else Source.Manual
+
+        /**
+         * Quick tagging with a tag replaces whatever the transaction had with the user's tag,
+         * accepted when it was the suggestion. See decision 1 in docs/quick-tagging.md.
+         */
+        fun onQuickTag(tagId: UUID, suggested: Boolean): Categorisation =
+            Tagged(tagId, chosen(suggested))
+
+        /**
+         * Marking a transaction as a transfer from quick tagging replaces whatever it had, accepted
+         * when it was the suggestion.
+         */
+        fun onTransfer(suggested: Boolean): Categorisation = Transfer(chosen(suggested))
+
+        /**
+         * Approving a suggestion gives the transaction the suggested tag or transfer, as the user's
+         * acceptance of it. See decision 7 in docs/transfer-rules.md.
+         */
+        fun onApprove(target: RuleTarget): Categorisation =
+            when (target) {
+                is RuleTarget.Tag -> onQuickTag(target.tagId, suggested = true)
+                RuleTarget.Transfer -> onTransfer(suggested = true)
+            }
     }
 }
 

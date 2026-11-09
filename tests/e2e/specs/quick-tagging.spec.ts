@@ -32,7 +32,7 @@ async function recordTransaction(page: Page, description: string) {
 const queueRow = (page: Page, description: string) =>
   page.getByTestId('quick-tag-row').filter({ hasText: description });
 
-test.describe('quick tagging', () => {
+test.describe('quick tagging', { tag: '@kotlin' }, () => {
   test('tags, marks transfers, and dismisses with one click each', async ({
     page,
   }, testInfo) => {

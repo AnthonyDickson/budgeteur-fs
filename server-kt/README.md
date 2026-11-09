@@ -3,12 +3,12 @@
 An exploration of what the backend would look like written in Kotlin only, in a
 functional-first style. It owns its schema and conventions and shares nothing
 with the F# server except the HTTP API shape, which the Gleam client depends on.
-It covers the infrastructure, the SPA's login and logout, and eight slices: `GET
+It covers the infrastructure, the SPA's login and logout, and nine slices: `GET
 /api/status`, Tag CRUD (`/api/tags`), transactions with search
 (`/api/transactions`), accounts with their balances and close dates
 (`/api/accounts`), the balance sheet with its items (`/api/balance-sheet`),
-rules (`/api/rules`), auto-tagging (`/api/auto-tag`), and statement import
-(`/api/imports`).
+rules (`/api/rules`), auto-tagging (`/api/auto-tag`), statement import
+(`/api/imports`), and quick tagging (`/api/quick-tag`).
 
 ## Running
 
@@ -326,9 +326,7 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- The domain beyond what tags and transactions use. `Categorisation` has only
-  the transitions the transaction slice needs.
-- Every other slice the client uses: quick tagging, the dashboard and reports.
+- Every other slice the client uses: the dashboard and reports.
 - The balance sheet drawn for a past date and the history it is drawn from,
   which only the dashboard and reports use.
 - The image is not published; CI only builds it and smoke tests it.
@@ -351,8 +349,8 @@ domain enums, but that would tie generated code to `domain/`.
   transaction slice is 997 lines against 1,405 in F# (`feature/transaction/`
   against `Feature/Transaction/`), the account slice 886 against 1,361, the
   balance sheet slice 1,156 against 1,710, the rule slice 355 against 602, the
-  auto-tagging slice 336 against 477, and the import slice 1,023 against 1,247,
-  with the same caveat.
+  auto-tagging slice 336 against 477, the import slice 1,023 against 1,247, and
+  the quick tagging slice 668 against 914, with the same caveat.
 - **Auth.** ASP.NET Core provides the cookie and OIDC handlers. Ktor provides
   the encrypted session cookie, but its `oauth` provider is OAuth 2.0 only: it
   does not validate ID tokens or use a nonce, and its default state manager
