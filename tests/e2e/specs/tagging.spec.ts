@@ -316,61 +316,69 @@ test.describe('tagging', () => {
     },
   );
 
-  test('the rule modal counts what a pattern matches', async ({ page }) => {
-    await recordTransaction(page, 'PAY Countdown Ponsonby');
-    await recordTransaction(page, 'Rent');
+  test(
+    'the rule modal counts what a pattern matches',
+    { tag: '@kotlin' },
+    async ({ page }) => {
+      await recordTransaction(page, 'PAY Countdown Ponsonby');
+      await recordTransaction(page, 'Rent');
 
-    await gotoEmptyTagging(page);
-    await createFirstTag(page, 'Groceries');
-    await page.getByTestId('new-rule-button').click();
-    const modal = ruleModal(page);
-    await expect(modal).toBeVisible();
-    const pattern = modal.getByTestId('rule-pattern-input');
-    const count = modal.getByTestId('rule-match-count');
+      await gotoEmptyTagging(page);
+      await createFirstTag(page, 'Groceries');
+      await page.getByTestId('new-rule-button').click();
+      const modal = ruleModal(page);
+      await expect(modal).toBeVisible();
+      const pattern = modal.getByTestId('rule-pattern-input');
+      const count = modal.getByTestId('rule-match-count');
 
-    await pattern.fill('countdown');
-    await expect(count).toHaveText('Matches 1 of 2 transactions');
-    await expect(modal.getByTestId('rule-match-samples')).toHaveText(
-      'PAY Countdown Ponsonby',
-    );
+      await pattern.fill('countdown');
+      await expect(count).toHaveText('Matches 1 of 2 transactions');
+      await expect(modal.getByTestId('rule-match-samples')).toHaveText(
+        'PAY Countdown Ponsonby',
+      );
 
-    await pattern.fill('nothing like this');
-    await expect(count).toHaveText('Matches 0 of 2 transactions');
+      await pattern.fill('nothing like this');
+      await expect(count).toHaveText('Matches 0 of 2 transactions');
 
-    // Enter saves the typed pattern straight away; the count is not awaited.
-    await pattern.fill('Countdown');
-    await pattern.press('Enter');
-    await expect(modal).toBeHidden();
-    await expect(ruleRow(page, 'Countdown')).toBeVisible();
-  });
+      // Enter saves the typed pattern straight away; the count is not awaited.
+      await pattern.fill('Countdown');
+      await pattern.press('Enter');
+      await expect(modal).toBeHidden();
+      await expect(ruleRow(page, 'Countdown')).toBeVisible();
+    },
+  );
 
-  test('runs rules over untagged transactions', async ({ page }) => {
-    await recordTransaction(page, 'PAY Countdown Ponsonby');
-    await gotoEmptyTagging(page);
-    await createFirstTag(page, 'Groceries');
-    await createRule(page, 'Countdown');
+  test(
+    'runs rules over untagged transactions',
+    { tag: '@kotlin' },
+    async ({ page }) => {
+      await recordTransaction(page, 'PAY Countdown Ponsonby');
+      await gotoEmptyTagging(page);
+      await createFirstTag(page, 'Groceries');
+      await createRule(page, 'Countdown');
 
-    await page.getByTestId('tag-untagged-button').click();
-    await expect(toast(page, 'Tagged 1 untagged transaction')).toBeVisible();
+      await page.getByTestId('tag-untagged-button').click();
+      await expect(toast(page, 'Tagged 1 untagged transaction')).toBeVisible();
 
-    // Re-tag runs only once confirmed; the rule still wins, so nothing changes.
-    await page.getByTestId('retag-all-button').click();
-    const retagModal = page.getByTestId('retag-modal');
-    await expect(retagModal).toBeVisible();
-    await retagModal.getByTestId('retag-confirm-button').click();
-    await expect(retagModal).toBeHidden();
-    await expect(
-      toast(page, 'Tagged 0, changed 0, and cleared 0 transactions'),
-    ).toBeVisible();
+      // Re-tag runs only once confirmed; the rule still wins, so nothing changes.
+      await page.getByTestId('retag-all-button').click();
+      const retagModal = page.getByTestId('retag-modal');
+      await expect(retagModal).toBeVisible();
+      await retagModal.getByTestId('retag-confirm-button').click();
+      await expect(retagModal).toBeHidden();
+      await expect(
+        toast(page, 'Tagged 0, changed 0, and cleared 0 transactions'),
+      ).toBeVisible();
 
-    await page.goto('/transactions');
-    const row = page
-      .locator('[data-testid="transaction-row"]')
-      .filter({ hasText: 'PAY Countdown Ponsonby' });
-    await expect(row).toContainText('Groceries');
-    await row.click();
-    await expect(page.getByTestId('transaction-rule-tag-hint')).toBeVisible();
-  });
+      await page.goto('/transactions');
+      const row = page
+        .locator('[data-testid="transaction-row"]')
+        .filter({ hasText: 'PAY Countdown Ponsonby' });
+      await expect(row).toContainText('Groceries');
+      await row.click();
+      await expect(page.getByTestId('transaction-rule-tag-hint')).toBeVisible();
+    },
+  );
 
   test(
     'editing a rule can move it to another tag',

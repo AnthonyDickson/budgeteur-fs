@@ -95,3 +95,27 @@ sealed interface RuleTarget {
 }
 
 data class Rule(val id: UUID, val pattern: RulePattern, val target: RuleTarget)
+
+/** Whether the pattern occurs anywhere in the description under the rule comparison. */
+fun RulePattern.matches(description: TransactionDescription): Boolean =
+    RulePattern.indexIn(description.value, value) >= 0
+
+/**
+ * Rule precedence: longer patterns first, then equal lengths by the rule comparison. The final
+ * ordinal step only separates patterns that differ by case alone, which uniqueness rules out, so
+ * the order never depends on the order of the input.
+ */
+private val precedence: Comparator<Rule> =
+    compareByDescending<Rule> { it.pattern.value.length }
+        .thenComparator { a, b -> a.pattern.value.compareTo(b.pattern.value, ignoreCase = true) }
+        .thenBy { it.pattern.value }
+
+/**
+ * The winning rule for a description: the matching rule with the longest pattern, whatever its
+ * target, with equal lengths ordered by the comparison. Null when no rule matches. Call it once per
+ * set of rules and reuse the result for many descriptions, so the rules are sorted once.
+ */
+fun winner(rules: List<Rule>): (TransactionDescription) -> Rule? {
+    val ordered = rules.sortedWith(precedence)
+    return { description -> ordered.firstOrNull { it.pattern.matches(description) } }
+}

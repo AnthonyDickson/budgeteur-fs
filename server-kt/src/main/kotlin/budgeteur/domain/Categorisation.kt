@@ -47,7 +47,7 @@ sealed interface Categorisation {
     data class Transfer(override val source: Source) : Categorisation
 
     // The transitions between untagged, tagged, dismissed, and transfer. See decision 4 in
-    // docs/auto-tagging.md. The rest arrive with the slices that use them.
+    // docs/auto-tagging.md. Quick tagging's arrive with its slice.
     companion object {
         /** A transfer is neither income nor expense, so a request cannot give it a tag. */
         context(_: Raise<String>)
@@ -76,6 +76,31 @@ sealed interface Categorisation {
                 null -> chosen
             }
         }
+
+        /**
+         * The categorisation a winning rule applies: its tag, with the rule source. A rule's
+         * transfer is not applied: it is only suggested. See decision 3 in docs/transfer-rules.md.
+         */
+        fun applyRule(target: RuleTarget): Categorisation? =
+            when (target) {
+                is RuleTarget.Tag -> Tagged(target.tagId, Source.Rule)
+                RuleTarget.Transfer -> null
+            }
+
+        /**
+         * Tag untagged: an untagged transaction gets the [applied] rule proposal, if any. A tagged,
+         * dismissed, or transfer transaction keeps its categorisation.
+         */
+        fun tagUntagged(applied: Categorisation?, current: Categorisation?): Categorisation? =
+            current ?: applied
+
+        /**
+         * Re-tag: an untagged transaction, or one whose source is a rule, gets the [applied]
+         * proposal, or becomes untagged when there is none. Any other source is a decision that
+         * never changes.
+         */
+        fun retag(applied: Categorisation?, current: Categorisation?): Categorisation? =
+            if (current != null && current.source != Source.Rule) current else applied
     }
 }
 

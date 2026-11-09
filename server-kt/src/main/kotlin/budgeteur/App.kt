@@ -3,6 +3,7 @@ package budgeteur
 import budgeteur.feature.account.accountEndpoints
 import budgeteur.feature.auth.authEndpoints
 import budgeteur.feature.auth.loginAttemptCookie
+import budgeteur.feature.autotag.autoTagEndpoints
 import budgeteur.feature.balancesheet.balanceSheetDevelopmentEndpoints
 import budgeteur.feature.balancesheet.balanceSheetEndpoints
 import budgeteur.feature.rule.ruleEndpoints
@@ -95,6 +96,7 @@ fun Application.budgeteur(deps: Dependencies) {
             accountEndpoints(deps.db, deps.clock)
             balanceSheetEndpoints(deps.db, deps.clock)
             ruleEndpoints(deps.db)
+            autoTagEndpoints(deps.db)
             // Inspection and test helpers, so they can never be reached against real data.
             if (deps.environment == "Development") {
                 transactionDevelopmentEndpoints(deps.db)

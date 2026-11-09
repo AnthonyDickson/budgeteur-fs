@@ -54,6 +54,8 @@ class ApiDocsTests {
                 "/api/balance-sheet/items/{id}/observations/{asOf}",
                 "/api/rules",
                 "/api/rules/{id}",
+                "/api/auto-tag",
+                "/api/auto-tag/matches",
             ),
             doc.at("paths").jsonObject.keys,
         )
@@ -121,6 +123,9 @@ class ApiDocsTests {
                 "ItemObservationResponse",
                 "RuleRequest",
                 "RuleResponse",
+                "RunAutoTagRequest",
+                "RunAutoTagResponse",
+                "MatchesResponse",
             ),
             schemas.jsonObject.keys,
         )

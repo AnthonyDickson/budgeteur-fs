@@ -28,3 +28,49 @@ class RuleTests {
         assertTrue(either { RuleTarget.create("tag", tagId) }.isLeft())
     }
 }
+
+class RuleWinnerTests {
+    private fun rule(pattern: String, target: RuleTarget = RuleTarget.Tag(UUID.randomUUID())) =
+        Rule(UUID.randomUUID(), RulePattern.unsafe(pattern), target)
+
+    private fun winningPattern(rules: List<Rule>, description: String) =
+        winner(rules)(TransactionDescription.unsafe(description))?.pattern?.value
+
+    @Test
+    fun `no rule wins when none matches`() {
+        assertEquals(null, winningPattern(listOf(rule("COUNTDOWN")), "New World"))
+    }
+
+    @Test
+    fun `the longest matching pattern wins`() {
+        val rules = listOf(rule("COUNTDOWN"), rule("COUNTDOWN FUEL"), rule("FUEL"))
+        assertEquals("COUNTDOWN FUEL", winningPattern(rules, "Countdown Fuel Ponsonby"))
+        assertEquals("COUNTDOWN", winningPattern(rules, "Countdown Ponsonby"))
+    }
+
+    @Test
+    fun `equal lengths are ordered by the comparison, whatever the input order`() {
+        val rules = listOf(rule("bar"), rule("FOO"), rule("Baz"))
+        listOf(rules, rules.reversed(), rules.drop(1) + rules.take(1)).forEach {
+            assertEquals("bar", winningPattern(it, "foo bar baz"))
+        }
+    }
+
+    @Test
+    fun `the target does not change which rule wins`() {
+        assertEquals(
+            "TRANSFER TO RENT",
+            winningPattern(
+                listOf(rule("TRANSFER TO", RuleTarget.Transfer), rule("TRANSFER TO RENT")),
+                "TRANSFER TO RENT ACCOUNT",
+            ),
+        )
+        assertEquals(
+            "TRANSFER TO SAVINGS",
+            winningPattern(
+                listOf(rule("TRANSFER"), rule("TRANSFER TO SAVINGS", RuleTarget.Transfer)),
+                "TRANSFER TO SAVINGS",
+            ),
+        )
+    }
+}
