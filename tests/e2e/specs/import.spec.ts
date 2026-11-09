@@ -20,7 +20,7 @@ const transactionRows = (page: Page, description: string) =>
     hasText: description,
   });
 
-test.describe('import', () => {
+test.describe('import', { tag: '@kotlin' }, () => {
   test(
     'imports related statements with their accounts and transfers',
     async ({ page }, testInfo) => {

@@ -101,6 +101,12 @@ sealed interface Categorisation {
          */
         fun retag(applied: Categorisation?, current: Categorisation?): Categorisation? =
             if (current != null && current.source != Source.Rule) current else applied
+
+        /**
+         * A row import detects as a transfer by the other party's account number. Always applied,
+         * unlike a rule's transfer. See decision 3 in docs/transfer-rules.md.
+         */
+        val detectedTransfer: Categorisation = Transfer(Source.Detected)
     }
 }
 

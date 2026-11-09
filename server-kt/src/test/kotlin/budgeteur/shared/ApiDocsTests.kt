@@ -56,6 +56,7 @@ class ApiDocsTests {
                 "/api/rules/{id}",
                 "/api/auto-tag",
                 "/api/auto-tag/matches",
+                "/api/imports",
             ),
             doc.at("paths").jsonObject.keys,
         )
@@ -126,6 +127,10 @@ class ApiDocsTests {
                 "RunAutoTagRequest",
                 "RunAutoTagResponse",
                 "MatchesResponse",
+                "ImportFileRequest",
+                "ImportRequest",
+                "CreatedAccountResponse",
+                "ImportResponse",
             ),
             schemas.jsonObject.keys,
         )

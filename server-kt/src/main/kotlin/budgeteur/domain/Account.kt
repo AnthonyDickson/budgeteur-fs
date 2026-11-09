@@ -81,6 +81,16 @@ value class AccountName private constructor(val value: String) {
 
         /** Skips validation, for trusted values read from the database. */
         internal fun unsafe(value: String) = AccountName(value)
+
+        /**
+         * The name of an account created on import: its number, followed by the statement's product
+         * name in brackets when it gives one, cut to [MAX_LENGTH].
+         */
+        fun ofNumber(number: AccountNumber, productName: String?): AccountName {
+            val product = productName?.trim()
+            val name = if (product.isNullOrEmpty()) number.value else "${number.value} ($product)"
+            return AccountName(name.take(MAX_LENGTH))
+        }
     }
 }
 
