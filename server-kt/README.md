@@ -3,13 +3,14 @@
 An exploration of what the backend would look like written in Kotlin only, in a
 functional-first style. It owns its schema and conventions and shares nothing
 with the F# server except the HTTP API shape, which the Gleam client depends on.
-It covers the infrastructure, the SPA's login and logout, and ten slices: `GET
-/api/status`, Tag CRUD (`/api/tags`), transactions with search
+It covers the infrastructure, the SPA's login and logout, and eleven slices:
+`GET /api/status`, Tag CRUD (`/api/tags`), transactions with search
 (`/api/transactions`), accounts with their balances and close dates
 (`/api/accounts`), the balance sheet with its items (`/api/balance-sheet`),
 rules (`/api/rules`), auto-tagging (`/api/auto-tag`), statement import
-(`/api/imports`), quick tagging (`/api/quick-tag`), and the dashboard
-(`/api/dashboard`).
+(`/api/imports`), quick tagging (`/api/quick-tag`), the dashboard
+(`/api/dashboard`), and reports (`/api/reports`): every endpoint the client
+uses.
 
 ## Running
 
@@ -38,10 +39,10 @@ Kotlin version in `gradle/libs.versions.toml`, so bump the two together; the
 catalog pins it, so `just update` leaves it alone.
 
 `just kt-e2e-test` runs `docker/docker-compose.e2e-kt.yml`: the F# E2E stack
-with this server in place of the F# one, running only the specs tagged
-`@kotlin`, those whose endpoints the PoC has. Tag a spec or test when the PoC
-gains its endpoints. The E2E fixtures' `DELETE /api/test/user-data` is
-registered in Development only, as in the F# server.
+with this server in place of the F# one, running the specs tagged `@kotlin`.
+Every spec has the tag now that the PoC has every endpoint the client uses; a
+new spec needs it to run here too. The E2E fixtures' `DELETE
+/api/test/user-data` is registered in Development only, as in the F# server.
 
 The server reads its settings from environment variables. It reports every
 missing or invalid setting at once and exits. On startup it applies pending
@@ -327,7 +328,6 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- Reports (`/api/reports`), the one slice the client uses that is not ported.
 - The image is not published; CI only builds it and smoke tests it.
 
 ## Findings
@@ -348,8 +348,9 @@ domain enums, but that would tie generated code to `domain/`.
   transaction slice is 997 lines against 1,405 in F# (`feature/transaction/`
   against `Feature/Transaction/`), the account slice 886 against 1,361, the
   balance sheet slice 1,156 against 1,710, the rule slice 355 against 602, the
-  auto-tagging slice 336 against 477, the import slice 1,023 against 1,247, and
-  the quick tagging slice 668 against 914, with the same caveat.
+  auto-tagging slice 336 against 477, the import slice 1,023 against 1,247, the
+  quick tagging slice 668 against 914, the dashboard slice 736 against 980, and
+  the report slice 511 against 703, with the same caveat.
 - **Auth.** ASP.NET Core provides the cookie and OIDC handlers. Ktor provides
   the encrypted session cookie, but its `oauth` provider is OAuth 2.0 only: it
   does not validate ID tokens or use a nonce, and its default state manager

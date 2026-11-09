@@ -1,5 +1,5 @@
 # E2E tests against the Kotlin PoC server (server-kt/). Runs the specs tagged
-# @kotlin: those the PoC's endpoints support. Shares Authelia, the client and
+# @kotlin, which is every spec now. Shares Authelia, the client and
 # Playwright with the F# stack in docker-compose.e2e.yml.
 name: budgeteur-kt-e2e
 

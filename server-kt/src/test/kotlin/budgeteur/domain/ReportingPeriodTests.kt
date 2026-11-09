@@ -36,4 +36,28 @@ class ReportingPeriodTests {
         val q1 = ReportingPeriod.containing(Frequency.Quarterly, LocalDate.of(2026, 2, 1))
         assertEquals(LocalDate.of(2025, 10, 1), q1.previous().from)
     }
+
+    @Test
+    fun `each frequency has its label`() {
+        val date = LocalDate.of(2026, 3, 10)
+        assertEquals(
+            listOf("March 2026", "Q1 2026", "2026", "2025/26"),
+            Frequency.entries.map { ReportingPeriod.containing(it, date).label },
+        )
+        assertEquals(
+            "2099/00",
+            ReportingPeriod.containing(Frequency.FinancialYear, LocalDate.of(2099, 4, 1)).label,
+            "the century wraps",
+        )
+    }
+
+    @Test
+    fun `a period is complete from its last day`() {
+        val march = ReportingPeriod.containing(Frequency.Monthly, LocalDate.of(2026, 3, 10))
+        assertEquals(
+            listOf(false, true, true),
+            listOf(30, 31).map { march.isComplete(LocalDate.of(2026, 3, it)) } +
+                march.isComplete(LocalDate.of(2026, 4, 1)),
+        )
+    }
 }

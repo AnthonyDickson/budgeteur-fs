@@ -118,7 +118,7 @@ async function expectHelpTargets(container: Locator) {
   }
 }
 
-test.describe('mobile', () => {
+test.describe('mobile', { tag: '@kotlin' }, () => {
   test(
     'every page fits a phone and the menu opens each one',
     async ({ page }, testInfo) => {

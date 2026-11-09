@@ -17,7 +17,7 @@ function monthStart(monthsAgo: number): { date: string; label: string } {
 
 const card = (page: Page, testId: string) => page.getByTestId(testId);
 
-test.describe('reports', () => {
+test.describe('reports', { tag: '@kotlin' }, () => {
   test('a report splits the change in net worth', async ({ page }) => {
     const twoMonthsAgo = monthStart(2);
     const lastMonth = monthStart(1);

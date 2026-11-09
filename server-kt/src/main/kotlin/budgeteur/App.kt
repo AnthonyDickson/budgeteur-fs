@@ -9,6 +9,7 @@ import budgeteur.feature.balancesheet.balanceSheetEndpoints
 import budgeteur.feature.dashboard.dashboardEndpoints
 import budgeteur.feature.imports.importEndpoints
 import budgeteur.feature.quicktag.quickTagEndpoints
+import budgeteur.feature.report.reportEndpoints
 import budgeteur.feature.rule.ruleEndpoints
 import budgeteur.feature.status.STATUS_PATH
 import budgeteur.feature.status.getStatus
@@ -103,6 +104,7 @@ fun Application.budgeteur(deps: Dependencies) {
             importEndpoints(deps.db)
             quickTagEndpoints(deps.db)
             dashboardEndpoints(deps.db)
+            reportEndpoints(deps.db)
             // Inspection and test helpers, so they can never be reached against real data.
             if (deps.environment == "Development") {
                 transactionDevelopmentEndpoints(deps.db)
