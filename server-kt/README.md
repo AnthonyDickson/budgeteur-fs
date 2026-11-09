@@ -148,6 +148,24 @@ Vertical slices, as in the F# server:
   constructor, so the only way to build one from input is `TagName.create`.
   Payload-free choices (`TagColor`, `TagKind`) are enums; choices with data are
   sealed interfaces (`DomainError`), matched exhaustively with `when`.
+- **Money.** `Money` is a value class over a `Long` of cents, so an amount
+  cannot hold a fraction of a cent, and equality, ordering and sums are exact.
+  Arithmetic throws on overflow. Input is parsed from strings with `BigDecimal`
+  and rounded to cents midpoint away from zero (Java's `HALF_UP`), as the F#
+  server rounds. Only plain decimals parse: an exponent would let a short string
+  build a huge `BigDecimal`. Amounts are written with two decimal places; the
+  client accepts any scale. Columns are `INTEGER` cents, so SQL compares amounts
+  exactly, but aggregation still happens in Kotlin, as in the F# server (see
+  [architecture](../docs/architecture.md#money)). Ratios convert to
+  `BigDecimal`. The F# server keeps `decimal` and stores SQLite `REAL`.
+- **Calendar dates.** A calendar date is a `java.time.LocalDate`, parsed and
+  written as exactly `yyyy-MM-dd` with a strict resolver, so February 30th is
+  rejected. Columns are `TEXT` in that format, so text order is date order, with
+  `CHECK (date(col) IS col)` so SQLite rejects anything else. Columns are not
+  declared `DATE`: sqlite-jdbc would store epoch milliseconds through
+  `java.sql.Date`, which converts the day to an instant in the JVM's timezone.
+  Instants are deferred until a column needs one (see
+  [dates](../docs/dates.md)).
 - **Constraint checks.** Handlers check database constraints before writing.
   Each check raises a `ConstraintError`; `requireAll` runs every check and turns
   the failures into one `ValidationFailed`.
@@ -282,9 +300,7 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- `Money`, dates and the rest of the domain. Owning the schema allows storing
-  money as integer cents rather than SQLite's REAL-backed numerics, and dates as
-  ISO-8601 text.
+- The domain beyond `Tag`, `Money` and calendar dates.
 - The rules slice, beyond the stub, and every other slice the client uses.
 - The image is not published; CI only builds it and smoke tests it.
 
