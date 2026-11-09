@@ -1,5 +1,6 @@
 package budgeteur
 
+import budgeteur.feature.account.readAllAccounts
 import budgeteur.feature.auth.authEndpoints
 import budgeteur.feature.auth.loginAttemptCookie
 import budgeteur.feature.rule.readAllRules
@@ -7,6 +8,8 @@ import budgeteur.feature.status.STATUS_PATH
 import budgeteur.feature.status.getStatus
 import budgeteur.feature.tag.tagEndpoints
 import budgeteur.feature.testsupport.resetUserData
+import budgeteur.feature.transaction.transactionDevelopmentEndpoints
+import budgeteur.feature.transaction.transactionEndpoints
 import budgeteur.shared.ApiDocsSettings
 import budgeteur.shared.BEARER_AUTH
 import budgeteur.shared.Clock
@@ -86,9 +89,14 @@ fun Application.budgeteur(deps: Dependencies) {
 
         authenticated {
             tagEndpoints(deps.db)
+            transactionEndpoints(deps.db)
             readAllRules()
-            // Test-only helpers, so they can never be reached against real data.
-            if (deps.environment == "Development") resetUserData(deps.db)
+            readAllAccounts()
+            // Inspection and test helpers, so they can never be reached against real data.
+            if (deps.environment == "Development") {
+                transactionDevelopmentEndpoints(deps.db)
+                resetUserData(deps.db)
+            }
         }
 
         // Unknown API paths get a JSON 404. Ktor ranks the literal routes above

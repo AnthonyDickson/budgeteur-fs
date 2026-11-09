@@ -18,88 +18,92 @@ async function createFirstTag(page: Page, name: string) {
 }
 
 test.describe('transactions', () => {
-  test('full CRUD flow for a transaction', async ({ page }, testInfo) => {
-    const description = 'Coffee';
-    const tagName = 'Groceries';
+  test(
+    'full CRUD flow for a transaction',
+    { tag: '@kotlin' },
+    async ({ page }, testInfo) => {
+      const description = 'Coffee';
+      const tagName = 'Groceries';
 
-    await createFirstTag(page, tagName);
-    await page.goto('/transactions');
-    const emptyState = page.getByTestId('no-transactions-empty-state');
-    await expect(emptyState).toBeVisible();
+      await createFirstTag(page, tagName);
+      await page.goto('/transactions');
+      const emptyState = page.getByTestId('no-transactions-empty-state');
+      await expect(emptyState).toBeVisible();
 
-    // ── Create ───────────────────────────────────────────────────────────────
-    await page.getByTestId('record-transaction-button').click();
+      // ── Create ───────────────────────────────────────────────────────────────
+      await page.getByTestId('record-transaction-button').click();
 
-    const formModal = page.getByTestId('transaction-modal');
-    await expect(formModal).toBeVisible();
-    await formModal.getByTestId('transaction-amount-input').fill('12.34');
-    await formModal
-      .getByTestId('transaction-description-input')
-      .fill(description);
-    await formModal.getByTestId('transaction-date-input').fill('2026-08-15');
-    const tagSelect = formModal.getByTestId('transaction-tag-select');
-    await tagSelect.selectOption({ label: tagName });
-    const tagValue = await tagSelect.inputValue();
-    await formModal.getByTestId('transaction-submit-button').click();
+      const formModal = page.getByTestId('transaction-modal');
+      await expect(formModal).toBeVisible();
+      await formModal.getByTestId('transaction-amount-input').fill('12.34');
+      await formModal
+        .getByTestId('transaction-description-input')
+        .fill(description);
+      await formModal.getByTestId('transaction-date-input').fill('2026-08-15');
+      const tagSelect = formModal.getByTestId('transaction-tag-select');
+      await tagSelect.selectOption({ label: tagName });
+      const tagValue = await tagSelect.inputValue();
+      await formModal.getByTestId('transaction-submit-button').click();
 
-    // Debit is the default type, so the amount is shown as negative.
-    const row = page
-      .locator('[data-testid="transaction-row"]')
-      .filter({ hasText: description });
-    await expect(row).toHaveCount(1);
-    await expectAmount(row, -12.34);
-    await expect(row).toContainText('2026-08-15');
-    await expect(row).toContainText(tagName);
-    await expect(formModal).toBeHidden();
-    await expect(emptyState).toBeHidden();
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'transaction-created'),
-      fullPage: true,
-    });
+      // Debit is the default type, so the amount is shown as negative.
+      const row = page
+        .locator('[data-testid="transaction-row"]')
+        .filter({ hasText: description });
+      await expect(row).toHaveCount(1);
+      await expectAmount(row, -12.34);
+      await expect(row).toContainText('2026-08-15');
+      await expect(row).toContainText(tagName);
+      await expect(formModal).toBeHidden();
+      await expect(emptyState).toBeHidden();
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'transaction-created'),
+        fullPage: true,
+      });
 
-    // ── Update ───────────────────────────────────────────────────────────────
-    const updatedDescription = `${description} (updated)`;
+      // ── Update ───────────────────────────────────────────────────────────────
+      const updatedDescription = `${description} (updated)`;
 
-    // Clicking anywhere on the row opens it.
-    await row.click();
-    await expect(formModal).toBeVisible();
-    const editTagSelect = formModal.getByTestId('transaction-tag-select');
-    await expect(editTagSelect).toHaveValue(tagValue);
-    await formModal.getByTestId('transaction-amount-input').fill('25.00');
-    await formModal
-      .getByTestId('transaction-description-input')
-      .fill(updatedDescription);
-    await editTagSelect.selectOption('');
-    await formModal.getByTestId('transaction-submit-button').click();
+      // Clicking anywhere on the row opens it.
+      await row.click();
+      await expect(formModal).toBeVisible();
+      const editTagSelect = formModal.getByTestId('transaction-tag-select');
+      await expect(editTagSelect).toHaveValue(tagValue);
+      await formModal.getByTestId('transaction-amount-input').fill('25.00');
+      await formModal
+        .getByTestId('transaction-description-input')
+        .fill(updatedDescription);
+      await editTagSelect.selectOption('');
+      await formModal.getByTestId('transaction-submit-button').click();
 
-    const updatedRow = page
-      .locator('[data-testid="transaction-row"]')
-      .filter({ hasText: updatedDescription });
-    await expect(updatedRow).toHaveCount(1);
-    await expectAmount(updatedRow, -25.0);
-    await expect(updatedRow).toContainText('2026-08-15');
-    await expect(updatedRow).not.toContainText(tagName);
-    await expect(formModal).toBeHidden();
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'transaction-updated'),
-      fullPage: true,
-    });
+      const updatedRow = page
+        .locator('[data-testid="transaction-row"]')
+        .filter({ hasText: updatedDescription });
+      await expect(updatedRow).toHaveCount(1);
+      await expectAmount(updatedRow, -25.0);
+      await expect(updatedRow).toContainText('2026-08-15');
+      await expect(updatedRow).not.toContainText(tagName);
+      await expect(formModal).toBeHidden();
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'transaction-updated'),
+        fullPage: true,
+      });
 
-    // ── Delete ───────────────────────────────────────────────────────────────
-    const rowToDelete = updatedRow;
-    await rowToDelete.click();
-    await formModal.getByTestId('transaction-delete-button').click();
-    await expect(formModal).toBeHidden();
+      // ── Delete ───────────────────────────────────────────────────────────────
+      const rowToDelete = updatedRow;
+      await rowToDelete.click();
+      await formModal.getByTestId('transaction-delete-button').click();
+      await expect(formModal).toBeHidden();
 
-    const deleteModal = page.getByTestId('delete-transaction-modal');
-    await expect(deleteModal).toBeVisible();
-    await deleteModal.getByTestId('delete-confirm-button').click();
+      const deleteModal = page.getByTestId('delete-transaction-modal');
+      await expect(deleteModal).toBeVisible();
+      await deleteModal.getByTestId('delete-confirm-button').click();
 
-    await expect(rowToDelete).toHaveCount(0);
-    await expect(emptyState).toBeVisible();
-    await page.screenshot({
-      path: screenshotPath(testInfo, 'transaction-deleted'),
-      fullPage: true,
-    });
-  });
+      await expect(rowToDelete).toHaveCount(0);
+      await expect(emptyState).toBeVisible();
+      await page.screenshot({
+        path: screenshotPath(testInfo, 'transaction-deleted'),
+        fullPage: true,
+      });
+    },
+  );
 });

@@ -42,6 +42,7 @@ const rows = (page: Page) => page.getByTestId('transaction-row');
 test.describe('transaction search', () => {
   test(
     'searches by text, narrows by tag, keeps edited rows, and clears',
+    { tag: '@kotlin' },
     async ({
       page,
     }, testInfo) => {
@@ -98,7 +99,7 @@ test.describe('transaction search', () => {
     },
   );
 
-  test('says when nothing matches', async ({ page }) => {
+  test('says when nothing matches', { tag: '@kotlin' }, async ({ page }) => {
     await page.goto('/transactions');
     await recordTransaction(page, 'Countdown');
 

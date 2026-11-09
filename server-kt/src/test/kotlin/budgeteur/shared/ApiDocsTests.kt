@@ -31,10 +31,17 @@ class ApiDocsTests {
 
     @Test
     fun `the document covers the API endpoints only`() = withDocument { doc ->
-        // Not the login redirects, the docs themselves, the rules stub, the test reset, or the
-        // JSON 404 for unknown paths.
+        // Not the login redirects, the docs themselves, the rules and accounts stubs, the
+        // Development-only endpoints, or the JSON 404 for unknown paths.
         assertEquals(
-            setOf("/api/status", "/api/tags", "/api/tags/{id}"),
+            setOf(
+                "/api/status",
+                "/api/tags",
+                "/api/tags/{id}",
+                "/api/transactions",
+                "/api/transactions/search",
+                "/api/transactions/{id}",
+            ),
             doc.at("paths").jsonObject.keys,
         )
     }
@@ -65,7 +72,23 @@ class ApiDocsTests {
         val schemas = doc.at("components", "schemas")
         // One schema per type, however many places it appears.
         assertEquals(
-            setOf("ApiError", "DatabaseHealth", "StatusResponse", "TagRequest", "TagResponse"),
+            setOf(
+                "ApiError",
+                "DatabaseHealth",
+                "StatusResponse",
+                "TagRequest",
+                "TagResponse",
+                "TransactionRequest",
+                "TransactionResponse",
+                "TransactionTagResponse",
+                "SearchRequest",
+                "SearchCriteriaRequest",
+                "SearchDatesRequest",
+                "SearchAccountRequest",
+                "SearchTagRequest",
+                "SearchAmountRequest",
+                "SearchResponse",
+            ),
             schemas.jsonObject.keys,
         )
 
@@ -97,6 +120,26 @@ class ApiDocsTests {
                 .at("schema", "format")
                 .jsonPrimitive
                 .content,
+        )
+    }
+
+    @Test
+    fun `amounts and dates are documented as the strings they are`() = withDocument { doc ->
+        val transaction = doc.at("components", "schemas", "TransactionResponse", "properties")
+        assertEquals("string", transaction.at("amount", "type").jsonPrimitive.content)
+        assertEquals(MONEY_PATTERN, transaction.at("amount", "pattern").jsonPrimitive.content)
+        assertEquals(DATE_FORMAT, transaction.at("date", "format").jsonPrimitive.content)
+        assertEquals(
+            listOf("Manual", "Accepted", "Rule", "Detected"),
+            doc.at(
+                    "components",
+                    "schemas",
+                    "TransactionTagResponse",
+                    "properties",
+                    "source",
+                    "enum",
+                )
+                .strings(),
         )
     }
 

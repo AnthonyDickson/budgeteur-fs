@@ -47,6 +47,15 @@ private const val SCALAR_VERSION = "1.75.1"
 
 private val OIDC_SCOPES = listOf("openid", "profile", "email")
 
+/** The `format` of a string field holding a calendar date, `yyyy-MM-dd`. */
+const val DATE_FORMAT = "date"
+
+/**
+ * The `pattern` of a string field holding an amount. Requests may have more places, which the
+ * server rounds to cents; responses always have two.
+ */
+const val MONEY_PATTERN = """^-?\d+(\.\d+)?$"""
+
 /**
  * What the API docs need from outside: the OIDC client that Scalar logs in with, and the provider's
  * endpoints, read when the document is requested so the provider need not be up at startup.

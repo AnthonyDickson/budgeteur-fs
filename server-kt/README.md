@@ -3,8 +3,9 @@
 An exploration of what the backend would look like written in Kotlin only, in a
 functional-first style. It owns its schema and conventions and shares nothing
 with the F# server except the HTTP API shape, which the Gleam client depends on.
-It covers the infrastructure, the SPA's login and logout, and two slices: `GET
-/api/status` and Tag CRUD (`/api/tags`).
+It covers the infrastructure, the SPA's login and logout, and three slices: `GET
+/api/status`, Tag CRUD (`/api/tags`), and transactions with search
+(`/api/transactions`).
 
 ## Running
 
@@ -35,9 +36,10 @@ catalog pins it, so `just update` leaves it alone.
 `just kt-e2e-test` runs `docker/docker-compose.e2e-kt.yml`: the F# E2E stack
 with this server in place of the F# one, running only the specs tagged
 `@kotlin`, those whose endpoints the PoC has. Tag a spec or test when the PoC
-gains its endpoints. The tagging page also loads rules, so `GET /api/rules` is a
-stub that returns no rules, and the E2E fixtures' `DELETE /api/test/user-data`
-is registered in Development only, as in the F# server.
+gains its endpoints. The tagging page also loads rules and the transaction page
+accounts, so `GET /api/rules` and `GET /api/accounts` are stubs that return
+empty lists, and the E2E fixtures' `DELETE /api/test/user-data` is registered in
+Development only, as in the F# server.
 
 The server reads its settings from environment variables. It reports every
 missing or invalid setting at once and exits. On startup it applies pending
@@ -154,8 +156,10 @@ Vertical slices, as in the F# server:
   and rounded to cents midpoint away from zero (Java's `HALF_UP`), as the F#
   server rounds. Only plain decimals parse: an exponent would let a short string
   build a huge `BigDecimal`. Amounts are written with two decimal places; the
-  client accepts any scale. Columns are `INTEGER` cents, so SQL compares amounts
-  exactly, but aggregation still happens in Kotlin, as in the F# server (see
+  client accepts any scale. Columns are cents, declared `BIGINT` so jOOQ
+  generates a `Long` (SQLite gives it integer affinity, as for `INTEGER`, which
+  jOOQ maps to `Int`), so SQL compares amounts exactly, but aggregation still
+  happens in Kotlin, as in the F# server (see
   [architecture](../docs/architecture.md#money)). Ratios convert to
   `BigDecimal`. The F# server keeps `decimal` and stores SQLite `REAL`.
 - **Calendar dates.** A calendar date is a `java.time.LocalDate`, parsed and
@@ -166,6 +170,15 @@ Vertical slices, as in the F# server:
   `java.sql.Date`, which converts the day to an instant in the JVM's timezone.
   Instants are deferred until a column needs one (see
   [dates](../docs/dates.md)).
+- **Text search.** Transaction search matches descriptions in SQL under the rule
+  comparison, through a function registered with sqlite-jdbc, since SQLite's
+  `LIKE` folds ASCII case only and treats `%` and `_` as wildcards. Functions
+  belong to a connection and the data source opens one per query outside a
+  transaction, so the search query runs on one connection with the function
+  registered first. The comparison is Kotlin's `ignoreCase`, which folds one
+  character at a time, independent of locale, like .NET's `OrdinalIgnoreCase`.
+  It compares upper case and then lower case, so it matches a few non-ASCII
+  pairs that .NET does not.
 - **Constraint checks.** Handlers check database constraints before writing.
   Each check raises a `ConstraintError`; `requireAll` runs every check and turns
   the failures into one `ValidationFailed`.
@@ -254,8 +267,9 @@ Vertical slices, as in the F# server:
     failures.
   - The bearer scheme is documented as OAuth 2.0 with the provider's endpoints,
     read from its discovery document, so Scalar can log in and send the token.
-  - Browser redirects, the docs themselves, the rules stub and the test reset
-    are hidden.
+  - Browser redirects, the docs themselves, the rules and accounts stubs and the
+    test reset are hidden. The Development-only list of every transaction is
+    documented, as the docs are served in Development only.
 
   Ktor's `describe` API is marked experimental, so the build opts in. The
   rejected alternatives: `ktor-server-openapi` generates static HTML through
@@ -300,8 +314,11 @@ domain enums, but that would tie generated code to `domain/`.
 
 ## Gaps
 
-- The domain beyond `Tag`, `Money` and calendar dates.
-- The rules slice, beyond the stub, and every other slice the client uses.
+- The domain beyond what tags and transactions use. `Categorisation` has only
+  the transitions the transaction slice needs.
+- The accounts and rules slices, beyond their stubs, and every other slice the
+  client uses. The `accounts` table exists, since transactions reference it;
+  tests insert accounts directly.
 - The image is not published; CI only builds it and smoke tests it.
 
 ## Findings
@@ -318,7 +335,9 @@ domain enums, but that would tie generated code to `domain/`.
   where Kotlin is smaller: the F# server's schema transformers (376 lines) work
   around `System.Text.Json` not understanding F# types, while Ktor's inference
   reads kotlinx.serialization descriptors, so `ApiDocs.kt` (229 lines, including
-  the Scalar page) needs only the `EnumOf` hint.
+  the Scalar page) needs only the `EnumOf` hint. The transaction slice is 995
+  lines against 1,405 in F# (`feature/transaction/` against
+  `Feature/Transaction/`), with the same caveat.
 - **Auth.** ASP.NET Core provides the cookie and OIDC handlers. Ktor provides
   the encrypted session cookie, but its `oauth` provider is OAuth 2.0 only: it
   does not validate ID tokens or use a nonce, and its default state manager
