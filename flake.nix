@@ -28,6 +28,7 @@
 
               # Restore local dotnet tools (fantomas, fsharplint, sqlhydra, etc.)
               if [ -f server/dotnet-tools.json ]; then
+                echo "Restoring dotnet tools..."
                 pushd server
                 dotnet tool restore
                 popd
