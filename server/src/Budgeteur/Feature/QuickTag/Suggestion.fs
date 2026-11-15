@@ -1,7 +1,5 @@
 namespace Budgeteur.Feature.QuickTag
 
-open System
-
 open Budgeteur.Domain.Rule
 open Budgeteur.Domain.Tag
 open Budgeteur.Domain.Transaction

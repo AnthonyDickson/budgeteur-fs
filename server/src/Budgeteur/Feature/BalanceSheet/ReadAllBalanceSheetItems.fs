@@ -8,9 +8,7 @@ module ReadAllBalanceSheetItems =
     open Microsoft.OpenApi
     open Oxpecker
     open Oxpecker.OpenApi
-    open SqlHydra.Query
 
-    open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Shared.ApiError
     open Budgeteur.Shared.Auth

@@ -19,7 +19,7 @@ type RunAutoTagResponse = {
     /// <summary>Rule tags changed to another rule's tag.</summary>
     Changed : int
 
-    /// <summary>Rule tags removed because no rule matches any more.</summary>
+    /// <summary>Rule tags removed because no rule matches anymore.</summary>
     Cleared : int
 }
 

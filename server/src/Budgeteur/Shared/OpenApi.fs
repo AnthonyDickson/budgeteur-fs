@@ -90,7 +90,7 @@ module OpenApi =
     open Budgeteur.Shared.Auth
     open Budgeteur.Shared.Config
 
-    let private isOptionType (t : System.Type) : bool =
+    let private isOptionType (t : Type) : bool =
         if t.IsGenericType then
             let definition = t.GetGenericTypeDefinition ()
 
@@ -334,9 +334,8 @@ module OpenApi =
                             OpenApiOAuthFlows (
                                 AuthorizationCode =
                                     OpenApiOAuthFlow (
-                                        AuthorizationUrl =
-                                            System.Uri oauth2AuthUrl,
-                                        TokenUrl = System.Uri oauth2TokenUrl
+                                        AuthorizationUrl = Uri oauth2AuthUrl,
+                                        TokenUrl = Uri oauth2TokenUrl
                                     )
                             )
                     )

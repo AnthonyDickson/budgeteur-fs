@@ -11,7 +11,6 @@ module CloseAccount =
     open Oxpecker.OpenApi
     open SqlHydra.Query
 
-    open Budgeteur.Data
     open Budgeteur.Data.Db
     open Budgeteur.Domain.CloseDate
     open Budgeteur.Shared.ApiError

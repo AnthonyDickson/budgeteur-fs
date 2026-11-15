@@ -144,9 +144,9 @@ module Auth =
                     options.MapInboundClaims <- false
                     options.SaveTokens <- true
 
-                    options.Scope.Add "openid" |> ignore
-                    options.Scope.Add "profile" |> ignore
-                    options.Scope.Add "email" |> ignore
+                    options.Scope.Add "openid"
+                    options.Scope.Add "profile"
+                    options.Scope.Add "email"
 
                     if isDevelopment then
                         options.RequireHttpsMetadata <- false
@@ -200,8 +200,7 @@ module Auth =
                             )
                             .RequireAuthenticatedUser()
                         |> ignore
-                )
-                |> ignore)
+                ))
         |> ignore
 
     let getUserId (ctx : HttpContext) : Result<string, DomainError> =

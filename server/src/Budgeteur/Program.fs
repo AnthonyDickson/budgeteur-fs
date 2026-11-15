@@ -57,7 +57,7 @@ let private applyMigrations (connectionString : string) =
             .PerformUpgrade()
 
     if not result.Successful then
-        failwithf "Database migration failed: %O" result.Error
+        failwithf $"Database migration failed: {result.Error}"
 
     use conn = new SqliteConnection (connectionString)
     conn.Open ()
@@ -243,7 +243,8 @@ let private configureApp (app : WebApplication) (config : AppConfig) : unit =
 
     app.Use (
         Middleware.requestLogging (
-            (app.Services.GetRequiredService<Serilog.ILogger>())
+            app.Services
+                .GetRequiredService<ILogger>()
                 .ForContext("SourceContext", "Budgeteur.Request")
         )
     )
@@ -288,7 +289,7 @@ let main (args : string array) : int =
             eprintfn
                 "The server refused to start: configuration validation failed."
 
-            ex.Failures |> Seq.iter (fun failure -> eprintfn "  - %s" failure)
+            ex.Failures |> Seq.iter (fun failure -> eprintfn $"  - %s{failure}")
 
             eprintfn
                 "Fix the settings above and restart. Values are read from \

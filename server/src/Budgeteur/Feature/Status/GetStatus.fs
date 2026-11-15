@@ -79,8 +79,8 @@ module GetStatus =
         let ts = uptime
 
         match ts.Days with
-        | 0 -> sprintf "%dh %dm %ds" ts.Hours ts.Minutes ts.Seconds
-        | d -> sprintf "%dd %dh %dm" d ts.Hours ts.Minutes
+        | 0 -> $"%d{ts.Hours}h %d{ts.Minutes}m %d{ts.Seconds}s"
+        | d -> $"%d{d}d %d{ts.Hours}h %d{ts.Minutes}m"
 
     let private checkDatabase
         (queryContext : QueryContextFactory)

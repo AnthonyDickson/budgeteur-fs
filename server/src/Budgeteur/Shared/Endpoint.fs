@@ -55,7 +55,7 @@ module Endpoint =
 
     let handler
         (handler_fun : HttpContext -> Task<Result<unit, DomainError>>)
-        : (HttpContext -> Task) =
+        : HttpContext -> Task =
         fun (ctx : HttpContext) ->
             task {
                 let log = RequestLog.fromContext ctx
