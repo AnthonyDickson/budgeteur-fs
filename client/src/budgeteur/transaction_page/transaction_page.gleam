@@ -630,7 +630,7 @@ fn run_import_modal(
       Some(
         out_msg.PageRequestedToast(
           ..out_msg.success_toast(import_modal.describe(result)),
-          dismiss_after_ms: None,
+          dismiss_after_ms: Some(3000),
         ),
       ),
     )

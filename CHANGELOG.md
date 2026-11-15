@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Change import toast timeout to 30 seconds.
+
 ## [1.0.0] - 2026-10-22
 
 ### Added
