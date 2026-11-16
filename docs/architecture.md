@@ -145,24 +145,27 @@ a safety net for races between a check and its write. See
 
 ### Auth
 
-Two authentication schemes sit behind a policy scheme that picks one per request
-by the presence of an `Authorization: Bearer` header:
+The SPA session is a **cookie** from the authorization code flow, and outside
+Development it is the only scheme: a request carrying a bearer token and no
+session cookie gets `401`. In Development a **JWT bearer** scheme is also
+registered for the API docs (Scalar), which use PKCE, and a policy scheme picks
+one of the two per request by the presence of an `Authorization: Bearer` header.
+The bearer scheme stays out of production because it does not validate the
+audience by default, so it would accept any token the provider signs, including
+one issued to another application.
 
-- **Cookie** — the SPA session, from the authorization code flow.
-- **JWT bearer** — the API docs (Scalar), using PKCE. Development only.
-
-Either satisfies the single `authenticated` policy that protects every API
-endpoint. `/login` starts the challenge and returns to the page the client was
-on when its session expired, a local path resolved against the configured return
-URL, which is absolute since the client may be served from another origin. Any
-other return path falls back to the configured URL, so `/login` cannot redirect
-to another site. `/logout` takes a POST, so another site cannot log the user out
-with a link, clears the session cookie, and redirects to the provider's logout
-page when one is configured, otherwise to the client's signed out page. That
-page makes no API request, so it does not send the user straight back to the
-provider; a `401` anywhere else does, so an expired session with a live provider
-session signs back in without a click. Outside development, cookies are secure,
-`HttpOnly`, `SameSite=Lax`, with a one-hour sliding expiry.
+A single `authenticated` policy protects every API endpoint. `/login` starts the
+challenge and returns to the page the client was on when its session expired, a
+local path resolved against the configured return URL, which is absolute since
+the client may be served from another origin. Any other return path falls back
+to the configured URL, so `/login` cannot redirect to another site. `/logout`
+takes a POST, so another site cannot log the user out with a link, clears the
+session cookie, and redirects to the provider's logout page when one is
+configured, otherwise to the client's signed out page. That page makes no API
+request, so it does not send the user straight back to the provider; a `401`
+anywhere else does, so an expired session with a live provider session signs
+back in without a click. Outside development, cookies are secure, `HttpOnly`,
+`SameSite=Lax`, with a one-hour sliding expiry.
 
 Known limits:
 

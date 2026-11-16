@@ -7,14 +7,17 @@
 
 ## Overview
 
-The server uses two OIDC schemes:
+The server authenticates with one OIDC scheme in production, and a second in
+development:
 
 | Scheme     | Auth flow                    | Used by                    |
 | ---------- | ---------------------------- | -------------------------- |
 | Cookie     | Authorization code → session | SPA (browser)              |
 | JWT Bearer | Authorization code + PKCE    | Scalar API docs (dev only) |
 
-Either scheme satisfies the `authenticated` policy on protected endpoints.
+The JWT bearer scheme is not registered outside Development: a request with an
+`Authorization: Bearer` header and no session cookie gets `401`. There is no
+token-based API access in production.
 
 ## Environment Variables
 
@@ -23,7 +26,7 @@ Oidc__Authority              # Required. OIDC discovery URL
 Oidc__ClientId               # Required. SPA client ID (confidential)
 Oidc__ClientSecret           # Required. SPA client secret
 Oidc__CallbackPath           # Required. Redirect URI path (e.g. /signin-oidc)
-Oidc__ValidAudiences         # Optional. Accepted JWT audiences; if unset, audience validation is disabled
+Oidc__ValidAudiences         # Optional. Accepted JWT audiences for the bearer scheme (dev only)
 Oidc__LogoutUrl              # Optional. Provider logout page that /logout redirects to
 Login__ReturnUrl             # Required. Client URL a login returns to; pages are resolved against it (e.g. https://app.example.com/)
 OAuth2__AuthorizationUrl     # Optional. Scalar OAuth2 flow (dev only)
@@ -31,10 +34,10 @@ OAuth2__TokenUrl             # Optional. Scalar OAuth2 flow (dev only)
 ```
 
 The `OAuth2__*` settings configure the OAuth2 flow in the Scalar API docs, which
-are only served in development. They are not needed in production. Likewise,
-audience validation for the JWT bearer scheme is off by default because Authelia
-access tokens carry no `aud` claim — set `Oidc__ValidAudiences` if your provider
-emits one.
+are only served in development. They are not needed in production. Likewise
+`Oidc__ValidAudiences` only affects the development bearer scheme, whose
+audience validation is off by default because Authelia access tokens carry no
+`aud` claim.
 
 ## 1. Deploy an OIDC Provider
 
@@ -65,18 +68,21 @@ Adapt the dev config from `authelia/configuration.yml`:
 - Run behind a reverse proxy (nginx, Caddy) that terminates TLS, or configure
   TLS in Authelia directly.
 
-## 2. Register OIDC Clients
+## 2. Register the OIDC Client
 
-Two clients are needed:
+Production needs one client, for the SPA:
 
-|                       | SPA                            | Scalar/API                   |
-| --------------------- | ------------------------------ | ---------------------------- |
-| **Client type**       | Confidential                   | Public (PKCE)                |
-| **Grant types**       | `authorization_code`           | `authorization_code`         |
-| **Response types**    | `code`                         | `code`                       |
-| **Token auth method** | `client_secret_post`           | `none`                       |
-| **Scopes**            | `openid profile email`         | `openid profile email`       |
-| **Redirect URIs**     | `https://<domain>/signin-oidc` | `https://<domain>/scalar/v1` |
+| Setting               | Value                          |
+| --------------------- | ------------------------------ |
+| **Client type**       | Confidential                   |
+| **Grant types**       | `authorization_code`           |
+| **Response types**    | `code`                         |
+| **Token auth method** | `client_secret_post`           |
+| **Scopes**            | `openid profile email`         |
+| **Redirect URIs**     | `https://<domain>/signin-oidc` |
+
+Do not register the Scalar docs client from the dev config: the docs and the
+bearer scheme they use are not available in production.
 
 The SPA does not request `offline_access`: its session is a cookie, and an
 expired cookie goes through the OIDC flow again, so it never uses a refresh
@@ -114,7 +120,7 @@ When `ASPNETCORE_ENVIRONMENT` is not `Development`:
 - `Cookie.SecurePolicy = Always`
 - `Cookie.SameSite = Lax`
 - `Cookie.HttpOnly = true`
-- `RequireHttpsMetadata = true` for JWT bearer
+- The JWT bearer scheme is not registered
 - Self-signed cert validation is **not** bypassed
 
 Other non-obvious auth behaviours:
@@ -144,6 +150,5 @@ Other non-obvious auth behaviours:
 | `401` on login redirect                     | `Oidc__CallbackPath` or redirect URI mismatch  |
 | `Correlation failed` error                  | Cookies blocked (third-party / SameSite issue) |
 | `invalid_client` from provider              | Wrong client secret or token auth method       |
-| JWT bearer returns `401`                    | `RequireHttpsMetadata` + HTTP authority        |
 | Self-signed cert rejected                   | Use a real certificate, not the dev one        |
 | `Options.Authority` or `.ClientId` is blank | Missing or misnamed environment variable       |

@@ -4,6 +4,7 @@ namespace Budgeteur.Shared.Auth
 module Auth =
     open System
 
+    open Microsoft.AspNetCore.Authentication
     open Microsoft.AspNetCore.Authentication.Cookies
     open Microsoft.AspNetCore.Authentication.OpenIdConnect
     open Microsoft.AspNetCore.Authorization
@@ -32,7 +33,7 @@ module Auth =
     let private policyName = "authenticated"
 
     let private polAuthScheme = "polAuth"
-    let private bearerScheme = "bearer"
+    let bearerScheme = "bearer"
     let cookieScheme = CookieAuthenticationDefaults.AuthenticationScheme
     let oidcScheme = OpenIdConnectDefaults.AuthenticationScheme
 
@@ -76,25 +77,25 @@ module Auth =
     /// requirement.</summary>
     type RequiresAuthentication = RequiresAuthentication
 
-    /// <summary>Requires an authenticated user, by session cookie or bearer
-    /// token, and records the requirement in the endpoint's
-    /// metadata.</summary>
+    /// <summary>Requires an authenticated user, by session cookie or, in
+    /// Development only, bearer token, and records the requirement in the
+    /// endpoint's metadata.</summary>
     let authenticated (endpoint : Endpoint) : Endpoint =
         endpoint |> addFilter requireAuth |> addMetadata RequiresAuthentication
 
-    let configureServices
-        (services : IServiceCollection)
-        (isDevelopment : bool)
+    /// <summary>Accepts bearer tokens for the Scalar API docs. Development
+    /// only: audience validation is off by default, so any token the provider
+    /// signs, including one issued to another application, would authenticate
+    /// as its <c>sub</c>.</summary>
+    let private addBearer
         (oidc : OidcConfig)
-        =
-        services
+        (builder : AuthenticationBuilder)
+        : AuthenticationBuilder =
+        builder
             // ASP.NET Core only authenticates with DefaultScheme per request.
             // Since the SPA uses cookies but Scalar API docs use Bearer tokens,
             // a policy scheme routes to the right handler based on the auth
             // header.
-            .AddAuthentication(fun options ->
-                options.DefaultScheme <- polAuthScheme
-                options.DefaultChallengeScheme <- polAuthScheme)
             .AddPolicyScheme(
                 polAuthScheme,
                 "Combined auth",
@@ -114,55 +115,12 @@ module Auth =
                             else
                                 cookieScheme
             )
-            .AddCookie(
-                cookieScheme,
-                fun options ->
-                    options.Cookie.SecurePolicy <-
-                        if isDevelopment then
-                            CookieSecurePolicy.SameAsRequest
-                        else
-                            CookieSecurePolicy.Always
-
-                    options.Cookie.SameSite <- SameSiteMode.Lax
-                    options.Cookie.HttpOnly <- true
-                    options.Cookie.IsEssential <- true
-                    options.LoginPath <- LoginPath
-                    options.ExpireTimeSpan <- TimeSpan.FromHours 1
-                    options.SlidingExpiration <- true
-            )
-            .AddOpenIdConnect(
-                oidcScheme,
-                fun options ->
-                    options.Authority <- oidc.Authority
-                    options.ClientId <- oidc.ClientId
-                    options.ClientSecret <- oidc.ClientSecret
-                    options.ResponseType <- "code"
-                    options.CallbackPath <- oidc.CallbackPath
-                    // Set this to true to get the name and email from
-                    // Authelia/your identity provider
-                    options.GetClaimsFromUserInfoEndpoint <- false
-                    options.MapInboundClaims <- false
-                    options.SaveTokens <- true
-
-                    options.Scope.Add "openid"
-                    options.Scope.Add "profile"
-                    options.Scope.Add "email"
-
-                    if isDevelopment then
-                        options.RequireHttpsMetadata <- false
-
-                        options.BackchannelHttpHandler <-
-                            new Net.Http.HttpClientHandler (
-                                ServerCertificateCustomValidationCallback =
-                                    fun _ _ _ _ -> true
-                            )
-            )
             .AddJwtBearer(
                 bearerScheme,
                 fun options ->
                     options.Authority <- oidc.Authority
                     options.MapInboundClaims <- false
-                    options.RequireHttpsMetadata <- not isDevelopment
+                    options.RequireHttpsMetadata <- false
 
                     if
                         isNull oidc.ValidAudiences
@@ -180,27 +138,89 @@ module Auth =
                         options.TokenValidationParameters.ValidAudiences <-
                             oidc.ValidAudiences
 
-                    if isDevelopment then
-                        // Accept self-signed TLS certs for the backchannel OIDC
-                        // discovery and JWKS fetches in dev.
-                        options.BackchannelHttpHandler <-
-                            new Net.Http.HttpClientHandler (
-                                ServerCertificateCustomValidationCallback =
-                                    fun _ _ _ _ -> true
-                            )
+                    // Accept self-signed TLS certs for the backchannel OIDC
+                    // discovery and JWKS fetches in dev.
+                    options.BackchannelHttpHandler <-
+                        new Net.Http.HttpClientHandler (
+                            ServerCertificateCustomValidationCallback =
+                                fun _ _ _ _ -> true
+                        )
             )
-            .Services.AddAuthorization(fun options ->
-                options.AddPolicy (
-                    policyName,
-                    fun policy ->
-                        policy
-                            .AddAuthenticationSchemes(
-                                cookieScheme,
-                                bearerScheme
-                            )
-                            .RequireAuthenticatedUser()
-                        |> ignore
-                ))
+
+    let configureServices
+        (services : IServiceCollection)
+        (isDevelopment : bool)
+        (oidc : OidcConfig)
+        =
+        // Outside Development the session cookie is the only way in.
+        let defaultScheme =
+            if isDevelopment then polAuthScheme else cookieScheme
+
+        let builder =
+            services
+                .AddAuthentication(fun options ->
+                    options.DefaultScheme <- defaultScheme
+                    options.DefaultChallengeScheme <- defaultScheme)
+                .AddCookie(
+                    cookieScheme,
+                    fun options ->
+                        options.Cookie.SecurePolicy <-
+                            if isDevelopment then
+                                CookieSecurePolicy.SameAsRequest
+                            else
+                                CookieSecurePolicy.Always
+
+                        options.Cookie.SameSite <- SameSiteMode.Lax
+                        options.Cookie.HttpOnly <- true
+                        options.Cookie.IsEssential <- true
+                        options.LoginPath <- LoginPath
+                        options.ExpireTimeSpan <- TimeSpan.FromHours 1
+                        options.SlidingExpiration <- true
+                )
+                .AddOpenIdConnect(
+                    oidcScheme,
+                    fun options ->
+                        options.Authority <- oidc.Authority
+                        options.ClientId <- oidc.ClientId
+                        options.ClientSecret <- oidc.ClientSecret
+                        options.ResponseType <- "code"
+                        options.CallbackPath <- oidc.CallbackPath
+                        // Set this to true to get the name and email from
+                        // Authelia/your identity provider
+                        options.GetClaimsFromUserInfoEndpoint <- false
+                        options.MapInboundClaims <- false
+                        options.SaveTokens <- true
+
+                        options.Scope.Add "openid"
+                        options.Scope.Add "profile"
+                        options.Scope.Add "email"
+
+                        if isDevelopment then
+                            options.RequireHttpsMetadata <- false
+
+                            options.BackchannelHttpHandler <-
+                                new Net.Http.HttpClientHandler (
+                                    ServerCertificateCustomValidationCallback =
+                                        fun _ _ _ _ -> true
+                                )
+                )
+
+        let schemes =
+            if isDevelopment then
+                addBearer oidc builder |> ignore
+                [| cookieScheme; bearerScheme |]
+            else
+                [| cookieScheme |]
+
+        services.AddAuthorization (fun options ->
+            options.AddPolicy (
+                policyName,
+                fun policy ->
+                    policy
+                        .AddAuthenticationSchemes(schemes)
+                        .RequireAuthenticatedUser()
+                    |> ignore
+            ))
         |> ignore
 
     let getUserId (ctx : HttpContext) : Result<string, DomainError> =
