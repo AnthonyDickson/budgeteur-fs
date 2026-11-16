@@ -221,6 +221,94 @@ module EndpointTests =
                 Expect.isEmpty accounts "no account was created"
             }
 
+            testCaseAsync "many unreadable rows give a bounded error"
+            <| async {
+                use app = newApp ()
+
+                let unreadable = {
+                    Name = String ('n', ImportError.MaxFileNameLength)
+                    Content =
+                        Formats.kiwibank.Header :: List.replicate 20_000 "x"
+                        |> String.concat "\n"
+                }
+
+                let! response = post app.Client [ unreadable ]
+
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.BadRequest
+                    "the request is rejected"
+
+                let! body =
+                    response.Content.ReadAsStringAsync () |> Async.AwaitTask
+
+                Expect.isLessThan
+                    body.Length
+                    65_536
+                    "the response does not grow with the number of rows"
+
+                Expect.stringContains
+                    body
+                    "and 19980 more problems"
+                    "the errors not listed are counted"
+            }
+
+            testCaseAsync "a file name over the limit is rejected"
+            <| async {
+                use app = newApp ()
+
+                let! response =
+                    post app.Client [
+                        {
+                            file "KiwibankChequing.csv" with
+                                Name =
+                                    String (
+                                        'n',
+                                        ImportError.MaxFileNameLength + 1
+                                    )
+                        }
+                    ]
+
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.BadRequest
+                    "the request is rejected"
+
+                let! error = TestHttp.readJson<ApiError> response
+
+                Expect.stringContains
+                    error.Details
+                    "at most 255 characters"
+                    "the limit is named"
+
+                let! all = transactions app.Client
+                Expect.isEmpty all "nothing was written"
+            }
+
+            testCaseAsync "more files than the limit are rejected"
+            <| async {
+                use app = newApp ()
+
+                let! response =
+                    List.replicate (ImportLimits.MaxFiles + 1) {
+                        Name = "empty.csv"
+                        Content = ""
+                    }
+                    |> post app.Client
+
+                Expect.equal
+                    response.StatusCode
+                    HttpStatusCode.BadRequest
+                    "the request is rejected"
+
+                let! error = TestHttp.readJson<ApiError> response
+
+                Expect.stringContains
+                    error.Details
+                    "at most 50 files"
+                    "the limit is named"
+            }
+
             testCaseAsync
                 "an older statement does not change the current balance"
             <| async {

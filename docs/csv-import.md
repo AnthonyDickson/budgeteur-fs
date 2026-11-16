@@ -274,14 +274,21 @@ line. Lessons from it are cited where they shaped a decision.
 ### 7. A request imports everything or nothing
 
 - **Decision**: one request carries one or more files. If any file is not a
-  known format, or any row fails to parse, the response is `400` listing every
-  failure with its file name and line number, and nothing is written. For a file
-  that matches no format, the message shows the start of the file and each
-  format's expected header, to compare by eye.
+  known format, or any row fails to parse, the response is `400` listing the
+  first 20 failures with their file name and line number, then a count of the
+  rest, and nothing is written. For a file that matches no format, the message
+  shows the start of the file and each format's expected header, to compare by
+  eye. A request carries at most 50 files, a file name is at most 255
+  characters, and each listed failure is cut off at 2,000 characters.
 - **Why**: bank exports are generated, so a row that fails means the format
   changed. Skipping it would import a statement with gaps that nobody notices.
-  Listing every failure follows the rule that a client sees all validation
-  failures in one response ([architecture](architecture.md#errors)).
+  Listing failures together follows the rule that a client sees all validation
+  failures in one response ([architecture](architecture.md#errors)). The list is
+  capped because every failure repeats the file name and is logged: without the
+  caps, a request within the 1 MB body limit, with a long file name and
+  thousands of unreadable rows, produced an error message of hundreds of
+  megabytes. A file with more than 20 bad rows is in the wrong format, so the
+  first failures say what to fix.
 - **Goal**: a partial import cannot happen, and a failure says what to fix.
 
 ### 8. One database transaction: accounts, duplicates, transfers, tags, balances
@@ -399,8 +406,8 @@ line. Lessons from it are cited where they shaped a decision.
   request, and disables the button while it runs. Success closes the modal,
   shows a toast with the counts and any accounts created, and reloads the table.
   The toast stays until dismissed, since it takes longer to read than a save
-  confirmation. Failures show every listed error in the modal so the user can
-  fix and retry. The table shows the account name for each transaction, and the
+  confirmation. Failures show the listed errors in the modal so the user can fix
+  and retry. The table shows the account name for each transaction, and the
   transaction modal has an account select.
 - **Balance sheet page**: account lines sit in the same asset and liability,
   current and non-current groups as items, marked with the account number and

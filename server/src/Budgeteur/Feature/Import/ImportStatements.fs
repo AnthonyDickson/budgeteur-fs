@@ -5,16 +5,23 @@ open System.ComponentModel.DataAnnotations
 /// <summary>A CSV file, read as UTF-8 text by the client.</summary>
 type ImportFileRequest = {
     /// <summary>The file's name, used in error messages.</summary>
+    [<MaxLength(ImportError.MaxFileNameLength)>]
     Name : string
 
     /// <summary>The file's text.</summary>
     Content : string
 }
 
+module ImportLimits =
+    /// <summary>The most files one request may carry.</summary>
+    [<Literal>]
+    let MaxFiles = 50
+
 /// <summary>Payload for importing bank statements.</summary>
 type ImportRequest = {
     /// <summary>One statement per file.</summary>
     [<MinLength(1)>]
+    [<MaxLength(ImportLimits.MaxFiles)>]
     Files : ImportFileRequest list
 }
 
@@ -221,15 +228,29 @@ module ImportStatements =
                         ValidationFailed "Choose at least one file to import"
                     )
 
+                do!
+                    List.length req.Files <= ImportLimits.MaxFiles
+                    |> Result.requireTrue (
+                        ValidationFailed
+                            $"Import at most %i{ImportLimits.MaxFiles} files \
+                            at a time"
+                    )
+
+                do!
+                    req.Files
+                    |> List.forall (fun file ->
+                        file.Name.Length <= ImportError.MaxFileNameLength)
+                    |> Result.requireTrue (
+                        ValidationFailed
+                            $"File names may be at most \
+                            %i{ImportError.MaxFileNameLength} characters"
+                    )
+
                 let! statements =
                     req.Files
                     |> List.map (fun file -> file.Name, file.Content)
                     |> Statement.parseAll Formats.all
-                    |> Result.mapError (fun errors ->
-                        errors
-                        |> List.map ImportError.describe
-                        |> String.concat "\n"
-                        |> ValidationFailed)
+                    |> Result.mapError (ImportError.report >> ValidationFailed)
 
                 let! counts, created = import queryContext userId statements
 
@@ -271,8 +292,9 @@ module ImportStatements =
             are skipped, transfers between the user's accounts are marked, \
             rules tag the rest, and statement balances are recorded. A file \
             in no known format, or any row that cannot be read, fails the \
-            whole request with 400, listing every problem. The request body \
-            may be up to 1 MB."
+            whole request with 400, listing the first 20 problems and \
+            counting the rest. A request carries at most 50 files, with \
+            names of at most 255 characters, in a body of up to 1 MB."
 
         op.Tags <- HashSet [ OpenApiTagReference "Imports" ]
 

@@ -54,10 +54,51 @@ type ImportError = {
 }
 
 module ImportError =
+    /// <summary>The longest file name a request may carry. Every error
+    /// repeats the name, so it is bounded.</summary>
+    [<Literal>]
+    let MaxFileNameLength = 255
+
+    /// <summary>How many errors a report lists before counting the
+    /// rest.</summary>
+    [<Literal>]
+    let MaxReported = 20
+
+    /// <summary>The longest description of one error. Messages quote text
+    /// from the file, which may be any length.</summary>
+    [<Literal>]
+    let MaxDescriptionLength = 2000
+
+    let private truncate (length : int) (text : string) =
+        if text.Length > length then
+            text.Substring (0, length) + "…"
+        else
+            text
+
     let describe (error : ImportError) =
+        let fileName = truncate MaxFileNameLength error.FileName
+
         match error.Line with
-        | Some line -> $"{error.FileName} line {line}: {error.Message}"
-        | None -> $"{error.FileName}: {error.Message}"
+        | Some line -> $"{fileName} line {line}: {error.Message}"
+        | None -> $"{fileName}: {error.Message}"
+        |> truncate MaxDescriptionLength
+
+    /// <summary>The errors as one message of bounded size: the first
+    /// <c>MaxReported</c>, one per line, then a count of the rest. A file of
+    /// unreadable rows would otherwise produce a message many times the size
+    /// of the request. See decision 7 in docs/csv-import.md.</summary>
+    let report (errors : ImportError list) =
+        let listed = errors |> List.truncate MaxReported |> List.map describe
+
+        match List.length errors - MaxReported with
+        | rest when rest > 0 ->
+            listed
+            @ [
+                $"and {rest} more problems. Fix these and import again to \
+                see the rest."
+            ]
+        | _ -> listed
+        |> String.concat "\n"
 
 /// <summary>The interpreter for formats: detection, then reading each row.
 /// This is the adapter between the banks' exports and the domain. See
@@ -129,7 +170,12 @@ module Statement =
                 reasons
                 |> List.map (fun reason -> $"  It looks close, but {reason}.")
             yield "  The file starts with:"
-            yield! lines |> List.truncate 3 |> List.map (_.Text >> indent)
+            yield!
+                lines
+                |> List.truncate 3
+                |> List.map (fun line ->
+                    // Enough to compare with a header.
+                    line.Text.Substring (0, min line.Text.Length 300) |> indent)
             yield "  Expected one of these headers:"
             yield!
                 formats
